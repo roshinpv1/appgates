@@ -127,7 +127,7 @@ python main.py scan /path/to/project --threshold 80
 python main.py scan /path/to/project --exclude "test/**,*.test.*"
 
 # View existing report
-python main.py view-report reports/codegates_report_20231201_120000.json
+python main.py view-report details/codegates_report_20231201_120000.json
 ```
 
 ### LLM-Enhanced Analysis
@@ -163,7 +163,7 @@ CODEGATES_DEFAULT_LANGUAGES=python,java,javascript,typescript,csharp
 CODEGATES_MAX_WORKERS=4
 
 # Report Configuration
-CODEGATES_REPORTS_DIR=reports
+CODEGATES_REPORTS_DIR=details
 CODEGATES_REPORT_FORMATS=json,html
 CODEGATES_INCLUDE_LLM_INSIGHTS=true
 ```
@@ -265,7 +265,7 @@ codegates/
 │   │   ├── llm_analyzer.py
 │   │   └── gate_validators/
 │   └── utils/
-└── reports/
+└── details/
     ├── codegates_report_20231201_120000.html
     └── codegates_report_20231201_120000.json
 ```
