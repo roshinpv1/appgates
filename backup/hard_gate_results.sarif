@@ -1,0 +1,1068 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Hard Gate Analyzer",
+          "version": "1.0.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 22,
+                  "endColumn": 49
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "logging\\.\\w+\\s*\\([^)]*(?i).*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "__init__",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 13,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*user([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 13,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*usernam([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 13,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 13,
+                  "endColumn": 59
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*auth.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "startColumn": 17,
+                  "endColumn": 54
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*pass([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "startColumn": 17,
+                  "endColumn": 54
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*password([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "startColumn": 17,
+                  "endColumn": 53
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*password.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 17,
+                  "endColumn": 74
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*pass([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 17,
+                  "endColumn": 74
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "logger\\.\\w+\\s*\\([^)]*(?i).*password([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 17,
+                  "endColumn": 73
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*password.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 17,
+                  "endColumn": 73
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*auth.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 21,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*auth.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 22,
+                  "startColumn": 21,
+                  "endColumn": 57
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*auth.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 26,
+                  "startColumn": 17,
+                  "endColumn": 58
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*auth.*[\"\\']",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 8,
+                  "endColumn": 61
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*pass([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 16,
+                  "endColumn": 61
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log\\s*\\([^)]*(?i).*pass([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 8,
+                  "endColumn": 61
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*password([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 16,
+                  "endColumn": 61
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log\\s*\\([^)]*(?i).*password([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 16,
+                  "endColumn": 50
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "log.*[\"\\'].*password.*[\"\\']",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 8,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "console\\.log.*password",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 8,
+                  "endColumn": 61
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*pass([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "high",
+          "message": {
+            "text": "Remove sensitive data from logs. Use placeholder values or hash sensitive information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 8,
+                  "endColumn": 61
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 8,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*password([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 16,
+                  "endColumn": 67
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*user([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 24,
+                  "endColumn": 67
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "log\\s*\\([^)]*(?i).*user([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 16,
+                  "endColumn": 67
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*usernam([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 24,
+                  "endColumn": 67
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "log\\s*\\([^)]*(?i).*usernam([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 16,
+                  "endColumn": 67
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging",
+          "level": "low",
+          "message": {
+            "text": "Consider using structured logging with appropriate log levels."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 24,
+                  "endColumn": 67
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 2,
+            "pattern": "log\\s*\\([^)]*(?i).*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 16,
+                  "endColumn": 65
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*user([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 16,
+                  "endColumn": 65
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*usernam([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "SecretLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 16,
+                  "endColumn": 65
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "console\\.\\w+\\s*\\([^)]*(?i).*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "startColumn": 17,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "logger\\.error\\s*\\(",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 22,
+                  "startColumn": 21,
+                  "endColumn": 34
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "logger\\.error\\s*\\(",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 26,
+                  "startColumn": 17,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "logger\\.error\\s*\\(",
+            "function": "authenticate_user",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "user_service.py"
+                },
+                "region": {
+                  "startLine": 39,
+                  "startColumn": 17,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "logger\\.error\\s*\\(",
+            "function": "get_user_data",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 8,
+                  "endColumn": 22
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "console\\.error\\s*\\(",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 19,
+                  "startColumn": 16,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "console\\.error\\s*\\(",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        },
+        {
+          "ruleId": "ErrorLogs_logging_error",
+          "level": "medium",
+          "message": {
+            "text": "Review this code pattern for compliance with best practices."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_controller.js"
+                },
+                "region": {
+                  "startLine": 23,
+                  "startColumn": 12,
+                  "endColumn": 26
+                }
+              }
+            }
+          ],
+          "properties": {
+            "priority": 5,
+            "pattern": "console\\.error\\s*\\(",
+            "function": "app",
+            "documentation": "https://docs.example.com/logging-best-practices"
+          }
+        }
+      ]
+    }
+  ]
+}

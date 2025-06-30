@@ -1,0 +1,422 @@
+{
+  "overall_score": 37.19538461538462,
+  "gate_scores": [
+    {
+      "gate": "structured_logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 0,
+      "expected": 2,
+      "recommendations": [
+        "Implement structured logging with JSON format",
+        "Add consistent log fields across services",
+        "Use correlation IDs in all log messages"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "avoid_logging_secrets",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 25,
+      "expected": 0,
+      "recommendations": [
+        "Review all logging statements for sensitive data",
+        "Implement log sanitization filters",
+        "Use environment variables for secrets"
+      ],
+      "enhanced_metadata_count": 25,
+      "sample_metadata": {
+        "file": "test_llm_data/test_app.py",
+        "relative_path": "test_app.py",
+        "file_name": "test_app.py",
+        "file_extension": ".py",
+        "file_size": 2200,
+        "file_modified": 1751182538.751634,
+        "line_number": 12,
+        "column_start": 9,
+        "column_end": 36,
+        "matched_text": "logging.getLogger(__name__)",
+        "full_line": "logger = logging.getLogger(__name__)",
+        "pattern": "logging\\.\\w+\\s*\\([^)]*(?i).*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+        "pattern_type": "logging",
+        "context_lines": [
+          "",
+          "# Configure logging",
+          "logging.basicConfig(level=logging.INFO)",
+          "logger = logging.getLogger(__name__)",
+          "",
+          "def process_user_data(user_id, email, password):",
+          "    \"\"\"Process user data with various issues\"\"\""
+        ],
+        "context_start_line": 9,
+        "context_end_line": 15,
+        "function_context": {
+          "function_name": "unknown",
+          "function_line": 0,
+          "function_signature": "",
+          "distance_from_function": 0
+        },
+        "severity": "LOW",
+        "category": "logging",
+        "language": "python",
+        "gate_type": "SecretLogs",
+        "line_length": 36,
+        "indentation_level": 0,
+        "is_comment": false,
+        "is_string_literal": false,
+        "suggested_fix": "Consider using structured logging with appropriate log levels.",
+        "documentation_link": "https://docs.example.com/logging-best-practices",
+        "priority": 2
+      }
+    },
+    {
+      "gate": "audit_trail",
+      "status": "FAIL",
+      "score": 12.54,
+      "found": 2,
+      "expected": 10,
+      "recommendations": [
+        "Implement best practices for audit_trail",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 2,
+      "sample_metadata": {
+        "file": "test_llm_data/test_app.py",
+        "relative_path": "test_app.py",
+        "file_name": "test_app.py",
+        "file_extension": ".py",
+        "file_size": 2200,
+        "file_modified": 1751182538.751634,
+        "line_number": 18,
+        "column_start": 4,
+        "column_end": 33,
+        "matched_text": "logger.info(f\"Processing user",
+        "full_line": "logger.info(f\"Processing user: {user_id}, email: {email}, password: {password}\")",
+        "pattern": "logger\\.info.*\\b(admin|user|access)\\b",
+        "pattern_type": "logging",
+        "context_lines": [
+          "    \"\"\"Process user data with various issues\"\"\"",
+          "    ",
+          "    # Bad: Logging sensitive data",
+          "    logger.info(f\"Processing user: {user_id}, email: {email}, password: {password}\")",
+          "    ",
+          "    # Bad: No structured logging",
+          "    print(\"User processing started\")"
+        ],
+        "context_start_line": 15,
+        "context_end_line": 21,
+        "function_context": {
+          "function_name": "process_user_data",
+          "function_line": 14,
+          "function_signature": "def process_user_data(user_id, email, password):",
+          "distance_from_function": 4
+        },
+        "severity": "LOW",
+        "category": "logging",
+        "language": "python",
+        "gate_type": "AuditTrail",
+        "line_length": 84,
+        "indentation_level": 4,
+        "is_comment": false,
+        "is_string_literal": false,
+        "suggested_fix": "Consider using structured logging with appropriate log levels.",
+        "documentation_link": "https://docs.example.com/logging-best-practices",
+        "priority": 2
+      }
+    },
+    {
+      "gate": "correlation_id",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 0,
+      "expected": 6,
+      "recommendations": [
+        "Implement best practices for correlation_id",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "log_api_calls",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 0,
+      "expected": 10,
+      "recommendations": [
+        "Implement best practices for log_api_calls",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "log_background_jobs",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 0,
+      "expected": 6,
+      "recommendations": [
+        "Implement best practices for log_background_jobs",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "ui_errors",
+      "status": "NOT_APPLICABLE",
+      "score": 0.0,
+      "found": 0,
+      "expected": 0,
+      "recommendations": [
+        "No action needed - ui_errors not relevant for this project"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "retry_logic",
+      "status": "PASS",
+      "score": 88.92000000000002,
+      "found": 1,
+      "expected": 0,
+      "recommendations": [
+        "Implement exponential backoff for retries",
+        "Add circuit breakers for external services",
+        "Set maximum retry limits"
+      ],
+      "enhanced_metadata_count": 1,
+      "sample_metadata": {
+        "file": "test_llm_data/test_app.py",
+        "relative_path": "test_app.py",
+        "file_name": "test_app.py",
+        "file_extension": ".py",
+        "file_size": 2200,
+        "file_modified": 1751182538.751634,
+        "line_number": 79,
+        "column_start": 8,
+        "column_end": 19,
+        "matched_text": "time.sleep(",
+        "full_line": "time.sleep(1)",
+        "pattern": "time\\.sleep\\s*\\(",
+        "pattern_type": "general",
+        "context_lines": [
+          "        if response.status_code != 200:",
+          "            print(f\"Failed to process item {i}\")",
+          "        ",
+          "        time.sleep(1)",
+          "",
+          "if __name__ == \"__main__\":",
+          "    app.run(debug=True)"
+        ],
+        "context_start_line": 76,
+        "context_end_line": 82,
+        "function_context": {
+          "function_name": "background_job",
+          "function_line": 61,
+          "function_signature": "def background_job():",
+          "distance_from_function": 18
+        },
+        "severity": "MEDIUM",
+        "category": "general",
+        "language": "python",
+        "gate_type": "RetryLogic",
+        "line_length": 21,
+        "indentation_level": 8,
+        "is_comment": false,
+        "is_string_literal": false,
+        "suggested_fix": "Review this code pattern for compliance with best practices.",
+        "documentation_link": "https://docs.example.com/coding-standards",
+        "priority": 5
+      }
+    },
+    {
+      "gate": "timeouts",
+      "status": "PASS",
+      "score": 82.08,
+      "found": 1,
+      "expected": 0,
+      "recommendations": [
+        "Configure timeouts for all I/O operations",
+        "Use appropriate timeout values for different operations",
+        "Implement timeout monitoring"
+      ],
+      "enhanced_metadata_count": 1,
+      "sample_metadata": {
+        "file": "test_llm_data/test_app.js",
+        "relative_path": "test_app.js",
+        "file_name": "test_app.js",
+        "file_extension": ".js",
+        "file_size": 2077,
+        "file_modified": 1751182538.7517624,
+        "line_number": 53,
+        "column_start": 0,
+        "column_end": 12,
+        "matched_text": "setInterval(",
+        "full_line": "setInterval(() => {",
+        "pattern": "setInterval\\s*\\(",
+        "pattern_type": "general",
+        "context_lines": [
+          "});",
+          "",
+          "// Background job",
+          "setInterval(() => {",
+          "    // Bad: No structured logging for background jobs",
+          "    console.log(\"Running background job\");",
+          "    "
+        ],
+        "context_start_line": 50,
+        "context_end_line": 56,
+        "function_context": {
+          "function_name": "result",
+          "function_line": 35,
+          "function_signature": "const result = await processUserData(",
+          "distance_from_function": 18
+        },
+        "severity": "MEDIUM",
+        "category": "general",
+        "language": "javascript",
+        "gate_type": "Timeouts",
+        "line_length": 19,
+        "indentation_level": 0,
+        "is_comment": false,
+        "is_string_literal": false,
+        "suggested_fix": "Review this code pattern for compliance with best practices.",
+        "documentation_link": "https://docs.example.com/coding-standards",
+        "priority": 5
+      }
+    },
+    {
+      "gate": "throttling",
+      "status": "PASS",
+      "score": 100.0,
+      "found": 2,
+      "expected": 2,
+      "recommendations": [
+        "Implement best practices for throttling",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 2,
+      "sample_metadata": {
+        "file": "test_llm_data/test_app.py",
+        "relative_path": "test_app.py",
+        "file_name": "test_app.py",
+        "file_extension": ".py",
+        "file_size": 2200,
+        "file_modified": 1751182538.751634,
+        "line_number": 79,
+        "column_start": 8,
+        "column_end": 19,
+        "matched_text": "time.sleep(",
+        "full_line": "time.sleep(1)",
+        "pattern": "time\\.sleep\\s*\\(",
+        "pattern_type": "general",
+        "context_lines": [
+          "        if response.status_code != 200:",
+          "            print(f\"Failed to process item {i}\")",
+          "        ",
+          "        time.sleep(1)",
+          "",
+          "if __name__ == \"__main__\":",
+          "    app.run(debug=True)"
+        ],
+        "context_start_line": 76,
+        "context_end_line": 82,
+        "function_context": {
+          "function_name": "background_job",
+          "function_line": 61,
+          "function_signature": "def background_job():",
+          "distance_from_function": 18
+        },
+        "severity": "MEDIUM",
+        "category": "general",
+        "language": "python",
+        "gate_type": "Throttling",
+        "line_length": 21,
+        "indentation_level": 8,
+        "is_comment": false,
+        "is_string_literal": false,
+        "suggested_fix": "Review this code pattern for compliance with best practices.",
+        "documentation_link": "https://docs.example.com/coding-standards",
+        "priority": 5
+      }
+    },
+    {
+      "gate": "circuit_breakers",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 0,
+      "expected": 2,
+      "recommendations": [
+        "Implement best practices for circuit_breakers",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "error_logs",
+      "status": "PASS",
+      "score": 100.0,
+      "found": 0,
+      "expected": 0,
+      "recommendations": [
+        "Log all exceptions with context",
+        "Include error codes and user actions",
+        "Set up error alerting for critical issues"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "http_codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "found": 0,
+      "expected": 5,
+      "recommendations": [
+        "Implement best practices for http_codes",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "ui_error_tools",
+      "status": "NOT_APPLICABLE",
+      "score": 0.0,
+      "found": 0,
+      "expected": 0,
+      "recommendations": [
+        "No action needed - ui_error_tools not relevant for this project"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    },
+    {
+      "gate": "automated_tests",
+      "status": "PASS",
+      "score": 100.0,
+      "found": 0,
+      "expected": 0,
+      "recommendations": [
+        "Implement best practices for automated_tests",
+        "Add comprehensive monitoring",
+        "Follow industry standards"
+      ],
+      "enhanced_metadata_count": 0,
+      "sample_metadata": null
+    }
+  ],
+  "llm_enabled": true
+}
