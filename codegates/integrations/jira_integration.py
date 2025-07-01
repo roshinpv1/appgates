@@ -25,6 +25,10 @@ class JiraIntegration:
         Args:
             config: Optional configuration dict. If None, loads from environment
         """
+        # Disable SSL verification warnings
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
         # Load environment variables first
         self.jira_url = os.getenv('JIRA_URL', '').rstrip('/')
         self.username = os.getenv('JIRA_USERNAME')
@@ -214,7 +218,8 @@ class JiraIntegration:
                     'file': (file_name, file, 'text/html' if file_path.endswith('.html') else 'application/octet-stream')
                 }
                 
-                response = requests.post(url, headers=headers, files=files, timeout=60)
+                # Disable SSL verification
+                response = requests.post(url, headers=headers, files=files, timeout=60, verify=False)
                 
                 if response.status_code in [200, 201]:
                     return response.json()
@@ -418,7 +423,8 @@ class JiraIntegration:
         if self.custom_fields:
             payload.update(self.custom_fields)
         
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        # Disable SSL verification
+        response = requests.post(url, headers=headers, json=payload, timeout=30, verify=False)
         
         if response.status_code in [200, 201]:
             return response.json()
@@ -447,7 +453,8 @@ class JiraIntegration:
                 'Accept': 'application/json'
             }
             
-            response = requests.get(url, headers=headers, timeout=10)
+            # Disable SSL verification
+            response = requests.get(url, headers=headers, timeout=10, verify=False)
             
             if response.status_code == 200:
                 user_info = response.json()
