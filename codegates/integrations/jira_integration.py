@@ -25,48 +25,49 @@ class JiraIntegration:
         Args:
             config: Optional configuration dict. If None, loads from environment
         """
-        self.config = config or self._load_config()
-        self.enabled = self._is_enabled()
+        # Load environment variables first
+        self.jira_url = os.getenv('JIRA_URL', '').rstrip('/')
+        self.username = os.getenv('JIRA_USERNAME')
+        self.api_token = os.getenv('JIRA_API_TOKEN')
+        self.project_key = os.getenv('JIRA_PROJECT_KEY')
+        self.issue_key = os.getenv('JIRA_ISSUE_KEY')
+        self.comment_format = os.getenv('JIRA_COMMENT_FORMAT', 'markdown')
+        self.include_details = os.getenv('JIRA_INCLUDE_DETAILS', 'true').lower() in ['true', '1', 'yes']
+        self.include_recommendations = os.getenv('JIRA_INCLUDE_RECOMMENDATIONS', 'true').lower() in ['true', '1', 'yes']
+        self.attach_html_report = os.getenv('JIRA_ATTACH_HTML_REPORT', 'false').lower() in ['true', '1', 'yes']
+        self.custom_fields = {}
         
-        if self.enabled:
-            self.jira_url = self.config.get('jira_url', '').rstrip('/')
-            self.username = self.config.get('username')
-            self.api_token = self.config.get('api_token')
-            self.project_key = self.config.get('project_key')
-            self.issue_key = self.config.get('issue_key')
-            self.comment_format = self.config.get('comment_format', 'markdown')
-            self.include_details = self.config.get('include_details', True)
-            self.include_recommendations = self.config.get('include_recommendations', True)
-            self.attach_html_report = self.config.get('attach_html_report', False)
-            self.custom_fields = self.config.get('custom_fields', {})
-            
-            # Validate required fields
-            if not all([self.jira_url, self.username, self.api_token]):
-                print("⚠️ JIRA integration disabled: Missing required configuration (jira_url, username, api_token)")
-                self.enabled = False
+        # Override with provided config if any
+        if config:
+            self.jira_url = config.get('jira_url', self.jira_url).rstrip('/')
+            self.username = config.get('username', self.username)
+            self.api_token = config.get('api_token', self.api_token)
+            self.project_key = config.get('project_key', self.project_key)
+            self.issue_key = config.get('issue_key', self.issue_key)
+            self.comment_format = config.get('comment_format', self.comment_format)
+            self.include_details = config.get('include_details', self.include_details)
+            self.include_recommendations = config.get('include_recommendations', self.include_recommendations)
+            self.attach_html_report = config.get('attach_html_report', self.attach_html_report)
+            self.custom_fields = config.get('custom_fields', {})
+        
+        # Check if we have required configuration
+        self.enabled = bool(self.jira_url and self.username and self.api_token)
     
     def _load_config(self) -> Dict[str, Any]:
         """Load JIRA configuration from environment variables and config files"""
         
-        config = {}
-        
-        # Load from environment variables
-        env_loader = EnvironmentLoader()
-        
-        # Check if JIRA integration is enabled
-        if env_loader.get('JIRA_ENABLED', 'false').lower() in ['true', '1', 'yes']:
-            config.update({
-                'enabled': True,
-                'jira_url': env_loader.get('JIRA_URL'),
-                'username': env_loader.get('JIRA_USERNAME'),
-                'api_token': env_loader.get('JIRA_API_TOKEN'),
-                'project_key': env_loader.get('JIRA_PROJECT_KEY'),
-                'issue_key': env_loader.get('JIRA_ISSUE_KEY'),
-                'comment_format': env_loader.get('JIRA_COMMENT_FORMAT', 'markdown'),
-                'include_details': env_loader.get('JIRA_INCLUDE_DETAILS', 'true').lower() in ['true', '1', 'yes'],
-                'include_recommendations': env_loader.get('JIRA_INCLUDE_RECOMMENDATIONS', 'true').lower() in ['true', '1', 'yes'],
-                'attach_html_report': env_loader.get('JIRA_ATTACH_HTML_REPORT', 'false').lower() in ['true', '1', 'yes']
-            })
+        config = {
+            'enabled': True,  # Always enabled by default
+            'jira_url': os.getenv('JIRA_URL'),
+            'username': os.getenv('JIRA_USERNAME'),
+            'api_token': os.getenv('JIRA_API_TOKEN'),
+            'project_key': os.getenv('JIRA_PROJECT_KEY'),
+            'issue_key': os.getenv('JIRA_ISSUE_KEY'),
+            'comment_format': os.getenv('JIRA_COMMENT_FORMAT', 'markdown'),
+            'include_details': os.getenv('JIRA_INCLUDE_DETAILS', 'true').lower() in ['true', '1', 'yes'],
+            'include_recommendations': os.getenv('JIRA_INCLUDE_RECOMMENDATIONS', 'true').lower() in ['true', '1', 'yes'],
+            'attach_html_report': os.getenv('JIRA_ATTACH_HTML_REPORT', 'false').lower() in ['true', '1', 'yes']
+        }
         
         # Load from config file if exists
         config_file = Path('config/jira_config.json')
@@ -81,8 +82,11 @@ class JiraIntegration:
         return config
     
     def _is_enabled(self) -> bool:
-        """Check if JIRA integration is enabled"""
-        return self.config.get('enabled', False)
+        """Check if JIRA integration is enabled and properly configured"""
+        # Always consider enabled if we have the required configuration
+        if self.config.get('jira_url') and self.config.get('username') and self.config.get('api_token'):
+            return True
+        return False
     
     def is_available(self) -> bool:
         """Check if JIRA integration is available and properly configured"""

@@ -160,19 +160,19 @@ except ImportError:
     
     # Timeout Configuration from environment (fallback)
     TIMEOUT_CONFIG = {
-        'git_clone_timeout': int(os.getenv('CODEGATES_GIT_CLONE_TIMEOUT', '300')),
-        'git_ls_remote_timeout': int(os.getenv('CODEGATES_GIT_LS_REMOTE_TIMEOUT', '30')),
-        'api_download_timeout': int(os.getenv('CODEGATES_API_DOWNLOAD_TIMEOUT', '120')),
-        'analysis_timeout': int(os.getenv('CODEGATES_ANALYSIS_TIMEOUT', '180')),
-        'llm_request_timeout': int(os.getenv('CODEGATES_LLM_REQUEST_TIMEOUT', '30')),
-        'http_request_timeout': int(os.getenv('CODEGATES_HTTP_REQUEST_TIMEOUT', '10')),
+        'git_clone_timeout': int(os.getenv('CODEGATES_GIT_CLONE_TIMEOUT', '3000')),
+        'git_ls_remote_timeout': int(os.getenv('CODEGATES_GIT_LS_REMOTE_TIMEOUT', '300')),
+        'api_download_timeout': int(os.getenv('CODEGATES_API_DOWNLOAD_TIMEOUT', '1200')),
+        'analysis_timeout': int(os.getenv('CODEGATES_ANALYSIS_TIMEOUT', '1800')),
+        'llm_request_timeout': int(os.getenv('CODEGATES_LLM_REQUEST_TIMEOUT', '300')),
+        'http_request_timeout': int(os.getenv('CODEGATES_HTTP_REQUEST_TIMEOUT', '100')),
         'health_check_timeout': int(os.getenv('CODEGATES_HEALTH_CHECK_TIMEOUT', '5')),
-        'jira_request_timeout': int(os.getenv('CODEGATES_JIRA_REQUEST_TIMEOUT', '30')),
-        'jira_health_timeout': int(os.getenv('CODEGATES_JIRA_HEALTH_TIMEOUT', '10')),
-        'github_connect_timeout': int(os.getenv('CODEGATES_GITHUB_CONNECT_TIMEOUT', '30')),
-        'github_read_timeout': int(os.getenv('CODEGATES_GITHUB_READ_TIMEOUT', '120')),
-        'vscode_api_timeout': int(os.getenv('CODEGATES_VSCODE_API_TIMEOUT', '300')),
-        'llm_batch_timeout': int(os.getenv('CODEGATES_LLM_BATCH_TIMEOUT', '30')),
+        'jira_request_timeout': int(os.getenv('CODEGATES_JIRA_REQUEST_TIMEOUT', '300')),
+        'jira_health_timeout': int(os.getenv('CODEGATES_JIRA_HEALTH_TIMEOUT', '100')),
+        'github_connect_timeout': int(os.getenv('CODEGATES_GITHUB_CONNECT_TIMEOUT', '300')),
+        'github_read_timeout': int(os.getenv('CODEGATES_GITHUB_READ_TIMEOUT', '1200')),
+        'vscode_api_timeout': int(os.getenv('CODEGATES_VSCODE_API_TIMEOUT', '3000')),
+        'llm_batch_timeout': int(os.getenv('CODEGATES_LLM_BATCH_TIMEOUT', '300')),
     }
 
 # Add intake imports after existing imports, before the main app configuration
@@ -575,7 +575,7 @@ class ScanOptions(BaseModel):
 
 class JiraOptions(BaseModel):
     enabled: bool = Field(
-        default=False,
+        default=True,  # Changed to True to enable by default
         description="Enable JIRA integration for this scan"
     )
     issue_key: Optional[str] = Field(
@@ -595,8 +595,8 @@ class JiraOptions(BaseModel):
         description="Include recommendations in the comment"
     )
     attach_html_report: Optional[bool] = Field(
-        default=False,
-        description="Attach detailed HTML report to the JIRA issue"
+        default=True,  # Changed to True to enable by default
+        description="Attach HTML report to JIRA issue"
     )
 
 class ScanRequest(BaseModel):
@@ -1992,8 +1992,8 @@ class JiraPostRequest(BaseModel):
     include_details: Optional[bool] = Field(default=True, description="Include detailed gate results")
     include_recommendations: Optional[bool] = Field(default=True, description="Include recommendations")
     attach_html_report: Optional[bool] = Field(
-        default=False,
-        description="Attach detailed HTML report to the JIRA issue"
+        default=True,  # Changed to True to enable by default
+        description="Attach HTML report to JIRA issue"
     )
 
 @api_v1.post("/jira/post")

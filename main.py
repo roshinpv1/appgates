@@ -8,6 +8,8 @@ Starts the FastAPI server with JIRA integration support.
 import sys
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+from codegates.api.server import start_server
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -16,8 +18,10 @@ sys.path.insert(0, str(project_root))
 def main():
     """Main entry point for the API server"""
     try:
-        from codegates.api.server import start_server
-        print("🚀 Starting MyGates API Server with JIRA Integration...")
+        # Load environment variables
+        load_dotenv()
+        
+        # Start the server
         start_server()
     except ImportError as e:
         print(f"❌ Failed to import server: {e}")
