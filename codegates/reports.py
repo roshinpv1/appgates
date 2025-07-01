@@ -39,6 +39,9 @@ class SharedReportGenerator:
                 else:
                     status = "FAIL"
             
+            # Extract patterns attempted for this gate
+            patterns_attempted = SharedReportGenerator._extract_patterns_attempted(gate_score)
+            
             gates.append({
                 "name": gate_score.gate.value,
                 "status": status,
@@ -47,7 +50,9 @@ class SharedReportGenerator:
                 "expected": gate_score.expected,
                 "found": gate_score.found,
                 "coverage": gate_score.coverage,
-                "quality_score": gate_score.quality_score
+                "quality_score": gate_score.quality_score,
+                "matches": gate_score.matches,  # Include detailed match information
+                "patterns_attempted": patterns_attempted  # Add patterns attempted summary
             })
         
         # Return in the exact same format as VS Code extension expects
@@ -58,6 +63,49 @@ class SharedReportGenerator:
             "repository_url": getattr(result, 'repository_url', None),
             "project_name": result.project_name
         }
+    
+    @staticmethod
+    def _extract_patterns_attempted(gate_score) -> Dict[str, Any]:
+        """Extract patterns attempted for a gate, especially useful for failed gates"""
+        patterns_info = {
+            "total_patterns_tried": 0,
+            "successful_patterns": [],
+            "failed_patterns": [],
+            "pattern_details": []
+        }
+        
+        if not gate_score.matches:
+            # If no matches but we have patterns (from validator), extract them
+            # For now, we'll need to get patterns from the validator classes
+            patterns_info["status"] = "no_matches_found"
+            return patterns_info
+        
+        # Group matches by pattern
+        pattern_groups = {}
+        for match in gate_score.matches:
+            pattern = match.get('pattern', 'unknown')
+            if pattern not in pattern_groups:
+                pattern_groups[pattern] = []
+            pattern_groups[pattern].append(match)
+        
+        patterns_info["total_patterns_tried"] = len(pattern_groups)
+        
+        for pattern, matches in pattern_groups.items():
+            pattern_detail = {
+                "pattern": pattern,
+                "matches_count": len(matches),
+                "files_affected": list(set(match.get('file_path', '') for match in matches)),
+                "sample_matches": matches[:3] if len(matches) > 3 else matches  # First 3 matches as samples
+            }
+            
+            if len(matches) > 0:
+                patterns_info["successful_patterns"].append(pattern)
+            else:
+                patterns_info["failed_patterns"].append(pattern)
+            
+            patterns_info["pattern_details"].append(pattern_detail)
+        
+        return patterns_info
     
     @staticmethod
     def calculate_summary_stats(result_data: Dict[str, Any]) -> Dict[str, int]:
@@ -293,6 +341,9 @@ class ReportGenerator:
         # Use shared logic to transform result
         result_data = SharedReportGenerator.transform_result_to_extension_format(result)
         
+        # Generate failed gates analysis
+        failed_gates_analysis = self._generate_failed_gates_analysis(result)
+        
         # Convert result to dict for JSON serialization
         report_data = {
             "project_name": result.project_name,
@@ -305,6 +356,7 @@ class ReportGenerator:
             "total_lines": getattr(result, 'total_lines', 0),
             "gate_summary": SharedReportGenerator.calculate_summary_stats(result_data),
             "gates": result_data["gates"],
+            "failed_gates_analysis": failed_gates_analysis,  # Add detailed failed gates analysis
             "critical_issues": getattr(result, 'critical_issues', []),
             "recommendations": getattr(result, 'recommendations', [])
         }
@@ -313,6 +365,110 @@ class ReportGenerator:
             json.dump(report_data, f, indent=2)
         
         return str(filepath)
+    
+    def _generate_failed_gates_analysis(self, result: ValidationResult) -> Dict[str, Any]:
+        """Generate detailed analysis of failed gates including patterns attempted"""
+        failed_analysis = {
+            "summary": {
+                "total_failed_gates": 0,
+                "total_patterns_attempted": 0,
+                "common_failure_reasons": []
+            },
+            "detailed_analysis": []
+        }
+        
+        failed_gates = [gs for gs in result.gate_scores if gs.status in ['FAILED', 'FAIL'] or gs.final_score < 60]
+        failed_analysis["summary"]["total_failed_gates"] = len(failed_gates)
+        
+        for gate_score in failed_gates:
+            gate_analysis = {
+                "gate_name": gate_score.gate.value,
+                "status": gate_score.status,
+                "final_score": gate_score.final_score,
+                "expected": gate_score.expected,
+                "found": gate_score.found,
+                "failure_reasons": [],
+                "patterns_attempted": [],
+                "potential_solutions": []
+            }
+            
+            # Extract patterns from matches (if any)
+            if gate_score.matches:
+                for match in gate_score.matches:
+                    pattern_info = {
+                        "pattern": match.get('pattern', 'unknown'),
+                        "file_searched": match.get('file_path', ''),
+                        "line_number": match.get('line_number', 0),
+                        "matched_text": match.get('matched_text', ''),
+                        "context": match.get('context', [])
+                    }
+                    gate_analysis["patterns_attempted"].append(pattern_info)
+            
+            # Add failure reasons based on gate type
+            if gate_score.found == 0:
+                gate_analysis["failure_reasons"].append("No matching patterns found in codebase")
+                gate_analysis["potential_solutions"].append(f"Implement {gate_score.gate.value} patterns according to best practices")
+            elif gate_score.found < gate_score.expected:
+                gate_analysis["failure_reasons"].append(f"Insufficient implementation: found {gate_score.found}, expected {gate_score.expected}")
+                gate_analysis["potential_solutions"].append("Increase implementation coverage across more files")
+            
+            # Add specific recommendations based on gate type
+            gate_specific_recommendations = self._get_gate_specific_recommendations(gate_score.gate.value)
+            gate_analysis["potential_solutions"].extend(gate_specific_recommendations)
+            
+            failed_analysis["detailed_analysis"].append(gate_analysis)
+            failed_analysis["summary"]["total_patterns_attempted"] += len(gate_analysis["patterns_attempted"])
+        
+        # Identify common failure patterns
+        if failed_gates:
+            failure_reasons = [reason for gate in failed_analysis["detailed_analysis"] for reason in gate["failure_reasons"]]
+            from collections import Counter
+            common_failures = Counter(failure_reasons).most_common(3)
+            failed_analysis["summary"]["common_failure_reasons"] = [{"reason": reason, "count": count} for reason, count in common_failures]
+        
+        return failed_analysis
+    
+    def _get_gate_specific_recommendations(self, gate_name: str) -> List[str]:
+        """Get specific recommendations for failed gates"""
+        recommendations_map = {
+            "structured_logs": [
+                "Use structured logging with JSON format",
+                "Include relevant context fields in log messages",
+                "Use logging libraries like structlog (Python) or logback (Java)"
+            ],
+            "avoid_logging_secrets": [
+                "Review and remove any sensitive data from log statements",
+                "Use log sanitization or redaction techniques",
+                "Implement secret detection tools in CI/CD pipeline"
+            ],
+            "audit_trail": [
+                "Add logging for all critical business operations",
+                "Include user context and operation details",
+                "Log both successful and failed operations"
+            ],
+            "correlation_id": [
+                "Implement request tracking with correlation/trace IDs",
+                "Pass correlation ID through all service calls",
+                "Include correlation ID in all log messages"
+            ],
+            "retry_logic": [
+                "Implement retry mechanisms for external service calls",
+                "Use exponential backoff strategies",
+                "Set appropriate retry limits and timeouts"
+            ],
+            "error_logs": [
+                "Add comprehensive error logging in exception handlers",
+                "Include stack traces and error context",
+                "Log errors at appropriate severity levels"
+            ],
+            "automated_tests": [
+                "Increase test coverage with unit and integration tests",
+                "Implement test automation in CI/CD pipeline",
+                "Add tests for critical business logic"
+            ]
+        }
+        
+        return recommendations_map.get(gate_name, ["Review implementation guidelines for this gate"])
     
     def _generate_html_report(self, result: ValidationResult, output_dir: Path) -> str:
         """Generate HTML report with modern styling"""

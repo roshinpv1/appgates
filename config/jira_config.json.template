@@ -8,5 +8,6 @@
   "comment_format": "markdown",
   "include_details": true,
   "include_recommendations": true,
+  "attach_html_report": false,
   "custom_fields": {}
 } 

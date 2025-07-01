@@ -594,6 +594,10 @@ class JiraOptions(BaseModel):
         default=True,
         description="Include recommendations in the comment"
     )
+    attach_html_report: Optional[bool] = Field(
+        default=False,
+        description="Attach detailed HTML report to the JIRA issue"
+    )
 
 class ScanRequest(BaseModel):
     repository_url: str = Field(
@@ -1467,6 +1471,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                             jira_config['include_details'] = request.jira_options.include_details
                         if request.jira_options.include_recommendations is not None:
                             jira_config['include_recommendations'] = request.jira_options.include_recommendations
+                        if request.jira_options.attach_html_report is not None:
+                            jira_config['attach_html_report'] = request.jira_options.attach_html_report
                         
                         jira_integration = JiraIntegration(jira_config if jira_config else None)
                         
@@ -1479,11 +1485,15 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                                 'report_url': f"{API_BASE_URL}{API_VERSION_PREFIX}/reports/{scan_id}"
                             }
                             
+                            # Get HTML report path if available
+                            html_report_path = scan_results[scan_id].get("report_file")
+                            
                             # Post to JIRA
                             jira_result = jira_integration.post_report_comment(
                                 analysis_result['result_object'],
                                 request.jira_options.issue_key,
-                                additional_context
+                                additional_context,
+                                html_report_path
                             )
                             
                             if jira_result.get('success'):
@@ -1981,6 +1991,10 @@ class JiraPostRequest(BaseModel):
     comment_format: Optional[str] = Field(default="markdown", description="Comment format: 'markdown' or 'text'")
     include_details: Optional[bool] = Field(default=True, description="Include detailed gate results")
     include_recommendations: Optional[bool] = Field(default=True, description="Include recommendations")
+    attach_html_report: Optional[bool] = Field(
+        default=False,
+        description="Attach detailed HTML report to the JIRA issue"
+    )
 
 @api_v1.post("/jira/post")
 async def post_to_jira(request: JiraPostRequest):
@@ -2006,7 +2020,8 @@ async def post_to_jira(request: JiraPostRequest):
         jira_config = {
             'comment_format': request.comment_format,
             'include_details': request.include_details,
-            'include_recommendations': request.include_recommendations
+            'include_recommendations': request.include_recommendations,
+            'attach_html_report': request.attach_html_report
         }
         
         jira_integration = JiraIntegration(jira_config)
@@ -2020,11 +2035,15 @@ async def post_to_jira(request: JiraPostRequest):
             'report_url': f"{API_BASE_URL}{API_VERSION_PREFIX}/reports/{request.scan_id}"
         }
         
+        # Get HTML report path if available
+        html_report_path = result.get("report_file")
+        
         # Post to JIRA
         jira_result = jira_integration.post_report_comment(
             validation_result,
             request.issue_key,
-            additional_context
+            additional_context,
+            html_report_path
         )
         
         return jira_result

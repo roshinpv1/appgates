@@ -1,0 +1,235 @@
+{
+  "project_name": "test_code",
+  "project_path": "test_code",
+  "language": "python",
+  "scan_date": "2025-06-30T20:20:35.583271",
+  "scan_duration": 0.056960105895996094,
+  "overall_score": 34.37833333333334,
+  "total_files": 1,
+  "total_lines": 25,
+  "gate_summary": {
+    "total_gates": 15,
+    "implemented_gates": 4,
+    "partial_gates": 0,
+    "not_implemented_gates": 11,
+    "not_applicable_gates": 0
+  },
+  "gates": [
+    {
+      "name": "structured_logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No structured logging patterns found"
+      ],
+      "expected": 1,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "avoid_logging_secrets",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "\ud83d\udea8 Found 11 potential confidential data logging violations:",
+        "\n\ud83d\udcca Violations by Category:",
+        "  \ud83d\udd34 CRITICAL Credentials & Passwords: 6 violations",
+        "  \ud83d\udfe1 HIGH Authentication & Tokens: 4 violations",
+        "  \ud83d\udfe0 MEDIUM Personal Information: 1 violations",
+        "\n\ud83d\udd0d Examples of violations found:",
+        "   sample.py:13 - print(\"User authenticated with password:\", password)...",
+        "   sample.py:13 - print(\"User authenticated with password:\", password)...",
+        "   sample.py:12 - logger.info(f\"Processing user: {username} with password: {pa...",
+        "   sample.py:12 - logger.info(f\"Processing user: {username} with password: {pa...",
+        "  ... and 6 more violations",
+        "\n\u26a0\ufe0f  These violations pose serious security risks and should be addressed immediately!",
+        "Found 11 pattern matches:",
+        "\ud83d\udcc1 sample.py:",
+        "   Line ?: ",
+        "   Pattern: logging\\.\\w+\\s*\\([^)]*.*name([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+        "   Line ?: ",
+        "   Pattern: logger\\.\\w+\\s*\\([^)]*.*pass([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+        "   Line ?: ",
+        "   Pattern: logger\\.\\w+\\s*\\([^)]*.*password([_\\-]?[a-z0-9]*)?.*[^)]*\\)",
+        "   ... and 7 more matches"
+      ],
+      "expected": 0,
+      "found": 11,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "audit_trail",
+      "status": "FAIL",
+      "score": 12.54,
+      "details": [
+        "Found 1 audit logging statements",
+        "Audit logging present in 1 files",
+        "Found 1 pattern matches:",
+        "\ud83d\udcc1 sample.py:",
+        "   Line ?: ",
+        "   Pattern: logger\\.info.*\\b(admin|user|access)\\b"
+      ],
+      "expected": 5,
+      "found": 1,
+      "coverage": 20.0,
+      "quality_score": 23.0
+    },
+    {
+      "name": "correlation_id",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No correlation ID patterns found"
+      ],
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "log_api_calls",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No API logging patterns found"
+      ],
+      "expected": 5,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "log_background_jobs",
+      "status": "NOT_APPLICABLE",
+      "score": 0.0,
+      "details": [
+        "Gate log_background_jobs is not applicable to this project type"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "ui_errors",
+      "status": "NOT_APPLICABLE",
+      "score": 0.0,
+      "details": [
+        "Gate ui_errors is not applicable to this project type"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "retry_logic",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "No retry logic patterns found"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0
+    },
+    {
+      "name": "timeouts",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "No timeout patterns found"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0
+    },
+    {
+      "name": "throttling",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No throttling patterns found"
+      ],
+      "expected": 1,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "circuit_breakers",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No circuit breaker patterns found"
+      ],
+      "expected": 1,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "error_logs",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "No error logging patterns found"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0
+    },
+    {
+      "name": "http_codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No HTTP status code patterns found"
+      ],
+      "expected": 5,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "ui_error_tools",
+      "status": "NOT_APPLICABLE",
+      "score": 0.0,
+      "details": [
+        "Gate ui_error_tools is not applicable to this project type"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0
+    },
+    {
+      "name": "automated_tests",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "No automated test patterns found"
+      ],
+      "expected": 0,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0
+    }
+  ],
+  "critical_issues": [
+    "Multiple gate failures detected (8 gates failed)",
+    "Overall gate coverage is critically low",
+    "Sensitive data detected in logs - security risk"
+  ],
+  "recommendations": [
+    "Focus on implementing basic logging and error handling first",
+    "Implement structured logging with JSON format and consistent fields",
+    "Consider implementing a gradual rollout of hard gates",
+    "Immediately audit and remove sensitive data from logs"
+  ]
+}

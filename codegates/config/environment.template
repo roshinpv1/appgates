@@ -124,12 +124,14 @@ GITHUB_TIMEOUT=300
 # =============================================================================
 
 # JIRA Configuration
+JIRA_ENABLED=false
 JIRA_URL=
 JIRA_USERNAME=
 JIRA_API_TOKEN=
 JIRA_COMMENT_FORMAT=markdown
 JIRA_INCLUDE_DETAILS=true
 JIRA_INCLUDE_RECOMMENDATIONS=true
+JIRA_ATTACH_HTML_REPORT=false
 
 # =============================================================================
 # Reports Configuration

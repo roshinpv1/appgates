@@ -37,6 +37,7 @@ class JiraIntegration:
             self.comment_format = self.config.get('comment_format', 'markdown')
             self.include_details = self.config.get('include_details', True)
             self.include_recommendations = self.config.get('include_recommendations', True)
+            self.attach_html_report = self.config.get('attach_html_report', False)
             self.custom_fields = self.config.get('custom_fields', {})
             
             # Validate required fields
@@ -63,7 +64,8 @@ class JiraIntegration:
                 'issue_key': env_loader.get('JIRA_ISSUE_KEY'),
                 'comment_format': env_loader.get('JIRA_COMMENT_FORMAT', 'markdown'),
                 'include_details': env_loader.get('JIRA_INCLUDE_DETAILS', 'true').lower() in ['true', '1', 'yes'],
-                'include_recommendations': env_loader.get('JIRA_INCLUDE_RECOMMENDATIONS', 'true').lower() in ['true', '1', 'yes']
+                'include_recommendations': env_loader.get('JIRA_INCLUDE_RECOMMENDATIONS', 'true').lower() in ['true', '1', 'yes'],
+                'attach_html_report': env_loader.get('JIRA_ATTACH_HTML_REPORT', 'false').lower() in ['true', '1', 'yes']
             })
         
         # Load from config file if exists
@@ -88,7 +90,8 @@ class JiraIntegration:
     
     def post_report_comment(self, validation_result: ValidationResult, 
                           issue_key: Optional[str] = None,
-                          additional_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                          additional_context: Optional[Dict[str, Any]] = None,
+                          html_report_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Post a Hard Gate Assessment report as a comment to a JIRA issue
         
@@ -96,6 +99,7 @@ class JiraIntegration:
             validation_result: The validation result to post
             issue_key: Optional issue key to override config
             additional_context: Additional context like repository URL, branch, etc.
+            html_report_path: Optional path to HTML report file to attach
             
         Returns:
             Dict with success status and details
@@ -122,16 +126,47 @@ class JiraIntegration:
             comment_content = self._generate_comment(validation_result, additional_context)
             
             # Post comment to JIRA
-            response = self._post_comment_to_jira(target_issue, comment_content)
+            comment_response = self._post_comment_to_jira(target_issue, comment_content)
             
-            return {
+            result = {
                 'success': True,
                 'message': f'Report posted to JIRA issue {target_issue}',
                 'posted': True,
                 'jira_issue': target_issue,
-                'comment_id': response.get('id'),
-                'comment_url': f"{self.jira_url}/browse/{target_issue}?focusedCommentId={response.get('id')}"
+                'comment_id': comment_response.get('id'),
+                'comment_url': f"{self.jira_url}/browse/{target_issue}?focusedCommentId={comment_response.get('id')}"
             }
+            
+            # Attach HTML report if enabled and path provided
+            if self.attach_html_report and html_report_path and os.path.exists(html_report_path):
+                try:
+                    attachment_response = self._attach_file_to_jira(target_issue, html_report_path)
+                    result['attachment_result'] = {
+                        'success': True,
+                        'attachments': attachment_response,
+                        'message': f'HTML report attached successfully'
+                    }
+                    result['message'] += f' | HTML report attached'
+                    print(f"✅ HTML report attached to JIRA issue {target_issue}")
+                except Exception as attach_error:
+                    print(f"⚠️ Failed to attach HTML report: {attach_error}")
+                    result['attachment_result'] = {
+                        'success': False,
+                        'error': str(attach_error),
+                        'message': f'Failed to attach HTML report: {str(attach_error)}'
+                    }
+            elif self.attach_html_report and not html_report_path:
+                result['attachment_result'] = {
+                    'success': False,
+                    'message': 'HTML attachment enabled but no report path provided'
+                }
+            elif self.attach_html_report and html_report_path and not os.path.exists(html_report_path):
+                result['attachment_result'] = {
+                    'success': False,
+                    'message': f'HTML report file not found: {html_report_path}'
+                }
+            
+            return result
             
         except Exception as e:
             return {
@@ -140,6 +175,53 @@ class JiraIntegration:
                 'posted': False,
                 'error': str(e)
             }
+    
+    def _attach_file_to_jira(self, issue_key: str, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Attach a file to a JIRA issue using REST API
+        
+        Args:
+            issue_key: JIRA issue key
+            file_path: Path to the file to attach
+            
+        Returns:
+            List of attachment details from JIRA response
+        """
+        
+        url = f"{self.jira_url}/rest/api/3/issue/{issue_key}/attachments"
+        
+        # Create authentication header
+        auth_string = f"{self.username}:{self.api_token}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        headers = {
+            'Authorization': f'Basic {auth_b64}',
+            'X-Atlassian-Token': 'no-check',  # Required for file uploads
+            'Accept': 'application/json'
+        }
+        
+        # Prepare file for upload
+        file_name = os.path.basename(file_path)
+        
+        try:
+            with open(file_path, 'rb') as file:
+                files = {
+                    'file': (file_name, file, 'text/html' if file_path.endswith('.html') else 'application/octet-stream')
+                }
+                
+                response = requests.post(url, headers=headers, files=files, timeout=60)
+                
+                if response.status_code in [200, 201]:
+                    return response.json()
+                else:
+                    error_msg = f"JIRA attachment API error: {response.status_code} - {response.text}"
+                    raise Exception(error_msg)
+                    
+        except FileNotFoundError:
+            raise Exception(f"File not found: {file_path}")
+        except Exception as e:
+            raise Exception(f"Failed to attach file: {str(e)}")
     
     def _generate_comment(self, validation_result: ValidationResult, 
                          additional_context: Optional[Dict[str, Any]] = None) -> str:
@@ -242,12 +324,16 @@ class JiraIntegration:
                 comment += f"- 🚨 {issue}\n"
             comment += "\n"
         
-        # Footer
+        # Footer with attachment note
         comment += "---\n"
         comment += f"*Report generated by CodeGates Hard Gate Assessment*"
         
         if context.get('report_url'):
             comment += f" | [View Detailed Report]({context['report_url']})"
+        
+        # Add note about attachment if enabled
+        if self.attach_html_report:
+            comment += f"\n\n📎 **Detailed HTML report attached to this issue for comprehensive analysis**"
         
         return comment
     

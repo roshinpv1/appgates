@@ -6,6 +6,7 @@ The MyGates platform supports optional JIRA integration to automatically post Ha
 
 - 🔗 **Automatic posting** of scan reports to JIRA issues
 - 📝 **Configurable comment formats** (Markdown or Plain Text)
+- 📎 **HTML report attachments** for comprehensive analysis
 - ⚙️ **Flexible configuration** via environment variables or config files
 - 🎯 **Per-scan overrides** for issue keys and formatting options
 - 🔒 **Secure authentication** using JIRA API tokens
@@ -31,10 +32,11 @@ JIRA_API_TOKEN=your-api-token
 JIRA_PROJECT_KEY=PROJECT
 JIRA_ISSUE_KEY=PROJECT-123
 
-# Optional: Comment formatting
+# Optional: Comment formatting and attachments
 JIRA_COMMENT_FORMAT=markdown  # or 'text'
 JIRA_INCLUDE_DETAILS=true
 JIRA_INCLUDE_RECOMMENDATIONS=true
+JIRA_ATTACH_HTML_REPORT=false  # Enable to attach detailed HTML reports
 ```
 
 ### Configuration File
@@ -52,6 +54,7 @@ Alternatively, create a `config/jira_config.json` file:
   "comment_format": "markdown",
   "include_details": true,
   "include_recommendations": true,
+  "attach_html_report": false,
   "custom_fields": {}
 }
 ```
@@ -79,7 +82,8 @@ Include JIRA options in your scan request:
     "issue_key": "PROJ-123",
     "comment_format": "markdown",
     "include_details": true,
-    "include_recommendations": true
+    "include_recommendations": true,
+    "attach_html_report": true
   }
 }
 ```
@@ -96,7 +100,8 @@ curl -X POST "http://localhost:8000/api/v1/jira/post" \
     "issue_key": "PROJ-123",
     "comment_format": "markdown",
     "include_details": true,
-    "include_recommendations": true
+    "include_recommendations": true,
+    "attach_html_report": true
   }'
 ```
 
@@ -127,6 +132,40 @@ Generates plain text comments suitable for basic JIRA instances:
 - Numbered recommendations
 - Essential metrics only
 
+## HTML Report Attachments
+
+When `attach_html_report` is enabled, the integration will:
+
+- 📎 **Attach detailed HTML report** to the JIRA issue alongside the comment
+- 🎨 **Include rich visualizations** with charts, tables, and interactive elements
+- 📋 **Provide comprehensive gate analysis** with full pattern match details
+- 🔍 **Enable offline viewing** of complete assessment results
+- 📝 **Add attachment notification** to the comment footer
+
+### HTML Attachment Benefits
+
+1. **Complete Analysis**: The HTML report contains full details that may be truncated in comments
+2. **Rich Formatting**: Interactive tables, charts, and visual indicators
+3. **Offline Access**: Download and view reports without API access
+4. **Archival**: Permanent record attached to the JIRA issue
+5. **Sharing**: Easy to forward complete reports to stakeholders
+
+### Configuration Examples
+
+**Enable attachments globally:**
+```bash
+JIRA_ATTACH_HTML_REPORT=true
+```
+
+**Enable per-scan:**
+```json
+{
+  "jira_options": {
+    "attach_html_report": true
+  }
+}
+```
+
 ## API Endpoints
 
 ### Check JIRA Status
@@ -150,7 +189,8 @@ Posts an existing scan report to a specified JIRA issue.
   "issue_key": "PROJ-123",
   "comment_format": "markdown",
   "include_details": true,
-  "include_recommendations": true
+  "include_recommendations": true,
+  "attach_html_report": true
 }
 ```
 

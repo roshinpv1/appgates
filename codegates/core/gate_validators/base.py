@@ -278,22 +278,20 @@ class BaseGateValidator(ABC):
     def _search_files_for_patterns(self, target_path: Path, extensions: List[str], 
                                  patterns: List[str]) -> List[Dict[str, Any]]:
         """Search files for patterns with comprehensive metadata extraction"""
-        
         matches = []
+        attempted_patterns = set()  # Track all patterns that were attempted
         
-        for extension in extensions:
-            for file_path in target_path.rglob(extension):
+        for ext in extensions:
+            files = target_path.rglob(f"*{ext}")
+            for file_path in files:
                 if file_path.is_file():
                     try:
-                        content = file_path.read_text(encoding='utf-8', errors='ignore')
-                        lines = content.split('\n')
-                        
-                        # Get file metadata
-                        file_stats = file_path.stat()
-                        relative_path = str(file_path.relative_to(target_path))
-                        
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            lines = f.readlines()
+                            
                         for line_num, line in enumerate(lines, 1):
                             for pattern in patterns:
+                                attempted_patterns.add(pattern)  # Record that this pattern was tried
                                 match_obj = re.search(pattern, line, re.IGNORECASE)
                                 if match_obj:
                                     # Extract surrounding context (3 lines before and after)
@@ -312,35 +310,24 @@ class BaseGateValidator(ABC):
                                     # Determine severity based on pattern type
                                     severity = self._determine_pattern_severity(pattern, matched_text)
                                     
-                                    # Create comprehensive match metadata
                                     match_data = {
-                                        # File Information
-                                        'file': str(file_path),
-                                        'relative_path': relative_path,
-                                        'file_name': file_path.name,
-                                        'file_extension': file_path.suffix,
-                                        'file_size': file_stats.st_size,
-                                        'file_modified': file_stats.st_mtime,
-                                        
-                                        # Pattern Match Information
+                                        # Core Match Information
+                                        'file_path': str(file_path.relative_to(target_path)),
                                         'line_number': line_num,
-                                        'column_start': match_start,
-                                        'column_end': match_end,
-                                        'matched_text': matched_text,
-                                        'full_line': line.strip(),
                                         'pattern': pattern,
-                                        'pattern_type': self._classify_pattern_type(pattern),
+                                        'matched_text': matched_text.strip(),
+                                        'match_start': match_start,
+                                        'match_end': match_end,
+                                        'full_line': line.strip(),
                                         
-                                        # Code Context
-                                        'context_lines': context_lines,
-                                        'context_start_line': context_start + 1,
-                                        'context_end_line': context_end,
+                                        # Context Information
+                                        'context': [line.strip() for line in context_lines],
                                         'function_context': function_context,
                                         
-                                        # Analysis Information
+                                        # Classification
                                         'severity': severity,
-                                        'category': self._categorize_match(pattern, matched_text),
                                         'language': self.language.value,
+                                        'file_extension': file_path.suffix,
                                         'gate_type': self.__class__.__name__.replace('Validator', ''),
                                         
                                         # Additional Metadata
@@ -361,6 +348,39 @@ class BaseGateValidator(ABC):
                         # Log the error but continue processing
                         print(f"⚠️ Error processing file {file_path}: {e}")
                         continue
+        
+        # Add patterns that were attempted but found no matches
+        successful_patterns = set(match['pattern'] for match in matches)
+        failed_patterns = attempted_patterns - successful_patterns
+        
+        # Record patterns that didn't find matches for better debugging
+        for failed_pattern in failed_patterns:
+            pattern_attempt_record = {
+                'file_path': 'N/A - No matches found',
+                'line_number': 0,
+                'pattern': failed_pattern,
+                'matched_text': '',
+                'match_start': 0,
+                'match_end': 0,
+                'full_line': '',
+                'context': [],
+                'function_context': '',
+                'severity': 'info',
+                'language': self.language.value,
+                'file_extension': '',
+                'gate_type': self.__class__.__name__.replace('Validator', ''),
+                'line_length': 0,
+                'indentation_level': 0,
+                'is_comment': False,
+                'is_string_literal': False,
+                'suggested_fix': f'Implement patterns matching: {failed_pattern}',
+                'documentation_link': self._get_documentation_link(failed_pattern),
+                'priority': 'medium',
+                'status': 'pattern_not_found',  # Special status for unsuccessful patterns
+                'files_searched': len([f for ext in extensions for f in target_path.rglob(f"*{ext}") if f.is_file()]),
+                'total_lines_searched': 'N/A'  # Simplified to avoid complex calculation
+            }
+            matches.append(pattern_attempt_record)
         
         return matches
     
