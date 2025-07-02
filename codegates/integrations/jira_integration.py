@@ -184,6 +184,111 @@ class JiraIntegration:
                 'error': str(e)
             }
     
+    def _get_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers for JIRA API requests"""
+        try:
+            # For enterprise JIRA with API token
+            if self.api_token and not ':' in self.api_token:
+                # Try PAT format first
+                headers = {
+                    'Authorization': f'Bearer {self.api_token}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+                
+                # Add additional headers for enterprise JIRA
+                headers['X-Atlassian-Token'] = 'nocheck'
+                
+                return headers
+            
+            # For cloud JIRA with Basic auth
+            else:
+                auth_string = f"{self.username}:{self.api_token}"
+                auth_bytes = auth_string.encode('ascii')
+                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                return {
+                    'Authorization': f'Basic {auth_b64}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+        except Exception as e:
+            print(f"⚠️ Error creating auth headers: {str(e)}")
+            return {}
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Test JIRA connection and authentication"""
+        
+        if not self.enabled:
+            return {
+                'success': False,
+                'message': 'JIRA integration is not enabled'
+            }
+        
+        try:
+            url = f"{self.jira_url}/rest/api/2/myself"
+            headers = self._get_auth_headers()
+            
+            # Print debug info
+            print(f"🔍 Testing JIRA connection to: {url}")
+            print(f"🔑 Using auth type: {'Bearer' if 'Bearer' in headers.get('Authorization', '') else 'Basic'}")
+            
+            # Disable SSL verification
+            response = requests.get(url, headers=headers, timeout=10, verify=False)
+            
+            # Print response info for debugging
+            print(f"📡 JIRA Response: {response.status_code}")
+            if response.status_code != 200:
+                print(f"❌ Error response: {response.text}")
+            
+            if response.status_code == 200:
+                user_info = response.json()
+                return {
+                    'success': True,
+                    'message': f'Successfully connected to JIRA as {user_info.get("displayName", "unknown")}',
+                    'user': user_info.get('displayName'),
+                    'email': user_info.get('emailAddress')
+                }
+            elif response.status_code == 401:
+                return {
+                    'success': False,
+                    'message': 'Authentication failed. Please check your API token and username.',
+                    'error': response.text
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f'JIRA connection failed: {response.status_code} - {response.text}'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'JIRA connection error: {str(e)}'
+            }
+
+    def _post_comment_to_jira(self, issue_key: str, comment_content: str) -> Dict[str, Any]:
+        """Post comment to JIRA issue using REST API"""
+        
+        url = f"{self.jira_url}/rest/api/2/issue/{issue_key}/comment"
+        headers = self._get_auth_headers()
+        
+        payload = {
+            'body': comment_content
+        }
+        
+        # Add custom fields if configured
+        if self.custom_fields:
+            payload.update(self.custom_fields)
+        
+        # Disable SSL verification
+        response = requests.post(url, headers=headers, json=payload, timeout=30, verify=False)
+        
+        if response.status_code in [200, 201]:
+            return response.json()
+        else:
+            error_msg = f"JIRA API error: {response.status_code} - {response.text}"
+            raise Exception(error_msg)
+
     def _attach_file_to_jira(self, issue_key: str, file_path: str) -> List[Dict[str, Any]]:
         """
         Attach a file to a JIRA issue using REST API
@@ -197,17 +302,10 @@ class JiraIntegration:
         """
         
         url = f"{self.jira_url}/rest/api/3/issue/{issue_key}/attachments"
+        headers = self._get_auth_headers()
         
-        # Create authentication header
-        auth_string = f"{self.username}:{self.api_token}"
-        auth_bytes = auth_string.encode('ascii')
-        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-        
-        headers = {
-            'Authorization': f'Basic {auth_b64}',
-            'X-Atlassian-Token': 'no-check',  # Required for file uploads
-            'Accept': 'application/json'
-        }
+        # Add required header for file uploads
+        headers['X-Atlassian-Token'] = 'no-check'
         
         # Prepare file for upload
         file_name = os.path.basename(file_path)
@@ -397,81 +495,4 @@ class JiraIntegration:
             "FAILED": "❌",
             "NOT_APPLICABLE": "🚫"
         }
-        return emoji_map.get(status, "❓")
-    
-    def _post_comment_to_jira(self, issue_key: str, comment_content: str) -> Dict[str, Any]:
-        """Post comment to JIRA issue using REST API"""
-        
-        url = f"{self.jira_url}/rest/api/2/issue/{issue_key}/comment"
-        
-        # Create authentication header
-        auth_string = f"{self.username}:{self.api_token}"
-        auth_bytes = auth_string.encode('ascii')
-        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-        
-        headers = {
-            'Authorization': f'Basic {auth_b64}',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        
-        payload = {
-            'body': comment_content
-        }
-        
-        # Add custom fields if configured
-        if self.custom_fields:
-            payload.update(self.custom_fields)
-        
-        # Disable SSL verification
-        response = requests.post(url, headers=headers, json=payload, timeout=30, verify=False)
-        
-        if response.status_code in [200, 201]:
-            return response.json()
-        else:
-            error_msg = f"JIRA API error: {response.status_code} - {response.text}"
-            raise Exception(error_msg)
-    
-    def test_connection(self) -> Dict[str, Any]:
-        """Test JIRA connection and authentication"""
-        
-        if not self.enabled:
-            return {
-                'success': False,
-                'message': 'JIRA integration is not enabled'
-            }
-        
-        try:
-            url = f"{self.jira_url}/rest/api/2/myself"
-            
-            auth_string = f"{self.username}:{self.api_token}"
-            auth_bytes = auth_string.encode('ascii')
-            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-            
-            headers = {
-                'Authorization': f'Basic {auth_b64}',
-                'Accept': 'application/json'
-            }
-            
-            # Disable SSL verification
-            response = requests.get(url, headers=headers, timeout=10, verify=False)
-            
-            if response.status_code == 200:
-                user_info = response.json()
-                return {
-                    'success': True,
-                    'message': f'Successfully connected to JIRA as {user_info.get("displayName", "unknown")}',
-                    'user': user_info.get('displayName'),
-                    'email': user_info.get('emailAddress')
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': f'JIRA connection failed: {response.status_code} - {response.text}'
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'JIRA connection error: {str(e)}'
-            } 
+        return emoji_map.get(status, "❓") 
