@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from urllib.parse import urlparse
 
 from .models import ValidationResult, ReportConfig
 
@@ -16,8 +17,38 @@ class SharedReportGenerator:
     """Shared report generation logic used by both VS Code extension and HTML generator"""
     
     @staticmethod
+    def get_clean_repository_name(url: str) -> str:
+        """Extract clean repository name from URL"""
+        try:
+            # Handle various URL formats
+            parsed_url = urlparse(url)
+            
+            # Get path without .git suffix
+            path = parsed_url.path.rstrip('/')
+            if path.endswith('.git'):
+                path = path[:-4]
+                
+            # Split path and get last component
+            parts = [p for p in path.split('/') if p]
+            if not parts:
+                return 'Repository Scan Results'
+                
+            # For owner/repo format, use both
+            if len(parts) >= 2:
+                return f"{parts[-2]}/{parts[-1]}"
+            
+            # Otherwise just use the last part
+            return parts[-1]
+            
+        except Exception:
+            return 'Repository Scan Results'
+
+    @staticmethod
     def transform_result_to_extension_format(result: ValidationResult, report_mode: str = "summary") -> Dict[str, Any]:
         """Transform ValidationResult to extension format"""
+        
+        # Get clean repository name
+        repo_name = SharedReportGenerator.get_clean_repository_name(result.project_path)
         
         # Basic metadata
         transformed = {
@@ -26,8 +57,9 @@ class SharedReportGenerator:
                 "total_files": result.total_files,
                 "total_lines": result.total_lines,
                 "timestamp": result.timestamp.isoformat(),
-                "project_name": result.project_name,
-                "project_path": result.project_path
+                "project_name": repo_name,  # Use clean repository name
+                "project_path": result.project_path,
+                "repository_url": getattr(result, 'repository_url', None)  # Add repository URL if available
             },
             "languages_detected": [result.language],  # Add detected languages
             "gates": [],
