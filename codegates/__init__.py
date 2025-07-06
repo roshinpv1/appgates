@@ -1,10 +1,8 @@
 """
-CodeGates Hard Gate Validation System
-
-A comprehensive tool for validating hard gates in software development projects.
+CodeGates - A code quality gate validation framework
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 
 # Core components
 from .models import Language, GateType, ScanConfig, ValidationResult, GateScore

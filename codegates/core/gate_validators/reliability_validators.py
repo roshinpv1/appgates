@@ -1,69 +1,86 @@
 """
-Reliability Gate Validators - Validators for reliability-related hard gates
+Reliability Gate Validators - Validators for reliability-related quality gates
 """
 
 import re
 from pathlib import Path
 from typing import List, Dict, Any
 
-from ...models import Language, FileAnalysis
+from ...models import Language, FileAnalysis, GateType
 from .base import BaseGateValidator, GateValidationResult
 
 
 class RetryLogicValidator(BaseGateValidator):
     """Validates retry mechanisms implementation"""
     
-    def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
+    def __init__(self, language: Language, gate_type: GateType = GateType.RETRY_LOGIC):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
+    def validate(self, target_path: Path, 
+                file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate retry logic implementation"""
         
-        # Detect technologies first
-        detected_technologies = self._detect_technologies(target_path, file_analyses)
+        # Get all patterns from loaded configuration
+        all_patterns = []
+        for category_patterns in self.patterns.values():
+            if isinstance(category_patterns, list):
+                all_patterns.extend(category_patterns)
         
-        # Estimate expected count
-        expected = self._estimate_expected_count(file_analyses)
+        if not all_patterns:
+            # Fallback to hardcoded patterns
+            all_patterns = self._get_hardcoded_patterns().get('retry_patterns', [])
         
-        # Search for retry patterns
-        extensions = self._get_file_extensions()
-        patterns = self.patterns.get('retry_patterns', [])
+        # Search for patterns
+        matches = self._search_files_for_patterns(
+            target_path, 
+            self._get_file_extensions(), 
+            all_patterns
+        )
         
-        matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
         
-        # Calculate quality score
-        quality_score = self._calculate_quality_score(matches, expected)
+        # Filter out pattern attempts and count only actual matches
+        actual_matches = self._filter_actual_matches(matches)
+        
+        # Calculate expected count based on non-test files
+        non_test_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
+        expected = self._estimate_expected_count(non_test_files)
+        
+        # Calculate quality score based on actual matches
+        quality_score = self._calculate_quality_score(actual_matches, expected)
         
         # Generate details and recommendations
-        details = self._generate_details(matches, detected_technologies)
-        recommendations = self._generate_recommendations_from_matches(matches, expected)
+        details = self._generate_details(actual_matches)
+        recommendations = self._generate_recommendations_from_matches(actual_matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=found,
+            found=len(actual_matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            technologies=detected_technologies,
-            matches=matches
+            matches=matches  # Keep all matches for debugging
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
-        """Get retry logic patterns for each language"""
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
+        """Get hardcoded retry logic patterns for each language as fallback"""
         
         if self.language == Language.PYTHON:
             return {
                 'retry_patterns': [
                     r'@retry\s*\(',
-                    r'@backoff\.',
+                    r'retrying\.',
+                    r'tenacity\.',
                     r'for\s+attempt\s+in\s+range\s*\(',
                     r'while\s+retries\s*<',
                     r'time\.sleep\s*\(',
-                    r'retrying\.',
-                    r'tenacity\.',
-                    r'retry_count\s*=',
+                    r'random\.uniform\s*\(',
+                    r'backoff\.',
                     r'max_retries\s*=',
-                    r'exponential_backoff',
-                    r'requests\.adapters\.HTTPAdapter.*retry',
-                    r'urllib3\.util\.retry\.Retry',
+                    r'retry_count\s*=',
+                    r'exponential.*backoff',
                 ]
             }
         elif self.language == Language.JAVA:
@@ -71,16 +88,15 @@ class RetryLogicValidator(BaseGateValidator):
                 'retry_patterns': [
                     r'@Retryable',
                     r'@Retry',
-                    r'RetryTemplate',
-                    r'Retryer\.newBuilder\(\)',
+                    r'Resilience4j.*Retry',
                     r'for\s*\(\s*int\s+retries\s*=',
                     r'while\s*\(\s*retries\s*<',
                     r'Thread\.sleep\s*\(',
                     r'TimeUnit\.\w+\.sleep\s*\(',
+                    r'RetryPolicy',
                     r'maxRetries\s*=',
                     r'retryCount\s*=',
                     r'exponentialBackoff',
-                    r'RetryPolicy',
                 ]
             }
         elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
@@ -126,18 +142,23 @@ class RetryLogicValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected retry logic instances"""
         
-        # Look for files that likely make external calls
+        # Look for files that likely make external calls, excluding test files
         external_files = len([f for f in lang_files 
                             if any(keyword in f.file_path.lower() 
                                   for keyword in ['client', 'service', 'api', 'http', 'rest', 
-                                                 'repository', 'dao', 'connector'])])
+                                                 'repository', 'dao', 'connector'])
+                            and not self._is_test_file(f.file_path)])  # Exclude test files
         
-        # Estimate 1-2 retry mechanisms per external service file
-        return max(external_files * 2, file_count // 3)
+        # Estimate retry mechanisms needed:
+        # - At least 1 retry mechanism per external service file
+        # - Additional mechanisms based on LOC (1 per 200 LOC in external files)
+        base_mechanisms = external_files
+        loc_based_mechanisms = sum(f.lines_of_code for f in lang_files) // 200
+        
+        return max(base_mechanisms + loc_based_mechanisms, 3)  # At least 3 retry mechanisms minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess retry logic quality"""
@@ -161,6 +182,33 @@ class RetryLogicValidator(BaseGateValidator):
         
         if backoff_matches > 0:
             quality_scores['backoff_strategy'] = min(backoff_matches * 3, 10)
+        
+        # Check for retry configuration
+        config_patterns = ['max_retries', 'retry_count', 'retry_limit']
+        config_matches = len([match for match in matches 
+                            if any(pattern in match.get('matched_text', match.get('match', '')).lower() 
+                                  for pattern in config_patterns)])
+        
+        if config_matches > 0:
+            quality_scores['retry_config'] = min(config_matches * 3, 10)
+        
+        # Check for error handling in retry logic
+        error_patterns = ['catch', 'exception', 'error', 'failure']
+        error_matches = len([match for match in matches 
+                           if any(pattern in match.get('matched_text', match.get('match', '')).lower() 
+                                 for pattern in error_patterns)])
+        
+        if error_matches > 0:
+            quality_scores['error_handling'] = min(error_matches * 3, 10)
+        
+        # Check for retry logging
+        log_patterns = ['log', 'trace', 'debug', 'info']
+        log_matches = len([match for match in matches 
+                         if any(pattern in match.get('matched_text', match.get('match', '')).lower() 
+                               for pattern in log_patterns)])
+        
+        if log_matches > 0:
+            quality_scores['retry_logging'] = min(log_matches * 3, 10)
         
         return quality_scores
     
@@ -195,26 +243,59 @@ class RetryLogicValidator(BaseGateValidator):
             "Configure proper timeout and circuit breaker integration"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
-        """Generate retry logic details"""
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
+        """Generate retry implementation details"""
         
         if not matches:
-            return ["No retry logic patterns found"]
+            return [
+                "No retry logic implementations found",
+                "Consider implementing retry mechanisms for external service calls"
+            ]
         
-        details = [f"Found {len(matches)} retry logic implementations"]
+        details = []
         
-        # Check for different retry types
-        retry_types = []
-        if any('decorator' in match.get('matched_text', match.get('match', '')).lower() or '@' in match.get('matched_text', match.get('match', '')) for match in matches):
-            retry_types.append('Decorator-based')
-        if any('loop' in match.get('matched_text', match.get('match', '')).lower() or 'for' in match.get('matched_text', match.get('match', '')) for match in matches):
-            retry_types.append('Loop-based')
-        if any('library' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            retry_types.append('Library-based')
+        # Basic count information
+        found_count = len(matches)
+        details.append(f"Found {found_count} retry logic implementations")
         
-        if retry_types:
-            details.append(f"Retry types found: {', '.join(retry_types)}")
+        # Implementation types
+        impl_types = {
+            'Decorator-based': ['@retry', '@retryable'],
+            'Manual retry': ['for', 'while', 'attempt'],
+            'Library-based': ['tenacity', 'polly', 'resilience4j', 'retry-axios']
+        }
+        
+        type_counts = {}
+        for match in matches:
+            match_text = match.get('matched_text', match.get('match', '')).lower()
+            for impl_type, patterns in impl_types.items():
+                if any(pattern in match_text for pattern in patterns):
+                    type_counts[impl_type] = type_counts.get(impl_type, 0) + 1
+        
+        if type_counts:
+            details.append("\nImplementation types:")
+            for impl_type, count in sorted(type_counts.items()):
+                details.append(f"  - {impl_type}: {count}")
+        
+        # Backoff strategies
+        backoff_types = {
+            'Exponential': ['exponential', 'exp_backoff'],
+            'Linear': ['linear', 'fixed_delay'],
+            'Random': ['random', 'jitter'],
+            'Custom': ['custom_backoff', 'strategy']
+        }
+        
+        backoff_counts = {}
+        for match in matches:
+            match_text = match.get('matched_text', match.get('match', '')).lower()
+            for backoff_type, patterns in backoff_types.items():
+                if any(pattern in match_text for pattern in patterns):
+                    backoff_counts[backoff_type] = backoff_counts.get(backoff_type, 0) + 1
+        
+        if backoff_counts:
+            details.append("\nBackoff strategies:")
+            for backoff_type, count in sorted(backoff_counts.items()):
+                details.append(f"  - {backoff_type}: {count}")
         
         return details
     
@@ -233,40 +314,54 @@ class RetryLogicValidator(BaseGateValidator):
 class TimeoutsValidator(BaseGateValidator):
     """Validates timeout configuration"""
     
+    def __init__(self, language: Language, gate_type: GateType = GateType.TIMEOUTS):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate timeout implementation"""
         
-        # Detect technologies first
-        detected_technologies = self._detect_technologies(target_path, file_analyses)
+        # Get all patterns from loaded configuration
+        all_patterns = []
+        for category_patterns in self.patterns.values():
+            if isinstance(category_patterns, list):
+                all_patterns.extend(category_patterns)
         
-        # Estimate expected count
-        expected = self._estimate_expected_count(file_analyses)
+        if not all_patterns:
+            # Fallback to hardcoded patterns
+            all_patterns = self._get_hardcoded_patterns().get('timeout_patterns', [])
         
-        # Search for timeout patterns
-        extensions = self._get_file_extensions()
-        patterns = self.patterns.get('timeout_patterns', [])
+        # Search for patterns
+        matches = self._search_files_for_patterns(
+            target_path, 
+            self._get_file_extensions(), 
+            all_patterns
+        )
         
-        matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Calculate expected count based on non-test files
+        non_test_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
+        expected = self._estimate_expected_count(non_test_files)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
         
         # Generate details and recommendations
-        details = self._generate_details(matches, detected_technologies)
+        details = self._generate_details(matches)
         recommendations = self._generate_recommendations_from_matches(matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=found,
+            found=len(matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            technologies=detected_technologies,
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get timeout patterns for each language"""
         
         if self.language == Language.PYTHON:
@@ -340,18 +435,23 @@ class TimeoutsValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected timeout instances"""
         
-        # Look for files that likely make I/O operations
-        io_files = len([f for f in lang_files 
-                       if any(keyword in f.file_path.lower() 
-                             for keyword in ['client', 'service', 'api', 'http', 'rest', 
-                                           'repository', 'dao', 'connector', 'network'])])
+        # Look for files that likely need timeouts, excluding test files
+        timeout_files = len([f for f in lang_files 
+                           if any(keyword in f.file_path.lower() 
+                                 for keyword in ['client', 'service', 'api', 'http', 'rest', 
+                                               'repository', 'dao', 'connector', 'network'])
+                           and not self._is_test_file(f.file_path)])  # Exclude test files
         
-        # Estimate 1-2 timeout configurations per I/O file
-        return max(io_files * 2, file_count // 4)
+        # Estimate timeout mechanisms needed:
+        # - At least 1 timeout per external service file
+        # - Additional timeouts based on LOC (1 per 200 LOC in service files)
+        base_timeouts = timeout_files
+        loc_based_timeouts = sum(f.lines_of_code for f in lang_files) // 200
+        
+        return max(base_timeouts + loc_based_timeouts, 3)  # At least 3 timeout mechanisms minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess timeout implementation quality"""
@@ -409,22 +509,34 @@ class TimeoutsValidator(BaseGateValidator):
             "Set up timeout monitoring and dashboards"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate timeout details"""
         
-        if not matches:
-            return ["No timeout patterns found"]
+        # Filter out non-matching patterns - only show actual matches
+        actual_matches = []
+        for match in matches:
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            
+            # Only include actual matches (not pattern attempts)
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0):
+                actual_matches.append(match)
         
-        details = [f"Found {len(matches)} timeout configurations"]
+        if not actual_matches:
+            return ["No timeout implementations found"]
+        
+        details = [f"Found {len(actual_matches)} timeout implementations"]
         
         # Check for different timeout types
         timeout_types = []
-        if any('connect' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('connect' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             timeout_types.append('Connection')
-        if any('read' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('read' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             timeout_types.append('Read')
-        if any('request' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('request' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             timeout_types.append('Request')
         
         if timeout_types:
@@ -447,40 +559,54 @@ class TimeoutsValidator(BaseGateValidator):
 class ThrottlingValidator(BaseGateValidator):
     """Validates throttling/rate limiting"""
     
+    def __init__(self, language: Language, gate_type: GateType = GateType.THROTTLING):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate throttling implementation"""
         
-        # Detect technologies first
-        detected_technologies = self._detect_technologies(target_path, file_analyses)
+        # Get all patterns from loaded configuration
+        all_patterns = []
+        for category_patterns in self.patterns.values():
+            if isinstance(category_patterns, list):
+                all_patterns.extend(category_patterns)
         
-        # Estimate expected count
-        expected = self._estimate_expected_count(file_analyses)
+        if not all_patterns:
+            # Fallback to hardcoded patterns
+            all_patterns = self._get_hardcoded_patterns().get('throttling_patterns', [])
         
-        # Search for throttling patterns
-        extensions = self._get_file_extensions()
-        patterns = self.patterns.get('throttling_patterns', [])
+        # Search for patterns
+        matches = self._search_files_for_patterns(
+            target_path, 
+            self._get_file_extensions(), 
+            all_patterns
+        )
         
-        matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Calculate expected count based on non-test files
+        non_test_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
+        expected = self._estimate_expected_count(non_test_files)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
         
         # Generate details and recommendations
-        details = self._generate_details(matches, detected_technologies)
+        details = self._generate_details(matches)
         recommendations = self._generate_recommendations_from_matches(matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=found,
+            found=len(matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            technologies=detected_technologies,
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get throttling patterns for each language"""
         
         if self.language == Language.PYTHON:
@@ -554,18 +680,23 @@ class ThrottlingValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected throttling instances"""
         
-        # Look for API/web files that would need rate limiting
+        # Look for files that likely need throttling, excluding test files
         api_files = len([f for f in lang_files 
                         if any(keyword in f.file_path.lower() 
-                              for keyword in ['controller', 'handler', 'router', 'api', 
-                                             'endpoint', 'resource', 'middleware'])])
+                              for keyword in ['api', 'controller', 'endpoint', 'route', 
+                                            'service', 'handler', 'resource'])
+                        and not self._is_test_file(f.file_path)])  # Exclude test files
         
-        # Estimate 1 throttling mechanism per 3 API endpoints
-        return max(api_files // 3, 1)
+        # Estimate throttling mechanisms needed:
+        # - At least 1 throttle per API endpoint file
+        # - Additional throttles based on LOC (1 per 300 LOC in API files)
+        base_throttles = api_files
+        loc_based_throttles = sum(f.lines_of_code for f in lang_files) // 300
+        
+        return max(base_throttles + loc_based_throttles, 2)  # At least 2 throttling mechanisms minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess throttling implementation quality"""
@@ -623,22 +754,34 @@ class ThrottlingValidator(BaseGateValidator):
             "Configure proper rate limit headers in responses"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate throttling details"""
         
-        if not matches:
-            return ["No throttling patterns found"]
+        # Filter out non-matching patterns - only show actual matches
+        actual_matches = []
+        for match in matches:
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            
+            # Only include actual matches (not pattern attempts)
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0):
+                actual_matches.append(match)
         
-        details = [f"Found {len(matches)} throttling implementations"]
+        if not actual_matches:
+            return ["No throttling implementations found"]
+        
+        details = [f"Found {len(actual_matches)} throttling implementations"]
         
         # Check for different throttling approaches
         throttling_types = []
-        if any('@' in match.get('matched_text', match.get('match', '')) for match in matches):
+        if any('@' in match.get('matched_text', match.get('match', '')) for match in actual_matches):
             throttling_types.append('Decorator-based')
-        if any('middleware' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('middleware' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             throttling_types.append('Middleware-based')
-        if any('library' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('library' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             throttling_types.append('Library-based')
         
         if throttling_types:
@@ -661,40 +804,54 @@ class ThrottlingValidator(BaseGateValidator):
 class CircuitBreakerValidator(BaseGateValidator):
     """Validates circuit breaker pattern"""
     
+    def __init__(self, language: Language, gate_type: GateType = GateType.CIRCUIT_BREAKERS):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate circuit breaker implementation"""
         
-        # Detect technologies first
-        detected_technologies = self._detect_technologies(target_path, file_analyses)
+        # Get all patterns from loaded configuration
+        all_patterns = []
+        for category_patterns in self.patterns.values():
+            if isinstance(category_patterns, list):
+                all_patterns.extend(category_patterns)
         
-        # Estimate expected count
-        expected = self._estimate_expected_count(file_analyses)
+        if not all_patterns:
+            # Fallback to hardcoded patterns
+            all_patterns = self._get_hardcoded_patterns().get('circuit_breaker_patterns', [])
         
-        # Search for circuit breaker patterns
-        extensions = self._get_file_extensions()
-        patterns = self.patterns.get('circuit_breaker_patterns', [])
+        # Search for patterns
+        matches = self._search_files_for_patterns(
+            target_path, 
+            self._get_file_extensions(), 
+            all_patterns
+        )
         
-        matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Calculate expected count based on non-test files
+        non_test_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
+        expected = self._estimate_expected_count(non_test_files)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
         
         # Generate details and recommendations
-        details = self._generate_details(matches, detected_technologies)
+        details = self._generate_details(matches)
         recommendations = self._generate_recommendations_from_matches(matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=found,
+            found=len(matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            technologies=detected_technologies,
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get circuit breaker patterns for each language"""
         
         if self.language == Language.PYTHON:
@@ -768,18 +925,23 @@ class CircuitBreakerValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected circuit breaker instances"""
         
-        # Look for files that make external service calls
+        # Look for files that likely need circuit breakers, excluding test files
         service_files = len([f for f in lang_files 
                            if any(keyword in f.file_path.lower() 
-                                 for keyword in ['client', 'service', 'api', 'connector', 
-                                               'integration', 'external', 'remote'])])
+                                 for keyword in ['client', 'service', 'api', 'http', 'rest', 
+                                               'repository', 'dao', 'connector', 'gateway'])
+                           and not self._is_test_file(f.file_path)])  # Exclude test files
         
-        # Estimate 1 circuit breaker per 2 external service integrations
-        return max(service_files // 2, 1)
+        # Estimate circuit breakers needed:
+        # - At least 1 circuit breaker per external service file
+        # - Additional breakers based on LOC (1 per 400 LOC in service files)
+        base_breakers = service_files
+        loc_based_breakers = sum(f.lines_of_code for f in lang_files) // 400
+        
+        return max(base_breakers + loc_based_breakers, 2)  # At least 2 circuit breakers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess circuit breaker implementation quality"""
@@ -837,24 +999,36 @@ class CircuitBreakerValidator(BaseGateValidator):
             "Implement circuit breaker state persistence for restarts"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate circuit breaker details"""
         
-        if not matches:
-            return ["No circuit breaker patterns found"]
+        # Filter out non-matching patterns - only show actual matches
+        actual_matches = []
+        for match in matches:
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            
+            # Only include actual matches (not pattern attempts)
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0):
+                actual_matches.append(match)
         
-        details = [f"Found {len(matches)} circuit breaker implementations"]
+        if not actual_matches:
+            return ["No circuit breaker implementations found"]
+        
+        details = [f"Found {len(actual_matches)} circuit breaker implementations"]
         
         # Check for different circuit breaker libraries
         libraries = []
-        if any('resilience4j' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('resilience4j' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             libraries.append('Resilience4j')
-        if any('hystrix' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('hystrix' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             libraries.append('Hystrix')
-        if any('polly' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('polly' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             libraries.append('Polly')
-        if any('opossum' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+        if any('opossum' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             libraries.append('Opossum')
         
         if libraries:

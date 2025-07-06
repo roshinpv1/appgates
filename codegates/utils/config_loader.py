@@ -133,8 +133,8 @@ class ConfigLoader:
             'api_download_timeout': self.get_int('CODEGATES_API_DOWNLOAD_TIMEOUT', 120),  # 2 minutes
             
             # Analysis operations
-            'analysis_timeout': self.get_int('CODEGATES_ANALYSIS_TIMEOUT', 180),  # 3 minutes
-            'llm_request_timeout': self.get_int('CODEGATES_LLM_REQUEST_TIMEOUT', 30),  # 30 seconds
+            'analysis_timeout': self.get_int('CODEGATES_ANALYSIS_TIMEOUT', 1800),  # 3 minutes
+            'llm_request_timeout': self.get_int('CODEGATES_LLM_REQUEST_TIMEOUT', 300),  # 30 seconds
             
             # HTTP operations
             'http_request_timeout': self.get_int('CODEGATES_HTTP_REQUEST_TIMEOUT', 10),  # 10 seconds

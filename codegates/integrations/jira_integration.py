@@ -53,7 +53,7 @@ class JiraIntegration:
             self.include_recommendations = config.get('include_recommendations', self.include_recommendations)
             self.attach_html_report = config.get('attach_html_report', self.attach_html_report)
             self.custom_fields = config.get('custom_fields', {})
-        
+            
         # Check if we have required configuration
         self.enabled = bool(self.jira_url and self.username and self.api_token)
     
@@ -495,4 +495,4 @@ class JiraIntegration:
             "FAILED": "❌",
             "NOT_APPLICABLE": "🚫"
         }
-        return emoji_map.get(status, "❓") 
+        return emoji_map.get(status, "❓")

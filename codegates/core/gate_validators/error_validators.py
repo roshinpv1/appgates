@@ -1,53 +1,68 @@
 """
-Error Handling Gate Validators - Validators for error-related hard gates
+Error Gate Validators - Validators for error handling quality gates
 """
 
-import re
 from pathlib import Path
 from typing import List, Dict, Any
+import re
 
-from ...models import Language, FileAnalysis
 from .base import BaseGateValidator, GateValidationResult
+from ...models import Language, FileAnalysis, GateType
 
 
 class ErrorLogsValidator(BaseGateValidator):
     """Validates error logging and exception handling"""
     
-    def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
+    def __init__(self, language: Language, gate_type: GateType = GateType.ERROR_LOGS):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
+    def validate(self, target_path: Path, 
+                file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate error logging implementation"""
         
-        # Detect technologies first
-        detected_technologies = self._detect_technologies(target_path, file_analyses)
+        # Get all patterns from loaded configuration
+        all_patterns = []
+        for category_patterns in self.patterns.values():
+            if isinstance(category_patterns, list):
+                all_patterns.extend(category_patterns)
         
-        # Estimate expected count
-        expected = self._estimate_expected_count(file_analyses)
+        if not all_patterns:
+            # Fallback to hardcoded patterns
+            all_patterns = self._get_hardcoded_patterns().get('error_patterns', [])
         
-        # Search for error logging patterns
-        extensions = self._get_file_extensions()
-        patterns = self.patterns.get('error_patterns', [])
+        # Search for patterns
+        matches = self._search_files_for_patterns(
+            target_path, 
+            self._get_file_extensions(), 
+            all_patterns
+        )
         
-        matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Estimate expected count based on non-test files
+        non_test_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
+        expected = self._estimate_expected_count(non_test_files)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
         
         # Generate details and recommendations
-        details = self._generate_details(matches, detected_technologies)
+        details = self._generate_details(matches)
         recommendations = self._generate_recommendations_from_matches(matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=found,
+            found=len(matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            technologies=detected_technologies,
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
-        """Get error logging patterns for each language"""
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
+        """Get hardcoded error logging patterns for each language as fallback"""
         
         if self.language == Language.PYTHON:
             return {
@@ -119,18 +134,18 @@ class ErrorLogsValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected error logging instances"""
         
-        # Look for files that likely contain business logic
+        # Look for files that likely contain business logic, excluding test files
         business_files = len([f for f in lang_files 
                             if any(keyword in f.file_path.lower() 
                                   for keyword in ['service', 'controller', 'handler', 'manager', 
-                                                 'repository', 'dao', 'api', 'web'])])
+                                                 'repository', 'dao', 'api', 'web'])
+                            and not self._is_test_file(f.file_path)])  # Exclude test files
         
         # Estimate 1-2 error handling blocks per business file
-        return max(business_files * 2, file_count // 3)
+        return max(business_files * 2, len(lang_files) // 3)
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess error logging quality"""
@@ -140,7 +155,7 @@ class ErrorLogsValidator(BaseGateValidator):
         # Check for proper exception handling patterns
         exception_patterns = ['exception', 'error', 'catch', 'try']
         exception_matches = len([match for match in matches 
-                               if any(pattern in match['match'].lower() for pattern in exception_patterns)])
+                               if any(pattern in match.get('matched_text', match.get('match', '')).lower() for pattern in exception_patterns)])
         
         if exception_matches > 0:
             quality_scores['exception_handling'] = min(exception_matches * 3, 15)
@@ -148,7 +163,7 @@ class ErrorLogsValidator(BaseGateValidator):
         # Check for stack trace logging
         stack_patterns = ['traceback', 'stacktrace', 'stack_trace', 'tostring']
         stack_matches = len([match for match in matches 
-                           if any(pattern in match['match'].lower() for pattern in stack_patterns)])
+                           if any(pattern in match.get('matched_text', match.get('match', '')).lower() for pattern in stack_patterns)])
         
         if stack_matches > 0:
             quality_scores['stack_traces'] = min(stack_matches * 2, 10)
@@ -156,7 +171,7 @@ class ErrorLogsValidator(BaseGateValidator):
         # Check for structured error logging
         structured_patterns = ['json', 'structured', 'context']
         structured_matches = len([match for match in matches 
-                                if any(pattern in match['match'].lower() for pattern in structured_patterns)])
+                                if any(pattern in match.get('matched_text', match.get('match', '')).lower() for pattern in structured_patterns)])
         
         if structured_matches > 0:
             quality_scores['structured_errors'] = min(structured_matches * 2, 10)
@@ -194,37 +209,64 @@ class ErrorLogsValidator(BaseGateValidator):
             "Set up error alerting for critical exceptions"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate error logging details"""
         
-        if not matches:
-            return ["No error logging patterns found"]
+        # Filter out non-matching patterns - only show actual matches
+        actual_matches = []
+        for match in matches:
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            
+            # Only include actual matches (not pattern attempts)
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0):
+                actual_matches.append(match)
         
-        details = [f"Found {len(matches)} error logging implementations"]
+        if not actual_matches:
+            return ["No error logging implementations found"]
+        
+        details = [f"Found {len(actual_matches)} error logging implementations"]
         
         # Group by file
-        files_with_errors = len(set(match['file'] for match in matches))
+        files_with_errors = len(set(match.get('file_path', match.get('file', 'unknown')) for match in actual_matches))
         details.append(f"Error logging present in {files_with_errors} files")
         
         # Check for different types of error handling
         types = []
-        if any('exception' in match['match'].lower() for match in matches):
+        if any('exception' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             types.append('Exception handling')
-        if any('catch' in match['match'].lower() for match in matches):
+        if any('catch' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             types.append('Try-catch blocks')
-        if any('throw' in match['match'].lower() for match in matches):
+        if any('throw' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
             types.append('Error throwing')
         
         if types:
             details.append(f"Error handling types: {', '.join(types)}")
         
-        # Add technology detection details
-        if detected_technologies:
-            details.append("\n🔧 Detected Technologies:")
-            for category, techs in detected_technologies.items():
-                if techs:
-                    details.append(f"  {category.title()}: {', '.join(techs)}")
+        # Add detailed match information using the standardized method
+        if actual_matches:
+            details.append("")  # Add spacing
+            
+            # Define categories for error logging
+            category_keywords = {
+                'Exception Handling': ['exception', 'catch', 'try', 'except'],
+                'Error Logging': ['logger.error', 'log.error', 'console.error', 'logging.error'],
+                'Stack Traces': ['traceback', 'stacktrace', 'stack_trace', 'tostring', 'printstacktrace'],
+                'Error Throwing': ['throw', 'raise', 'throws'],
+                'Structured Errors': ['json', 'structured', 'context', 'extra'],
+                'Error Handlers': ['errorhandler', 'exceptionhandler', 'controlleradvice', 'errorfilter']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                actual_matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            details.extend(detailed_matches)
         
         return details
     
@@ -242,6 +284,10 @@ class ErrorLogsValidator(BaseGateValidator):
 
 class UiErrorsValidator(BaseGateValidator):
     """Validates UI error handling"""
+    
+    def __init__(self, language: Language, gate_type: GateType = GateType.UI_ERRORS):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
     
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate UI error handling implementation"""
@@ -276,7 +322,7 @@ class UiErrorsValidator(BaseGateValidator):
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get UI error handling patterns"""
         
         if self.language == Language.PYTHON:
@@ -336,17 +382,22 @@ class UiErrorsValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
-        """Calculate expected UI error handling instances"""
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
+        """Calculate expected UI error instances"""
         
-        # Look for UI/web related files
+        # Look for UI files
         ui_files = len([f for f in lang_files 
                        if any(keyword in f.file_path.lower() 
-                             for keyword in ['view', 'template', 'component', 'page', 
-                                            'ui', 'frontend', 'web', 'controller'])])
+                             for keyword in ['component', 'view', 'page', 'screen', 
+                                           'form', 'widget', 'template', 'ui', 'jsx', 'tsx'])])
         
-        return max(ui_files // 2, 1)
+        # Estimate error handling needed:
+        # - At least 1 error handler per UI file
+        # - Additional handlers based on LOC (1 per 200 LOC in UI files)
+        base_handlers = ui_files
+        loc_based_handlers = sum(f.lines_of_code for f in lang_files) // 200
+        
+        return max(base_handlers + loc_based_handlers, 3)  # At least 3 error handlers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess UI error handling quality"""
@@ -356,7 +407,7 @@ class UiErrorsValidator(BaseGateValidator):
         # Check for error boundaries (React/frontend)
         boundary_patterns = ['errorboundary', 'componentdidcatch', 'error.*boundary']
         boundary_matches = len([match for match in matches 
-                              if any(pattern in match['match'].lower() for pattern in boundary_patterns)])
+                              if any(pattern in match.get('matched_text', match.get('match', '')).lower() for pattern in boundary_patterns)])
         
         if boundary_matches > 0:
             quality_scores['error_boundaries'] = min(boundary_matches * 5, 15)
@@ -364,7 +415,7 @@ class UiErrorsValidator(BaseGateValidator):
         # Check for user-friendly error handling
         friendly_patterns = ['user.*friendly', 'message', 'alert', 'notification']
         friendly_matches = len([match for match in matches 
-                              if any(pattern in match['match'].lower() for pattern in friendly_patterns)])
+                              if any(pattern in match.get('matched_text', match.get('match', '')).lower() for pattern in friendly_patterns)])
         
         if friendly_matches > 0:
             quality_scores['user_friendly'] = min(friendly_matches * 3, 10)
@@ -442,6 +493,10 @@ class UiErrorsValidator(BaseGateValidator):
 class HttpCodesValidator(BaseGateValidator):
     """Validates proper HTTP status code usage"""
     
+    def __init__(self, language: Language, gate_type: GateType = GateType.HTTP_CODES):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate HTTP status code implementation"""
         
@@ -475,7 +530,7 @@ class HttpCodesValidator(BaseGateValidator):
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get HTTP status code patterns"""
         
         if self.language == Language.PYTHON:
@@ -534,17 +589,22 @@ class HttpCodesValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
-        """Calculate expected HTTP status code usage"""
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
+        """Calculate expected HTTP error instances"""
         
-        # Look for API/web related files
+        # Look for API/controller files
         api_files = len([f for f in lang_files 
                         if any(keyword in f.file_path.lower() 
                               for keyword in ['controller', 'handler', 'router', 'api', 
-                                             'endpoint', 'resource', 'web'])])
+                                             'endpoint', 'resource'])])
         
-        return max(api_files * 3, 5)  # 3 status codes per API file
+        # Estimate error handling needed:
+        # - At least 2 error handlers per API file (success/error)
+        # - Additional handlers based on LOC (1 per 100 LOC in API files)
+        base_handlers = api_files * 2
+        loc_based_handlers = sum(f.lines_of_code for f in lang_files) // 100
+        
+        return max(base_handlers + loc_based_handlers, 5)  # At least 5 error handlers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess HTTP status code quality"""
@@ -560,7 +620,7 @@ class HttpCodesValidator(BaseGateValidator):
         
         for category, patterns in status_categories.items():
             category_matches = len([match for match in matches 
-                                  if any(re.search(pattern, match['match'].lower()) for pattern in patterns)])
+                                  if any(re.search(pattern, match.get('matched_text', match.get('match', '')).lower()) for pattern in patterns)])
             if category_matches > 0:
                 quality_scores[f'{category}_codes'] = min(category_matches * 2, 10)
         
@@ -611,7 +671,8 @@ class HttpCodesValidator(BaseGateValidator):
         for match in matches:
             # Extract status codes from matches
             import re
-            codes = re.findall(r'\b[2-5]\d{2}\b', match['match'])
+            matched_text = match.get('matched_text', match.get('match', ''))
+            codes = re.findall(r'\b[2-5]\d{2}\b', matched_text)
             status_codes.extend(codes)
         
         if status_codes:
@@ -640,10 +701,14 @@ class HttpCodesValidator(BaseGateValidator):
 
 
 class UiErrorToolsValidator(BaseGateValidator):
-    """Validates UI error monitoring tools like Sentry"""
+    """Validates UI error tracking tools integration"""
+    
+    def __init__(self, language: Language, gate_type: GateType = GateType.UI_ERROR_TOOLS):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
     
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
-        """Validate UI error monitoring tools implementation"""
+        """Validate UI error tracking tools implementation"""
         
         # Detect technologies first
         detected_technologies = self._detect_technologies(target_path, file_analyses)
@@ -651,7 +716,7 @@ class UiErrorToolsValidator(BaseGateValidator):
         # Estimate expected count
         expected = self._estimate_expected_count(file_analyses)
         
-        # Search for error monitoring tool patterns
+        # Search for error tracking patterns
         extensions = self._get_file_extensions()
         patterns = self.patterns.get('error_tool_patterns', [])
         
@@ -675,7 +740,7 @@ class UiErrorToolsValidator(BaseGateValidator):
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get error monitoring tool patterns"""
         
         if self.language == Language.PYTHON:
@@ -740,12 +805,22 @@ class UiErrorToolsValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
-        """Calculate expected error monitoring tool usage"""
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
+        """Calculate expected error tracking instances"""
         
-        # Either you have error monitoring or you don't
-        return 1
+        # Look for UI files
+        ui_files = len([f for f in lang_files 
+                       if any(keyword in f.file_path.lower() 
+                             for keyword in ['component', 'view', 'page', 'screen', 
+                                           'form', 'widget', 'template', 'ui', 'jsx', 'tsx'])])
+        
+        # Estimate error tracking needed:
+        # - At least 1 error tracker per UI file
+        # - Additional trackers based on LOC (1 per 300 LOC in UI files)
+        base_trackers = ui_files
+        loc_based_trackers = sum(f.lines_of_code for f in lang_files) // 300
+        
+        return max(base_trackers + loc_based_trackers, 2)  # At least 2 error trackers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess error monitoring tool quality"""
@@ -762,7 +837,7 @@ class UiErrorToolsValidator(BaseGateValidator):
         
         for tool, patterns in tools.items():
             tool_matches = len([match for match in matches 
-                              if any(pattern in match['match'].lower() for pattern in patterns)])
+                              if any(pattern in match.get('matched_text', match.get('match', '')).lower() for pattern in patterns)])
             if tool_matches > 0:
                 quality_scores[f'{tool}_integration'] = 20  # High value for having monitoring
         
@@ -811,7 +886,7 @@ class UiErrorToolsValidator(BaseGateValidator):
         # Identify specific tools
         tools_found = []
         for match in matches:
-            match_text = match['match'].lower()
+            match_text = match.get('matched_text', match.get('match', '')).lower()
             if 'sentry' in match_text:
                 tools_found.append('Sentry')
             elif 'rollbar' in match_text:

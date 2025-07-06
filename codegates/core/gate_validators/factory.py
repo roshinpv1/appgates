@@ -19,7 +19,8 @@ class GateValidatorFactory:
         
         validator_class = self._validators.get((gate_type, language))
         if validator_class:
-            return validator_class(language)
+            # Pass gate_type to validator constructor for pattern loading
+            return validator_class(language, gate_type)
         
         # Try to get a generic validator for the gate type
         generic_validator = self._get_generic_validator(gate_type, language)
@@ -174,7 +175,8 @@ class GateValidatorFactory:
         for (gt, lang), validator_class in self._validators.items():
             if gt == gate_type:
                 try:
-                    return validator_class(language)
+                    # Pass gate_type to validator constructor for pattern loading
+                    return validator_class(language, gate_type)
                 except Exception:
                     continue
         

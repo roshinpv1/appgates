@@ -1,93 +1,104 @@
 """
-Testing Gate Validators - Validators for testing-related hard gates
+Testing Gate Validators - Validators for testing-related quality gates
 """
 
 import re
 from pathlib import Path
 from typing import List, Dict, Any
 
-from ...models import Language, FileAnalysis
+from ...models import Language, FileAnalysis, GateType
 from .base import BaseGateValidator, GateValidationResult
 
 
 class AutomatedTestsValidator(BaseGateValidator):
     """Validates automated test coverage and quality"""
     
-    def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
+    def __init__(self, language: Language, gate_type: GateType = GateType.AUTOMATED_TESTS):
+        """Initialize with gate type for pattern loading"""
+        super().__init__(language, gate_type)
+    
+    def validate(self, target_path: Path, 
+                file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate automated test implementation"""
         
-        # Detect technologies first
-        detected_technologies = self._detect_technologies(target_path, file_analyses)
+        # Get all patterns from loaded configuration
+        all_patterns = []
+        for category_patterns in self.patterns.values():
+            if isinstance(category_patterns, list):
+                all_patterns.extend(category_patterns)
         
-        # Estimate expected count
-        expected = self._estimate_expected_count(file_analyses)
+        if not all_patterns:
+            # Fallback to hardcoded patterns
+            all_patterns = self._get_hardcoded_patterns().get('test_patterns', [])
         
-        # Search for test patterns
-        extensions = self._get_file_extensions()
-        patterns = self.patterns.get('test_patterns', [])
+        # Search for patterns
+        matches = self._search_files_for_patterns(
+            target_path, 
+            self._get_file_extensions(), 
+            all_patterns
+        )
         
-        matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        # For test gates, we want to include test files
+        # No need to filter them out
+        
+        # Calculate expected count based on source files
+        source_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
+        expected = self._estimate_expected_count(source_files)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
         
         # Generate details and recommendations
-        details = self._generate_details(matches, detected_technologies)
+        details = self._generate_details(matches)
         recommendations = self._generate_recommendations_from_matches(matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=found,
+            found=len(matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            technologies=detected_technologies,
             matches=matches
         )
     
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
-        """Get automated test patterns for each language"""
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
+        """Get hardcoded automated test patterns for each language as fallback"""
         
         if self.language == Language.PYTHON:
             return {
                 'test_patterns': [
-                    r'def\s+test_\w+\s*\(',
-                    r'class\s+Test\w+\s*\(',
+                    r'def test_\w+\s*\(',
+                    r'class Test\w+\s*\(',
                     r'@pytest\.',
-                    r'@unittest\.',
+                    r'@patch\s*\(',
                     r'@mock\.',
-                    r'assert\s+\w+',
+                    r'assert\s+',
                     r'assertEqual\s*\(',
                     r'assertTrue\s*\(',
                     r'assertFalse\s*\(',
                     r'assertRaises\s*\(',
-                    r'pytest\.raises\s*\(',
-                    r'unittest\.TestCase',
-                    r'from\s+unittest\s+import',
-                    r'import\s+pytest',
-                    r'import\s+unittest',
-                    r'mock\.patch\s*\(',
-                    r'@patch\s*\(',
-                    r'TestCase\s*\(',
+                    r'unittest\.',
+                    r'pytest\.',
+                    r'nose\.',
+                    r'mock\.',
+                    r'MagicMock\s*\(',
+                    r'Mock\s*\(',
                 ]
             }
         elif self.language == Language.JAVA:
             return {
                 'test_patterns': [
-                    r'@Test\s*$',
-                    r'@Test\s*\(',
-                    r'@BeforeEach',
-                    r'@AfterEach',
-                    r'@BeforeAll',
-                    r'@AfterAll',
-                    r'@Mock\s*$',
-                    r'@MockBean',
-                    r'@InjectMocks',
-                    r'@ExtendWith\s*\(',
-                    r'@SpringBootTest',
-                    r'@WebMvcTest',
-                    r'@DataJpaTest',
+                    r'@Test\s*',
+                    r'@Before\s*',
+                    r'@After\s*',
+                    r'@BeforeEach\s*',
+                    r'@AfterEach\s*',
+                    r'@BeforeAll\s*',
+                    r'@AfterAll\s*',
+                    r'@Mock\s*',
+                    r'@Spy\s*',
+                    r'@InjectMocks\s*',
+                    r'Assert\.',
                     r'assertEquals\s*\(',
                     r'assertTrue\s*\(',
                     r'assertFalse\s*\(',
@@ -95,8 +106,8 @@ class AutomatedTestsValidator(BaseGateValidator):
                     r'Mockito\.',
                     r'when\s*\(',
                     r'verify\s*\(',
-                    r'MockMvc\s+',
-                    r'TestRestTemplate',
+                    r'JUnit',
+                    r'TestNG',
                 ]
             }
         elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
@@ -164,17 +175,20 @@ class AutomatedTestsValidator(BaseGateValidator):
             ]
         }
     
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected test instances"""
         
-        # Look for source files that should have corresponding tests
+        # For test gates, we want to calculate expected count based on source files
         source_files = len([f for f in lang_files 
-                          if not any(test_indicator in f.file_path.lower() 
-                                    for test_indicator in ['test', 'spec', '__tests__', 'tests'])])
+                          if not self._is_test_file(f.file_path)])
         
-        # Estimate 1-2 test methods per source file
-        return max(source_files * 2, file_count // 2)
+        # Estimate test methods needed:
+        # - At least 2 tests per source file
+        # - Additional tests based on LOC (1 test per 50 LOC)
+        base_tests = source_files * 2
+        loc_based_tests = sum(f.lines_of_code for f in lang_files) // 50
+        
+        return max(base_tests + loc_based_tests, 10)  # At least 10 tests minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess test implementation quality"""
@@ -197,16 +211,34 @@ class AutomatedTestsValidator(BaseGateValidator):
                                 for pattern in mock_patterns)])
         
         if mock_matches > 0:
-            quality_scores['mocking'] = min(mock_matches * 3, 10)
+            quality_scores['mocking'] = min(mock_matches * 2, 15)
+        
+        # Check for test organization (describe/context blocks)
+        org_patterns = ['describe', 'context', 'suite', 'testcase']
+        org_matches = len([match for match in matches 
+                         if any(pattern in match.get('matched_text', match.get('match', '')).lower() 
+                               for pattern in org_patterns)])
+        
+        if org_matches > 0:
+            quality_scores['organization'] = min(org_matches * 2, 15)
         
         # Check for assertions
-        assertion_patterns = ['assert', 'expect', 'should', 'verify', 'toequal', 'tobe']
+        assertion_patterns = ['assert', 'expect', 'should', 'verify']
         assertion_matches = len([match for match in matches 
                                if any(pattern in match.get('matched_text', match.get('match', '')).lower() 
                                      for pattern in assertion_patterns)])
         
         if assertion_matches > 0:
-            quality_scores['assertions'] = min(assertion_matches * 1, 10)
+            quality_scores['assertions'] = min(assertion_matches * 2, 15)
+        
+        # Check for setup/teardown
+        setup_patterns = ['setup', 'before', 'after', 'fixture']
+        setup_matches = len([match for match in matches 
+                           if any(pattern in match.get('matched_text', match.get('match', '')).lower() 
+                                 for pattern in setup_patterns)])
+        
+        if setup_matches > 0:
+            quality_scores['test_lifecycle'] = min(setup_matches * 2, 15)
         
         return quality_scores
     
@@ -244,44 +276,62 @@ class AutomatedTestsValidator(BaseGateValidator):
             "Add visual regression testing for UI components"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
-        """Generate automated test details"""
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
+        """Generate test implementation details"""
         
         if not matches:
-            return ["No automated test patterns found"]
+            return [
+                "No automated tests found",
+                "Consider implementing a testing strategy"
+            ]
         
-        details = [f"Found {len(matches)} test implementations"]
+        details = []
         
-        # Check for different test types
-        test_types = []
-        if any('unit' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            test_types.append('Unit tests')
-        if any('integration' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            test_types.append('Integration tests')
-        if any('e2e' in match.get('matched_text', match.get('match', '')).lower() or 'end-to-end' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            test_types.append('End-to-end tests')
-        if any('mock' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            test_types.append('Mocked tests')
+        # Basic count information
+        found_count = len(matches)
+        details.append(f"Found {found_count} test implementations")
         
-        if test_types:
-            details.append(f"Test types found: {', '.join(test_types)}")
+        # Test types distribution
+        test_types = {
+            'Unit Tests': ['test_', '@test', 'it(', 'should'],
+            'Integration Tests': ['integration', 'end-to-end', 'e2e'],
+            'Mock Tests': ['mock', 'stub', 'spy', 'fake']
+        }
         
-        # Check for test frameworks
-        frameworks = []
-        if any('pytest' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            frameworks.append('pytest')
-        if any('junit' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            frameworks.append('JUnit')
-        if any('jest' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            frameworks.append('Jest')
-        if any('mocha' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            frameworks.append('Mocha')
-        if any('nunit' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
-            frameworks.append('NUnit')
+        type_counts = {}
+        for match in matches:
+            match_text = match.get('matched_text', match.get('match', '')).lower()
+            for test_type, patterns in test_types.items():
+                if any(pattern in match_text for pattern in patterns):
+                    type_counts[test_type] = type_counts.get(test_type, 0) + 1
         
-        if frameworks:
-            details.append(f"Test frameworks found: {', '.join(frameworks)}")
+        if type_counts:
+            details.append("\nTest type distribution:")
+            for test_type, count in sorted(type_counts.items()):
+                details.append(f"  - {test_type}: {count} tests")
+        
+        # Framework usage
+        frameworks = {
+            'pytest': ['pytest', '@pytest'],
+            'unittest': ['unittest', 'testcase'],
+            'jest': ['jest', 'describe'],
+            'mocha': ['mocha', 'describe it'],
+            'junit': ['junit', '@test'],
+            'nunit': ['nunit', '[test]'],
+            'xunit': ['xunit', '[fact]']
+        }
+        
+        used_frameworks = set()
+        for match in matches:
+            match_text = match.get('matched_text', match.get('match', '')).lower()
+            for framework, patterns in frameworks.items():
+                if any(pattern in match_text for pattern in patterns):
+                    used_frameworks.add(framework)
+        
+        if used_frameworks:
+            details.append("\nTest frameworks detected:")
+            for framework in sorted(used_frameworks):
+                details.append(f"  - {framework}")
         
         return details
     

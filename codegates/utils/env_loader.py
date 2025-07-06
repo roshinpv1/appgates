@@ -284,7 +284,7 @@ LOCAL_LLM_MAX_TOKENS=4000
             except Exception as e:
                 print(f"❌ Failed to install python-dotenv: {e}")
                 return False
-    
+
     @classmethod
     def get(cls, key: str, default: Any = None) -> Any:
         """Get an environment variable value

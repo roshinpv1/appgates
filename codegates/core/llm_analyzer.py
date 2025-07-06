@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 
 from ..models import Language, FileAnalysis
 from ..utils.env_loader import EnvironmentLoader
+from .analysis_result import CodeAnalysisResult  # Add this import
 
 
 # Ensure environment is loaded when module is imported
@@ -42,6 +43,18 @@ class LLMConfig:
     base_url: Optional[str] = None
     temperature: float = 0.1
     max_tokens: int = 8000
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get configuration value with fallback"""
+        return getattr(self, key, default)
+    
+    def __getitem__(self, key: str) -> Any:
+        """Support dictionary-like access"""
+        return getattr(self, key)
+    
+    def __contains__(self, key: str) -> bool:
+        """Support 'in' operator"""
+        return hasattr(self, key)
 
 
 @dataclass
@@ -193,488 +206,388 @@ class EnterpriseTokenManager:
 class LLMAnalyzer:
     """Enhanced LLM-powered code analyzer with enterprise support"""
     
-    def __init__(self, config: LLMConfig):
-        self.config = config
-        self.enterprise_url = os.getenv("ENTERPRISE_LLM_URL")
-        self.enterprise_model = os.getenv("ENTERPRISE_LLM_MODEL", "meta-llama-3.1-8b-instruct")
-        self.enterprise_headers = self._parse_enterprise_headers()
-        self.enterprise_api_key = os.getenv("ENTERPRISE_LLM_API_KEY")
-        self.enterprise_use_case_id = os.getenv("ENTERPRISE_LLM_USE_CASE_ID")
-        self.token_manager = EnterpriseTokenManager() if self.enterprise_url else None
-        self.client = self._initialize_client()
-        self.manager = None  # Will be set by LLMIntegrationManager for error verification
-
-    def _parse_enterprise_headers(self) -> Dict[str, str]:
-        """Parse enterprise LLM headers from environment variable."""
-        headers_str = os.getenv("ENTERPRISE_LLM_HEADERS", "{}")
-        try:
-            return json.loads(headers_str)
-        except json.JSONDecodeError:
-            print("⚠️ Warning: Invalid ENTERPRISE_LLM_HEADERS format, using empty headers")
-            return {}
-    
-    def _initialize_client(self):
-        """Initialize LLM client based on provider"""
-        
-        # Check for enterprise configuration first
-        if self.enterprise_url and self.token_manager and self.token_manager.token_info:
-            print(f"✅ Using enterprise LLM at {self.enterprise_url}")
-            return "enterprise"
-        
-        if self.config.provider == LLMProvider.OPENAI or self.config.provider == LLMProvider.LOCAL:
-            try:
-                import openai
-                return openai.OpenAI(
-                    api_key=self.config.api_key or "dummy-key",
-                    base_url=self.config.base_url
-                )
-            except ImportError:
-                raise ImportError("OpenAI library not installed. Run: pip install openai")
-        
-        elif self.config.provider == LLMProvider.ANTHROPIC:
-            try:
-                import anthropic
-                return anthropic.Anthropic(api_key=self.config.api_key)
-            except ImportError:
-                raise ImportError("Anthropic library not installed. Run: pip install anthropic")
-        
-        elif self.config.provider == LLMProvider.GEMINI:
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=self.config.api_key)
-                return genai.GenerativeModel(self.config.model)
-            except ImportError:
-                raise ImportError("Google AI library not installed. Run: pip install google-generativeai")
-        
-        elif self.config.provider == LLMProvider.OLLAMA:
-            try:
-                import ollama
-                return ollama.Client(host=self.config.base_url or 'http://localhost:11434')
-            except ImportError:
-                raise ImportError("Ollama library not installed. Run: pip install ollama")
-        
+    def __init__(self, model_config: Optional[LLMConfig] = None):
+        if model_config is None:
+            # Create a default mock config
+            self.model_config = LLMConfig(
+                provider=LLMProvider.LOCAL,
+                model="mock",
+                temperature=0.1
+            )
         else:
-            return None  # Mock implementation
-
-    def _prepare_enterprise_headers(self) -> Dict[str, str]:
-        """Prepare headers for enterprise API request with dynamic values"""
-        # Get valid token (will refresh if needed)
-        token = self.token_manager.get_valid_token()
+            self.model_config = model_config
+        self.chunk_size = 4000  # Maximum size for each chunk
+    
+    def analyze_gate_implementation(self, gate_name: str, code_samples: List[str], 
+                                  language: Language, technologies: Dict[str, List[str]]) -> CodeAnalysisResult:
+        """Analyze gate implementation using code samples"""
         
-        # Generate current timestamp in required format
-        current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        if not code_samples:
+            return self._provide_general_gate_recommendations(gate_name, language, technologies)
         
-        # Base headers with dynamic values
-        headers = {
-            "Content-Type": "application/json",
-            "X-REQUEST-ID": str(uuid.uuid4()),
-            "X-XY-SESSION-ID": str(uuid.uuid4()),
-            "X-CORRELATION-ID": str(uuid.uuid4()),
-            "X-XY-CLIENT-ID": os.getenv("ENTERPRISE_LLM_CLIENT_ID", "MLOPS"),
-            "X-XY-REQUEST-DATE": current_timestamp,
-            "X-XY-CMP-ID": current_timestamp,
-            "X-XY-TACHYON-API-KEY": "test",
-            "Authorization": f"Bearer {token}"
+        # Prepare enhanced context
+        enhanced_context = {
+            'gate_name': gate_name,
+            'language': language,
+            'technologies': technologies,
+            'code_samples': code_samples,
+            'total_matches': len(code_samples),
+            'high_priority_issues': [],  # Will be populated during analysis
+            'severity_distribution': {}  # Will be populated during analysis
         }
         
-        # Add API key if provided
-        if self.enterprise_api_key:
-            headers["X-XY-API-KEY"] = self.enterprise_api_key
-            
-        # Add use case ID if provided
-        if self.enterprise_use_case_id:
-            headers["X-XY-USECASE-ID"] = self.enterprise_use_case_id
-            
-        # Add additional headers from configuration
-        headers.update(self.enterprise_headers)
+        # Use enhanced metadata analysis
+        return self.analyze_gate_with_enhanced_metadata(enhanced_context)
+    
+    def analyze_validation_results(self, validation_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze gate validation results and generate recommendations
         
-        return headers
-
-    def _call_llm(self, prompt: str) -> str:
-        """Call the configured LLM with enhanced enterprise support"""
+        Args:
+            validation_results: Dictionary containing gate validation results
+                {
+                    'gate_name': str,
+                    'quality_score': float,
+                    'coverage_score': float,
+                    'found_patterns': int,
+                    'expected_patterns': int,
+                    'severity_distribution': Dict[str, int],
+                    'implementation_details': List[str]
+                }
         
-        # Check prompt size and warn if too large
-        prompt_size = len(prompt)
-        if prompt_size > 20000:  # ~5000 tokens
-            print(f"⚠️ Warning: Large prompt size ({prompt_size} chars). May exceed context limits.")
+        Returns:
+            Dict containing analysis results and recommendations
+        """
+        try:
+            # Split large results into manageable chunks
+            chunks = self._split_into_chunks(validation_results)
+            
+            # Process each chunk and combine results
+            combined_analysis = {
+                'recommendations': [],
+                'quality_insights': [],
+                'improvement_areas': []
+            }
+            
+            for chunk in chunks:
+                chunk_result = self._analyze_chunk(chunk)
+                self._merge_analysis_results(combined_analysis, chunk_result)
+            
+            return combined_analysis
+            
+        except Exception as e:
+            print(f"Error in LLM analysis: {e}")
+            return self._fallback_analysis(validation_results)
+    
+    def _split_into_chunks(self, validation_results: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Split large validation results into manageable chunks"""
+        chunks = []
+        current_chunk = {
+            'gate_name': validation_results['gate_name'],
+            'quality_score': validation_results['quality_score'],
+            'coverage_score': validation_results['coverage_score'],
+            'implementation_details': []
+        }
+        
+        current_size = 0
+        for detail in validation_results.get('implementation_details', []):
+            detail_size = len(str(detail))
+            if current_size + detail_size > self.chunk_size:
+                # Start new chunk
+                chunks.append(current_chunk)
+                current_chunk = {
+                    'gate_name': validation_results['gate_name'],
+                    'quality_score': validation_results['quality_score'],
+                    'coverage_score': validation_results['coverage_score'],
+                    'implementation_details': []
+                }
+                current_size = 0
+            
+            current_chunk['implementation_details'].append(detail)
+            current_size += detail_size
+        
+        if current_chunk['implementation_details']:
+            chunks.append(current_chunk)
+        
+        return chunks
+    
+    def _analyze_chunk(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze a single chunk of validation results"""
+        prompt = self._create_analysis_prompt(chunk)
         
         try:
-            # Use enterprise LLM if configured
-            if self.client == "enterprise":
-                return self._make_enterprise_request(prompt)
+            # Call LLM with the prompt
+            response = self._call_llm(prompt)
+            return self._parse_llm_response(response)
+        except Exception as e:
+            print(f"Error analyzing chunk: {e}")
+            return self._fallback_chunk_analysis(chunk)
+    
+    def _create_analysis_prompt(self, chunk: Dict[str, Any]) -> str:
+        """Create prompt for LLM analysis"""
+        return f"""
+Analyze the following code quality gate results and provide specific recommendations:
+
+Gate: {chunk['gate_name']}
+Quality Score: {chunk['quality_score']}
+Coverage Score: {chunk['coverage_score']}
+
+Implementation Details:
+{self._format_details(chunk['implementation_details'])}
+
+Please provide:
+1. 2-3 specific recommendations for improvement
+2. Quality insights based on the scores
+3. Key improvement areas needing attention
+
+Format your response as JSON:
+{{
+    "recommendations": ["rec1", "rec2", "rec3"],
+    "quality_insights": ["insight1", "insight2"],
+    "improvement_areas": ["area1", "area2"]
+}}
+"""
+    
+    def _format_details(self, details: List[str]) -> str:
+        """Format implementation details for prompt"""
+        formatted = []
+        total_length = 0
+        
+        for detail in details:
+            if total_length + len(detail) + 1 > 1900:  # Leave room for truncation message
+                formatted.append("... (additional details omitted)")
+                break
+            formatted.append(detail)
+            total_length += len(detail) + 1  # +1 for newline
+        
+        return "\n".join(formatted)
+    
+    def _merge_analysis_results(self, combined: Dict[str, Any], chunk_result: Dict[str, Any]):
+        """Merge chunk analysis results into combined results"""
+        # Merge recommendations (avoid duplicates)
+        existing_recs = set(combined['recommendations'])
+        for rec in chunk_result.get('recommendations', []):
+            if rec not in existing_recs:
+                combined['recommendations'].append(rec)
+                existing_recs.add(rec)
+        
+        # Merge insights
+        combined['quality_insights'].extend(chunk_result.get('quality_insights', []))
+        
+        # Merge improvement areas (avoid duplicates)
+        existing_areas = set(combined['improvement_areas'])
+        for area in chunk_result.get('improvement_areas', []):
+            if area not in existing_areas:
+                combined['improvement_areas'].append(area)
+                existing_areas.add(area)
+    
+    def _fallback_analysis(self, validation_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback analysis when LLM is unavailable"""
+        gate_name = validation_results['gate_name']
+        quality_score = validation_results['quality_score']
+        
+        # Basic recommendations based on scores
+        recommendations = []
+        if quality_score < 50:
+            recommendations.extend([
+                f"Improve {gate_name} implementation - current quality score is low",
+                "Review and implement missing patterns",
+                "Add proper error handling and logging"
+            ])
+        elif quality_score < 80:
+            recommendations.extend([
+                "Enhance existing implementations with better practices",
+                "Add more comprehensive error handling",
+                "Improve logging coverage"
+            ])
+        else:
+            recommendations.extend([
+                "Maintain current good practices",
+                "Consider adding advanced features",
+                "Regular review and updates"
+            ])
+        
+        return {
+            'recommendations': recommendations,
+            'quality_insights': [
+                f"Current quality score: {quality_score}",
+                "Generated by fallback analysis"
+            ],
+            'improvement_areas': [
+                "Implementation coverage",
+                "Code quality",
+                "Best practices"
+            ]
+        }
+    
+    def _fallback_chunk_analysis(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback analysis for individual chunks"""
+        return {
+            'recommendations': [
+                f"Review {chunk['gate_name']} implementation",
+                "Ensure proper error handling",
+                "Add comprehensive logging"
+            ],
+            'quality_insights': [
+                f"Chunk quality score: {chunk['quality_score']}"
+            ],
+            'improvement_areas': [
+                "Implementation details",
+                "Code quality"
+            ]
+        }
+    
+    def _call_llm(self, prompt: str) -> str:
+        """Call LLM with prompt and return response"""
+        if not self.model_config:
+            raise Exception("LLM not configured")
             
-            # Use standard providers
-            if self.config.provider == LLMProvider.OPENAI or self.config.provider == LLMProvider.LOCAL:
-                response = self.client.chat.completions.create(
-                    model=self.config.model,
-                    messages=[
-                        {"role": "system", "content": "You are a code analysis expert. Return only valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens
+        # Mock implementation for testing
+        if self.model_config.get('mock', False):
+            return '{"recommendations": ["Test"], "quality_insights": ["Test"], "improvement_areas": ["Test"]}'
+        
+        # Get provider-specific configuration
+        provider = self.model_config.provider
+        model = self.model_config.model
+        api_key = self.model_config.api_key
+        base_url = self.model_config.base_url
+        temperature = self.model_config.temperature
+        max_tokens = self.model_config.max_tokens
+        
+        try:
+            if provider == LLMProvider.OPENAI:
+                import openai
+                openai.api_key = api_key
+                if base_url:
+                    openai.api_base = base_url
+                
+                response = openai.ChatCompletion.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens
                 )
                 return response.choices[0].message.content
             
-            elif self.config.provider == LLMProvider.ANTHROPIC:
-                response = self.client.messages.create(
-                    model=self.config.model,
-                    max_tokens=self.config.max_tokens,
-                    temperature=self.config.temperature,
-                    messages=[{"role": "user", "content": prompt}]
+            elif provider == LLMProvider.ANTHROPIC:
+                import anthropic
+                client = anthropic.Client(api_key=api_key)
+                if base_url:
+                    client.base_url = base_url
+                
+                response = client.messages.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens
                 )
                 return response.content[0].text
             
-            elif self.config.provider == LLMProvider.GEMINI:
-                response = self.client.generate_content(
-                    prompt,
-                    generation_config={
-                        'temperature': self.config.temperature,
-                        'max_output_tokens': self.config.max_tokens
-                    }
-                )
+            elif provider == LLMProvider.GEMINI:
+                import google.generativeai as genai
+                genai.configure(api_key=api_key)
+                if base_url:
+                    genai.configure(api_base=base_url)
+                
+                model = genai.GenerativeModel(model)
+                response = model.generate_content(prompt)
                 return response.text
             
-            elif self.config.provider == LLMProvider.OLLAMA:
-                response = self.client.chat(
-                    model=self.config.model,
-                    messages=[
-                        {"role": "system", "content": "You are a code analysis expert. Return only valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    options={
-                        'temperature': self.config.temperature,
-                        'num_predict': self.config.max_tokens
-                    }
-                )
-                return response['message']['content']
-            
-            else:
-                raise ValueError(f"Unsupported LLM provider: {self.config.provider}")
+            elif provider == LLMProvider.OLLAMA:
+                import ollama
+                if base_url:
+                    ollama.base_url = base_url
                 
-        except Exception as e:
-            error_msg = str(e)
+                response = ollama.chat(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature
+                )
+                return response.message.content
             
-            # Check if this might be a model availability issue
-            model_error_keywords = ['model', 'not found', 'does not exist', 'unknown model', 'invalid model']
-            if any(keyword in error_msg.lower() for keyword in model_error_keywords):
-                print(f"🚨 Possible model availability issue detected")
-                # Try to verify model availability
-                if hasattr(self, 'manager') and hasattr(self.manager, 'verify_model_availability_on_error'):
-                    self.manager.verify_model_availability_on_error(error_msg)
-                else:
-                    # Direct verification if no manager reference
-                    self._verify_model_on_error(error_msg)
-                    
-                raise ValueError(f"Model availability issue: {error_msg}")
-            
-            # Handle specific context length errors
-            elif any(keyword in error_msg.lower() for keyword in ['context', 'token', 'length', 'overflow']):
-                print(f"❌ Context length error: {error_msg}")
-                raise ValueError(f"Context too large for LLM: {error_msg}")
-            
-            # Handle timeout errors
-            elif 'timeout' in error_msg.lower():
-                print(f"❌ LLM request timeout: {error_msg}")
-                raise ValueError(f"LLM request timeout: {error_msg}")
-            
-            # Handle other errors
-            else:
-                print(f"❌ LLM request failed: {error_msg}")
-                raise Exception(f"LLM analysis failed: {error_msg}")
-    
-    def _verify_model_on_error(self, error_message: str):
-        """Verify model availability when an LLM call fails (fallback method)"""
-        if self.config.provider != LLMProvider.LOCAL:
-            return
-        
-        try:
-            import requests
-            response = requests.get(f"{self.config.base_url.rstrip('/')}/models", timeout=5)
-            if response.status_code == 200:
-                models = response.json()
-                if isinstance(models, dict) and 'data' in models:
-                    available_models = [model.get('id', '') for model in models['data']]
-                    if self.config.model not in available_models:
-                        print(f"❌ Confirmed: Model {self.config.model} not available")
-                        print(f"   Available models: {available_models}")
-        except Exception:
-            pass  # Ignore verification errors
-
-    def _make_enterprise_request(self, prompt: str) -> str:
-        """Make request to enterprise LLM endpoint with token management."""
-        try:
-            # Prepare headers with dynamic values
-            headers = self._prepare_enterprise_headers()
-            
-            # Prepare request data
-            data = {
-                "model": self.enterprise_model,
-                "messages": [
-                    {"role": "system", "content": "You are a code analysis expert. Return only valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": int(os.getenv("ENTERPRISE_LLM_MAX_TOKENS", "8000")),
-                "temperature": float(os.getenv("ENTERPRISE_LLM_TEMPERATURE", "0.1"))
-            }
-            
-            # Add any additional parameters from .env
-            additional_params_str = os.getenv("ENTERPRISE_LLM_PARAMS", "{}")
-            try:
-                additional_params = json.loads(additional_params_str)
-                data.update(additional_params)
-            except json.JSONDecodeError:
-                print("⚠️ Warning: Invalid ENTERPRISE_LLM_PARAMS format, ignoring")
-            
-            # Configure proxy if specified
-            proxies = self.token_manager._get_proxy_config()
-            
-            print(f"🚀 Making enterprise LLM request to {self.enterprise_url}")
-            print(f"   Model: {self.enterprise_model}")
-            print(f"   Prompt size: {len(prompt)} characters")
-            if proxies:
-                print(f"   Using proxy: {proxies}")
-            
-            response = requests.post(
-                self.enterprise_url,
-                headers=headers,
-                json=data,
-                proxies=proxies,
-                timeout=int(os.getenv("ENTERPRISE_LLM_TIMEOUT", "60"))
-            )
-            
-            if response.status_code == 401:
-                # Token might be invalid, try refreshing once
-                print("🔄 Received 401, attempting token refresh...")
-                headers = self._prepare_enterprise_headers()  # Refresh headers with new token
+            elif provider == LLMProvider.ENTERPRISE:
+                # Get enterprise token
+                token_manager = EnterpriseTokenManager()
+                token = token_manager.get_valid_token()
+                
+                # Configure enterprise API endpoint
+                enterprise_url = base_url or os.getenv("ENTERPRISE_LLM_URL")
+                if not enterprise_url:
+                    raise ValueError("Enterprise LLM URL not configured")
+                
+                # Make API request
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                }
+                
+                data = {
+                    "model": model,
+                    "prompt": prompt,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                }
                 
                 response = requests.post(
-                    self.enterprise_url,
+                    enterprise_url,
                     headers=headers,
                     json=data,
-                    proxies=proxies,
-                    timeout=int(os.getenv("ENTERPRISE_LLM_TIMEOUT", "60"))
+                    timeout=30
                 )
+                
+                if response.status_code != 200:
+                    raise Exception(f"Enterprise LLM request failed: {response.text}")
+                
+                return response.json()["response"]
             
-            response.raise_for_status()
-            response_data = response.json()
+            elif provider == LLMProvider.LOCAL:
+                # Local LLM implementation using OpenAI-compatible API
+                if not base_url:
+                    raise ValueError("Local LLM URL not configured")
+                
+                headers = {"Content-Type": "application/json"}
+                data = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                }
+                
+                response = requests.post(
+                    f"{base_url}/chat/completions",
+                    headers=headers,
+                    json=data,
+                    timeout=30
+                )
+                
+                if response.status_code != 200:
+                    raise Exception(f"Local LLM request failed: {response.text}")
+                
+                try:
+                    return response.json()["choices"][0]["message"]["content"]
+                except (KeyError, json.JSONDecodeError) as e:
+                    print(f"⚠️ Error parsing LLM response: {e}")
+                    print(f"Response content: {response.text[:200]}...")
+                    raise Exception("Failed to parse LLM response")
             
-            # Extract content based on common enterprise API formats
-            content = None
-            if "choices" in response_data and response_data["choices"]:
-                # OpenAI-compatible format
-                content = response_data["choices"][0]["message"]["content"]
-            elif "response" in response_data:
-                # Simple response format
-                content = response_data["response"]
-            elif "content" in response_data:
-                # Direct content format
-                content = response_data["content"]
-            elif "text" in response_data:
-                # Text format
-                content = response_data["text"]
             else:
-                raise Exception(f"Unknown enterprise API response format: {list(response_data.keys())}")
-            
-            print(f"✅ Enterprise LLM response received: {len(content)} characters")
-            return content
-            
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Enterprise LLM API error: {str(e)}")
+                raise ValueError(f"Unsupported LLM provider: {provider}")
+        
         except Exception as e:
-            raise Exception(f"Enterprise LLM request failed: {str(e)}")
-
-    def analyze_gate_implementation(self, 
-                                  gate_name: str,
-                                  code_samples: List[str],
-                                  language: Language,
-                                  detected_technologies: Dict[str, List[str]]) -> CodeAnalysisResult:
-        """Analyze gate implementation using LLM"""
-        
-        print(f"🤖 LLM analyzing {gate_name} with {len(code_samples)} code samples")
-        
-        # If no code samples, provide general recommendations for the gate
-        if not code_samples:
-            print(f"🤖 No code samples for {gate_name}, providing general recommendations")
-            return self._provide_general_gate_recommendations(gate_name, language, detected_technologies)
-        
-        prompt = self._build_analysis_prompt(gate_name, code_samples, language, detected_technologies)
-        
+            print(f"⚠️ LLM call failed: {str(e)}")
+            raise Exception(f"LLM call failed: {str(e)}")
+    
+    def _parse_llm_response(self, response: str) -> Dict[str, Any]:
+        """Parse LLM response into structured format"""
         try:
-            print(f"🤖 Calling LLM for {gate_name} analysis...")
-            response = self._call_llm(prompt)
-            print(f"🤖 LLM response received for {gate_name}")
-            return self._parse_analysis_response(response)
-        except Exception as e:
-            print(f"🚨 LLM call failed for {gate_name}: {str(e)}")
-            # Fallback to rule-based analysis
-            return self._fallback_analysis(gate_name, code_samples, language)
-    
-    def _build_analysis_prompt(self, 
-                             gate_name: str,
-                             code_samples: List[str],
-                             language: Language,
-                             detected_technologies: Dict[str, List[str]]) -> str:
-        """Build analysis prompt for LLM"""
-        
-        tech_context = ""
-        if detected_technologies:
-            tech_list = []
-            for category, techs in detected_technologies.items():
-                tech_list.extend(techs)
-            tech_context = f"Detected technologies: {', '.join(tech_list)}"
-        
-        prompt = f"""
-You are an expert software architect and security analyst. Analyze the following {language.value} code for {gate_name} implementation.
-
-{tech_context}
-
-Code samples to analyze:
-```{language.value}
-{chr(10).join(code_samples[:5])}  # Show first 5 samples
-```
-
-Please provide a comprehensive analysis in JSON format with the following structure:
-{{
-    "quality_score": <float 0-100>,
-    "patterns_found": [<list of patterns detected>],
-    "security_issues": [<list of security concerns>],
-    "recommendations": [<list of specific improvements>],
-    "technology_insights": {{
-        "framework_usage": "<assessment of framework usage>",
-        "best_practices": "<adherence to best practices>",
-        "architecture_patterns": [<list of patterns used>]
-    }},
-    "code_smells": [<list of code quality issues>],
-    "best_practices": [<list of best practices to follow>]
-}}
-
-Focus on:
-1. **{gate_name} Implementation Quality**: How well is this gate implemented?
-2. **Security Implications**: Any security risks or vulnerabilities?
-3. **Technology-Specific Best Practices**: Given the detected technologies
-4. **Maintainability**: Code structure and readability
-5. **Performance**: Potential performance implications
-6. **Scalability**: How well will this scale?
-
-Provide specific, actionable recommendations with code examples where helpful.
-"""
-        return prompt
-    
-    def _parse_analysis_response(self, response: str) -> CodeAnalysisResult:
-        """Parse LLM response into structured result"""
-        
-        try:
-            # Extract JSON from response
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                data = json.loads(json_match.group())
-            else:
-                # Try to parse the entire response as JSON
-                data = json.loads(response)
-            
-            return CodeAnalysisResult(
-                quality_score=data.get('quality_score', 50.0),
-                patterns_found=data.get('patterns_found', []),
-                security_issues=data.get('security_issues', []),
-                recommendations=data.get('recommendations', []),
-                technology_insights=data.get('technology_insights', {}),
-                code_smells=data.get('code_smells', []),
-                best_practices=data.get('best_practices', [])
-            )
-        
-        except (json.JSONDecodeError, KeyError) as e:
-            # Fallback parsing
-            return self._parse_text_response(response)
-    
-    def _parse_text_response(self, response: str) -> CodeAnalysisResult:
-        """Parse text response when JSON parsing fails"""
-        
-        # Extract information using regex patterns
-        quality_score = 50.0
-        quality_match = re.search(r'quality[_\s]*score[:\s]*(\d+(?:\.\d+)?)', response, re.IGNORECASE)
-        if quality_match:
-            quality_score = float(quality_match.group(1))
-        
-        # Extract recommendations
-        recommendations = []
-        rec_section = re.search(r'recommendations?[:\s]*(.*?)(?=\n\n|\Z)', response, re.IGNORECASE | re.DOTALL)
-        if rec_section:
-            rec_text = rec_section.group(1)
-            recommendations = [line.strip('- ').strip() for line in rec_text.split('\n') if line.strip()]
-        
-        return CodeAnalysisResult(
-            quality_score=quality_score,
-            patterns_found=[],
-            security_issues=[],
-            recommendations=recommendations[:5],  # Limit to top 5
-            technology_insights={},
-            code_smells=[],
-            best_practices=[]
-        )
-    
-    def _fallback_analysis(self, gate_name: str, code_samples: List[str], language: Language) -> CodeAnalysisResult:
-        """Fallback analysis when LLM is unavailable"""
-        
-        # Rule-based analysis
-        quality_score = 60.0  # Base score
-        recommendations = []
-        patterns_found = []
-        
-        # Basic pattern detection
-        for sample in code_samples:
-            if 'logger' in sample.lower():
-                patterns_found.append('Logging usage detected')
-            if 'try' in sample.lower() and 'catch' in sample.lower():
-                patterns_found.append('Exception handling found')
-            if 'async' in sample.lower() or 'await' in sample.lower():
-                patterns_found.append('Async pattern detected')
-        
-        # Basic recommendations based on gate
-        if gate_name.lower() in ['structured_logs', 'logging']:
-            recommendations = [
-                "Consider using structured logging with JSON format",
-                "Add correlation IDs to log messages",
-                "Implement consistent log levels"
-            ]
-        elif gate_name.lower() in ['error', 'exception']:
-            recommendations = [
-                "Ensure all exceptions are properly caught and logged",
-                "Add contextual information to error messages",
-                "Implement proper error recovery mechanisms"
-            ]
-        
-        return CodeAnalysisResult(
-            quality_score=quality_score,
-            patterns_found=patterns_found,
-            security_issues=[],
-            recommendations=recommendations,
-            technology_insights={},
-            code_smells=[],
-            best_practices=[]
-        )
-    
-    def _mock_llm_response(self) -> str:
-        """Mock LLM response for testing"""
-        return """
-        {
-            "quality_score": 75.0,
-            "patterns_found": ["Structured logging detected", "Error handling present"],
-            "security_issues": ["Potential sensitive data in logs"],
-            "recommendations": [
-                "Implement log sanitization to prevent sensitive data exposure",
-                "Add correlation IDs for better traceability",
-                "Use structured logging format consistently"
-            ],
-            "technology_insights": {
-                "framework_usage": "Good use of logging framework",
-                "best_practices": "Following some best practices",
-                "architecture_patterns": ["Observer pattern for logging"]
-            },
-            "code_smells": ["Inconsistent error handling"],
-            "best_practices": ["Use dependency injection for loggers", "Implement centralized error handling"]
-        }
-        """
+            return json.loads(response)
+        except json.JSONDecodeError:
+            print("Error parsing LLM response")
+            return {
+                'recommendations': [],
+                'quality_insights': [],
+                'improvement_areas': []
+            }
     
     def enhance_recommendations(self, 
                               base_recommendations: List[str],
@@ -683,7 +596,7 @@ Provide specific, actionable recommendations with code examples where helpful.
                               detected_technologies: Dict[str, List[str]]) -> List[str]:
         """Enhance basic recommendations with LLM insights"""
         
-        if not self.client:
+        if not self.model_config:
             return base_recommendations
         
         prompt = f"""
@@ -723,7 +636,7 @@ Provide 3-5 enhanced, actionable recommendations in a simple list format.
                              detected_technologies: Dict[str, List[str]]) -> List[str]:
         """Generate code examples for implementing the gate"""
         
-        if not self.client:
+        if not self.model_config:
             return []
         
         tech_context = ""
@@ -819,12 +732,12 @@ Format each example with a brief description followed by the code.
         gate_name = enhanced_context['gate_name']
         language = enhanced_context['language']
         total_matches = enhanced_context['total_matches']
-        severity_dist = enhanced_context['severity_distribution']
-        pattern_types = enhanced_context['pattern_types']
-        technologies = enhanced_context['detected_technologies']
-        high_priority = enhanced_context['high_priority_issues']
-        enhanced_samples = enhanced_context['enhanced_samples']
-        coverage_stats = enhanced_context['coverage_stats']
+        severity_dist = enhanced_context.get('severity_distribution', {})
+        pattern_types = enhanced_context.get('pattern_types', {})  # Use get() with default
+        technologies = enhanced_context.get('detected_technologies', {})
+        high_priority = enhanced_context.get('high_priority_issues', [])
+        enhanced_samples = enhanced_context.get('enhanced_samples', [])
+        coverage_stats = enhanced_context.get('coverage_stats', {})
         
         # Build technology context
         tech_context = ""
@@ -843,6 +756,13 @@ Format each example with a brief description followed by the code.
             for severity, count in severity_dist.items():
                 severity_context += f"  {severity}: {count} issues\n"
         
+        # Build pattern types context
+        pattern_context = ""
+        if pattern_types:
+            pattern_context = f"\n\nPattern Types:\n"
+            for pattern, count in pattern_types.items():
+                pattern_context += f"  {pattern}: {count} occurrences\n"
+        
         # Build high priority issues context
         priority_context = ""
         if high_priority:
@@ -850,7 +770,7 @@ Format each example with a brief description followed by the code.
             for issue in high_priority[:5]:  # Limit to top 5
                 priority_context += f"  {issue['file']}:{issue['line']} - {issue['severity']} (Priority: {issue['priority']})\n"
                 priority_context += f"    Code: {issue['code'][:100]}...\n"
-                if issue['suggested_fix']:
+                if issue.get('suggested_fix'):
                     priority_context += f"    Suggested Fix: {issue['suggested_fix']}\n"
         
         # Build enhanced samples context
@@ -860,12 +780,12 @@ Format each example with a brief description followed by the code.
             for i, sample in enumerate(enhanced_samples[:5], 1):
                 samples_context += f"{i}. {sample['file']}:{sample['line']} ({sample['severity']})\n"
                 samples_context += f"   Code: {sample['code']}\n"
-                samples_context += f"   Context: {sample['full_line']}\n"
+                samples_context += f"   Context: {sample.get('full_line', '')}\n"
                 samples_context += f"   Pattern: {sample['pattern_type']}, Category: {sample['category']}\n"
-                if sample['function_context']:
+                if sample.get('function_context'):
                     func_name = sample['function_context'].get('function_name', 'unknown')
                     samples_context += f"   Function: {func_name}\n"
-                if sample['suggested_fix']:
+                if sample.get('suggested_fix'):
                     samples_context += f"   Suggested Fix: {sample['suggested_fix']}\n"
                 samples_context += "\n"
         
@@ -875,19 +795,20 @@ You are a senior software architect and code quality expert. Analyze the followi
 ## Gate Analysis: {gate_name}
 - **Language**: {language}
 - **Total Issues Found**: {total_matches}
-- **Files Affected**: {coverage_stats['total_files']}
-- **Functions Affected**: {coverage_stats['functions_affected']}
-- **Security Issues**: {coverage_stats['security_issues']}
+- **Files Affected**: {coverage_stats.get('total_files', 0)}
+- **Functions Affected**: {coverage_stats.get('functions_affected', 0)}
+- **Security Issues**: {coverage_stats.get('security_issues', 0)}
 
 {tech_context}
 {severity_context}
+{pattern_context}
 {priority_context}
 {samples_context}
 
 ## Coverage Statistics
-- High Severity: {coverage_stats['high_severity_count']} issues
-- Medium Severity: {coverage_stats['medium_severity_count']} issues  
-- Low Severity: {coverage_stats['low_severity_count']} issues
+- High Severity: {coverage_stats.get('high_severity_count', 0)} issues
+- Medium Severity: {coverage_stats.get('medium_severity_count', 0)} issues  
+- Low Severity: {coverage_stats.get('low_severity_count', 0)} issues
 
 ## Analysis Required
 Based on this comprehensive analysis, provide:

@@ -1,8 +1,4 @@
-"""
-Core validation engine for CodeGates Hard Gate Validation System
-
-This module contains the core validation logic and algorithms.
-"""
+"""Core components for the CodeGates framework"""
 
 from .language_detector import LanguageDetector
 from .gate_validator import GateValidator

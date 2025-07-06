@@ -1,314 +1,141 @@
-# CodeGates - Cross-Language Hard Gate Validation & Scoring System
-
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code Quality](https://img.shields.io/badge/code%20quality-A-green.svg)](https://github.com/yourusername/codegates)
-
-**CodeGates** is a comprehensive, cross-language hard gate validation and scoring system designed to ensure production-ready code quality, security, and reliability across multiple programming languages.
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/codegates.git
-cd codegates
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run validation on a project
-python main.py scan /path/to/your/project
-
-# Generate detailed HTML report
-python main.py scan /path/to/your/project --format html --verbose
-```
-
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Hard Gates Overview](#-hard-gates-overview)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Configuration](#-configuration)
-- [Supported Languages](#-supported-languages)
-- [LLM Integration](#-llm-integration)
-- [Reports](#-reports)
-- [Contributing](#-contributing)
-- [License](#-license)
-
-## ✨ Features
-
-### 🎯 **15 Production-Critical Hard Gates**
-- **Structured Logging**: JSON-formatted, searchable logs
-- **Secret Protection**: Prevents sensitive data exposure in logs
-- **Audit Trail**: Comprehensive operation tracking
-- **Error Handling**: Robust exception management
-- **Reliability Patterns**: Timeouts, retries, circuit breakers
-- **Testing Coverage**: Automated test validation
-- **Security Monitoring**: Error tracking and alerting
-
-### 🌐 **Multi-Language Support**
-- **Java**: Spring Boot, Maven, Gradle projects
-- **Python**: Django, Flask, FastAPI applications  
-- **JavaScript/TypeScript**: Node.js, React, Angular projects
-- **C#/.NET**: ASP.NET Core, Entity Framework applications
-
-### 🤖 **LLM-Enhanced Analysis**
-- **Intelligent Code Review**: Beyond regex pattern matching
-- **Context-Aware Recommendations**: Technology-specific insights
-- **Security Vulnerability Detection**: AI-powered threat analysis
-- **Code Quality Assessment**: Automated best practice validation
-
-### 📊 **Rich Reporting**
-- **Interactive HTML Reports**: Beautiful, detailed analysis
-- **JSON Export**: Machine-readable validation results
-- **CI/CD Integration**: Automated quality gates
-- **Trend Analysis**: Track improvements over time
-
-## 🛡️ Hard Gates Overview
-
-| Gate | Weight | Description | Criticality |
-|------|--------|-------------|-------------|
-| **Structured Logs** | 2.0 | JSON-formatted logging with consistent fields | 🔴 Critical |
-| **Avoid Logging Secrets** | 2.0 | Prevents sensitive data in log files | 🔴 Critical |
-| **Audit Trail** | 1.8 | Tracks critical business operations | 🔴 Critical |
-| **Error Logs** | 1.8 | Comprehensive exception handling | 🔴 Critical |
-| **Circuit Breakers** | 1.7 | Fault tolerance for external services | 🟡 High |
-| **Timeouts** | 1.6 | Prevents hanging operations | 🟡 High |
-| **UI Errors** | 1.5 | User-friendly error handling | 🟡 High |
-| **Correlation ID** | 1.5 | Request tracing across services | 🟡 High |
-| **Automated Tests** | 1.5 | Test coverage and quality | 🟡 High |
-| **UI Error Tools** | 1.4 | Error monitoring integration | 🟢 Medium |
-| **Retry Logic** | 1.4 | Resilient failure handling | 🟢 Medium |
-| **API Logs** | 1.3 | Endpoint access logging | 🟢 Medium |
-| **Throttling** | 1.3 | Rate limiting implementation | 🟢 Medium |
-| **Background Jobs** | 1.2 | Async task monitoring | 🟢 Medium |
-| **HTTP Codes** | 1.2 | Proper status code usage | 🟢 Medium |
-
-## 🔧 Installation
-
-### Prerequisites
-- Python 3.8 or higher
-- pip package manager
-
-### Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### Verify Installation
-```bash
-python main.py --help
-```
-
-## 💻 Usage
-
-### Basic Scanning
-```bash
-# Scan current directory
-python main.py scan .
-
-# Scan specific project
-python main.py scan /path/to/project
-
-# Scan with language specification
-python main.py scan /path/to/project --languages java,python
-```
-
-### Advanced Options
-```bash
-# Generate HTML report with verbose output
-python main.py scan /path/to/project --format html --verbose
-
-# Set quality threshold
-python main.py scan /path/to/project --threshold 80
-
-# Exclude patterns
-python main.py scan /path/to/project --exclude "test/**,*.test.*"
-
-# View existing report
-python main.py view-report details/codegates_report_20231201_120000.json
-```
-
-### LLM-Enhanced Analysis
-```bash
-# Enable LLM analysis with OpenAI
-python main.py scan /path/to/project --enable-llm --llm-provider openai
-
-# Use local LLM server
-python main.py scan /path/to/project --enable-llm \
-  --llm-provider local \
-  --llm-base-url http://localhost:1234/v1 \
-  --llm-model meta-llama-3.1-8b-instruct
-
-# Test LLM connection
-python main.py test-llm --llm-provider openai
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-Create a `.env` file or set environment variables:
-
-```bash
-# LLM Configuration
-CODEGATES_LLM_ENABLED=true
-CODEGATES_LLM_PROVIDER=openai
-CODEGATES_LLM_API_KEY=your-api-key
-CODEGATES_LLM_MODEL=gpt-4
-
-# Scan Configuration  
-CODEGATES_SCAN_THRESHOLD=70.0
-CODEGATES_DEFAULT_LANGUAGES=python,java,javascript,typescript,csharp
-CODEGATES_MAX_WORKERS=4
-
-# Report Configuration
-CODEGATES_REPORTS_DIR=details
-CODEGATES_REPORT_FORMATS=json,html
-CODEGATES_INCLUDE_LLM_INSIGHTS=true
-```
-
-### Configuration File
-Create `codegates.json`:
-
-```json
-{
-  "scan": {
-    "threshold": 80.0,
-    "languages": ["java", "python", "typescript"],
-    "exclude_patterns": ["test/**", "*.test.*", "node_modules/**"]
-  },
-  "llm": {
-    "enabled": true,
-    "provider": "openai",
-    "model": "gpt-4",
-    "temperature": 0.1
-  },
-  "gates": {
-    "structured_logs": {"weight": 2.0, "threshold": 80},
-    "avoid_logging_secrets": {"weight": 2.0, "threshold": 0},
-    "audit_trail": {"weight": 1.8, "threshold": 70}
-  }
-}
-```
-
-## 🌍 Supported Languages
-
-### Java
-- **Frameworks**: Spring Boot, Spring MVC, Jersey
-- **Build Tools**: Maven, Gradle
-- **Testing**: JUnit, TestNG, Mockito
-- **Logging**: SLF4J, Logback, Log4j
-
-### Python  
-- **Frameworks**: Django, Flask, FastAPI
-- **Testing**: pytest, unittest
-- **Logging**: Python logging, structlog, loguru
-- **Async**: asyncio, aiohttp
-
-### JavaScript/TypeScript
-- **Runtime**: Node.js, Deno
-- **Frameworks**: Express, NestJS, Koa
-- **Frontend**: React, Vue, Angular
-- **Testing**: Jest, Mocha, Cypress
-- **Logging**: Winston, Pino, Bunyan
-
-### C#/.NET
-- **Frameworks**: ASP.NET Core, .NET 6+
-- **Testing**: xUnit, NUnit, MSTest
-- **Logging**: Serilog, NLog, ILogger
-- **ORM**: Entity Framework Core
-
-## 🤖 LLM Integration
-
-CodeGates supports multiple LLM providers for enhanced code analysis:
-
-### Supported Providers
-- **OpenAI**: GPT-4, GPT-3.5-turbo
-- **Anthropic**: Claude-3 models
-- **Google**: Gemini Pro
-- **Ollama**: Local models
-- **Custom**: OpenAI-compatible APIs
-
-### Enhanced Capabilities
-- **Semantic Code Analysis**: Understanding code intent
-- **Security Vulnerability Detection**: AI-powered threat identification
-- **Technology-Specific Recommendations**: Framework-aware suggestions
-- **Code Quality Assessment**: Beyond pattern matching
-
-## 📊 Reports
-
-### HTML Reports
-- Interactive, filterable results
-- Detailed gate analysis
-- Technology detection
-- LLM insights and recommendations
-- Trend visualization
-
-### JSON Reports
-- Machine-readable format
-- CI/CD integration friendly
-- Programmatic analysis
-- Historical comparison
-
-### Report Structure
-```
-codegates/
-├── codegates/
-│   ├── __init__.py
-│   ├── cli.py
-│   ├── models.py
-│   ├── reports.py
-│   ├── core/
-│   │   ├── gate_validator.py
-│   │   ├── language_detector.py
-│   │   ├── llm_analyzer.py
-│   │   └── gate_validators/
-│   └── utils/
-└── details/
-    ├── codegates_report_20231201_120000.html
-    └── codegates_report_20231201_120000.json
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
-```bash
-git clone https://github.com/yourusername/codegates.git
-cd codegates
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
-
-### Running Tests
-```bash
-pytest tests/
-```
-
-### Code Quality
-```bash
-# Run CodeGates on itself
-python main.py scan . --enable-llm --format html
-```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- 📧 Email: support@codegates.dev
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/codegates/issues)
-- 📖 Docs: [Documentation](https://codegates.dev/docs)
-
-## 🏆 Acknowledgments
-
-- Hard Gates methodology inspired by production engineering best practices
-- Multi-language support designed for modern polyglot architectures
-- LLM integration leveraging state-of-the-art AI for code analysis
-
----
-
-**CodeGates** - Ensuring your code meets production-grade standards across all languages and frameworks. 
+# CodeGates - Code Quality Analysis Tool
+
+CodeGates is a powerful code quality analysis tool that uses LLM (Large Language Models) to validate and improve code quality across different programming languages.
+
+## Features
+
+- Code quality analysis using multiple LLM providers
+- Support for multiple programming languages
+- Integration with Jira for issue tracking
+- Customizable quality gates
+- HTML report generation
+- API server for remote analysis
+- Enterprise-ready with token management
+
+## Environment Variables
+
+### LLM Configuration
+
+#### OpenAI
+- `OPENAI_API_KEY` - OpenAI API key
+- `OPENAI_MODEL` - Model to use (default: gpt-4)
+- `OPENAI_BASE_URL` - Custom base URL for OpenAI API
+- `OPENAI_TEMPERATURE` - Temperature for model responses (default: 0.1)
+- `OPENAI_MAX_TOKENS` - Maximum tokens per request (default: 4000)
+
+#### Anthropic
+- `ANTHROPIC_API_KEY` - Anthropic API key
+- `ANTHROPIC_MODEL` - Model to use (default: claude-3-sonnet-20240229)
+- `ANTHROPIC_BASE_URL` - Custom base URL for Anthropic API
+- `ANTHROPIC_TEMPERATURE` - Temperature for model responses (default: 0.1)
+- `ANTHROPIC_MAX_TOKENS` - Maximum tokens per request (default: 4000)
+
+#### Local LLM
+- `LOCAL_LLM_URL` - URL for local LLM server
+- `LOCAL_LLM_MODEL` - Model to use (default: meta-llama-3.1-8b-instruct)
+- `LOCAL_LLM_API_KEY` - API key if required (default: not-needed)
+- `LOCAL_LLM_TEMPERATURE` - Temperature for model responses (default: 0.1)
+- `LOCAL_LLM_MAX_TOKENS` - Maximum tokens per request (default: 4000)
+
+#### Ollama
+- `OLLAMA_HOST` - Ollama server host (default: http://localhost:11434)
+- `OLLAMA_MODEL` - Model to use (default: meta-llama-3.1-8b-instruct)
+- `OLLAMA_TEMPERATURE` - Temperature for model responses (default: 0.1)
+- `OLLAMA_NUM_PREDICT` - Number of tokens to predict (default: 4000)
+
+#### Enterprise LLM
+- `ENTERPRISE_LLM_URL` - Enterprise LLM server URL
+- `ENTERPRISE_LLM_MODEL` - Model to use (default: meta-llama-3.1-8b-instruct)
+- `ENTERPRISE_LLM_API_KEY` - API key for enterprise LLM
+- `ENTERPRISE_LLM_TOKEN` - Authentication token
+- `ENTERPRISE_LLM_REFRESH_URL` - Token refresh URL
+- `ENTERPRISE_LLM_CLIENT_ID` - Client ID for token refresh
+- `ENTERPRISE_LLM_CLIENT_SECRET` - Client secret for token refresh
+- `ENTERPRISE_LLM_HEADERS` - Additional headers as JSON (default: {})
+- `ENTERPRISE_LLM_TEMPERATURE` - Temperature for model responses (default: 0.1)
+- `ENTERPRISE_LLM_MAX_TOKENS` - Maximum tokens per request (default: 4000)
+
+### API Server Configuration
+
+- `CODEGATES_API_HOST` - API server host (default: 0.0.0.0)
+- `CODEGATES_API_PORT` - API server port (default: 8000)
+- `CODEGATES_API_BASE_URL` - Base URL for API (default: http://localhost:8000)
+- `CODEGATES_API_VERSION_PREFIX` - API version prefix (default: /api/v1)
+- `CODEGATES_API_TITLE` - API title (default: MyGates API)
+- `CODEGATES_API_DESCRIPTION` - API description
+- `CODEGATES_API_DOCS_ENABLED` - Enable API docs (default: true)
+- `CODEGATES_API_DOCS_URL` - API docs URL (default: /docs)
+- `CODEGATES_API_REDOC_URL` - ReDoc URL (default: /redoc)
+
+### CORS Configuration
+
+- `CODEGATES_CORS_ORIGINS` - Allowed origins
+- `CODEGATES_CORS_METHODS` - Allowed methods
+- `CODEGATES_CORS_HEADERS` - Allowed headers
+- `CODEGATES_CORS_EXPOSE_HEADERS` - Exposed headers
+
+### Storage Configuration
+
+- `CODEGATES_STORAGE_BACKEND` - Storage backend (default: sqlite)
+- `CODEGATES_DATABASE_URL` - Database URL
+- `CODEGATES_DATABASE_PATH` - SQLite database path (default: ./data/codegates.db)
+- `CODEGATES_STORAGE_DIR` - Storage directory (default: ./data/scan_results)
+- `CODEGATES_MAX_CONNECTIONS` - Maximum database connections (default: 10)
+- `CODEGATES_CONNECTION_TIMEOUT` - Database connection timeout (default: 30)
+- `CODEGATES_RETENTION_DAYS` - Data retention period in days
+- `CODEGATES_CLEANUP_INTERVAL_HOURS` - Cleanup interval in hours (default: 24)
+- `CODEGATES_ENABLE_INDEXING` - Enable database indexing (default: true)
+- `CODEGATES_ENABLE_COMPRESSION` - Enable data compression (default: false)
+
+### Jira Integration
+
+- `JIRA_URL` - Jira instance URL
+- `JIRA_USERNAME` - Jira username
+- `JIRA_API_TOKEN` - Jira API token
+- `JIRA_PROJECT_KEY` - Jira project key
+- `JIRA_ISSUE_KEY` - Jira issue key
+- `JIRA_COMMENT_FORMAT` - Comment format (default: markdown)
+- `JIRA_INCLUDE_DETAILS` - Include analysis details (default: true)
+- `JIRA_INCLUDE_RECOMMENDATIONS` - Include recommendations (default: true)
+- `JIRA_ATTACH_HTML_REPORT` - Attach HTML report (default: false)
+
+### Timeouts
+
+- `CODEGATES_GIT_CLONE_TIMEOUT` - Git clone timeout (default: 3000)
+- `CODEGATES_GIT_LS_REMOTE_TIMEOUT` - Git ls-remote timeout (default: 300)
+- `CODEGATES_API_DOWNLOAD_TIMEOUT` - API download timeout (default: 1200)
+- `CODEGATES_ANALYSIS_TIMEOUT` - Analysis timeout (default: 1800)
+- `CODEGATES_LLM_REQUEST_TIMEOUT` - LLM request timeout (default: 300)
+- `CODEGATES_HTTP_REQUEST_TIMEOUT` - HTTP request timeout (default: 100)
+- `CODEGATES_HEALTH_CHECK_TIMEOUT` - Health check timeout (default: 5)
+- `CODEGATES_JIRA_REQUEST_TIMEOUT` - Jira request timeout (default: 300)
+- `CODEGATES_JIRA_HEALTH_TIMEOUT` - Jira health check timeout (default: 100)
+- `CODEGATES_GITHUB_CONNECT_TIMEOUT` - GitHub connection timeout (default: 300)
+- `CODEGATES_GITHUB_READ_TIMEOUT` - GitHub read timeout (default: 1200)
+- `CODEGATES_VSCODE_API_TIMEOUT` - VSCode API timeout (default: 3000)
+- `CODEGATES_LLM_BATCH_TIMEOUT` - LLM batch processing timeout (default: 300)
+
+### SSL Configuration
+
+- `CODEGATES_SSL_VERIFY` - Verify SSL certificates (default: true)
+- `CODEGATES_SSL_CA_BUNDLE` - Custom CA bundle path
+- `CODEGATES_SSL_CLIENT_CERT` - Client certificate path
+- `CODEGATES_SSL_CLIENT_KEY` - Client key path
+- `CODEGATES_SSL_DISABLE_WARNINGS` - Disable SSL warnings (default: false)
+
+## Getting Started
+
+1. Clone the repository
+2. Create a `.env` file with the required environment variables
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Run the API server:
+   ```bash
+   python -m codegates.api.server
+   ```
+
+## License
+
+MIT License 

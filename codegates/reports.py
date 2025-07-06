@@ -16,8 +16,13 @@ class SharedReportGenerator:
     """Shared report generation logic used by both VS Code extension and HTML generator"""
     
     @staticmethod
-    def transform_result_to_extension_format(result: ValidationResult) -> Dict[str, Any]:
-        """Transform ValidationResult to the same format used by VS Code extension"""
+    def transform_result_to_extension_format(result: ValidationResult, report_mode: str = "summary") -> Dict[str, Any]:
+        """Transform ValidationResult to the same format used by VS Code extension
+        
+        Args:
+            result: ValidationResult object to transform
+            report_mode: "summary" for high-level overview, "detailed" for full metadata
+        """
         # Convert ValidationResult gate statuses to match API format
         gates = []
         for gate_score in result.gate_scores:
@@ -39,72 +44,163 @@ class SharedReportGenerator:
                 else:
                     status = "FAIL"
             
-            # Extract patterns attempted for this gate
-            patterns_attempted = SharedReportGenerator._extract_patterns_attempted(gate_score)
+            # Filter gate_score.matches to only include actual matches
+            actual_matches = []
+            if gate_score.matches:
+                for match in gate_score.matches:
+                    file_path = match.get('file_path', match.get('file', ''))
+                    matched_text = match.get('matched_text', match.get('match', ''))
+                    line_number = match.get('line_number', match.get('line', 0))
+                    
+                    # Only include actual matches (not pattern attempts)
+                    if (file_path and file_path != 'N/A - No matches found' and 
+                        file_path != 'unknown' and matched_text.strip() and 
+                        line_number > 0):
+                        actual_matches.append(match)
+                
+                # Update gate_score.matches to only include actual matches
+                gate_score.matches = actual_matches
             
-            gates.append({
+            # Generate patterns attempted summary based on report mode
+            patterns_attempted = {}
+            if report_mode == "detailed":
+                patterns_attempted = SharedReportGenerator._extract_patterns_attempted(gate_score)
+                if actual_matches:
+                    patterns_attempted["status"] = "matches_found"
+                    patterns_attempted["actual_matches_count"] = len(actual_matches)
+                else:
+                    patterns_attempted["status"] = "no_matches_found"
+            else:
+                # Summary mode - minimal pattern info
+                patterns_attempted = {
+                    "total_patterns_tried": len(actual_matches) if actual_matches else 0,
+                    "status": "matches_found" if actual_matches else "no_matches_found"
+                }
+            
+            # Create gate dictionary with mode-specific information
+            gate_data = {
                 "name": gate_score.gate.value,
                 "status": status,
                 "score": gate_score.final_score,
-                "details": gate_score.details,
                 "expected": gate_score.expected,
                 "found": gate_score.found,
                 "coverage": gate_score.coverage,
                 "quality_score": gate_score.quality_score,
-                "matches": gate_score.matches,  # Include detailed match information
-                "patterns_attempted": patterns_attempted  # Add patterns attempted summary
-            })
+                "patterns_attempted": patterns_attempted
+            }
+            
+            # Add detailed information only in detailed mode
+            if report_mode == "detailed":
+                gate_data.update({
+                    "details": gate_score.details,
+                    "matches": actual_matches,  # Include full match details
+                    "recommendations": getattr(gate_score, 'recommendations', []),
+                    "technologies": getattr(gate_score, 'technologies', {}),
+                    "metadata": {
+                        "validation_time": getattr(gate_score, 'validation_time', 0),
+                        "files_scanned": getattr(gate_score, 'files_scanned', 0),
+                        "patterns_used": getattr(gate_score, 'patterns_used', [])
+                    }
+                })
+            else:
+                # Summary mode - minimal details
+                gate_data.update({
+                    "details": gate_score.details[:2] if gate_score.details else [],  # Only first 2 details
+                    "matches": len(actual_matches),  # Just count, not full match data
+                    "summary_recommendations": gate_score.recommendations[:2] if getattr(gate_score, 'recommendations', []) else []
+                })
+            
+            gates.append(gate_data)
         
         # Return in the exact same format as VS Code extension expects
-        return {
+        base_data = {
             "gates": gates,
             "score": result.overall_score,
             "languages_detected": [lang.value for lang in result.languages] if hasattr(result, 'languages') and result.languages else [],
             "repository_url": getattr(result, 'repository_url', None),
-            "project_name": result.project_name
+            "project_name": result.project_name,
+            "report_mode": report_mode
         }
+        
+        # Add detailed metadata only in detailed mode
+        if report_mode == "detailed":
+            base_data.update({
+                "scan_metadata": {
+                    "scan_duration": getattr(result, 'scan_duration', 0),
+                    "total_files": getattr(result, 'total_files', 0),
+                    "total_lines": getattr(result, 'total_lines', 0),
+                    "timestamp": getattr(result, 'timestamp', datetime.now()).isoformat(),
+                    "scan_settings": getattr(result, 'scan_settings', {})
+                },
+                "detailed_analysis": getattr(result, 'detailed_analysis', {}),
+                "critical_issues": getattr(result, 'critical_issues', []),
+                "performance_metrics": getattr(result, 'performance_metrics', {})
+            })
+        
+        return base_data
     
     @staticmethod
     def _extract_patterns_attempted(gate_score) -> Dict[str, Any]:
-        """Extract patterns attempted for a gate, especially useful for failed gates"""
+        """Extract patterns attempted for a gate, focusing only on actual matches"""
         patterns_info = {
             "total_patterns_tried": 0,
             "successful_patterns": [],
             "failed_patterns": [],
-            "pattern_details": []
+            "pattern_details": [],
+            "actual_matches_count": 0
         }
         
         if not gate_score.matches:
-            # If no matches but we have patterns (from validator), extract them
-            # For now, we'll need to get patterns from the validator classes
             patterns_info["status"] = "no_matches_found"
             return patterns_info
         
-        # Group matches by pattern
-        pattern_groups = {}
+        # Filter out non-matching patterns
+        actual_matches = []
         for match in gate_score.matches:
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            
+            # Only include actual matches
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0):
+                actual_matches.append(match)
+        
+        if not actual_matches:
+            patterns_info["status"] = "no_actual_matches"
+            return patterns_info
+        
+        # Group actual matches by pattern
+        pattern_groups = {}
+        for match in actual_matches:
             pattern = match.get('pattern', 'unknown')
             if pattern not in pattern_groups:
                 pattern_groups[pattern] = []
             pattern_groups[pattern].append(match)
         
         patterns_info["total_patterns_tried"] = len(pattern_groups)
+        patterns_info["actual_matches_count"] = len(actual_matches)
         
         for pattern, matches in pattern_groups.items():
+            # Only include patterns that actually matched
+            files_affected = []
+            for match in matches:
+                file_path = match.get('file_path', match.get('file', ''))
+                if file_path and file_path not in files_affected:
+                    files_affected.append(file_path)
+            
             pattern_detail = {
                 "pattern": pattern,
                 "matches_count": len(matches),
-                "files_affected": list(set(match.get('file_path', '') for match in matches)),
+                "files_affected": files_affected,
                 "sample_matches": matches[:3] if len(matches) > 3 else matches  # First 3 matches as samples
             }
             
-            if len(matches) > 0:
-                patterns_info["successful_patterns"].append(pattern)
-            else:
-                patterns_info["failed_patterns"].append(pattern)
-            
+            patterns_info["successful_patterns"].append(pattern)
             patterns_info["pattern_details"].append(pattern_detail)
         
+        patterns_info["status"] = "matches_found"
         return patterns_info
     
     @staticmethod
@@ -313,53 +409,114 @@ class ReportGenerator:
     def __init__(self, config: ReportConfig):
         self.config = config
         
-    def generate(self, result: ValidationResult) -> List[str]:
-        """Generate reports in specified format(s)"""
+    def generate(self, result: ValidationResult, report_mode: str = "summary") -> List[str]:
+        """Generate reports in specified format(s)
+        
+        Args:
+            result: ValidationResult object
+            report_mode: "summary", "detailed", or "both"
+        """
         
         output_dir = Path(self.config.output_path)
         output_dir.mkdir(parents=True, exist_ok=True)
         
         generated_files = []
         
-        if self.config.format in ['json', 'all']:
-            json_file = self._generate_json_report(result, output_dir)
-            generated_files.append(json_file)
-        
-        if self.config.format in ['html', 'all']:
-            html_file = self._generate_html_report(result, output_dir)
-            generated_files.append(html_file)
+        # Generate both summary and detailed reports if requested
+        if report_mode == "both":
+            # Generate summary reports
+            if self.config.format in ['json', 'all']:
+                json_file = self._generate_json_report(result, output_dir, "summary")
+                generated_files.append(json_file)
+            
+            if self.config.format in ['html', 'all']:
+                html_file = self._generate_html_report(result, output_dir, "summary")
+                generated_files.append(html_file)
+            
+            # Generate detailed reports
+            if self.config.format in ['json', 'all']:
+                json_file = self._generate_json_report(result, output_dir, "detailed")
+                generated_files.append(json_file)
+            
+            if self.config.format in ['html', 'all']:
+                html_file = self._generate_html_report(result, output_dir, "detailed")
+                generated_files.append(html_file)
+        else:
+            # Generate single report type
+            if self.config.format in ['json', 'all']:
+                json_file = self._generate_json_report(result, output_dir, report_mode)
+                generated_files.append(json_file)
+            
+            if self.config.format in ['html', 'all']:
+                html_file = self._generate_html_report(result, output_dir, report_mode)
+                generated_files.append(html_file)
         
         return generated_files
     
-    def _generate_json_report(self, result: ValidationResult, output_dir: Path) -> str:
-        """Generate JSON report"""
+    def generate_summary_report(self, result: ValidationResult) -> List[str]:
+        """Generate summary report only"""
+        return self.generate(result, "summary")
+    
+    def generate_detailed_report(self, result: ValidationResult) -> List[str]:
+        """Generate detailed report only"""
+        return self.generate(result, "detailed")
+    
+    def generate_both_reports(self, result: ValidationResult) -> List[str]:
+        """Generate both summary and detailed reports"""
+        return self.generate(result, "both")
+    
+    def _generate_json_report(self, result: ValidationResult, output_dir: Path, report_mode: str = "summary") -> str:
+        """Generate JSON report with specified detail level"""
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"codegates_report_{timestamp}.json"
+        mode_suffix = "_detailed" if report_mode == "detailed" else "_summary"
+        filename = f"codegates_report{mode_suffix}_{timestamp}.json"
         filepath = output_dir / filename
         
-        # Use shared logic to transform result
-        result_data = SharedReportGenerator.transform_result_to_extension_format(result)
+        # Use shared logic to transform result with specified mode
+        result_data = SharedReportGenerator.transform_result_to_extension_format(result, report_mode)
         
-        # Generate failed gates analysis
-        failed_gates_analysis = self._generate_failed_gates_analysis(result)
-        
-        # Convert result to dict for JSON serialization
+        # Create base report structure
         report_data = {
-            "project_name": result.project_name,
-            "project_path": getattr(result, 'project_path', ''),
-            "language": result.language.value if hasattr(result, 'language') else 'unknown',
-            "scan_date": result.timestamp.isoformat() if hasattr(result, 'timestamp') else datetime.now().isoformat(),
-            "scan_duration": getattr(result, 'scan_duration', 0),
-            "overall_score": result.overall_score,
-            "total_files": getattr(result, 'total_files', 0),
-            "total_lines": getattr(result, 'total_lines', 0),
-            "gate_summary": SharedReportGenerator.calculate_summary_stats(result_data),
-            "gates": result_data["gates"],
-            "failed_gates_analysis": failed_gates_analysis,  # Add detailed failed gates analysis
-            "critical_issues": getattr(result, 'critical_issues', []),
-            "recommendations": getattr(result, 'recommendations', [])
+            "report_metadata": {
+                "report_type": f"codegates_{report_mode}",
+                "generated_at": datetime.now().isoformat(),
+                "version": "1.0.0"
+            },
+            "project_info": {
+                "project_name": result.project_name,
+                "project_path": getattr(result, 'project_path', ''),
+                "language": result.language.value if hasattr(result, 'language') else 'unknown',
+                "languages_detected": result_data.get("languages_detected", []),
+                "repository_url": result_data.get("repository_url")
+            },
+            "scan_summary": {
+                "overall_score": result.overall_score,
+                "gate_summary": SharedReportGenerator.calculate_summary_stats(result_data)
+            },
+            "gates": result_data["gates"]
         }
+        
+        # Add detailed information only for detailed reports
+        if report_mode == "detailed":
+            report_data.update({
+                "scan_details": result_data.get("scan_metadata", {}),
+                "detailed_analysis": result_data.get("detailed_analysis", {}),
+                "failed_gates_analysis": self._generate_failed_gates_analysis(result),
+                "critical_issues": result_data.get("critical_issues", []),
+                "performance_metrics": result_data.get("performance_metrics", {}),
+                "full_recommendations": getattr(result, 'recommendations', [])
+            })
+        else:
+            # Summary mode - minimal additional info
+            report_data.update({
+                "quick_stats": {
+                    "scan_duration": getattr(result, 'scan_duration', 0),
+                    "total_files": getattr(result, 'total_files', 0),
+                    "total_lines": getattr(result, 'total_lines', 0)
+                },
+                "top_recommendations": getattr(result, 'recommendations', [])[:5]  # Top 5 recommendations
+            })
         
         with open(filepath, 'w') as f:
             json.dump(report_data, f, indent=2)
@@ -392,32 +549,32 @@ class ReportGenerator:
                 "potential_solutions": []
             }
             
-            # Extract patterns from matches (if any)
+            # Filter matches to only include actual matches
             if gate_score.matches:
+                actual_matches = []
                 for match in gate_score.matches:
+                    file_path = match.get('file_path', match.get('file', ''))
+                    matched_text = match.get('matched_text', match.get('match', ''))
+                    line_number = match.get('line_number', match.get('line', 0))
+                    
+                    # Only include actual matches
+                    if (file_path and file_path != 'N/A - No matches found' and 
+                        file_path != 'unknown' and matched_text.strip() and 
+                        line_number > 0):
+                        actual_matches.append(match)
+                
+                # Extract patterns from actual matches only
+                for match in actual_matches:
                     pattern_info = {
                         "pattern": match.get('pattern', 'unknown'),
-                        "file_searched": match.get('file_path', ''),
-                        "line_number": match.get('line_number', 0),
-                        "matched_text": match.get('matched_text', ''),
+                        "file_searched": match.get('file_path', match.get('file', '')),
+                        "line_number": match.get('line_number', match.get('line', 0)),
+                        "matched_text": match.get('matched_text', match.get('match', '')),
                         "context": match.get('context', [])
                     }
                     gate_analysis["patterns_attempted"].append(pattern_info)
             
-            # Add failure reasons based on gate type
-            if gate_score.found == 0:
-                gate_analysis["failure_reasons"].append("No matching patterns found in codebase")
-                gate_analysis["potential_solutions"].append(f"Implement {gate_score.gate.value} patterns according to best practices")
-            elif gate_score.found < gate_score.expected:
-                gate_analysis["failure_reasons"].append(f"Insufficient implementation: found {gate_score.found}, expected {gate_score.expected}")
-                gate_analysis["potential_solutions"].append("Increase implementation coverage across more files")
-            
-            # Add specific recommendations based on gate type
-            gate_specific_recommendations = self._get_gate_specific_recommendations(gate_score.gate.value)
-            gate_analysis["potential_solutions"].extend(gate_specific_recommendations)
-            
             failed_analysis["detailed_analysis"].append(gate_analysis)
-            failed_analysis["summary"]["total_patterns_attempted"] += len(gate_analysis["patterns_attempted"])
         
         # Identify common failure patterns
         if failed_gates:
@@ -470,25 +627,26 @@ class ReportGenerator:
         
         return recommendations_map.get(gate_name, ["Review implementation guidelines for this gate"])
     
-    def _generate_html_report(self, result: ValidationResult, output_dir: Path) -> str:
+    def _generate_html_report(self, result: ValidationResult, output_dir: Path, report_mode: str = "summary") -> str:
         """Generate HTML report with modern styling"""
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"codegates_report_{timestamp}.html"
+        mode_suffix = "_detailed" if report_mode == "detailed" else "_summary"
+        filename = f"codegates_report{mode_suffix}_{timestamp}.html"
         filepath = output_dir / filename
         
-        html_content = self._generate_html_content(result)
+        html_content = self._generate_html_content(result, report_mode)
         
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
         return str(filepath)
     
-    def _generate_html_content(self, result: ValidationResult, comments: Dict[str, str] = None) -> str:
+    def _generate_html_content(self, result: ValidationResult, report_mode: str = "summary", comments: Dict[str, str] = None) -> str:
         """Generate HTML content using exact same logic as VS Code extension"""
         
         # Transform result using shared logic
-        result_data = SharedReportGenerator.transform_result_to_extension_format(result)
+        result_data = SharedReportGenerator.transform_result_to_extension_format(result, report_mode)
         
         # Calculate summary statistics using shared logic
         stats = SharedReportGenerator.calculate_summary_stats(result_data)
@@ -502,20 +660,27 @@ class ReportGenerator:
         # Count comments if provided
         comments_count = len(comments) if comments else 0
         
+        # Report type display
+        report_type_display = "Detailed" if report_mode == "detailed" else "Summary"
+        
         html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hard Gate Assessment - {project_name}</title>
+    <title>Hard Gate Assessment ({report_type_display}) - {project_name}</title>
     <style>
         {self._get_extension_css_styles()}
+        {self._get_mode_specific_styles(report_mode)}
     </style>
 </head>
 <body>
     <div class="report-container">
-        <h1>{project_name}</h1>
-        <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report{(' (with ' + str(comments_count) + ' user comments)') if comments_count > 0 else ''}</p>
+        <div class="report-header">
+            <h1>{project_name}</h1>
+            <div class="report-badge {report_mode}-badge">{report_type_display} Report</div>
+            <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report{(' (with ' + str(comments_count) + ' user comments)') if comments_count > 0 else ''}</p>
+        </div>
         
         <h2>Executive Summary</h2>
         
@@ -544,11 +709,13 @@ class ReportGenerator:
         </div>
         <p><strong>{result_data['score']:.1f}% Hard Gates Compliance</strong></p>
         
+        {self._generate_mode_specific_content(result_data, report_mode)}
+        
         <h2>Hard Gates Analysis</h2>
-        {self._generate_simple_gates_table_html(result_data, comments)}
+        {self._generate_gates_table_html(result_data, report_mode, comments)}
         
         <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-            <p>Hard Gate Assessment Report generated on {timestamp}</p>
+            <p>Hard Gate Assessment {report_type_display} Report generated on {timestamp}</p>
             {('<p style="font-size: 0.9em; color: #9ca3af;">Report includes ' + str(comments_count) + ' user comments for enhanced documentation</p>') if comments_count > 0 else ''}
         </footer>
     </div>
@@ -588,8 +755,323 @@ class ReportGenerator:
         }
         """
     
+    def _get_mode_specific_styles(self, report_mode: str) -> str:
+        """Get CSS styles specific to the report mode"""
+        if report_mode == "detailed":
+            return """
+            .report-badge.detailed-badge {
+                background: #1f2937;
+                color: #fff;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 0.8em;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-left: 15px;
+                display: inline-block;
+            }
+            .detailed-section {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+            }
+            .detailed-section h3 {
+                color: #1e40af;
+                margin-top: 0;
+                border-bottom: 2px solid #dbeafe;
+                padding-bottom: 10px;
+            }
+            .metadata-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 15px;
+                margin: 15px 0;
+            }
+            .metadata-item {
+                background: #ffffff;
+                padding: 12px;
+                border-radius: 6px;
+                border-left: 4px solid #3b82f6;
+            }
+            .metadata-label {
+                font-weight: 600;
+                color: #374151;
+                font-size: 0.9em;
+            }
+            .metadata-value {
+                color: #6b7280;
+                font-size: 0.9em;
+                margin-top: 2px;
+            }
+            .pattern-details {
+                background: #f1f5f9;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 15px;
+                margin: 10px 0;
+                font-family: 'Courier New', monospace;
+                font-size: 0.85em;
+            }
+            .match-item {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                padding: 10px;
+                margin: 8px 0;
+            }
+            .match-file {
+                font-weight: 600;
+                color: #1e40af;
+            }
+            .match-line {
+                color: #6b7280;
+                font-size: 0.9em;
+            }
+            .match-code {
+                background: #f8fafc;
+                padding: 8px;
+                border-radius: 4px;
+                margin-top: 8px;
+                font-family: 'Courier New', monospace;
+                font-size: 0.8em;
+                color: #374151;
+                border-left: 3px solid #3b82f6;
+            }
+            """
+        else:
+            return """
+            .report-badge.summary-badge {
+                background: #059669;
+                color: #fff;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 0.8em;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-left: 15px;
+                display: inline-block;
+            }
+            .summary-highlights {
+                background: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+            }
+            .summary-highlights h3 {
+                color: #0369a1;
+                margin-top: 0;
+            }
+            .quick-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 12px;
+                margin: 15px 0;
+            }
+            .quick-stat {
+                text-align: center;
+                padding: 10px;
+                background: #ffffff;
+                border-radius: 6px;
+                border: 1px solid #e0e7ff;
+            }
+            .quick-stat-value {
+                font-size: 1.5em;
+                font-weight: bold;
+                color: #1d4ed8;
+            }
+            .quick-stat-label {
+                font-size: 0.8em;
+                color: #6b7280;
+                margin-top: 5px;
+            }
+            """
+    
+    def _generate_mode_specific_content(self, result_data: Dict[str, Any], report_mode: str) -> str:
+        """Generate mode-specific content sections"""
+        if report_mode == "detailed":
+            # Generate detailed metadata section
+            scan_metadata = result_data.get("scan_metadata", {})
+            
+            return f"""
+            <div class="detailed-section">
+                <h3>📊 Detailed Scan Information</h3>
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <div class="metadata-label">Scan Duration</div>
+                        <div class="metadata-value">{scan_metadata.get('scan_duration', 0):.2f} seconds</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Files Analyzed</div>
+                        <div class="metadata-value">{scan_metadata.get('total_files', 0)} files</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Lines of Code</div>
+                        <div class="metadata-value">{scan_metadata.get('total_lines', 0):,} lines</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Languages Detected</div>
+                        <div class="metadata-value">{', '.join(result_data.get('languages_detected', []))}</div>
+                    </div>
+                </div>
+            </div>
+            """
+        else:
+            # Generate summary highlights
+            quick_stats = {
+                "scan_duration": 0,
+                "total_files": 0,
+                "total_lines": 0
+            }
+            
+            # Try to get quick stats from result data
+            if "quick_stats" in result_data:
+                quick_stats.update(result_data["quick_stats"])
+            
+            return f"""
+            <div class="summary-highlights">
+                <h3>🎯 Quick Overview</h3>
+                <div class="quick-stats">
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{quick_stats['scan_duration']:.1f}s</div>
+                        <div class="quick-stat-label">Scan Time</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{quick_stats['total_files']}</div>
+                        <div class="quick-stat-label">Files</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{quick_stats['total_lines']:,}</div>
+                        <div class="quick-stat-label">Lines</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{len(result_data.get('languages_detected', []))}</div>
+                        <div class="quick-stat-label">Languages</div>
+                    </div>
+                </div>
+            </div>
+            """
+    
+    def _generate_gates_table_html(self, result_data: Dict[str, Any], report_mode: str, comments: Dict[str, str] = None) -> str:
+        """Generate gates table HTML with mode-specific details"""
+        if report_mode == "detailed":
+            return self._generate_detailed_gates_table_html(result_data, comments)
+        else:
+            return self._generate_simple_gates_table_html(result_data, comments)
+    
+    def _generate_detailed_gates_table_html(self, result_data: Dict[str, Any], comments: Dict[str, str] = None) -> str:
+        """Generate detailed gates table with full match information"""
+        gates = result_data.get("gates", [])
+        gate_categories = SharedReportGenerator.get_gate_categories()
+        
+        html = ""
+        
+        for category_name, gate_names in gate_categories.items():
+            category_gates = [g for g in gates if g.get("name") in gate_names]
+            
+            if not category_gates:
+                continue
+            
+            html += f"""
+                <div class="gate-category">
+                    <h3>{category_name}</h3>
+                    <table class="gates-table">
+                        <thead>
+                            <tr>
+                                <th>Practice</th>
+                                <th>Status</th>
+                                <th>Evidence</th>
+                                <th>Detailed Matches</th>
+                                <th>Recommendation</th>"""
+            
+            if comments:
+                html += """
+                                <th>Comments</th>"""
+            
+            html += """
+                            </tr>
+                        </thead>
+                        <tbody>"""
+            
+            for gate in category_gates:
+                gate_name = SharedReportGenerator.format_gate_name(gate.get("name", ""))
+                status_info = SharedReportGenerator.get_status_info(gate.get("status", ""), gate)
+                evidence = SharedReportGenerator.format_evidence(gate)
+                recommendation = SharedReportGenerator.get_recommendation(gate, gate_name)
+                comment = SharedReportGenerator.get_gate_comment(gate.get("name", ""), comments) if comments else ""
+                
+                # Generate detailed match information
+                detailed_matches = self._format_detailed_matches(gate.get("matches", []))
+                
+                html += f"""
+                            <tr>
+                                <td><strong>{gate_name}</strong></td>
+                                <td><span class="status-{status_info['class']}">{status_info['text']}</span></td>
+                                <td>{evidence}</td>
+                                <td>{detailed_matches}</td>
+                                <td>{recommendation}</td>"""
+                
+                if comments:
+                    html += f"""
+                                <td class="comment-cell">{comment if comment else 'No comments'}</td>"""
+                
+                html += """
+                            </tr>"""
+            
+            html += """
+                        </tbody>
+                    </table>
+                </div>"""
+        
+        return html
+    
+    def _format_detailed_matches(self, matches) -> str:
+        """Format detailed match information for HTML display"""
+        if not matches or (isinstance(matches, int) and matches == 0):
+            return "<em>No matches found</em>"
+        
+        if isinstance(matches, int):
+            return f"<strong>{matches} matches found</strong>"
+        
+        if not isinstance(matches, list):
+            return "<em>Invalid match data</em>"
+        
+        html = f"<strong>{len(matches)} matches:</strong><br>"
+        
+        # Show first 3 matches in detail
+        for i, match in enumerate(matches[:3]):
+            file_path = match.get('file_path', match.get('file', 'unknown'))
+            line_number = match.get('line_number', match.get('line', 0))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            
+            # Truncate long file paths
+            display_path = file_path
+            if len(display_path) > 30:
+                display_path = "..." + display_path[-27:]
+            
+            # Truncate long matched text
+            display_text = matched_text
+            if len(display_text) > 50:
+                display_text = display_text[:47] + "..."
+            
+            html += f"""
+                <div class="match-item">
+                    <div class="match-file">{display_path}:{line_number}</div>
+                    <div class="match-code">{display_text}</div>
+                </div>"""
+        
+        # Show count of remaining matches
+        if len(matches) > 3:
+            html += f"<p><em>... and {len(matches) - 3} more matches</em></p>"
+        
+        return html 
+    
     def _generate_simple_gates_table_html(self, result_data: Dict[str, Any], comments: Dict[str, str] = None) -> str:
-        """Generate gates table HTML that exactly matches VS Code extension structure"""
+        """Generate simplified gates table HTML for summary mode"""
         gates = result_data.get("gates", [])
         gate_categories = SharedReportGenerator.get_gate_categories()
         
@@ -643,10 +1125,5 @@ class ReportGenerator:
                 
                 html += """
                             </tr>"""
-            
-            html += """
-                        </tbody>
-                    </table>
-                </div>"""
         
         return html 

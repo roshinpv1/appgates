@@ -5,12 +5,19 @@ Base Gate Validator - Abstract base class for all gate validators
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Dict, Any, Set
-from concurrent.futures import ThreadPoolExecutor
+from typing import List, Dict, Any, Set, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
-from ...models import Language, FileAnalysis
+from ...models import Language, FileAnalysis, GateType
 from pydantic import BaseModel
+
+# Import PatternLoader for loading patterns from gate_config.yml
+try:
+    from ..pattern_loader import PatternLoader
+    PATTERN_LOADER_AVAILABLE = True
+except ImportError:
+    PATTERN_LOADER_AVAILABLE = False
 
 
 class GateValidationResult(BaseModel):
@@ -27,11 +34,123 @@ class GateValidationResult(BaseModel):
 class BaseGateValidator(ABC):
     """Abstract base class for gate validators"""
     
-    def __init__(self, language: Language):
+    def __init__(self, language: Language, gate_type: Optional[GateType] = None):
         self.language = language
-        self.patterns = self._get_language_patterns()
+        self.gate_type = gate_type
+        
+        # Initialize pattern loader if available
+        self.pattern_loader = None
+        if PATTERN_LOADER_AVAILABLE:
+            try:
+                self.pattern_loader = PatternLoader()
+            except Exception as e:
+                print(f"⚠️ Failed to initialize PatternLoader: {e}")
+        
+        # Load patterns with fallback to hardcoded patterns
+        self.patterns = self._load_patterns()
         self.config_patterns = self._get_config_patterns()
         self.technology_patterns = self._get_technology_patterns()
+
+    def _is_test_file(self, file_path: str) -> bool:
+        """
+        Check if a file is a test file based on common test file indicators.
+        
+        Args:
+            file_path: Path to the file to check
+            
+        Returns:
+            bool: True if the file is a test file, False otherwise
+        """
+        test_indicators = [
+            # Common test directories
+            'test/', 'tests/', 'testing/', '__tests__/', 
+            'spec/', 'specs/', 'e2e/', 'integration/',
+            
+            # Common test file patterns
+            '.test.', '.spec.', '_test.', '_spec.',
+            'test_', 'spec_', 'Test.', 'Tests.',
+            'Mock', 'Stub', 'Fake',
+            
+            # Language-specific test patterns
+            # Java
+            'Tests.java', 'Test.java', 'IT.java',
+            'IntegrationTest.java', 'IntegrationTests.java',
+            'MockitoTest.java', 'MockitoTests.java',
+            
+            # Python
+            'test_*.py', '*_test.py', 'conftest.py',
+            'pytest_*.py', '*_pytest.py',
+            
+            # JavaScript/TypeScript
+            '.spec.ts', '.test.ts', '.spec.js', '.test.js',
+            '.spec.tsx', '.test.tsx', '.spec.jsx', '.test.jsx',
+            'cypress/', 'jest.', 'mocha.',
+            
+            # C#
+            'Tests.cs', 'Test.cs', '.Tests/', 
+            'TestBase.cs', 'TestFixture.cs',
+            
+            # Go
+            '_test.go',
+            
+            # Ruby
+            '_spec.rb', '_test.rb', '/spec/', '/test/',
+            
+            # Generic
+            'fixture', 'mock', 'stub', 'fake', 'dummy'
+        ]
+        
+        lower_path = file_path.lower()
+        
+        # Check if any test indicator is in the path
+        return any(indicator.lower() in lower_path for indicator in test_indicators)
+
+    def _filter_non_test_files(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Filter out matches from test files for non-test gates.
+        
+        Args:
+            matches: List of pattern matches
+            
+        Returns:
+            List[Dict[str, Any]]: Filtered matches excluding test files for non-test gates
+        """
+        # For test-related gates, return all matches
+        if self.gate_type == GateType.AUTOMATED_TESTS:
+            return matches
+            
+        # For non-test gates, filter out matches from test files
+        return [
+            match for match in matches 
+            if not self._is_test_file(match.get('file_path', ''))
+        ]
+
+    def _load_patterns(self) -> Dict[str, List[str]]:
+        """Load patterns from gate_config.yml with fallback to hardcoded patterns"""
+        
+        # First, try to load from gate_config.yml
+        if self.pattern_loader and self.gate_type:
+            try:
+                yaml_patterns = self.pattern_loader.get_patterns_for_gate_type(
+                    self.gate_type, self.language
+                )
+                
+                if yaml_patterns:
+                    print(f"✅ Loaded patterns from gate_config.yml for {self.gate_type.value} ({self.language.value})")
+                    return yaml_patterns
+                else:
+                    print(f"⚠️ No patterns found in gate_config.yml for {self.gate_type.value} ({self.language.value})")
+            except Exception as e:
+                print(f"⚠️ Failed to load patterns from gate_config.yml: {e}")
+        
+        # Fallback to hardcoded patterns
+        hardcoded_patterns = self._get_hardcoded_patterns()
+        if hardcoded_patterns:
+            print(f"📋 Using hardcoded patterns for {self.gate_type.value if self.gate_type else 'unknown'} ({self.language.value})")
+            return hardcoded_patterns
+        
+        print(f"❌ No patterns available for {self.gate_type.value if self.gate_type else 'unknown'} ({self.language.value})")
+        return {}
     
     @abstractmethod
     def validate(self, target_path: Path, 
@@ -40,9 +159,14 @@ class BaseGateValidator(ABC):
         pass
     
     @abstractmethod
-    def _get_language_patterns(self) -> Dict[str, List[str]]:
-        """Get language-specific patterns for validation"""
+    def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
+        """Get hardcoded language-specific patterns as fallback"""
         pass
+    
+    # Keep the old method for backward compatibility, but mark as deprecated
+    def _get_language_patterns(self) -> Dict[str, List[str]]:
+        """DEPRECATED: Use _get_hardcoded_patterns instead"""
+        return self._get_hardcoded_patterns()
     
     @abstractmethod
     def _get_config_patterns(self) -> Dict[str, List[str]]:
@@ -234,10 +358,11 @@ class BaseGateValidator(ABC):
         return {k: v for k, v in detected_technologies.items() if v}
     
     @abstractmethod
-    def _calculate_expected_count(self, total_loc: int, file_count: int,
-                                lang_files: List[FileAnalysis]) -> int:
+    def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected count for this gate"""
-        pass
+        total_loc = sum(f.lines_of_code for f in lang_files)
+        file_count = len(lang_files)
+        return max(file_count // 2, total_loc // 100)  # Default implementation
     
     @abstractmethod
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
@@ -277,113 +402,122 @@ class BaseGateValidator(ABC):
     
     def _search_files_for_patterns(self, target_path: Path, extensions: List[str], 
                                  patterns: List[str]) -> List[Dict[str, Any]]:
-        """Search files for patterns with comprehensive metadata extraction"""
+        """Search files for pattern matches with test file filtering"""
         matches = []
-        attempted_patterns = set()  # Track all patterns that were attempted
         
+        # Skip empty patterns
+        if not patterns:
+            return matches
+            
+        # Compile patterns for performance
+        compiled_patterns = [re.compile(pattern) for pattern in patterns]
+        
+        # Get all matching files
+        files = []
         for ext in extensions:
-            files = target_path.rglob(f"*{ext}")
-            for file_path in files:
-                if file_path.is_file():
-                    try:
-                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                            lines = f.readlines()
-                            
-                        for line_num, line in enumerate(lines, 1):
-                            for pattern in patterns:
-                                attempted_patterns.add(pattern)  # Record that this pattern was tried
-                                match_obj = re.search(pattern, line, re.IGNORECASE)
-                                if match_obj:
-                                    # Extract surrounding context (3 lines before and after)
-                                    context_start = max(0, line_num - 4)
-                                    context_end = min(len(lines), line_num + 3)
-                                    context_lines = lines[context_start:context_end]
-                                    
-                                    # Get the matched text and position
-                                    matched_text = match_obj.group(0)
-                                    match_start = match_obj.start()
-                                    match_end = match_obj.end()
-                                    
-                                    # Determine the function/method context
-                                    function_context = self._extract_function_context(lines, line_num)
-                                    
-                                    # Determine severity based on pattern type
-                                    severity = self._determine_pattern_severity(pattern, matched_text)
-                                    
-                                    match_data = {
-                                        # Core Match Information
-                                        'file_path': str(file_path.relative_to(target_path)),
-                                        'line_number': line_num,
-                                        'pattern': pattern,
-                                        'matched_text': matched_text.strip(),
-                                        'match_start': match_start,
-                                        'match_end': match_end,
-                                        'full_line': line.strip(),
-                                        
-                                        # Context Information
-                                        'context': [line.strip() for line in context_lines],
-                                        'function_context': function_context,
-                                        
-                                        # Classification
-                                        'severity': severity,
-                                        'language': self.language.value,
-                                        'file_extension': file_path.suffix,
-                                        'gate_type': self.__class__.__name__.replace('Validator', ''),
-                                        
-                                        # Additional Metadata
-                                        'line_length': len(line),
-                                        'indentation_level': len(line) - len(line.lstrip()),
-                                        'is_comment': line.strip().startswith(('#', '//', '/*', '*')),
-                                        'is_string_literal': self._is_in_string_literal(line, match_start),
-                                        
-                                        # Remediation Information
-                                        'suggested_fix': self._suggest_fix_for_pattern(pattern, matched_text, line),
-                                        'documentation_link': self._get_documentation_link(pattern),
-                                        'priority': self._calculate_priority(severity, function_context),
-                                    }
-                                    
-                                    matches.append(match_data)
-                                    
-                    except Exception as e:
-                        # Log the error but continue processing
-                        print(f"⚠️ Error processing file {file_path}: {e}")
-                        continue
+            files.extend(target_path.rglob(f"*{ext}"))
         
-        # Add patterns that were attempted but found no matches
-        successful_patterns = set(match['pattern'] for match in matches)
-        failed_patterns = attempted_patterns - successful_patterns
-        
-        # Record patterns that didn't find matches for better debugging
-        for failed_pattern in failed_patterns:
-            pattern_attempt_record = {
-                'file_path': 'N/A - No matches found',
-                'line_number': 0,
-                'pattern': failed_pattern,
-                'matched_text': '',
-                'match_start': 0,
-                'match_end': 0,
-                'full_line': '',
-                'context': [],
-                'function_context': '',
-                'severity': 'info',
-                'language': self.language.value,
-                'file_extension': '',
-                'gate_type': self.__class__.__name__.replace('Validator', ''),
-                'line_length': 0,
-                'indentation_level': 0,
-                'is_comment': False,
-                'is_string_literal': False,
-                'suggested_fix': f'Implement patterns matching: {failed_pattern}',
-                'documentation_link': self._get_documentation_link(failed_pattern),
-                'priority': 'medium',
-                'status': 'pattern_not_found',  # Special status for unsuccessful patterns
-                'files_searched': len([f for ext in extensions for f in target_path.rglob(f"*{ext}") if f.is_file()]),
-                'total_lines_searched': 'N/A'  # Simplified to avoid complex calculation
+        # Process files in parallel
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_file = {
+                executor.submit(self._process_file, file_path, compiled_patterns): file_path
+                for file_path in files
             }
-            matches.append(pattern_attempt_record)
+            
+            for future in as_completed(future_to_file):
+                try:
+                    file_matches = future.result()
+                    if file_matches:
+                        matches.extend(file_matches)
+                except Exception as e:
+                    # Log error but continue processing
+                    print(f"Error processing file: {e}")
+        
+        # Filter out test files for non-test gates
+        matches = self._filter_non_test_files(matches)
+        
+        # Sort matches by severity and file path
+        matches.sort(key=lambda x: (
+            -self._calculate_priority(x.get('severity', 'LOW'), x.get('function_context', {})),
+            x.get('file_path', ''),
+            x.get('line_number', 0)
+        ))
         
         return matches
+
+    def _process_file(self, file_path: Path, compiled_patterns: List[re.Pattern]) -> List[Dict[str, Any]]:
+        """
+        Helper function to process a single file for pattern matching.
+        
+        Args:
+            file_path: Path to the file to process
+            compiled_patterns: List of compiled regex patterns to search for
+            
+        Returns:
+            List[Dict[str, Any]]: List of matches found in the file
+        """
+        matches = []
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            for line_num, line in enumerate(lines, 1):
+                for pattern in compiled_patterns:
+                    match_obj = pattern.search(line)
+                    if match_obj:
+                        # Get match details
+                        matched_text = match_obj.group(0)
+                        match_start = match_obj.start()
+                        match_end = match_obj.end()
+                        
+                        # Get function context
+                        function_context = self._extract_function_context(lines, line_num)
+                        
+                        # Determine severity based on pattern type
+                        severity = self._determine_pattern_severity(pattern.pattern, matched_text)
+                        
+                        # Create match data
+                        match_data = {
+                            'file_path': str(file_path),
+                            'line_number': line_num,
+                            'pattern': pattern.pattern,
+                            'matched_text': matched_text.strip(),
+                            'match_start': match_start,
+                            'match_end': match_end,
+                            'full_line': line.strip(),
+                            'severity': severity,
+                            'function_context': function_context,
+                            'suggested_fix': self._suggest_fix_for_pattern(pattern.pattern, matched_text, line),
+                            'documentation_link': self._get_documentation_link(pattern.pattern),
+                            'priority': self._calculate_priority(severity, function_context)
+                        }
+                        
+                        matches.append(match_data)
+                        
+        except Exception as e:
+            # Log error but continue processing
+            print(f"Error processing file {file_path}: {e}")
+            return []
+            
+        return matches
     
+    def _filter_actual_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter out pattern attempts and return only actual matches"""
+        actual_matches = []
+        for match in matches:
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            status = match.get('status', '')
+            
+            # Only include actual matches (not pattern attempts)
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0 and status != 'pattern_not_found'):
+                actual_matches.append(match)
+        
+        return actual_matches
+
     def _extract_function_context(self, lines: List[str], current_line: int) -> Dict[str, Any]:
         """Extract function/method context information"""
         
@@ -562,24 +696,116 @@ class BaseGateValidator(ABC):
         total_loc = sum(f.lines_of_code for f in lang_files)
         file_count = len(lang_files)
         
-        return self._calculate_expected_count(total_loc, file_count, lang_files)
-    
+        return self._calculate_expected_count(lang_files)
+
     def _calculate_quality_score(self, matches: List[Dict[str, Any]], expected: int) -> float:
-        """Calculate quality score based on matches found vs expected"""
+        """
+        Calculate quality score based on matches found vs expected.
+        
+        Args:
+            matches: List of pattern matches
+            expected: Expected number of matches
+            
+        Returns:
+            float: Quality score between 0 and 100
+        """
+        # No implementations = 0 quality score (except for avoid_* gates)
+        if not matches:
+            if self.gate_type and 'avoid' in self.gate_type.value.lower():
+                return 100.0  # Perfect score for avoid_* gates when no violations found
+            return 0.0  # No implementations = 0 quality score
+        
+        # Calculate base coverage score
         if expected == 0:
-            return 100.0 if len(matches) == 0 else 50.0
+            coverage_score = 100.0 if len(matches) == 0 else 50.0
+        else:
+            coverage_score = min(len(matches) / expected * 100, 100.0)
         
-        coverage = min(len(matches) / expected, 1.0) * 100
-        
-        # Assess quality based on implementation patterns found
+        # Get implementation quality assessment
         quality_assessment = self._assess_implementation_quality(matches)
-        quality_bonus = sum(quality_assessment.values()) if quality_assessment else 0
+        quality_factors = []
         
-        # Calculate final score (coverage + quality bonus, capped at 100)
-        final_score = min(coverage + quality_bonus, 100.0)
+        # Calculate quality factors
+        if quality_assessment:
+            # Pattern diversity (different types of implementations)
+            pattern_types = len(set(match.get('pattern_type', '') for match in matches))
+            quality_factors.append(min(pattern_types * 10, 30))  # Up to 30% bonus
+            
+            # Implementation completeness
+            completeness = sum(1 for match in matches if match.get('severity', 'LOW') != 'LOW')
+            quality_factors.append(min(completeness * 5, 20))  # Up to 20% bonus
+            
+            # Code organization
+            organized_code = sum(1 for match in matches if match.get('function_context', {}).get('function_name', '') != 'unknown')
+            quality_factors.append(min(organized_code / len(matches) * 20, 20))  # Up to 20% bonus
         
-        return final_score
-    
+        # Calculate final quality score
+        quality_bonus = sum(quality_factors) / len(quality_factors) if quality_factors else 0
+        final_score = min(coverage_score + quality_bonus, 100.0)
+        
+        return round(final_score, 2)
+
+    def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
+        """
+        Generate non-duplicate, informative details about the matches.
+        
+        Args:
+            matches: List of pattern matches
+            
+        Returns:
+            List[str]: List of detail messages
+        """
+        if not matches:
+            if self.gate_type and 'avoid' in self.gate_type.value.lower():
+                return [
+                    "✅ No violations found - this is good!",
+                    "All code follows security best practices"
+                ]
+            return [
+                f"No {self.gate_type.value.lower().replace('_', ' ')} implementations found",
+                "Consider adding appropriate implementations based on project requirements"
+            ]
+        
+        details = []
+        
+        # Basic count information
+        found_count = len(matches)
+        details.append(f"Found {found_count} {self.gate_type.value.lower().replace('_', ' ')} pattern matches")
+        
+        # Implementation types
+        impl_types = set()
+        for match in matches:
+            pattern_type = self._classify_pattern_type(match.get('pattern', ''))
+            if pattern_type != 'general':
+                impl_types.add(pattern_type)
+        
+        if impl_types:
+            details.append(f"Implementation types: {', '.join(sorted(impl_types))}")
+        
+        # Severity distribution
+        severity_counts = {}
+        for match in matches:
+            severity = match.get('severity', 'MEDIUM')
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        
+        if severity_counts:
+            details.append("Severity distribution:")
+            for severity, count in sorted(severity_counts.items()):
+                details.append(f"  - {severity}: {count} occurrences")
+        
+        # File distribution
+        file_counts = {}
+        for match in matches:
+            file_path = match.get('file_path', '')
+            if file_path:
+                file_name = Path(file_path).name
+                file_counts[file_name] = file_counts.get(file_name, 0) + 1
+        
+        if len(file_counts) > 1:
+            details.append(f"Implementations found in {len(file_counts)} files")
+        
+        return details
+
     def _generate_llm_recommendations(self, gate_name: str, matches: List[Dict[str, Any]], 
                                     expected: int, detected_technologies: Dict[str, List[str]],
                                     llm_manager=None) -> List[str]:
@@ -706,9 +932,16 @@ class BaseGateValidator(ABC):
         if sample_matches:
             matches_context = f"\n\nSample Code Patterns Found:\n"
             for i, match in enumerate(sample_matches[:5], 1):
-                matches_context += f"{i}. File: {match['file']}, Line: {match['line']}\n"
-                matches_context += f"   Code: {match['code']}\n"
-                matches_context += f"   Severity: {match['severity']}, Function: {match['function']}\n"
+                # Use standardized key names with fallbacks for backward compatibility
+                file_path = match.get('file_path', match.get('file', 'unknown'))
+                line_number = match.get('line_number', match.get('line', '?'))
+                matched_text = match.get('matched_text', match.get('code', match.get('match', '')))
+                severity = match.get('severity', 'unknown')
+                function_context = match.get('function_context', match.get('function', 'unknown'))
+                
+                matches_context += f"{i}. File: {file_path}, Line: {line_number}\n"
+                matches_context += f"   Code: {matched_text}\n"
+                matches_context += f"   Severity: {severity}, Function: {function_context}\n"
         
         # Create severity context
         severity_context = ""
@@ -768,3 +1001,136 @@ Provide your response as a JSON object with this structure:
             return self._get_partial_implementation_recommendations()
         else:
             return self._get_quality_improvement_recommendations() 
+
+    def _generate_detailed_match_info(self, matches: List[Dict[str, Any]], 
+                                    max_items: int = 20,
+                                    show_categories: bool = True,
+                                    category_keywords: Optional[Dict[str, List[str]]] = None) -> List[str]:
+        """Generate detailed information about found matches
+        
+        Args:
+            matches: List of match dictionaries
+            max_items: Maximum number of individual matches to show
+            show_categories: Whether to categorize matches
+            category_keywords: Dictionary mapping category names to keyword lists for categorization
+        
+        Returns:
+            List of formatted detail strings
+        """
+        if not matches:
+            return ["No matches found"]
+        
+        # Filter out non-matching patterns - only show actual matches
+        actual_matches = []
+        for match in matches:
+            # Only include matches that have actual file paths and content
+            file_path = match.get('file_path', match.get('file', ''))
+            matched_text = match.get('matched_text', match.get('match', ''))
+            line_number = match.get('line_number', match.get('line', 0))
+            
+            # Skip if no actual match found (pattern attempted but not found)
+            if (file_path and file_path != 'N/A - No matches found' and 
+                file_path != 'unknown' and matched_text.strip() and 
+                line_number > 0):
+                actual_matches.append(match)
+        
+        if not actual_matches:
+            return ["No actual pattern matches found"]
+        
+        details = []
+        details.append(f"🔍 Found {len(actual_matches)} actual pattern matches:")
+        
+        if show_categories and category_keywords:
+            # Categorize matches
+            categorized_matches = {}
+            category_counts = {}
+            
+            for match in actual_matches:
+                match_text = match.get('matched_text', match.get('match', '')).lower()
+                categorized = False
+                
+                for category, keywords in category_keywords.items():
+                    if any(keyword.lower() in match_text for keyword in keywords):
+                        if category not in categorized_matches:
+                            categorized_matches[category] = []
+                            category_counts[category] = 0
+                        categorized_matches[category].append(match)
+                        category_counts[category] += 1
+                        categorized = True
+                        break
+                
+                if not categorized:
+                    if 'Other' not in categorized_matches:
+                        categorized_matches['Other'] = []
+                        category_counts['Other'] = 0
+                    categorized_matches['Other'].append(match)
+                    category_counts['Other'] += 1
+            
+            # Show category breakdown
+            details.append("\n📊 Matches by Category:")
+            for category, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  • {category}: {count} matches")
+            
+            # Show matches by category
+            shown_count = 0
+            for category in sorted(categorized_matches.keys(), key=lambda x: category_counts[x], reverse=True):
+                if shown_count >= max_items:
+                    break
+                    
+                if categorized_matches[category]:
+                    details.append(f"\n  📂 {category}:")
+                    
+                    for match in categorized_matches[category]:
+                        if shown_count >= max_items:
+                            remaining = len(actual_matches) - shown_count
+                            details.append(f"    ... and {remaining} more matches")
+                            break
+                            
+                        shown_count += 1
+                        file_path = match.get('file_path', match.get('file', 'unknown'))
+                        file_name = Path(file_path).name if file_path != 'unknown' else 'unknown'
+                        line_num = match.get('line_number', match.get('line', '?'))
+                        matched_text = match.get('matched_text', match.get('match', ''))
+                        pattern = match.get('pattern', '')
+                        
+                        # Truncate long matches for readability
+                        display_text = matched_text[:100] + ('...' if len(matched_text) > 100 else '')
+                        
+                        details.append(f"    {shown_count:2d}. {file_name}:{line_num}")
+                        details.append(f"        Code: {display_text}")
+                        if pattern:
+                            details.append(f"        Pattern: {pattern}")
+                        
+                        # Add additional metadata if available
+                        if match.get('severity'):
+                            details.append(f"        Severity: {match['severity']}")
+                        if match.get('function_context'):
+                            details.append(f"        Function: {match['function_context']}")
+                        
+        else:
+            # Simple list without categorization
+            for i, match in enumerate(actual_matches[:max_items], 1):
+                file_path = match.get('file_path', match.get('file', 'unknown'))
+                file_name = Path(file_path).name if file_path != 'unknown' else 'unknown'
+                line_num = match.get('line_number', match.get('line', '?'))
+                matched_text = match.get('matched_text', match.get('match', ''))
+                pattern = match.get('pattern', '')
+                
+                # Truncate long matches for readability
+                display_text = matched_text[:100] + ('...' if len(matched_text) > 100 else '')
+                
+                details.append(f"\n  {i:2d}. {file_name}:{line_num}")
+                details.append(f"      Code: {display_text}")
+                if pattern:
+                    details.append(f"      Pattern: {pattern}")
+                
+                # Add additional metadata if available
+                if match.get('severity'):
+                    details.append(f"      Severity: {match['severity']}")
+                if match.get('function_context'):
+                    details.append(f"      Function: {match['function_context']}")
+            
+            if len(actual_matches) > max_items:
+                details.append(f"\n  ... and {len(actual_matches) - max_items} more matches")
+        
+        return details 

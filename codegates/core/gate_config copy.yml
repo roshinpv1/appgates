@@ -1,0 +1,1057 @@
+hard_gates:
+- id: 1
+  name: Logs Searchable/Available
+  description: Structured logs with keys/values; consistent formats like JSON
+  validation_method: AST scan for logger usage (logger.info("key={} val={}", ...)); Config parser for logback.xml, log4j2.xml to check structured layout (e.g., JSON formatter)
+  patterns:
+    java:
+    # Logger usage with structured format
+    - \blogger\.(info|debug|error|warn|trace)\s*\(\s*[\"'][^\"']*\{\}[^\"']*[\"']\s*,
+    - \blogger\.(info|debug|error|warn|trace)\s*\(\s*[\"'][^\"']*\{[^}]+\}[^\"']*[\"']\s*,
+    - \blogger\.(info|debug|error|warn|trace)\s*\(\s*[\"'][^\"']*=\s*\{\}[^\"']*[\"']\s*,
+    - \blogger\.(info|debug|error|warn|trace)\s*\(\s*[\"'][^\"']*key\s*=\s*\{\}[^\"']*[\"']\s*,
+    - \blogger\.(info|debug|error|warn|trace)\s*\(\s*[\"'][^\"']*:\s*\{\}[^\"']*[\"']\s*,
+    # Logback/Log4j2 configuration files
+    - <encoder.*class=.*JsonEncoder.*>
+    - <encoder.*class=.*JSONLayout.*>
+    - <encoder.*class=.*JsonLayout.*>
+    - <layout.*class=.*JsonLayout.*>
+    - <layout.*class=.*JSONLayout.*>
+    - <PatternLayout.*pattern=.*\{[^}]*\}.*>
+    - <appender.*class=.*ConsoleAppender.*>
+    - <appender.*class=.*FileAppender.*>
+    - <appender.*class=.*RollingFileAppender.*>
+    - logback\.xml
+    - log4j2\.xml
+    - log4j\.properties
+    - logging\.properties
+    # SLF4J structured logging
+    - StructuredArguments\.keyValue\(
+    - StructuredArguments\.kv\(
+    - Markers\.append\(
+    dotnet:
+    # Structured logging with template strings
+    - \bLog\.(Information|Debug|Error|Warning|Critical)\s*\(\s*[\"'][^\"']*\{[^}]+\}[^\"']*[\"']\s*,
+    - \bLog\.(Information|Debug|Error|Warning|Critical)\s*\(\s*[\"'][^\"']*\{@[^}]+\}[^\"']*[\"']\s*,
+    - \bLog\.(Information|Debug|Error|Warning|Critical)\s*\(\s*[\"'][^\"']*\{[^}]+:[^}]+\}[^\"']*[\"']\s*,
+    - \bLog\.(Information|Debug|Error|Warning|Critical)\s*\(\s*[\"'][^\"']*=\s*\{[^}]+\}[^\"']*[\"']\s*,
+    # Serilog configuration
+    - Log\.Logger\s*=\s*new\s+LoggerConfiguration\(\)
+    - WriteTo\.Console\(\)
+    - WriteTo\.File\(\)
+    - WriteTo\.Seq\(\)
+    - WriteTo\.Elasticsearch\(\)
+    - \.Enrich\.FromLogContext\(\)
+    - \.Enrich\.WithProperty\(
+    - \.Enrich\.WithMachineName\(\)
+    - \.Enrich\.WithThreadId\(\)
+    - \.Enrich\.WithCorrelationId\(\)
+    # Configuration files
+    - <target.*type=.*JsonLayout.*>
+    - <target.*type=.*File.*>
+    - <target.*type=.*Console.*>
+    - AddSerilog\(\)
+    - AddConsole\(\)
+    - AddFile\(\)
+    - AddJsonConsole\(\)
+    - appsettings\.json.*Logging
+    - appsettings\.Development\.json.*Logging
+    - appsettings\.Production\.json.*Logging
+    python:
+    # Structured logging with format strings
+    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*\{[^}]+\}[^\"']*[\"']\s*,
+    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*\{[^}]+:[^}]+\}[^\"']*[\"']\s*,
+    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*=\s*\{[^}]+\}[^\"']*[\"']\s*,
+    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*%\([^)]+\)s[^\"']*[\"']\s*,
+    # Structured logging setup
+    - logging\.basicConfig\(.*format=.*\{[^}]*\}
+    - logging\.basicConfig\(.*format=.*%\([^)]+\)
+    - logging\.Formatter\(.*\{[^}]*\}
+    - logging\.Formatter\(.*%\([^)]+\)
+    - '''format'': ''.*%(asctime)s.*%(name)s.*%(levelname)s.*%(message)s.*'''
+    - '''format'': ''.*\{[^}]*\}.*'''
+    - logging\.getLogger\(
+    - StreamHandler\(\)
+    - FileHandler\(\)
+    - RotatingFileHandler\(\)
+    - TimedRotatingFileHandler\(\)
+    - structlog\.configure\(
+    - structlog\.get_logger\(
+    - pythonjsonlogger\.jsonlogger\.JsonFormatter
+    javascript:
+    # Console logging with structured data
+    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*\{[^}]*\}[^\"']*[\"']\s*,
+    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*=\s*[\"']\s*,
+    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*:[^\"']*[\"']\s*,
+    # Structured logging libraries
+    - winston\.createLogger\(
+    - winston\.format\.json\(\)
+    - winston\.format\.combine\(
+    - winston\.format\.timestamp\(\)
+    - winston\.format\.printf\(
+    - bunyan\.createLogger\(
+    - pino\(\)
+    - pino\.destination\(
+    - morgan\(
+    - debug\(
+    - log4js\.configure\(
+    - log4js\.getLogger\(
+    typescript:
+    # Console logging with structured data
+    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*\{[^}]*\}[^\"']*[\"']\s*,
+    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*=\s*[\"']\s*,
+    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*:[^\"']*[\"']\s*,
+    # Structured logging libraries
+    - winston\.createLogger\(
+    - winston\.format\.json\(\)
+    - winston\.format\.combine\(
+    - winston\.format\.timestamp\(\)
+    - winston\.format\.printf\(
+    - bunyan\.createLogger\(
+    - pino\(\)
+    - pino\.destination\(
+    - morgan\(
+    - debug\(
+    - log4js\.configure\(
+    - log4js\.getLogger\(
+    php:
+    # Structured logging
+    - error_log\(.*json_encode\(
+    - \$logger->(info|debug|error|warning|critical)\s*\(\s*[\"'][^\"']*\{[^}]*\}[^\"']*[\"']\s*,
+    - Monolog\\Logger
+    - Monolog\\Handler\\StreamHandler
+    - Monolog\\Handler\\RotatingFileHandler
+    - Monolog\\Formatter\\JsonFormatter
+    - Monolog\\Formatter\\LineFormatter
+    - \$logger->pushHandler\(
+    - \$logger->pushProcessor\(
+
+- id: 2
+  name: Avoid Logging Confidential Data
+  description: No credentials/secrets exposed in logs
+  validation_method: Use Regex + NLP model to match log message strings against keywords like password, secret, token, apikey, auth, credential, etc.
+  patterns:
+    all_languages:
+    # Common sensitive keywords
+    - (?i)\b(password|passwd|pwd|pass|secret|token|auth|authentication|authorization|apikey|api[_-]?key|access[_-]?key|private[_-]?key|public[_-]?key|signing[_-]?key|encryption[_-]?key|bearer|session[_-]?id|session[_-]?key|credential|credentials|client[_-]?id|client[_-]?secret|consumer[_-]?key|consumer[_-]?secret|secure|security[_-]?token|sas[_-]?token|id[_-]?token|jwt|oauth[_-]?token|refresh[_-]?token|access[_-]?token|cert|certificate|pem|pfx|p12|keystore|truststore|jks)\b
+    # PII and sensitive data
+    - (?i)\b(ssn|social[_-]?security|social[_-]?security[_-]?number|credit[_-]?card|cc[_-]?number|card[_-]?number|pan|pin|cvv|cvc|cvv2|cvc2|account[_-]?number|routing[_-]?number|bank[_-]?account|iban|swift|medical[_-]?record|patient[_-]?id|license[_-]?number|driver[_-]?license|passport|national[_-]?id|tax[_-]?id|ein|birth[_-]?date|dob|phone[_-]?number|email|address)\b
+    # Credit card patterns
+    - \b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3[0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b
+    # SSN patterns
+    - \b\d{3}-\d{2}-\d{4}\b
+    - \b\d{3}\s\d{2}\s\d{4}\b
+    # Phone number patterns
+    - \b\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b
+    # Email patterns in logs
+    - \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b
+    # --- Enhanced PII Patterns ---
+    - (?i)\b(?:visa|mastercard|amex|american\s+express|discover|diners|jcb)\b.*?[\s\-]*(?:\d{4}[\s\-]*){3,4}\d{1,4}
+    - \b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3[0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})\b
+    - \b(?:ssn|social\s+security|social\s+security\s+number)[\s\-:=]*\d{3}[\s\-]\d{2}[\s\-]\d{4}\b
+    - \b(?:ssn|social\s+security|social\s+security\s+number)[\s\-:=]*\d{9}\b
+    - \b(?:\+?1[\s\-]?)?\(?[0-9]{3}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{4}\b
+    - \b(?:\+?[1-9]\d{1,14})\b
+    - \b[A-Za-z0-9](?:[A-Za-z0-9._%-]*[A-Za-z0-9])?@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}\b
+    - \b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b
+    - \b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b
+    - \b(?:[0-9a-fA-F]{1,4}:){1,7}:\b
+    - \b(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\b
+    - \b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b
+    - \b(?:[0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}\b
+    - \b(?:ein|employer\s+identification\s+number)[\s\-:=]*\d{2}[\s\-]\d{7}\b
+    - \b(?:itin|individual\s+taxpayer\s+identification\s+number)[\s\-:=]*\d{3}[\s\-]\d{2}[\s\-]\d{4}\b
+    - \b(?:passport|passport\s+number)[\s\-:=]*[A-Z]{1,2}[0-9]{6,9}\b
+    - \b(?:sin|social\s+insurance\s+number)[\s\-:=]*\d{3}[\s\-]\d{3}[\s\-]\d{3}\b
+    - \b(?:nino|national\s+insurance\s+number)[\s\-:=]*[A-Z]{2}[0-9]{6}[A-Z]\b
+    - \b(?:bsn|burgerservicenummer)[\s\-:=]*\d{9}\b
+    - \b(?:iban|international\s+bank\s+account\s+number)[\s\-:=]*[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}\b
+    - \b(?:swift|bic|bank\s+identifier\s+code)[\s\-:=]*[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?\b
+    - \b(?:routing\s+number|aba\s+number)[\s\-:=]*\d{9}\b
+    - \b(?:account\s+number|acct\s+number)[\s\-:=]*\d{8,17}\b
+    - \b(?:mrn|medical\s+record\s+number)[\s\-:=]*\d{6,10}\b
+    - \b(?:patient\s+id|patient\s+identifier)[\s\-:=]*[A-Z0-9]{6,12}\b
+    - \b(?:health\s+insurance|insurance\s+number)[\s\-:=]*[A-Z0-9]{9,12}\b
+    - \b(?:dl|driver\s+license|driver\s+licence)[\s\-:=]*[A-Z]{1,2}[0-9]{6,8}\b
+    - \b(?:dl|driver\s+license|driver\s+licence)[\s\-:=]*[A-Z][0-9]{7,8}\b
+    - \b(?:fingerprint|biometric|facial\s+recognition|iris\s+scan|voice\s+print)\b
+    - \b(?:dna|genetic\s+information|genome|biometric\s+template)\b
+    - \b(?:birth\s+date|date\s+of\s+birth|dob|born)[\s\-:=]*(?:\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{2,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})\b
+    - \b(?:birth\s+date|date\s+of\s+birth|dob|born)[\s\-:=]*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s\-\.]*\d{1,2}[\s\-\.,]*\d{2,4}\b
+    - \b\d{1,5}\s+(?:[A-Z][a-z]+\s+){1,4}(?:st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|pl|place|way|pkwy|parkway|cir|circle)\b
+    - \b(?:po\s+box|p\.o\.\s+box|post\s+office\s+box)\s+\d{1,5}\b
+    - \b\d{5}(?:[\s\-]\d{4})?\b
+    - \b(?:username|user\s+name|handle|screen\s+name|login)[\s\-:=]*[A-Za-z0-9_]{3,20}\b
+    - \b@[A-Za-z0-9_]{1,15}\b
+    - \b(?:imei|international\s+mobile\s+equipment\s+identity)[\s\-:=]*\d{15}\b
+    - \b(?:imsi|international\s+mobile\s+subscriber\s+identity)[\s\-:=]*\d{15}\b
+    - \b(?:device\s+id|device\s+identifier)[\s\-:=]*[A-Z0-9\-]{20,40}\b
+    - \b(?:uuid|guid)[\s\-:=]*[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}\b
+    # --- Enhanced Secrets Detection ---
+    - (?i)\b(?:api[_\-]?key|apikey|access[_\-]?key|secret[_\-]?key|private[_\-]?key|public[_\-]?key)[\s\-:=]*[\'"]?[A-Za-z0-9+/]{20,}[\'"]?
+    - (?i)\b(?:token|auth[_\-]?token|access[_\-]?token|bearer[_\-]?token|refresh[_\-]?token)[\s\-:=]*[\'"]?[A-Za-z0-9+/\-_.]{20,}[\'"]?
+    - \b(?:sk_live_|pk_live_|sk_test_|pk_test_)[A-Za-z0-9]{20,50}\b
+    - \b(?:xoxb-|xoxp-|xoxa-|xoxr-)[A-Za-z0-9\-]{10,50}\b
+    - \b(?:ya29\.)[A-Za-z0-9\-_.]{68}\b
+    - \b(?:EAA)[A-Za-z0-9]{100,200}\b
+    - \b(?:AKIA)[A-Z0-9]{16}\b
+    - \b(?:github_pat_)[A-Za-z0-9_]{82}\b
+    - \b(?:ghp_|gho_|ghu_|ghs_|ghr_)[A-Za-z0-9]{36}\b
+    - \b(?:glpat-)[A-Za-z0-9\-_]{20}\b
+    - (?i)(?:mongodb|mysql|postgresql|mssql|oracle)://[^:]+:[^@]+@[^/]+/?\w*
+    - (?i)(?:jdbc|odbc):[^;]+;[^;]*(?:password|pwd)=[^;]+
+    - (?i)(?:server|host)=[^;]+;[^;]*(?:password|pwd)=[^;]+
+    - \b(?:LTAI)[A-Za-z0-9]{12,20}\b
+    - \b(?:STS\.[A-Za-z0-9]{16})\b
+    - \b(?:AKIDAKID)[A-Za-z0-9]{28}\b
+    - AKIA[A-Z0-9]{16}\b
+    - \b[A-Za-z0-9/+=]{40}\b
+    - \b(?:eyJ[A-Za-z0-9+/=]+\.eyJ[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=\-_]*)\b
+    - -----BEGIN\s+(?:RSA\s+)?(?:PRIVATE\s+KEY|CERTIFICATE|PUBLIC\s+KEY|ENCRYPTED\s+PRIVATE\s+KEY)-----
+    - -----END\s+(?:RSA\s+)?(?:PRIVATE\s+KEY|CERTIFICATE|PUBLIC\s+KEY|ENCRYPTED\s+PRIVATE\s+KEY)-----
+    - \b(?:ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521)\s+[A-Za-z0-9+/=]{100,}\b
+    - \b(?:aes|des|3des|blowfish|twofish)[_\-]?(?:key|secret)[\s\-:=]*[A-Za-z0-9+/=]{16,}\b
+    - \b(?:encryption|decrypt|cipher)[_\-]?(?:key|secret)[\s\-:=]*[A-Za-z0-9+/=]{16,}\b
+    - \b(?:session[_\-]?id|sessionid|jsessionid)[\s\-:=]*[A-Za-z0-9]{20,}\b
+    - \b(?:csrf[_\-]?token|xsrf[_\-]?token)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b[a-f0-9]{32}\b
+    - \b[a-f0-9]{40}\b
+    - \b[a-f0-9]{64}\b
+    - \b[a-f0-9]{128}\b
+    - \b(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?[A-Za-z0-9+/=]{40,}\b
+    - https?://[^/]+/webhooks?/[A-Za-z0-9+/=]{20,}
+    - https?://hooks\.slack\.com/[A-Za-z0-9+/=]{20,}
+    - https?://discord\.com/api/webhooks/[0-9]{18}/[A-Za-z0-9\-_]{68}
+    - \b(?:client[_\-]?secret|consumer[_\-]?secret|oauth[_\-]?secret)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b(?:client[_\-]?id|consumer[_\-]?key|oauth[_\-]?key)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b(?:stripe|paypal|braintree|square)[_\-]?(?:secret|private)[_\-]?key[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b(?:merchant[_\-]?id|gateway[_\-]?key)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b(?:AC|SK)[a-f0-9]{32}\b
+    - \b(?:twilio|sendgrid)[_\-]?(?:token|key|secret)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b(?:docker|registry)[_\-]?(?:token|password|secret)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - \b(?:kubectl|k8s|kubernetes)[_\-]?(?:token|secret)[\s\-:=]*[A-Za-z0-9+/=]{20,}\b
+    - (?i)\b(?:password|passwd|pwd|pass)[\s\-:=]*[\'"][^\'\"]{8,}[\'"]
+    - (?i)\b(?:secret|private|key|token)[\s\-:=]*[\'"][^\'\"]{8,}[\'"]
+    # ...existing code for language-specific patterns...
+    java:
+    # ...existing code...
+    # --- Enhanced Java Secret Detection ---
+    - (?i)(?:password|secret|key|token)[\s]*=[\s]*[^\s#]+
+    - (?i)(?:jdbc|db)\.(?:password|secret)[\s]*=[\s]*[^\s#]+
+    - System\.getProperty\(["'].*(?:password|secret|key|token)["']\)
+    - System\.getenv\(["'].*(?:password|secret|key|token)["']\)
+    - (?i)spring\.datasource\.password[\s]*=[\s]*[^\s#]+
+    - (?i)spring\.security\.oauth2\.client\.registration\.[^.]+\.client-secret[\s]*=[\s]*[^\s#]+
+    - "@Value\\([\"']\\$\\{[^}]*(?:password|secret|key|token)[^}]*\\}[\"']\\)"
+    - "(?i)(?:password|secret|key|token)[\\s]*=[\\s]*[\"'][^\"']{8,}[\"']"
+    - "(?i)(?:setPassword|setSecret|setKey|setToken)\\([\"'][^\"']{8,}[\"']\\)"
+    # Additional Java patterns for masking and security
+    - '<maskSecureFields>\s*true\s*</maskSecureFields>'
+    - '<maskFieldNames>\s*[^<]+</maskFieldNames>'
+    - '<MaskingPatternLayout.*?>'
+    # ...existing code...
+    dotnet:
+    # ...existing code...
+    # --- Enhanced dotnet Secret Detection ---
+    - (?i)(?:password|secret|key|token)[\s]*=[\s]*[^\s;]+
+    - (?i)(?:connectionstring|connectionstrings)[^=]*=.*(?:password|pwd)=[^;]+
+    - (?i)<add\s+key=["'].*(?:password|secret|key|token)["']\s+value=["'][^"']{8,}["']
+    - (?i)["'](?:password|secret|key|token)["'][\s]*:[\s]*["'][^"']{8,}["']
+    - (?i)["']ConnectionStrings["'][\s]*:[\s]*\{[^}]*(?:password|pwd)[^}]*\}
+    - Environment\.GetEnvironmentVariable\(["'].*(?:password|secret|key|token)["']\)
+    - Configuration\[["'].*(?:password|secret|key|token)["']\]
+    # Additional .NET patterns for masking and security
+    - '"MaskingIfSecuredEnabled"\s*:\s*true'
+    - '"DefaultMaskingEnabled"\s*:\s*true'
+    - 'logger\.Log(?:Information|Debug|Error|Warning)\s*\(.*_secured_cNumber.*\)'
+    - '_secured_\w*'
+    - '\b(secured|masked|sensitive)\b'
+    # ...existing code...
+    python:
+    # ...existing code...
+    # --- Enhanced python Secret Detection ---
+    - (?i)(?:password|secret|key|token)[\s]*=[\s]*["'][^"']{8,}["']
+    - (?i)(?:password|secret|key|token)[\s]*=[\s]*[^\s#]+
+    - os\.environ\.get\(["'].*(?:password|secret|key|token)["']\)
+    - os\.getenv\(["'].*(?:password|secret|key|token)["']\)
+    - (?i)SECRET_KEY[\s]*=[\s]*["'][^"']{8,}["']
+    - (?i)DATABASES[\s]*=[\s]*\{[^}]*["']PASSWORD["'][^}]*\}
+    - (?i)(?:database|db)_url[\s]*=[\s]*["'][^"']*://[^:]+:[^@]+@[^"']+["']
+    # ...existing code...
+    javascript:
+    # ...existing code...
+    # --- Enhanced javascript Secret Detection ---
+    - process\.env\..*(?:PASSWORD|SECRET|KEY|TOKEN)
+    - (?i)(?:password|secret|key|token)[\s]*:[\s]*["'][^"']{8,}["']
+    - (?i)(?:password|secret|key|token)[\s]*=[\s]*["'][^"']{8,}["']
+    - (?i)config[\s]*=[\s]*\{[^}]*(?:password|secret|key|token)[^}]*\}
+    - (?i)(?:auth|oauth|jwt)[\s]*:[\s]*\{[^}]*(?:secret|key|token)[^}]*\}
+    # ...existing code...
+    typescript:
+    # ...existing code...
+    # --- Enhanced typescript Secret Detection ---
+    - process\.env\..*(?:PASSWORD|SECRET|KEY|TOKEN)
+    - (?i)(?:password|secret|key|token)[\s]*:[\s]*["'][^"']{8,}["']
+    - (?i)interface\s+\w+[\s]*\{[^}]*(?:password|secret|key|token)[^}]*\}
+    # ...existing code...
+    php:
+    # ...existing code...
+    # --- Enhanced php Secret Detection ---
+    - (?i)(?:password|secret|key|token)[\s]*=[\s]*["'][^"']{8,}["']
+    - (?i)\$_ENV\[["'].*(?:password|secret|key|token)["']\]
+    - (?i)getenv\(["'].*(?:password|secret|key|token)["']\)
+    - (?i)(?:mysql|mysqli|pdo)_connect\([^)]*,[^)]*,["'][^"']{8,}["']
+    - (?i)new\s+PDO\([^)]*,[^)]*,["'][^"']{8,}["']\)
+  # --- File-Based Secret Detection ---
+  configuration_files:
+    # Environment files
+    - .env.*:
+        - (?i)^[A-Z_]+(?:PASSWORD|SECRET|KEY|TOKEN)[A-Z_]*[\s]*=[\s]*[^\s#]+
+        - (?i)^[A-Z_]+API[A-Z_]*[\s]*=[\s]*[^\s#]+
+    # Docker files
+    - Dockerfile:
+        - (?i)ENV\s+[A-Z_]*(?:PASSWORD|SECRET|KEY|TOKEN)[A-Z_]*[\s]*[^\s]+
+        - (?i)ARG\s+[A-Z_]*(?:PASSWORD|SECRET|KEY|TOKEN)[A-Z_]*[\s]*[^\s]+
+    # Kubernetes manifests
+    - .yaml|.yml:
+        - (?i)(?:password|secret|key|token)[\s]*:[\s]*["']?[A-Za-z0-9+/=]{8,}["']?
+        - (?i)data[\s]*:[\s]*\n(?:\s+[A-Za-z0-9+/=]+[\s]*:[\s]*[A-Za-z0-9+/=]+\n)*
+    # CI/CD files
+    - .github/workflows/.*.yml:
+        - (?i)secrets\.[A-Z_]+
+        - (?i)env[\s]*:[\s]*\n(?:\s+[A-Z_]+[\s]*:[\s]*\$\{\{[^}]+\}\}\n)*
+    # Database dumps
+    - .sql:
+        - (?i)INSERT\s+INTO\s+\w*(?:user|auth|credential)\w*[^;]*(?:password|secret|key|token)[^;]*;
+        - (?i)CREATE\s+USER[^;]*IDENTIFIED\s+BY[^;]*;
+  # --- Exclusion Patterns ---
+  exclusions:
+    - (?i)(?:test|dummy|fake|mock|example|placeholder|sample)[\s\-_]*(?:password|secret|key|token)
+    - (?i)(?:password|secret|key|token)[\s\-_]*(?:test|dummy|fake|mock|example|placeholder|sample)
+    - (?i)(?:123|password|secret|key|token|admin|user|test)
+    - \b(?:null|none|empty|blank|undefined|nil)\b
+    - (?i)(?:todo|fixme|note|example|demo)
+    - (?i)(?:your|my|the)[\s\-_]*(?:password|secret|key|token)
+    - (?i)(?:password|secret|key|token)[\s\-_]*(?:here|value|goes|placeholder)
+    - (?i)(?:public|client|consumer)[\s\-_]*(?:key|id)
+    - (?i)(?:debug|development|dev|local)[\s\-_]*(?:password|secret|key|token)
+    - \b(?:true|false|yes|no|on|off|enabled|disabled)\b
+  # --- Severity Levels ---
+  severity_levels:
+    critical:
+      - Real API keys (AWS, Stripe, etc.)
+      - Database credentials
+      - Private keys/certificates
+      - SSNs, Credit cards
+    high:
+      - Potential passwords
+      - JWT tokens
+      - Session IDs
+      - Email addresses
+    medium:
+      - IP addresses
+      - Phone numbers
+      - Usernames
+    low:
+      - Potential test data
+      - Development credentials
+  # --- Context-Aware Detection ---
+  context_rules:
+    high_confidence_files:
+      - .env*
+      - config.*
+      - application.*
+      - docker-compose.*
+    low_confidence_files:
+      - '*test*'
+      - '*spec*'
+      - '*mock*'
+      - '*fixture*'
+  # --- Entropy-Based Detection ---
+  entropy_thresholds:
+    base64_min_entropy: 4.5
+    hex_min_entropy: 3.5
+    min_length: 12
+    max_length: 200
+- id: 3
+  name: Create Audit Trail Logs
+  description: Logging around sensitive or state-changing actions (create, delete, update)
+  validation_method: Match business-layer methods (e.g., createUser, deleteAccount) using function name regex and check for logs within method body or immediately surrounding context
+  patterns:
+    java:
+    # Method signatures for CRUD operations
+    - \b(public|private|protected)?\s*(void|\w+)\s*(create|add|insert|save|persist)[A-Z]\w*\s*\(.*\)
+    - \b(public|private|protected)?\s*(void|\w+)\s*(update|modify|change|edit)[A-Z]\w*\s*\(.*\)
+    - \b(public|private|protected)?\s*(void|\w+)\s*(delete|remove|destroy|purge)[A-Z]\w*\s*\(.*\)
+    - \b(public|private|protected)?\s*(void|\w+)\s*(activate|deactivate|enable|disable)[A-Z]\w*\s*\(.*\)
+    # Security and authorization
+    - '@PreAuthorize'
+    - '@PostAuthorize'
+    - '@Secured'
+    - '@RolesAllowed'
+    - '@Audit'
+    - '@AuditLog'
+    - '@Auditable'
+    - SecurityContextHolder\.getContext\(\)
+    - SecurityContextHolder\.getContext\(\)\.getAuthentication\(\)
+    - Authentication\.getName\(\)
+    - UserDetails\.getUsername\(\)
+    # Logging within methods
+    - \blogger\.(info|debug|error|warn)\s*\(\s*[\"'][^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - \blogger\.(info|debug|error|warn)\s*\(\s*[\"'][^\"']*\b(user|account|entity|record|data)\b[^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - AuditLogger\.log\(
+    - auditLog\(
+    - auditTrail\(
+    dotnet:
+    # Method signatures for CRUD operations
+    - \b(public|private|protected)?\s*(void|Task|IActionResult|\w+)\s*(Create|Add|Insert|Save|Persist)[A-Z]\w*\s*\(.*\)
+    - \b(public|private|protected)?\s*(void|Task|IActionResult|\w+)\s*(Update|Modify|Change|Edit)[A-Z]\w*\s*\(.*\)
+    - \b(public|private|protected)?\s*(void|Task|IActionResult|\w+)\s*(Delete|Remove|Destroy|Purge)[A-Z]\w*\s*\(.*\)
+    - \b(public|private|protected)?\s*(void|Task|IActionResult|\w+)\s*(Activate|Deactivate|Enable|Disable)[A-Z]\w*\s*\(.*\)
+    # Security and authorization
+    - \[Authorize\]
+    - \[Authorize\(.*\)\]
+    - \[AllowAnonymous\]
+    - \[RequiresClaim\]
+    - \[AuditLog\]
+    - \[Auditable\]
+    - User\.Identity\.Name
+    - HttpContext\.User
+    - HttpContext\.User\.Identity\.Name
+    - ClaimsPrincipal\.Current
+    # Logging within methods
+    - \bLog\.(Information|Debug|Error|Warning)\s*\(\s*[\"'][^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - \bLog\.(Information|Debug|Error|Warning)\s*\(\s*[\"'][^\"']*\b(user|account|entity|record|data)\b[^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - AuditLogger\.Log\(
+    - auditLog\(
+    - auditTrail\(
+    python:
+    # Function signatures for CRUD operations
+    - 'def\s+(create|add|insert|save|persist)_\w+\s*\(.*\):'
+    - 'def\s+(update|modify|change|edit)_\w+\s*\(.*\):'
+    - 'def\s+(delete|remove|destroy|purge)_\w+\s*\(.*\):'
+    - 'def\s+(activate|deactivate|enable|disable)_\w+\s*\(.*\):'
+    - 'class\s+\w+.*\bdef\s+(create|update|delete|save|remove)\b'
+    # Security and authorization
+    - '@login_required'
+    - '@permission_required'
+    - '@require_permission'
+    - '@user_passes_test'
+    - '@audit'
+    - '@audit_log'
+    - 'request\.user'
+    - 'request\.user\.username'
+    - 'request\.user\.is_authenticated'
+    - 'current_user'
+    # Logging within functions
+    - \blogging\.(info|debug|error|warning)\s*\(\s*f?[\"'][^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - \blogging\.(info|debug|error|warning)\s*\(\s*f?[\"'][^\"']*\b(user|account|entity|record|data)\b[^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - 'audit_log\('
+    - 'audit_trail\('
+    - 'logger\.audit\('
+    javascript:
+    # Function signatures for CRUD operations
+    - function\s+(create|add|insert|save|persist)[A-Z]\w*\s*\(.*\)
+    - function\s+(update|modify|change|edit)[A-Z]\w*\s*\(.*\)
+    - function\s+(delete|remove|destroy|purge)[A-Z]\w*\s*\(.*\)
+    - function\s+(activate|deactivate|enable|disable)[A-Z]\w*\s*\(.*\)
+    - 'const\s+\w*(create|update|delete|save|remove)\w*\s*='
+    - 'async\s+function\s+\w*(create|update|delete|save|remove)\w*\s*\('
+    # Security and authorization
+    - 'req\.user'
+    - 'req\.user\.id'
+    - 'req\.user\.username'
+    - 'req\.session\.user'
+    - 'jwt\.verify\('
+    - 'passport\.authenticate\('
+    - 'middlewares.*auth'
+    - 'isAuthenticated'
+    - 'requireAuth'
+    # Logging within functions
+    - \bconsole\.(log|debug|info)\s*\(\s*[\"'][^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - \bconsole\.(log|debug|info)\s*\(\s*[\"'][^\"']*\b(user|account|entity|record|data)\b[^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - 'audit\('
+    - 'auditLog\('
+    - 'winston\.\w+.*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b'
+    typescript:
+    # Function signatures for CRUD operations
+    - function\s+(create|add|insert|save|persist)[A-Z]\w*\s*\(.*\)
+    - function\s+(update|modify|change|edit)[A-Z]\w*\s*\(.*\)
+    - function\s+(delete|remove|destroy|purge)[A-Z]\w*\s*\(.*\)
+    - function\s+(activate|deactivate|enable|disable)[A-Z]\w*\s*\(.*\)
+    - 'const\s+\w*(create|update|delete|save|remove)\w*\s*='
+    - 'async\s+function\s+\w*(create|update|delete|save|remove)\w*\s*\('
+    # Security and authorization (NestJS and others)
+    - '@UseGuards\(AuthGuard\)'
+    - '@UseGuards\(JwtAuthGuard\)'
+    - '@UseGuards\(RolesGuard\)'
+    - '@Roles\('
+    - '@Public\(\)'
+    - '@Audit\(\)'
+    - 'req\.user'
+    - 'req\.user\.id'
+    - 'req\.user\.username'
+    - 'context\.getHandler\(\)'
+    - 'context\.getClass\(\)'
+    # Logging within functions
+    - \bconsole\.(log|debug|info)\s*\(\s*[\"'][^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - \bconsole\.(log|debug|info)\s*\(\s*[\"'][^\"']*\b(user|account|entity|record|data)\b[^\"']*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b[^\"']*[\"']
+    - 'audit\('
+    - 'auditLog\('
+    - 'winston\.\w+.*\b(created|updated|deleted|modified|removed|added|saved|persisted)\b'
+    php:
+    # Function signatures for CRUD operations
+    - function\s+(create|add|insert|save|persist)[A-Z]\w*\s*\(.*\)
+    - function\s+(update|modify|change|edit)[A-Z]\w*\s*\(.*\)
+    - function\s+(delete|remove|destroy|purge)[A-Z]\w*\s*\(.*\)
+    - function\s+(activate|deactivate|enable|disable)[A-Z]\w*\s*\(.*\)
+    - 'public\s+function\s+\w*(create|update|delete|save|remove)\w*\s*\('
+    # Security and authorization
+    - '$_SESSION\[.*user.*\]'
+    - '$_SESSION\[.*user_id.*\]'
+    - '$_SESSION\[.*username.*\]'
+    - 'wp_get_current_user\(\)'
+    - 'is_user_logged_in\(\)'
+    - 'current_user_can\('
+    - 'auth\(\)->user\(\)'
+    - 'Auth::user\(\)'
+    - 'Auth::id\(\)'
+    # Logging within functions
+    - error_log
+
+- id: 4
+  name: Tracking ID for Logs
+  description: Presence of unique IDs like correlationId, requestId in logs
+  validation_method: Detect usage of MDC.put("correlationId"), custom headers like X-Request-ID, or frameworks like Spring interceptors/middleware injecting tracking ID
+  patterns:
+    java:
+      - 'MDC\.put\(.*correlationId.*\)'
+      - 'MDC\.put\(.*requestId.*\)'
+      - 'MDC\.put\(.*transactionId.*\)'
+      - 'MDC\.put\(.*messageId.*\)'
+      - 'MDC\.put\(.*trackId.*\)'
+      - 'MDC\.put\(.*ticketId.*\)'
+      - 'MDC\.put\(.*traceId.*\)'
+      - 'MDC\.put\(.*wfRequestId.*\)'
+      - 'X-Request-ID'
+      - 'X-Correlation-ID'
+      - 'X-Transaction-ID'
+      - 'X-Message-ID'
+      - 'X-Track-ID'
+      - 'X-Ticket-ID'
+      - 'X-Trace-ID'
+      - 'X-WF-Request-ID'
+      - 'TRANSACTIONID'
+      - 'MESSAGEID'
+      - 'TRACKID'
+      - 'TICKETID'
+      - 'TRACEID'
+      - 'REQUESTID'
+      - 'WFREQUESTID'
+      - '@Bean.*HandlerInterceptor'
+      - 'HandlerInterceptorAdapter'
+      - 'OncePerRequestFilter'
+      - 'request.getHeader\(.*X-Request-ID.*\)'
+      - 'request.getHeader\(.*X-Correlation-ID.*\)'
+      - 'request.getHeader\(.*X-Transaction-ID.*\)'
+      - 'request.getHeader\(.*X-Message-ID.*\)'
+      - 'request.getHeader\(.*X-Track-ID.*\)'
+      - 'request.getHeader\(.*X-Ticket-ID.*\)'
+      - 'request.getHeader\(.*X-Trace-ID.*\)'
+    dotnet:
+      - 'context\.TraceIdentifier'
+      - 'HttpContext\.TraceIdentifier'
+      - 'Activity\.Current\.Id'
+      - 'AddCorrelationId'
+      - 'X-Request-ID'
+      - 'X-Correlation-ID'
+      - 'X-Transaction-ID'
+      - 'X-Message-ID'
+      - 'X-Track-ID'
+      - 'X-Ticket-ID'
+      - 'X-Trace-ID'
+      - 'X-WF-Request-ID'
+      - 'TRANSACTIONID'
+      - 'MESSAGEID'
+      - 'TRACKID'
+      - 'TICKETID'
+      - 'TRACEID'
+      - 'REQUESTID'
+      - 'WFREQUESTID'
+      - 'logger\.Log.*correlationId'
+      - 'logger\.Log.*requestId'
+      - 'logger\.Log.*transactionId'
+      - 'logger\.Log.*messageId'
+      - 'logger\.Log.*trackId'
+      - 'logger\.Log.*ticketId'
+      - 'logger\.Log.*traceId'
+      - 'logger\.Log.*wfRequestId'
+    python:
+      - 'request\.headers\.get\(.*X-Request-ID.*\)'
+      - 'request\.headers\.get\(.*X-Correlation-ID.*\)'
+      - 'request\.headers\.get\(.*X-Transaction-ID.*\)'
+      - 'request\.headers\.get\(.*X-Message-ID.*\)'
+      - 'request\.headers\.get\(.*X-Track-ID.*\)'
+      - 'request\.headers\.get\(.*X-Ticket-ID.*\)'
+      - 'request\.headers\.get\(.*X-Trace-ID.*\)'
+      - 'request_id'
+      - 'correlation_id'
+      - 'transaction_id'
+      - 'message_id'
+      - 'track_id'
+      - 'ticket_id'
+      - 'trace_id'
+      - 'wf_request_id'
+      - 'TRANSACTIONID'
+      - 'MESSAGEID'
+      - 'TRACKID'
+      - 'TICKETID'
+      - 'TRACEID'
+      - 'REQUESTID'
+      - 'WFREQUESTID'
+      - 'logging\.LoggerAdapter'
+      - 'structlog.*correlation_id'
+      - 'structlog.*request_id'
+      - 'structlog.*transaction_id'
+      - 'structlog.*message_id'
+      - 'structlog.*track_id'
+      - 'structlog.*ticket_id'
+      - 'structlog.*trace_id'
+    javascript:
+      - 'req\.headers\["x-request-id"\]'
+      - 'req\.headers\["x-correlation-id"\]'
+      - 'req\.headers\["x-transaction-id"\]'
+      - 'req\.headers\["x-message-id"\]'
+      - 'req\.headers\["x-track-id"\]'
+      - 'req\.headers\["x-ticket-id"\]'
+      - 'req\.headers\["x-trace-id"\]'
+      - 'req\.headers\["x-wf-request-id"\]'
+      - 'correlationId'
+      - 'requestId'
+      - 'transactionId'
+      - 'messageId'
+      - 'trackId'
+      - 'ticketId'
+      - 'traceId'
+      - 'wfRequestId'
+      - 'TRANSACTIONID'
+      - 'MESSAGEID'
+      - 'TRACKID'
+      - 'TICKETID'
+      - 'TRACEID'
+      - 'REQUESTID'
+      - 'WFREQUESTID'
+      - 'winston.*correlationId'
+      - 'winston.*requestId'
+      - 'winston.*transactionId'
+      - 'winston.*messageId'
+      - 'winston.*trackId'
+      - 'winston.*ticketId'
+      - 'winston.*traceId'
+    typescript:
+      - 'req\.headers\["x-request-id"\]'
+      - 'req\.headers\["x-correlation-id"\]'
+      - 'req\.headers\["x-transaction-id"\]'
+      - 'req\.headers\["x-message-id"\]'
+      - 'req\.headers\["x-track-id"\]'
+      - 'req\.headers\["x-ticket-id"\]'
+      - 'req\.headers\["x-trace-id"\]'
+      - 'req\.headers\["x-wf-request-id"\]'
+      - 'correlationId'
+      - 'requestId'
+      - 'transactionId'
+      - 'messageId'
+      - 'trackId'
+      - 'ticketId'
+      - 'traceId'
+      - 'wfRequestId'
+      - 'TRANSACTIONID'
+      - 'MESSAGEID'
+      - 'TRACKID'
+      - 'TICKETID'
+      - 'TRACEID'
+      - 'REQUESTID'
+      - 'WFREQUESTID'
+      - 'winston.*correlationId'
+      - 'winston.*requestId'
+      - 'winston.*transactionId'
+      - 'winston.*messageId'
+      - 'winston.*trackId'
+      - 'winston.*ticketId'
+      - 'winston.*traceId'
+    php:
+      - '$_SERVER\["HTTP_X_REQUEST_ID"\]'
+      - '$_SERVER\["HTTP_X_CORRELATION_ID"\]'
+      - '$_SERVER\["HTTP_X_TRANSACTION_ID"\]'
+      - '$_SERVER\["HTTP_X_MESSAGE_ID"\]'
+      - '$_SERVER\["HTTP_X_TRACK_ID"\]'
+      - '$_SERVER\["HTTP_X_TICKET_ID"\]'
+      - '$_SERVER\["HTTP_X_TRACE_ID"\]'
+      - '$_SERVER\["HTTP_X_WF_REQUEST_ID"\]'
+      - 'correlationId'
+      - 'requestId'
+      - 'transactionId'
+      - 'messageId'
+      - 'trackId'
+      - 'ticketId'
+      - 'traceId'
+      - 'wfRequestId'
+      - 'TRANSACTIONID'
+      - 'MESSAGEID'
+      - 'TRACKID'
+      - 'TICKETID'
+      - 'TRACEID'
+      - 'REQUESTID'
+      - 'WFREQUESTID'
+
+- id: 5
+  name: Log REST API Calls
+  description: Log entries per incoming/outgoing API requests
+  validation_method: Scan for @RequestMapping, @GetMapping, etc., and ensure logging statements exist; additionally, check for HTTP clients like RestTemplate, WebClient, axios logs
+  patterns:
+    java:
+      - '@RequestMapping'
+      - '@GetMapping'
+      - '@PostMapping'
+      - '@PutMapping'
+      - '@DeleteMapping'
+      - 'RestTemplate'
+      - 'WebClient'
+      - 'logger\.(info|debug|error|warn)\s*\(.*(request|response)'
+    dotnet:
+      - '\[HttpGet\]'
+      - '\[HttpPost\]'
+      - '\[HttpPut\]'
+      - '\[HttpDelete\]'
+      - 'HttpClient'
+      - 'ILogger.*Log.*(request|response)'
+    python:
+      - '@app\.route'
+      - '@router\.get'
+      - '@router\.post'
+      - 'requests\.'
+      - 'aiohttp\.'
+      - 'logging\.(info|debug|error|warning|critical)\s*\(.*(request|response)'
+    javascript:
+      - 'app\.get\('
+      - 'app\.post\('
+      - 'app\.put\('
+      - 'app\.delete\('
+      - 'axios\.'
+      - 'fetch\('
+      - 'console\.(log|info|debug|error)\s*\(.*(request|response)'
+    typescript:
+      - 'app\.get\('
+      - 'app\.post\('
+      - 'app\.put\('
+      - 'app\.delete\('
+      - 'axios\.'
+      - 'fetch\('
+      - 'console\.(log|info|debug|error)\s*\(.*(request|response)'
+    php:
+      - '\$app->get\('
+      - '\$app->post\('
+      - '\$app->put\('
+      - '\$app->delete\('
+      - 'GuzzleHttp\\Client'
+      - 'error_log.*(request|response)'
+
+- id: 6
+  name: Log Application Messages
+  description: Logging of background jobs, services, internal state info
+  validation_method: Detect @Scheduled, cron-based jobs, service classes and verify use of log.info/debug/error. Also include message producers/consumers (Kafka, MQ)
+  patterns:
+    java:
+      - '@Scheduled'
+      - 'cron ='
+      - 'JobDetailFactoryBean'
+      - 'TaskScheduler'
+      - 'KafkaTemplate'
+      - 'JmsTemplate'
+      - 'logger\.(info|debug|error|warn)\s*\('
+    dotnet:
+      - '\[Job\]'
+      - '\[Scheduled\]'
+      - 'Hangfire'
+      - 'Quartz'
+      - 'ILogger.*Log.*(job|task|background|service)'
+    python:
+      - '@celery\.task'
+      - '@app\.task'
+      - 'schedule='
+      - 'apscheduler'
+      - 'logging\.(info|debug|error|warning|critical)\s*\('
+    javascript:
+      - 'cron\.'
+      - 'node-cron'
+      - 'agenda\.'
+      - 'bull\.'
+      - 'kafka\.'
+      - 'console\.(log|info|debug|error)\s*\('
+    typescript:
+      - 'cron\.'
+      - 'node-cron'
+      - 'agenda\.'
+      - 'bull\.'
+      - 'kafka\.'
+      - 'console\.(log|info|debug|error)\s*\('
+    php:
+      - 'Cron\\CronExpression'
+      - 'Symfony\\Component\\Messenger'
+      - 'enqueue\\client'
+      - 'error_log'
+
+- id: 7
+  name: Client UI Errors Logged
+  description: Frontend errors are captured and logged to system like Sentry or console
+  validation_method: Search for window.onerror, console.error, Sentry.captureException, or React ErrorBoundary usage in frontend code (JS/TS/React)
+  patterns:
+    javascript:
+      - 'window\.onerror'
+      - 'console\.error'
+      - 'Sentry\.captureException'
+      - 'ErrorBoundary'
+      - 'try\s*{.*}\s*catch\s*\('
+    typescript:
+      - 'window\.onerror'
+      - 'console\.error'
+      - 'Sentry\.captureException'
+      - 'ErrorBoundary'
+      - 'try\s*{.*}\s*catch\s*\('
+
+- id: 8
+  name: Retry Logic
+  description: Operations (esp. IO-bound) have retry policies
+  validation_method: Search for @Retryable, usage of RetryTemplate, or retry loops with try/catch blocks. In frontend, detect retry wrappers or retry utilities (e.g., axios-retry)
+  patterns:
+    java:
+      - '@Retryable'
+      - 'RetryTemplate'
+      - 'try\s*{.*}\s*catch\s*\('
+    dotnet:
+      - 'Polly'
+      - 'RetryPolicy'
+      - 'try\s*{.*}\s*catch\s*\('
+    python:
+      - '@retry'
+      - 'tenacity'
+      - 'retrying'
+      - 'try:'
+      - 'except '
+    javascript:
+      - 'axios-retry'
+      - 'retry\('
+      - 'try\s*{.*}\s*catch\s*\('
+    typescript:
+      - 'axios-retry'
+      - 'retry\('
+      - 'try\s*{.*}\s*catch\s*\('
+
+- id: 9
+  name: Timeouts in IO Ops
+  description: IO calls (HTTP, DB, MQ) have timeout parameters
+  validation_method: Look into HTTP client configs (RestTemplate, HttpClient, WebClient, axios.timeout) and DB configs (jdbc.timeout, connectionTimeout, etc.)
+  patterns:
+    java:
+      - 'RestTemplateBuilder.*setConnectTimeout'
+      - 'HttpClientBuilder.*setConnectionTimeToLive'
+      - 'WebClient.*responseTimeout'
+      - 'DataSource.*setLoginTimeout'
+      - 'HikariConfig.*setConnectionTimeout'
+    dotnet:
+      - 'HttpClient.Timeout'
+      - 'SqlConnection.ConnectionTimeout'
+      - 'Task.Delay'
+    python:
+      - 'requests\..*timeout='
+      - 'aiohttp\..*timeout='
+      - 'pymysql.connect.*connect_timeout='
+      - 'psycopg2.connect.*connect_timeout='
+    javascript:
+      - 'axios\.timeout'
+      - 'fetch\(.*,\s*\{.*timeout:'
+      - 'setTimeout\('
+    typescript:
+      - 'axios\.timeout'
+      - 'fetch\(.*,\s*\{.*timeout:'
+      - 'setTimeout\('
+    php:
+      - 'CURLOPT_TIMEOUT'
+      - 'stream_context_create.*timeout'
+      - 'PDO::ATTR_TIMEOUT'
+
+- id: 10
+  name: Throttling & Drop Request
+  description: Rate limits are applied on endpoints
+  validation_method: Detect use of libraries like Bucket4j, Resilience4j, @RateLimiter, or NGINX ingress rules with limit_req, rate-limit-zone, etc.
+  patterns:
+    java:
+      - 'Bucket4j'
+      - 'Resilience4j.*RateLimiter'
+      - '@RateLimiter'
+      - 'RateLimiterConfig'
+    dotnet:
+      - 'AspNetCoreRateLimit'
+      - 'RateLimiter'
+      - 'IAsyncRateLimitPolicy'
+    python:
+      - 'ratelimit'
+      - 'limits'
+      - 'flask-limiter'
+    javascript:
+      - 'express-rate-limit'
+      - 'rate-limiter-flexible'
+      - 'bottleneck'
+    typescript:
+      - 'express-rate-limit'
+      - 'rate-limiter-flexible'
+      - 'bottleneck'
+    php:
+      - 'Nginx.*limit_req'
+      - 'Nginx.*rate-limit-zone'
+      - 'Symfony\\Component\\RateLimiter'
+
+- id: 11
+  name: Circuit Breakers
+  description: Circuit breaker pattern applied to external calls
+  validation_method: Identify use of @CircuitBreaker, HystrixCommand, Resilience4j annotations/configs to protect downstream service calls
+  patterns:
+    java:
+      - '@CircuitBreaker'
+      - 'HystrixCommand'
+      - 'Resilience4j.*CircuitBreaker'
+    dotnet:
+      - 'Polly.CircuitBreaker'
+      - 'CircuitBreakerPolicy'
+    python:
+      - 'pybreaker'
+      - 'circuitbreaker'
+    javascript:
+      - 'opossum'
+      - 'circuit-breaker-js'
+    typescript:
+      - 'opossum'
+      - 'circuit-breaker-js'
+    php:
+      - 'php-circuit-breaker'
+      - 'CircuitBreaker'
+
+- id: 12
+  name: Log System Errors
+  description: Exceptions are captured and logged globally
+  validation_method: Find @ControllerAdvice or global ExceptionHandler, or try-catch blocks that log errors via logger.error(...) or equivalent
+  patterns:
+    java:
+      - '@ControllerAdvice'
+      - '@ExceptionHandler'
+      - 'logger\.error\('
+      - 'try\s*{.*}\s*catch\s*\('
+    dotnet:
+      - 'UseExceptionHandler'
+      - 'ILogger.*LogError'
+      - 'try\s*{.*}\s*catch\s*\('
+    python:
+      - 'logging\.error\('
+      - 'try:'
+      - 'except '
+    javascript:
+      - 'console\.error\('
+      - 'try\s*{.*}\s*catch\s*\('
+    typescript:
+      - 'console\.error\('
+      - 'try\s*{.*}\s*catch\s*\('
+    php:
+      - 'set_exception_handler'
+      - 'try\s*{.*}\s*catch\s*\('
+      - 'error_log\('
+
+- id: 13
+  name: HTTP Error Codes
+  description: Appropriate HTTP status codes returned on failures
+  validation_method: Check for @ExceptionHandler, or usage of ResponseEntity.status(HttpStatus.XYZ).body(...) across controller methods
+  patterns:
+    java:
+      - '@ExceptionHandler'
+      - 'ResponseEntity\.status\(HttpStatus\.'
+      - 'throw new ResponseStatusException'
+    dotnet:
+      - 'StatusCode\('
+      - 'return BadRequest\('
+      - 'return NotFound\('
+      - 'return StatusCode\('
+    python:
+      - 'abort\('
+      - 'return jsonify.*status='
+      - 'make_response\('
+    javascript:
+      - 'res\.status\('
+      - 'res\.sendStatus\('
+      - 'next\(createError'
+    typescript:
+      - 'res\.status\('
+      - 'res\.sendStatus\('
+      - 'next\(createError'
+    php:
+      - 'http_response_code\('
+      - 'header\("HTTP/1.1'
+      - 'Response::json\('
+
+- id: 14
+  name: Client Error Tracking
+  description: Client-side errors tracked and correlated with backend
+  validation_method: Detect frontend init for tools like Sentry.init(), custom trackError(...) functions, integration of logging SDKs (e.g., Datadog, Bugsnag)
+  patterns:
+    javascript:
+      - 'Sentry\.init\('
+      - 'trackError\('
+      - 'datadogRum\.init\('
+      - 'bugsnag\.start\('
+    typescript:
+      - 'Sentry\.init\('
+      - 'trackError\('
+      - 'datadogRum\.init\('
+      - 'bugsnag\.start\('
+
+- id: 15
+  name: Automated Tests
+  description: Project includes automated tests and CI runs
+  validation_method: Detect annotations like @Test, describe(), it() in test files; check Jenkinsfile, .github/workflows, or pipeline.yaml for test execution steps
+  patterns:
+    java:
+      - '@Test'
+      - 'JUnit'
+      - 'TestNG'
+      - 'Mockito'
+    dotnet:
+      - '[TestMethod]'
+      - '[Fact]'
+      - '[Theory]'
+      - 'NUnit'
+      - 'Xunit'
+    python:
+      - 'def test_'
+      - 'pytest'
+      - 'unittest'
+      - 'nose'
+    javascript:
+      - 'describe\('
+      - 'it\('
+      - 'jest'
+      - 'mocha'
+      - 'chai'
+    typescript:
+      - 'describe\('
+      - 'it\('
+      - 'jest'
+      - 'mocha'
+      - 'chai'
+    php:
+      - 'PHPUnit'
+      - 'Codeception'
+      - 'Behat'
+      - 'phpspec'
+      - 'test_'
+      - 'tests/'
+      - 'Jenkinsfile'
+      - '.github/workflows/'
+      - 'pipeline.yaml'

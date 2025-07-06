@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, Body, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, Body, BackgroundTasks, Query, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any, Set
 import uvicorn
@@ -175,35 +175,18 @@ except ImportError:
         'llm_batch_timeout': int(os.getenv('CODEGATES_LLM_BATCH_TIMEOUT', '300')),
     }
 
-# Add intake imports after existing imports, before the main app configuration
+# Try to import persistent storage
 try:
-    # Import intake assessment functionality
-    import sys
-    import os
-    from pathlib import Path
-    
-    # Add intake module to path
-    intake_path = Path(__file__).parent.parent.parent / "intake"
-    if intake_path.exists():
-        sys.path.insert(0, str(intake_path))
-        
-        # Import intake components with error handling
-        try:
-            from flow import create_analysis_flow, create_excel_analysis_flow
-            from nodes import OcpAssessmentNode, AnalyzeCode, FetchRepo, ProcessExcel, FetchJiraStories, GenerateReport
-            
-            INTAKE_AVAILABLE = True
-            print("✅ Intake assessment module available")
-        except ImportError as import_error:
-            INTAKE_AVAILABLE = False
-            print(f"⚠️ Intake components not available: {import_error}")
-    else:
-        INTAKE_AVAILABLE = False
-        print("⚠️ Intake module directory not found")
-        
-except Exception as e:
-    INTAKE_AVAILABLE = False
-    print(f"⚠️ Intake assessment initialization failed: {e}")
+    from codegates.storage import StorageManager, ScanResultModel, GateResultModel
+    from codegates.storage.storage_manager import get_storage_manager, close_storage_manager
+    PERSISTENT_STORAGE_AVAILABLE = True
+    print("✅ Persistent storage available")
+except ImportError:
+    PERSISTENT_STORAGE_AVAILABLE = False
+    print("⚠️ Persistent storage not available, using in-memory storage")
+    # Define dummy types to avoid NameError
+    ScanResultModel = None
+    GateResultModel = None
 
 # Create the main FastAPI app with lifecycle management
 app = FastAPI(
@@ -212,10 +195,27 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Global storage manager
+storage_manager = None
+
 @app.on_event("startup")
 async def startup_event():
     """Handle application startup"""
+    global storage_manager
     print("🚀 MyGates API starting up...")
+    
+    # Initialize persistent storage
+    if PERSISTENT_STORAGE_AVAILABLE:
+        try:
+            storage_manager = await get_storage_manager()
+            if storage_manager.is_initialized():
+                print(f"✅ Persistent storage initialized: {storage_manager.get_backend_type()}")
+            else:
+                print("⚠️ Persistent storage failed to initialize, falling back to in-memory")
+                storage_manager = None
+        except Exception as e:
+            print(f"⚠️ Persistent storage initialization failed: {e}")
+            storage_manager = None
     
     # Clean up any orphaned directories from previous runs
     print("🧹 Cleaning up orphaned directories from previous runs...")
@@ -226,7 +226,16 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Handle application shutdown"""
+    global storage_manager
     print("🛑 MyGates API shutting down...")
+    
+    # Close persistent storage
+    if PERSISTENT_STORAGE_AVAILABLE and storage_manager:
+        try:
+            await close_storage_manager()
+            print("✅ Persistent storage closed")
+        except Exception as e:
+            print(f"⚠️ Error closing persistent storage: {e}")
     
     # Clean up all registered temporary directories
     print("🧹 Cleaning up all temporary directories...")
@@ -249,23 +258,159 @@ app.add_middleware(
 )
 
 # Create a sub-application for /api/v1 routes
-api_v1 = FastAPI(
-    title="MyGates API v1",
-    description="API v1 routes for MyGates",
-)
+api_v1 = APIRouter(prefix="/api/v1")
 
-# Configure CORS for the v1 sub-application
-api_v1.add_middleware(
+# Include the router in the main app (moved to end of file)
+# app.include_router(api_v1)
+
+# Add middleware for CORS
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],  # In production, specify allowed origins
     allow_credentials=True,
-    allow_methods=CORS_METHODS,
-    allow_headers=CORS_HEADERS,
-    expose_headers=CORS_EXPOSE_HEADERS
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# In-memory storage for scan results (in production, use a database)
+# In-memory storage for scan results (fallback when persistent storage is not available)
 scan_results = {}
+
+async def save_scan_result_to_storage(scan_result_data: Dict[str, Any]) -> bool:
+    """Save scan result to persistent storage or fallback to in-memory"""
+    global storage_manager
+    
+    if PERSISTENT_STORAGE_AVAILABLE and storage_manager:
+        try:
+            # Convert to storage model
+            scan_model = convert_dict_to_scan_model(scan_result_data)
+            return await storage_manager.save_scan_result(scan_model)
+        except Exception as e:
+            print(f"⚠️ Failed to save to persistent storage: {e}")
+            # Fall back to in-memory
+            scan_results[scan_result_data["scan_id"]] = scan_result_data
+            return True
+    else:
+        # Use in-memory storage
+        scan_results[scan_result_data["scan_id"]] = scan_result_data
+        return True
+
+async def get_scan_result_from_storage(scan_id: str) -> Optional[Dict[str, Any]]:
+    """Get scan result from persistent storage or fallback to in-memory"""
+    global storage_manager
+    
+    if PERSISTENT_STORAGE_AVAILABLE and storage_manager:
+        try:
+            scan_model = await storage_manager.get_scan_result(scan_id)
+            if scan_model:
+                return convert_scan_model_to_dict(scan_model)
+            return None
+        except Exception as e:
+            print(f"⚠️ Failed to get from persistent storage: {e}")
+            # Fall back to in-memory
+            return scan_results.get(scan_id)
+    else:
+        # Use in-memory storage
+        return scan_results.get(scan_id)
+
+async def update_scan_result_in_storage(scan_result_data: Dict[str, Any]) -> bool:
+    """Update scan result in persistent storage or fallback to in-memory"""
+    global storage_manager
+    
+    if PERSISTENT_STORAGE_AVAILABLE and storage_manager:
+        try:
+            # Convert to storage model
+            scan_model = convert_dict_to_scan_model(scan_result_data)
+            return await storage_manager.update_scan_result(scan_model)
+        except Exception as e:
+            print(f"⚠️ Failed to update in persistent storage: {e}")
+            # Fall back to in-memory
+            scan_results[scan_result_data["scan_id"]] = scan_result_data
+            return True
+    else:
+        # Use in-memory storage
+        scan_results[scan_result_data["scan_id"]] = scan_result_data
+        return True
+
+def convert_dict_to_scan_model(data: Dict[str, Any]):
+    """Convert dictionary to ScanResultModel"""
+    if not PERSISTENT_STORAGE_AVAILABLE:
+        raise ImportError("Persistent storage not available")
+    
+    # Convert gates
+    gates = []
+    for gate_data in data.get("gates", []):
+        gates.append(GateResultModel(
+            name=gate_data["name"],
+            status=gate_data["status"],
+            score=gate_data["score"],
+            details=gate_data.get("details", []),
+            expected=gate_data.get("expected"),
+            found=gate_data.get("found"),
+            coverage=gate_data.get("coverage"),
+            quality_score=gate_data.get("quality_score"),
+            matches=gate_data.get("matches", [])
+        ))
+    
+    # Parse timestamps
+    from datetime import datetime
+    created_at = datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now()
+    updated_at = datetime.fromisoformat(data.get("updated_at", data["created_at"])) if data.get("updated_at") or data.get("created_at") else datetime.now()
+    completed_at = datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
+    
+    return ScanResultModel(
+        scan_id=data["scan_id"],
+        status=data["status"],
+        score=data["score"],
+        gates=gates,
+        recommendations=data.get("recommendations", []),
+        repository_url=data.get("repository_url"),
+        branch=data.get("branch"),
+        github_token_used=bool(data.get("github_token_used", False)),
+        created_at=created_at,
+        updated_at=updated_at,
+        completed_at=completed_at,
+        message=data.get("message"),
+        error=data.get("error"),
+        report_url=data.get("report_url"),
+        report_file=data.get("report_file"),
+        llm_enhanced=data.get("llm_enhanced", False),
+        total_files=data.get("total_files", 0),
+        total_lines=data.get("total_lines", 0),
+        languages_detected=data.get("languages_detected", []),
+        checkout_method=data.get("checkout_method"),
+        jira_result=data.get("jira_result"),
+        comments=data.get("comments", {})
+    )
+
+def convert_scan_model_to_dict(model) -> Dict[str, Any]:
+    """Convert ScanResultModel to dictionary"""
+    if not PERSISTENT_STORAGE_AVAILABLE:
+        raise ImportError("Persistent storage not available")
+    
+    return {
+        "scan_id": model.scan_id,
+        "status": model.status,
+        "score": model.score,
+        "gates": [gate.to_dict() for gate in model.gates],
+        "recommendations": model.recommendations,
+        "repository_url": model.repository_url,
+        "branch": model.branch,
+        "github_token_used": model.github_token_used,
+        "created_at": model.created_at.isoformat(),
+        "updated_at": model.updated_at.isoformat(),
+        "completed_at": model.completed_at.isoformat() if model.completed_at else None,
+        "message": model.message,
+        "error": model.error,
+        "report_url": model.report_url,
+        "report_file": model.report_file,
+        "llm_enhanced": model.llm_enhanced,
+        "total_files": model.total_files,
+        "total_lines": model.total_lines,
+        "languages_detected": model.languages_detected,
+        "checkout_method": model.checkout_method,
+        "jira_result": model.jira_result,
+        "comments": model.comments
+    }
 
 # Global registry for tracking temporary directories
 _TEMP_DIRECTORIES: Set[str] = set()
@@ -1421,11 +1566,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                         reports_dir_path = get_reports_directory()
                         reports_dir = Path(reports_dir_path)
                         
-                        # Generate and save report to file
-                        report_filename = f"hard_gate_report_{scan_id}.html"
-                        report_path = reports_dir / report_filename
-                        
-                        # Create report config for HTML generation
+                        # Generate both summary and detailed reports by default
                         report_config = ReportConfig(
                             format='html',
                             output_path=str(reports_dir),
@@ -1433,19 +1574,35 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                             include_recommendations=True
                         )
                         
-                        # Generate HTML report
+                        # Generate both summary and detailed HTML reports
                         generator = ReportGenerator(report_config)
-                        html_content = generator._generate_html_content(validation_result)
                         
-                        # Save the HTML file
-                        with open(report_path, 'w', encoding='utf-8') as f:
-                            f.write(html_content)
+                        # Generate summary report
+                        summary_filename = f"hard_gate_report_summary_{scan_id}.html"
+                        summary_path = reports_dir / summary_filename
+                        summary_content = generator._generate_html_content(validation_result, "summary")
                         
-                        print(f"📄 HTML report saved to: {report_path}")
-                        scan_results[scan_id]["report_file"] = str(report_path)
+                        with open(summary_path, 'w', encoding='utf-8') as f:
+                            f.write(summary_content)
+                        
+                        # Generate detailed report
+                        detailed_filename = f"hard_gate_report_detailed_{scan_id}.html"
+                        detailed_path = reports_dir / detailed_filename
+                        detailed_content = generator._generate_html_content(validation_result, "detailed")
+                        
+                        with open(detailed_path, 'w', encoding='utf-8') as f:
+                            f.write(detailed_content)
+                        
+                        print(f"📄 Summary report saved to: {summary_path}")
+                        print(f"📄 Detailed report saved to: {detailed_path}")
+                        
+                        # Store both report file paths
+                        scan_results[scan_id]["summary_report_file"] = str(summary_path)
+                        scan_results[scan_id]["detailed_report_file"] = str(detailed_path)
+                        scan_results[scan_id]["report_file"] = str(summary_path)  # Default to summary for backward compatibility
                         
                 except Exception as report_error:
-                    print(f"⚠️ Failed to generate HTML report: {report_error}")
+                    print(f"⚠️ Failed to generate HTML reports: {report_error}")
                     # Continue without failing the scan
                 
                 # Log API_BASE_URL for debugging
@@ -1609,7 +1766,7 @@ async def scan_repository(request: ScanRequest, background_tasks: BackgroundTask
         scan_id = str(uuid.uuid4())
         
         # Initialize scan result
-        scan_results[scan_id] = {
+        initial_scan_data = {
             "scan_id": scan_id,
             "status": "running",
             "score": 0.0,
@@ -1617,8 +1774,14 @@ async def scan_repository(request: ScanRequest, background_tasks: BackgroundTask
             "recommendations": [],
             "report_url": None,
             "message": "Scan initiated",
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
+            "repository_url": request.repository_url,
+            "branch": request.branch,
+            "github_token_used": bool(request.github_token)
         }
+        
+        # Save initial scan result to storage
+        await save_scan_result_to_storage(initial_scan_data)
         
         # Start background scan
         background_tasks.add_task(perform_scan, scan_id, request)
@@ -1642,10 +1805,10 @@ async def scan_repository(request: ScanRequest, background_tasks: BackgroundTask
 async def get_scan_status(scan_id: str):
     """Get the status and results of a specific scan."""
     try:
-        if scan_id not in scan_results:
-            raise HTTPException(status_code=404, detail="Scan not found")
+        result = await get_scan_result_from_storage(scan_id)
         
-        result = scan_results[scan_id]
+        if not result:
+            raise HTTPException(status_code=404, detail="Scan not found")
         
         return ScanResult(
             scan_id=result["scan_id"],
@@ -1665,247 +1828,275 @@ async def get_scan_status(scan_id: str):
 @api_v1.get("/reports/{scan_id}")
 async def get_html_report(scan_id: str, comments: Optional[str] = Query(None, description="JSON string of comments")):
     """Generate and return HTML report for a scan with optional comments."""
+    return await get_html_report_with_mode(scan_id, "summary", comments)
+
+@api_v1.get("/reports/{scan_id}/summary")
+async def get_summary_report(scan_id: str, comments: Optional[str] = Query(None, description="JSON string of comments")):
+    """Generate and return summary HTML report for a scan with optional comments."""
+    return await get_html_report_with_mode(scan_id, "summary", comments)
+
+@api_v1.get("/reports/{scan_id}/detailed") 
+async def get_detailed_report(scan_id: str, comments: Optional[str] = Query(None, description="JSON string of comments")):
+    """Generate and return detailed HTML report for a scan with optional comments."""
+    return await get_html_report_with_mode(scan_id, "detailed", comments)
+
+async def get_html_report_with_mode(scan_id: str, report_mode: str = "summary", comments: Optional[str] = None):
+    """Generate and return HTML report for a scan with specified mode and optional comments."""
+    
+    # Check if scan exists
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    scan_result = scan_results[scan_id]
+    
+    # Check if scan is complete
+    if scan_result.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Scan not completed yet")
+    
+    # Check if we have a result object
+    if "result_object" not in scan_result:
+        raise HTTPException(status_code=500, detail="Scan result object not available")
+    
+    validation_result = scan_result["result_object"]
+    
+    # Parse comments if provided
+    parsed_comments = None
+    if comments:
+        try:
+            parsed_comments = json.loads(comments)
+            if not isinstance(parsed_comments, dict):
+                raise ValueError("Comments must be a JSON object")
+        except (json.JSONDecodeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid comments format. Must be valid JSON object.")
+    
+    # Generate HTML report with specified mode and comments
     try:
-        if scan_id not in scan_results:
-            raise HTTPException(status_code=404, detail="Scan not found")
+        from codegates.reports import ReportGenerator
+        from codegates.models import ReportConfig
         
-        result = scan_results[scan_id]
+        # Create reports directory using configuration
+        reports_dir_path = get_reports_directory()
+        reports_dir = Path(reports_dir_path)
+        reports_dir.mkdir(parents=True, exist_ok=True)
         
-        if result["status"] != "completed":
-            raise HTTPException(status_code=400, detail="Scan not completed yet")
+        # Create report config for HTML generation
+        report_config = ReportConfig(
+            format='html',
+            output_path=str(reports_dir),
+            include_details=True,
+            include_recommendations=True
+        )
         
-        # Parse comments if provided
-        parsed_comments = {}
-        if comments:
-            try:
-                parsed_comments = json.loads(comments)
-            except json.JSONDecodeError:
-                print(f"⚠️ Invalid comments JSON format, ignoring comments")
-                parsed_comments = {}
+        # Generate HTML report with specified mode and comments
+        generator = ReportGenerator(report_config)
+        html_content = generator._generate_html_content(validation_result, report_mode, parsed_comments)
         
-        # Check for stored comments in scan result
-        stored_comments = result.get("comments", {})
-        if stored_comments:
-            parsed_comments.update(stored_comments)
+        # Save the HTML file (with mode and comments suffix if provided)
+        filename_parts = [f"hard_gate_report_{report_mode}_{scan_id}"]
+        if parsed_comments:
+            # Add comments hash for caching
+            comments_hash = hashlib.md5(json.dumps(parsed_comments, sort_keys=True).encode()).hexdigest()[:8]
+            filename_parts.append(comments_hash)
         
-        # First, try to serve from saved file if no comments or comments match
-        if not parsed_comments and "report_file" in result:
-            report_path = Path(result["report_file"])
-            if report_path.exists():
-                try:
-                    with open(report_path, 'r', encoding='utf-8') as f:
-                        html_content = f.read()
-                    
-                    return HTMLResponse(content=html_content, status_code=200)
-                except Exception as file_error:
-                    print(f"⚠️ Failed to read saved report file: {file_error}")
-                    # Fall through to regeneration
-        
-        # Try to find report file by scan_id if not stored in result
-        reports_dir = Path(get_reports_directory())
-        report_filename = f"hard_gate_report_{scan_id}.html"
+        report_filename = "_".join(filename_parts) + ".html"
         report_path = reports_dir / report_filename
         
-        # If no comments and file exists, serve it
-        if not parsed_comments and report_path.exists():
-            try:
-                with open(report_path, 'r', encoding='utf-8') as f:
-                    html_content = f.read()
-                
-                return HTMLResponse(content=html_content, status_code=200)
-            except Exception as file_error:
-                print(f"⚠️ Failed to read report file: {file_error}")
-                # Fall through to regeneration
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
         
-        # Generate HTML report with comments (on-demand or with comments)
-        print(f"📄 Generating HTML report for {scan_id}" + (f" with {len(parsed_comments)} comments" if parsed_comments else ""))
+        print(f"📄 {report_mode.title()} HTML report saved to: {report_path}")
         
-        # Get the full validation result object
-        validation_result = result.get("result_object")
+        # Update scan result with report file path if no comments (main report)
+        if not parsed_comments:
+            scan_results[scan_id][f"{report_mode}_report_file"] = str(report_path)
+            if report_mode == "summary":
+                scan_results[scan_id]["report_file"] = str(report_path)  # Backward compatibility
         
-        if not validation_result:
-            raise HTTPException(status_code=500, detail="Report data not available")
+        return HTMLResponse(content=html_content, status_code=200)
         
-        # Generate HTML report with comments
-        try:
-            from codegates.reports import ReportGenerator
-            from codegates.models import ReportConfig
-            
-            # Create reports directory using configuration
-            reports_dir_path = get_reports_directory()
-            reports_dir = Path(reports_dir_path)
-            reports_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Create report config for HTML generation
-            report_config = ReportConfig(
-                format='html',
-                output_path=str(reports_dir),
-                include_details=True,
-                include_recommendations=True
-            )
-            
-            # Generate HTML report with comments
-            generator = ReportGenerator(report_config)
-            html_content = generator._generate_html_content(validation_result, parsed_comments)
-            
-            # Save the HTML file (with comments if provided)
-            if parsed_comments:
-                # Save with comments suffix for caching
-                comments_hash = hashlib.md5(json.dumps(parsed_comments, sort_keys=True).encode()).hexdigest()[:8]
-                report_filename = f"hard_gate_report_{scan_id}_{comments_hash}.html"
-            else:
-                report_filename = f"hard_gate_report_{scan_id}.html"
-            
-            report_path = reports_dir / report_filename
-            
-            with open(report_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            
-            print(f"📄 HTML report saved to: {report_path}")
-            
-            # Update scan result with report file path if no comments (main report)
-            if not parsed_comments:
-                scan_results[scan_id]["report_file"] = str(report_path)
-            
-            return HTMLResponse(content=html_content, status_code=200)
-            
-        except ImportError:
-            # Fallback to basic HTML if report generator not available
-            
-            # Extract project name from repository URL 
-            project_name = "Unknown Project"
-            repository_url = result.get("repository_url")
-            if repository_url:
-                try:
-                    url_parts = repository_url.rstrip('/').split('/')
-                    if len(url_parts) >= 2:
-                        project_name = url_parts[-1]
-                        if project_name.endswith('.git'):
-                            project_name = project_name[:-4]
-                except Exception:
-                    project_name = "Unknown Project"
-            
-            # Generate basic HTML with comments
-            comments_html = ""
-            if parsed_comments:
-                comments_html = "<h2>Comments</h2><ul>"
-                for gate_name, comment in parsed_comments.items():
-                    comments_html += f"<li><strong>{gate_name}:</strong> {comment}</li>"
-                comments_html += "</ul>"
-            
-            basic_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Hard Gate Assessment - {project_name}</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                    .score {{ font-size: 24px; color: #2563eb; font-weight: bold; }}
-                    .gate {{ margin: 10px 0; padding: 10px; border: 1px solid #ddd; }}
-                    .pass {{ background-color: #ecfdf5; }}
-                    .fail {{ background-color: #fef2f2; }}
-                    .warning {{ background-color: #fffbeb; }}
-                </style>
-            </head>
-            <body>
-                <h1>{project_name}</h1>
-                <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report{' (with comments)' if parsed_comments else ''}</p>
-                <div class="score">Overall Score: {result['score']:.1f}%</div>
-                <h2>Gate Results</h2>
-                {''.join([f'<div class="gate {gate["status"].lower()}"><strong>{gate["name"]}</strong>: {gate["status"]} ({gate["score"]:.1f}%)</div>' for gate in result["gates"]])}
-                <h2>Recommendations</h2>
-                <ul>
-                    {''.join([f'<li>{rec}</li>' for rec in result.get("recommendations", [])])}
-                </ul>
-                {comments_html}
-            </body>
-            </html>
-            """
-            
-            # Save basic report to file as well
-            with open(report_path, 'w', encoding='utf-8') as f:
-                f.write(basic_html)
-            
-            # Update scan result with report file path
-            if not parsed_comments:
-                scan_results[scan_id]["report_file"] = str(report_path)
-            
-            return HTMLResponse(content=basic_html, status_code=200)
-        
-    except HTTPException:
-        raise
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Report generator not available")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Error generating {report_mode} HTML report: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate {report_mode} HTML report")
+
+@api_v1.get("/reports/{scan_id}/json")
+async def get_json_report(scan_id: str, report_mode: str = Query("summary", description="Report mode: summary or detailed")):
+    """Generate and return JSON report for a scan with specified detail level."""
+    
+    # Check if scan exists
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    scan_result = scan_results[scan_id]
+    
+    # Check if scan is complete
+    if scan_result.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Scan not completed yet")
+    
+    # Check if we have a result object
+    if "result_object" not in scan_result:
+        raise HTTPException(status_code=500, detail="Scan result object not available")
+    
+    # Validate report_mode parameter
+    if report_mode not in ["summary", "detailed"]:
+        raise HTTPException(status_code=400, detail="Invalid report_mode. Must be 'summary' or 'detailed'")
+    
+    validation_result = scan_result["result_object"]
+    
+    try:
+        from codegates.reports import SharedReportGenerator
+        
+        # Transform result using shared logic with specified mode
+        result_data = SharedReportGenerator.transform_result_to_extension_format(validation_result, report_mode)
+        
+        # Add metadata
+        response_data = {
+            "report_metadata": {
+                "scan_id": scan_id,
+                "report_type": f"codegates_{report_mode}",
+                "generated_at": datetime.now().isoformat(),
+                "version": "1.0.0"
+            },
+            **result_data
+        }
+        
+        return JSONResponse(content=response_data, status_code=200)
+        
+    except Exception as e:
+        print(f"❌ Error generating {report_mode} JSON report: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate {report_mode} JSON report")
 
 @api_v1.post("/reports/{scan_id}/comments")
 async def update_report_comments(scan_id: str, comments: Dict[str, str]):
-    """Update report comments and regenerate HTML"""
+    """Update report comments and regenerate both summary and detailed HTML reports"""
+    
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    if scan_results[scan_id]["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Scan not completed yet")
+    
+    # Store comments in scan result
+    scan_results[scan_id]["comments"] = comments
+    
+    validation_result = scan_results[scan_id].get("result_object")
+    if not validation_result:
+        return {
+            "status": "success", 
+            "message": f"Comments stored - {len(comments)} comments",
+            "comments_count": len(comments)
+        }
+    
     try:
-        if scan_id not in scan_results:
-            raise HTTPException(status_code=404, detail="Scan not found")
+        from codegates.reports import ReportGenerator
+        from codegates.models import ReportConfig
         
-        result = scan_results[scan_id]
+        # Create reports directory
+        reports_dir_path = get_reports_directory()
+        reports_dir = Path(reports_dir_path)
+        reports_dir.mkdir(parents=True, exist_ok=True)
         
-        if result["status"] != "completed":
-            raise HTTPException(status_code=400, detail="Scan not completed yet")
+        # Generate HTML reports with comments
+        report_config = ReportConfig(
+            format='html',
+            output_path=str(reports_dir),
+            include_details=True,
+            include_recommendations=True
+        )
         
-        # Store comments with scan result
-        scan_results[scan_id]["comments"] = comments
+        generator = ReportGenerator(report_config)
         
-        # Get the validation result for regeneration
-        validation_result = result.get("result_object")
-        if not validation_result:
-            raise HTTPException(status_code=500, detail="Report data not available for regeneration")
+        # Generate both summary and detailed reports with comments
+        comments_hash = hashlib.md5(json.dumps(comments, sort_keys=True).encode()).hexdigest()[:8]
         
-        try:
-            from codegates.reports import ReportGenerator
-            from codegates.models import ReportConfig
-            
-            # Create reports directory
-            reports_dir_path = get_reports_directory()
-            reports_dir = Path(reports_dir_path)
-            reports_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Generate HTML with comments
-            report_config = ReportConfig(
-                format='html',
-                output_path=str(reports_dir),
-                include_details=True,
-                include_recommendations=True
-            )
-            
-            generator = ReportGenerator(report_config)
-            html_content = generator._generate_html_content(validation_result, comments)
-            
-            # Save updated HTML file with comments
-            comments_hash = hashlib.md5(json.dumps(comments, sort_keys=True).encode()).hexdigest()[:8]
-            report_filename = f"hard_gate_report_{scan_id}_{comments_hash}.html"
-            report_path = reports_dir / report_filename
-            
-            with open(report_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            
-            print(f"📄 HTML report with comments saved to: {report_path}")
-            
-            return {
-                "status": "success", 
-                "message": f"Comments updated and report regenerated with {len(comments)} comments",
-                "report_url": f"{get_reports_url_base()}/{scan_id}",
-                "comments_count": len(comments)
-            }
-            
-        except ImportError:
-            # Fallback if report generator not available
-            return {
-                "status": "success", 
-                "message": f"Comments stored (fallback mode) - {len(comments)} comments",
-                "comments_count": len(comments)
-            }
+        # Summary report with comments
+        summary_content = generator._generate_html_content(validation_result, "summary", comments)
+        summary_filename = f"hard_gate_report_summary_{scan_id}_{comments_hash}.html"
+        summary_path = reports_dir / summary_filename
         
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            f.write(summary_content)
+        
+        # Detailed report with comments
+        detailed_content = generator._generate_html_content(validation_result, "detailed", comments)
+        detailed_filename = f"hard_gate_report_detailed_{scan_id}_{comments_hash}.html"
+        detailed_path = reports_dir / detailed_filename
+        
+        with open(detailed_path, 'w', encoding='utf-8') as f:
+            f.write(detailed_content)
+        
+        print(f"📄 Summary report with comments saved to: {summary_path}")
+        print(f"📄 Detailed report with comments saved to: {detailed_path}")
+        
+        return {
+            "status": "success", 
+            "message": f"Comments updated and both reports regenerated with {len(comments)} comments",
+            "summary_report_url": f"{get_reports_url_base()}/{scan_id}/summary",
+            "detailed_report_url": f"{get_reports_url_base()}/{scan_id}/detailed",
+            "comments_count": len(comments),
+            "reports_generated": ["summary", "detailed"]
+        }
+        
+    except ImportError:
+        # Fallback if report generator not available
+        return {
+            "status": "success", 
+            "message": f"Comments stored (fallback mode) - {len(comments)} comments",
+            "comments_count": len(comments)
+        }
+    
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Error updating report comments: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update report comments: {str(e)}")
+
+@api_v1.get("/reports/{scan_id}/modes")
+async def get_report_modes_info(scan_id: str):
+    """Get information about available report modes and their URLs"""
+    
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    if scan_results[scan_id]["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Scan not completed yet")
+    
+    base_url = get_reports_url_base()
+    
+    return {
+        "scan_id": scan_id,
+        "available_modes": {
+            "summary": {
+                "description": "Concise report with high-level overview and key findings",
+                "html_url": f"{base_url}/{scan_id}/summary",
+                "json_url": f"{base_url}/{scan_id}/json?report_mode=summary",
+                "features": [
+                    "Executive summary",
+                    "Gate status overview", 
+                    "Quick statistics",
+                    "Basic recommendations",
+                    "Match counts only"
+                ]
+            },
+            "detailed": {
+                "description": "Comprehensive report with full metadata and matched patterns",
+                "html_url": f"{base_url}/{scan_id}/detailed", 
+                "json_url": f"{base_url}/{scan_id}/json?report_mode=detailed",
+                "features": [
+                    "Full scan metadata",
+                    "Complete match details",
+                    "Code snippets and file locations",
+                    "Pattern analysis",
+                    "Technology detection",
+                    "Performance metrics"
+                ]
+            }
+        },
+        "default_mode": "summary",
+        "comments_support": True,
+        "legacy_endpoint": f"{base_url}/{scan_id}"  # Points to summary for backward compatibility
+    }
 
 @api_v1.get("/reports")
 async def list_reports():
@@ -2222,9 +2413,6 @@ def configure_git_ssl_settings():
 # Configure git SSL settings at startup
 configure_git_ssl_settings()
 
-# Mount the v1 API router
-app.mount("/api/v1", api_v1)
-
 def start_server():
     uvicorn.run(app, host=API_HOST, port=API_PORT)
 
@@ -2529,529 +2717,65 @@ async def get_timeout_configuration():
             "message": f"Failed to get timeout configuration: {str(e)}"
         }
 
-# Intake Assessment Models
-class ComponentData(BaseModel):
-    """Structured component data extracted from Excel or other sources"""
-    component_name: str = Field(..., description="Name of the component being assessed")
-    business_criticality: Optional[str] = Field(None, description="Business criticality (High/Medium/Low)")
-    current_environment: Optional[str] = Field(None, description="Current hosting environment")
-    application_type: Optional[str] = Field(None, description="Type of application")
-    technology_stack: Optional[Dict[str, Any]] = Field(None, description="Technology stack details")
-    dependencies: Optional[List[str]] = Field(None, description="List of dependencies")
-    component_declarations: Optional[Dict[str, bool]] = Field(None, description="Component declarations (Yes/No for each component)")
-    custom_fields: Optional[Dict[str, Any]] = Field(None, description="Additional custom fields from Excel")
-
-class IntakeAssessmentOptions(BaseModel):
-    include_patterns: Optional[List[str]] = Field(
-        default=[
-            "*.py", "*.js", "*.ts", "*.java", "*.go", "*.rb", "*.php",
-            "*.cpp", "*.h", "*.hpp", "*.c", "*.cs", "*.swift",
-            "*.yaml", "*.yml", "*.json", "*.xml", "*.html", "*.css",
-            "Dockerfile", "docker-compose*.yml", "*.sh", "*.bash",
-            "*.md", "*.rst", "*.txt"
-        ],
-        description="File patterns to include in analysis"
-    )
-    exclude_patterns: Optional[List[str]] = Field(
-        default=[
-            "tests/*", "test/*", "docs/*", "node_modules/*", "__pycache__/*",
-            "*.test.*", "*.spec.*", "*.min.*", "dist/*", "build/*",
-            ".git/*", ".github/*", ".vscode/*", "*.log"
-        ],
-        description="File patterns to exclude from analysis"
-    )
-    max_file_size: Optional[int] = Field(
-        default=100000,
-        description="Maximum file size in bytes to analyze"
-    )
-    use_cache: Optional[bool] = Field(
-        default=True,
-        description="Enable LLM response caching"
-    )
-    include_jira: Optional[bool] = Field(
-        default=False,
-        description="Include JIRA stories in assessment"
-    )
-
-class IntakeAssessmentRequest(BaseModel):
-    # Code analysis sources (at least one required)
-    repository_url: Optional[str] = Field(
-        None,
-        description="Git repository URL for code analysis"
-    )
-    local_directory: Optional[str] = Field(
-        None,
-        description="Local directory path for code analysis"
-    )
-    
-    # Component data (structured information)
-    component_data: Optional[ComponentData] = Field(
-        None,
-        description="Structured component information (extracted from Excel or other sources)"
-    )
-    
-    # Authentication and configuration
-    github_token: Optional[str] = Field(
-        None,
-        description="GitHub token for private repositories"
-    )
-    options: Optional[IntakeAssessmentOptions] = Field(
-        default=None,
-        description="Assessment configuration options"
-    )
-    
-    def validate_input(self):
-        """Validate that at least a repository or local directory is provided"""
-        if not self.repository_url and not self.local_directory:
-            raise HTTPException(
-                status_code=400,
-                detail="Either repository_url or local_directory must be provided for code analysis"
-            )
-
-class IntakeAssessmentResult(BaseModel):
-    assessment_id: str = Field(..., description="Unique assessment identifier")
-    status: str = Field(..., description="Assessment status: 'completed' | 'failed' | 'running'")
-    component_name: Optional[str] = Field(None, description="Assessed component name")
-    migration_score: Optional[float] = Field(None, ge=0, le=100, description="Migration readiness score (0-100)")
-    migration_feasibility: Optional[str] = Field(None, description="Migration feasibility rating")
-    reports: Optional[Dict[str, str]] = Field(None, description="Generated report file paths")
-    recommendations: Optional[List[str]] = Field(None, description="Migration recommendations")
-    component_analysis: Optional[Dict[str, Any]] = Field(None, description="Component analysis results")
-    error_message: Optional[str] = Field(None, description="Error message if assessment failed")
-
-# In-memory storage for intake assessment results (in production, use a database)
-intake_results = {}
-
-async def perform_intake_assessment(assessment_id: str, request: IntakeAssessmentRequest):
-    """Perform the actual intake assessment with comprehensive error handling"""
-    temp_dir = None
+@api_v1.get("/system/routes")
+async def list_routes():
+    """List all available API routes for debugging."""
     try:
-        # Update status to running
-        intake_results[assessment_id]["status"] = "running"
-        intake_results[assessment_id]["message"] = "Starting intake assessment..."
-        
-        # Validate input
-        request.validate_input()
-        
-        # Get options with defaults
-        options = request.options or IntakeAssessmentOptions()
-        
-        # Create unique temporary directory for assessment outputs
-        temp_dir = create_unique_temp_directory("intake_assessment_", "intake assessment directory")
-        register_temp_directory(temp_dir)
-        
-        # Initialize shared state for intake assessment
-        shared = {
-            "repo_url": request.repository_url,
-            "local_dir": request.local_directory,
-            "include_patterns": options.include_patterns,
-            "exclude_patterns": options.exclude_patterns,
-            "max_file_size": options.max_file_size,
-            "use_cache": options.use_cache,
-            "output_dir": temp_dir,
-            "github_token": request.github_token
-        }
-        
-        # Add component data if provided (structured approach)
-        if request.component_data:
-            # Convert ComponentData to the format expected by intake module
-            excel_validation = {
-                "component_name": request.component_data.component_name,
-                "business_criticality": request.component_data.business_criticality or "Medium",
-                "current_environment": request.component_data.current_environment or "Unknown",
-                "application_type": request.component_data.application_type or "Unknown"
-            }
-            
-            # Add any custom fields
-            if request.component_data.custom_fields:
-                excel_validation.update(request.component_data.custom_fields)
-            
-            # Set excel validation data in shared state
-            shared["excel_validation"] = excel_validation
-            shared["project_name"] = request.component_data.component_name
-            
-            # Add component declarations if provided
-            if request.component_data.component_declarations:
-                excel_components = {}
-                for component, declared in request.component_data.component_declarations.items():
-                    excel_components[component] = {"is_yes": declared}
-                shared["excel_components"] = excel_components
-            
-            # Add technology stack and dependencies
-            if request.component_data.technology_stack:
-                shared["technology_stack"] = request.component_data.technology_stack
-            
-            if request.component_data.dependencies:
-                shared["dependencies"] = request.component_data.dependencies
-        
-        print(f"🔄 Starting intake assessment for: {request.repository_url or request.local_directory or (request.component_data.component_name if request.component_data else 'Unknown')}")
-        
-        # Choose appropriate flow based on input type
-        if request.component_data and not request.repository_url and not request.local_directory:
-            # Pure component data assessment (no code analysis)
-            intake_results[assessment_id]["message"] = "Processing component data..."
-            analysis_flow = create_analysis_flow()  # Use analysis flow with only OCP assessment
-        elif request.component_data:
-            # Combined code + component data assessment  
-            intake_results[assessment_id]["message"] = "Analyzing repository with component data..."
-            analysis_flow = create_analysis_flow()  # Use analysis flow with code + OCP assessment
-        else:
-            # Code-only assessment
-            intake_results[assessment_id]["message"] = "Analyzing repository..."
-            analysis_flow = create_analysis_flow()
-        
-        # Run the intake assessment flow
-        intake_results[assessment_id]["message"] = "Running OCP migration assessment..."
-        
-        # Execute the flow in a thread to avoid blocking
-        await asyncio.to_thread(analysis_flow.run, shared)
-        
-        # Extract results from shared state
-        ocp_assessment = shared.get("ocp_assessment", {})
-        component_name = shared.get("project_name") or (request.component_data.component_name if request.component_data else "Unknown Component")
-        
-        # Parse migration score from assessment
-        migration_score = 0.0
-        migration_feasibility = "Unknown"
-        recommendations = []
-        
-        if ocp_assessment:
-            # Try to extract score from HTML content
-            html_content = ocp_assessment.get("html", "")
-            if "migration_score" in html_content.lower():
-                # Simple regex to extract score (this could be enhanced)
-                import re
-                score_match = re.search(r'score[:\s]*(\d+(?:\.\d+)?)', html_content, re.IGNORECASE)
-                if score_match:
-                    migration_score = float(score_match.group(1))
-            
-            # Determine feasibility based on score
-            if migration_score >= 90:
-                migration_feasibility = "Excellent"
-            elif migration_score >= 80:
-                migration_feasibility = "Good"
-            elif migration_score >= 70:
-                migration_feasibility = "Fair"
-            elif migration_score >= 60:
-                migration_feasibility = "Marginal"
-            else:
-                migration_feasibility = "Poor"
-        
-        # Collect generated reports
-        reports = {}
-        if "hard_gate_assessment" in shared:
-            reports["hard_gate_assessment"] = shared["hard_gate_assessment"]
-        if "intake_assessment_html" in shared:
-            reports["intake_assessment"] = shared["intake_assessment_html"]
-        if ocp_assessment:
-            reports["ocp_assessment"] = ocp_assessment
-        
-        # Get component analysis if available
-        component_analysis = shared.get("code_analysis", {}).get("component_analysis", {})
-        
-        # Update final results
-        intake_results[assessment_id].update({
-            "status": "completed",
-            "component_name": component_name,
-            "migration_score": migration_score,
-            "migration_feasibility": migration_feasibility,
-            "reports": reports,
-            "recommendations": recommendations,
-            "component_analysis": component_analysis,
-            "message": f"Intake assessment completed successfully for {component_name}",
-            "completed_at": datetime.now().isoformat()
-        })
-        
-        print(f"✅ Intake assessment completed for {component_name} with score: {migration_score}")
-        
-    except Exception as e:
-        print(f"❌ Intake assessment failed for {assessment_id}: {str(e)}")
-        
-        # Update status with error
-        intake_results[assessment_id].update({
-            "status": "failed",
-            "error_message": str(e),
-            "message": f"Intake assessment failed: {str(e)}",
-            "completed_at": datetime.now().isoformat()
-        })
-        
-    finally:
-        # Cleanup temporary directory
-        if temp_dir and os.path.exists(temp_dir):
-            print(f"🧹 Cleaning up intake assessment directory: {temp_dir}")
-            try:
-                cleanup_success = await cleanup_temp_directory(temp_dir, "intake assessment directory")
-                if cleanup_success:
-                    print(f"✅ Intake assessment directory cleaned up successfully")
-            except Exception as cleanup_error:
-                print(f"⚠️ Failed to cleanup intake assessment directory: {cleanup_error}")
-
-## Intake Assessment API Endpoints
-
-@api_v1.get("/intake/status")
-async def get_intake_status():
-    """Get intake assessment module status and configuration."""
-    try:
-        if not INTAKE_AVAILABLE:
-            return {
-                "available": False,
-                "message": "Intake assessment module not available"
-            }
+        routes = []
+        for route in app.routes:
+            if hasattr(route, 'methods') and hasattr(route, 'path'):
+                routes.append({
+                    "path": route.path,
+                    "methods": list(route.methods),
+                    "name": getattr(route, 'name', 'unnamed')
+                })
         
         return {
-            "available": INTAKE_AVAILABLE,
-            "module": "OCP Migration Assessment",
-            "description": "OpenShift Container Platform migration readiness assessment",
-            "supported_inputs": [
-                "GitHub repositories",
-                "Local directories", 
-                "Excel files with component data"
-            ],
-            "assessment_types": [
-                "Hard Gate Assessment",
-                "Intake Assessment", 
-                "Migration Insights",
-                "Component Analysis"
-            ]
+            "status": "success",
+            "routes": routes,
+            "total_routes": len(routes)
         }
         
     except Exception as e:
         return {
-            "available": False,
-            "error": str(e)
+            "status": "error",
+            "message": f"Failed to list routes: {str(e)}"
         }
 
-@api_v1.post("/intake/assess", response_model=IntakeAssessmentResult)
-async def start_intake_assessment(request: IntakeAssessmentRequest, background_tasks: BackgroundTasks):
-    """
-    Start an intake assessment for OCP migration readiness.
-    
-    - Supports GitHub repositories, local directories, and Excel files
-    - Generates comprehensive migration assessment reports
-    - Returns assessment ID for status tracking
-    """
-    try:
-        if not INTAKE_AVAILABLE:
-            raise HTTPException(
-                status_code=503, 
-                detail="Intake assessment module not available"
-            )
-        
-        # Validate input
-        request.validate_input()
-        
-        # Generate assessment ID
-        assessment_id = str(uuid.uuid4())
-        
-        # Initialize assessment result
-        intake_results[assessment_id] = {
-            "assessment_id": assessment_id,
-            "status": "running",
-            "component_name": None,
-            "migration_score": None,
-            "migration_feasibility": None,
-            "reports": None,
-            "recommendations": None,
-            "component_analysis": None,
-            "error_message": None,
-            "message": "Assessment initiated",
-            "created_at": datetime.now().isoformat()
-        }
-        
-        # Start background assessment
-        background_tasks.add_task(perform_intake_assessment, assessment_id, request)
-        
-        return IntakeAssessmentResult(
-            assessment_id=assessment_id,
-            status="running",
-            component_name=None,
-            migration_score=None,
-            migration_feasibility=None,
-            reports=None,
-            recommendations=None,
-            component_analysis=None,
-            error_message=None
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/")
+async def root():
+    """Root endpoint to verify server is running."""
+    return {
+        "message": "MyGates API is running",
+        "version": "1.0.0",
+        "api_prefix": "/api/v1",
+        "docs_url": "/docs" if DOCS_ENABLED else None,
+        "health_check": "/api/v1/health"
+    }
 
-@api_v1.get("/intake/assess/{assessment_id}/status", response_model=IntakeAssessmentResult)
-async def get_intake_assessment_status(assessment_id: str):
-    """Get the status and results of a specific intake assessment."""
-    try:
-        if assessment_id not in intake_results:
-            raise HTTPException(status_code=404, detail="Assessment not found")
-        
-        result = intake_results[assessment_id]
-        
-        return IntakeAssessmentResult(
-            assessment_id=result["assessment_id"],
-            status=result["status"],
-            component_name=result.get("component_name"),
-            migration_score=result.get("migration_score"),
-            migration_feasibility=result.get("migration_feasibility"),
-            reports=result.get("reports"),
-            recommendations=result.get("recommendations"),
-            component_analysis=result.get("component_analysis"),
-            error_message=result.get("error_message")
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/v1")
+async def api_v1_root():
+    """API v1 root endpoint."""
+    return {
+        "message": "MyGates API v1",
+        "version": "1.0.0",
+        "available_endpoints": [
+            "/api/v1/health",
+            "/api/v1/scan",
+            "/api/v1/scan/{scan_id}/status",
+            "/api/v1/reports/{scan_id}",
+            "/api/v1/reports",
+            "/api/v1/jira/status",
+            "/api/v1/jira/post",
+            "/api/v1/system/cleanup",
+            "/api/v1/system/temp-status",
+            "/api/v1/system/timeout-config",
+            "/api/v1/system/routes"
+        ]
+    }
 
-@api_v1.get("/intake/assess/{assessment_id}/reports/{report_type}")
-async def get_intake_assessment_report(assessment_id: str, report_type: str):
-    """Get a specific report from an intake assessment."""
-    try:
-        if assessment_id not in intake_results:
-            raise HTTPException(status_code=404, detail="Assessment not found")
-        
-        result = intake_results[assessment_id]
-        
-        if result["status"] != "completed":
-            raise HTTPException(status_code=400, detail="Assessment not completed yet")
-        
-        reports = result.get("reports", {})
-        if report_type not in reports:
-            available_reports = list(reports.keys())
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Report type '{report_type}' not found. Available reports: {available_reports}"
-            )
-        
-        report_data = reports[report_type]
-        
-        # If it's HTML content, return as HTMLResponse
-        if "html" in report_data and report_type in ["ocp_assessment", "intake_assessment"]:
-            html_content = report_data.get("html", "")
-            if html_content:
-                return HTMLResponse(content=html_content, status_code=200)
-        
-        # For other report types, return JSON
-        return report_data
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_v1.get("/intake/assessments")
-async def list_intake_assessments():
-    """List all intake assessments with their current status."""
-    try:
-        assessments = []
-        for assessment_id, result in intake_results.items():
-            assessments.append({
-                "assessment_id": assessment_id,
-                "status": result["status"],
-                "component_name": result.get("component_name"),
-                "migration_score": result.get("migration_score"),
-                "migration_feasibility": result.get("migration_feasibility"),
-                "created_at": result.get("created_at"),
-                "completed_at": result.get("completed_at"),
-                "reports_available": list(result.get("reports", {}).keys()) if result.get("reports") else []
-            })
-        
-        # Sort by creation time (newest first)
-        assessments.sort(key=lambda x: x["created_at"], reverse=True)
-        
-        return {
-            "assessments": assessments,
-            "total_count": len(assessments)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-class ExcelExtractionRequest(BaseModel):
-    excel_file_path: str = Field(..., description="Path to Excel file to extract data from")
-    sheet_name: Optional[str] = Field(None, description="Specific sheet name to process (optional)")
-
-@api_v1.post("/intake/extract-excel")
-async def extract_excel_data(request: ExcelExtractionRequest):
-    """
-    Extract structured component data from Excel files.
-    
-    This utility endpoint separates data extraction from assessment logic,
-    allowing the extracted data to be used with the intake assessment endpoint.
-    """
-    try:
-        if not INTAKE_AVAILABLE:
-            raise HTTPException(
-                status_code=503, 
-                detail="Intake assessment module not available"
-            )
-        
-        # Check if file exists
-        if not os.path.exists(request.excel_file_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Excel file not found: {request.excel_file_path}"
-            )
-        
-        # Extract data using intake module's Excel processor
-        try:
-            # Use the intake module's Excel processing logic
-            shared = {
-                "excel_file": request.excel_file_path,
-                "output_dir": "./temp",  # Temporary directory for processing
-            }
-            
-            if request.sheet_name:
-                shared["sheet_name"] = request.sheet_name
-            
-            # Create and run the Excel processor node
-            from nodes import ProcessExcel
-            excel_processor = ProcessExcel()
-            
-            # Process the Excel file
-            prep_result = excel_processor.prep(shared)
-            exec_result = excel_processor.exec(prep_result)
-            excel_processor.post(shared, prep_result, exec_result)
-            
-            # Extract the processed data
-            excel_validation = shared.get("excel_validation", {})
-            excel_components = shared.get("excel_components", {})
-            
-            # Convert to ComponentData format
-            component_declarations = {}
-            if excel_components:
-                for component, data in excel_components.items():
-                    component_declarations[component] = data.get("is_yes", False)
-            
-            # Build structured component data
-            component_data = ComponentData(
-                component_name=excel_validation.get("component_name", "Unknown Component"),
-                business_criticality=excel_validation.get("business_criticality"),
-                current_environment=excel_validation.get("current_environment"),
-                application_type=excel_validation.get("application_type"),
-                component_declarations=component_declarations if component_declarations else None,
-                custom_fields=excel_validation  # Include all Excel data as custom fields
-            )
-            
-            return {
-                "status": "success",
-                "component_data": component_data,
-                "extracted_fields": list(excel_validation.keys()),
-                "component_declarations_count": len(component_declarations),
-                "message": f"Successfully extracted data for component: {component_data.component_name}"
-            }
-            
-        except Exception as processing_error:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to process Excel file: {str(processing_error)}"
-            )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Include the API v1 router after all routes are defined
+app.include_router(api_v1)
 
 if __name__ == "__main__":
     start_server() 

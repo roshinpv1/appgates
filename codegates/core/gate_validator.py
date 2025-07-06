@@ -281,44 +281,89 @@ class GateValidator:
                     all_matches.extend(result.matches)
                 
             except Exception as e:
-                all_details.append(f"Validator error: {str(e)}")
+                # Log the specific error for debugging
+                error_msg = f"Validator error for {gate_type.value}: {str(e)}"
+                print(f"❌ {error_msg}")
+                all_details.append(error_msg)
+                
+                # For security-critical gates, error should result in failure
+                if gate_type == GateType.AVOID_LOGGING_SECRETS:
+                    all_details.append("⚠️ Security validation failed due to processing error")
+                    # Force failure status by setting negative scores
+                    total_expected = 1
+                    total_found = 999  # High violation count to ensure failure
+                else:
+                    # For other gates, validation error should not result in false PASS
+                    all_details.append("⚠️ Validation incomplete due to processing error")
+                    # Set conservative values that won't result in false PASS
+                    if total_expected == 0:
+                        total_expected = 1  # Prevent division by zero
+                    # Don't increment total_found to avoid false failure due to error
         
         # Add detailed match information to details
         if all_matches:
-            all_details.append(f"Found {len(all_matches)} pattern matches:")
-            
-            # Group matches by file for better organization
-            matches_by_file = {}
-            for match in all_matches[:10]:  # Limit to first 10 matches to avoid overwhelming output
-                file_path = match.get('file', 'unknown')
-                if file_path not in matches_by_file:
-                    matches_by_file[file_path] = []
-                matches_by_file[file_path].append(match)
-            
-            # Add organized match details
-            for file_path, file_matches in matches_by_file.items():
-                # Make file path relative to target for readability
-                try:
-                    relative_path = Path(file_path).relative_to(target_path)
-                except ValueError:
-                    relative_path = Path(file_path).name
+            # Filter out non-matching patterns - only show actual matches
+            actual_matches = []
+            for match in all_matches:
+                file_path = match.get('file_path', match.get('file', ''))
+                matched_text = match.get('matched_text', match.get('match', ''))
+                line_number = match.get('line_number', match.get('line', 0))
                 
-                all_details.append(f"📁 {relative_path}:")
-                for match in file_matches[:3]:  # Limit to 3 matches per file
-                    line_num = match.get('line', '?')
-                    match_text = match.get('match', '').strip()
-                    pattern = match.get('pattern', '')
-                    
-                    # Truncate long matches for readability
-                    if len(match_text) > 80:
-                        match_text = match_text[:77] + "..."
-                    
-                    all_details.append(f"   Line {line_num}: {match_text}")
-                    if pattern:
-                        all_details.append(f"   Pattern: {pattern}")
+                # Only include actual matches (not pattern attempts)
+                if (file_path and file_path != 'N/A - No matches found' and 
+                    file_path != 'unknown' and matched_text.strip() and 
+                    line_number > 0):
+                    actual_matches.append(match)
+            
+            if actual_matches:
+                all_details.append(f"Found {len(actual_matches)} actual pattern matches:")
                 
-                if len(file_matches) > 3:
-                    all_details.append(f"   ... and {len(file_matches) - 3} more matches")
+                # Group matches by file for better organization
+                matches_by_file = {}
+                for match in actual_matches[:15]:  # Limit to first 15 actual matches
+                    file_path = match.get('file_path', match.get('file', 'unknown'))
+                    if file_path not in matches_by_file:
+                        matches_by_file[file_path] = []
+                    matches_by_file[file_path].append(match)
+                
+                # Add organized match details
+                for file_path, file_matches in matches_by_file.items():
+                    # Make file path relative to target for readability
+                    try:
+                        relative_path = Path(file_path).relative_to(target_path)
+                    except ValueError:
+                        relative_path = Path(file_path).name
+                    
+                    all_details.append(f"📁 {relative_path}:")
+                    for match in file_matches[:5]:  # Limit to 5 matches per file
+                        line_num = match.get('line_number', match.get('line', '?'))
+                        match_text = match.get('matched_text', match.get('match', '')).strip()
+                        pattern = match.get('pattern', '')
+                        
+                        # Truncate long matches for readability
+                        if len(match_text) > 80:
+                            match_text = match_text[:77] + "..."
+                        
+                        all_details.append(f"   Line {line_num}: {match_text}")
+                        if pattern:
+                            all_details.append(f"   Pattern: {pattern}")
+                        
+                        # Add additional metadata if available
+                        if match.get('severity'):
+                            all_details.append(f"   Severity: {match['severity']}")
+                        if match.get('function_context'):
+                            all_details.append(f"   Function: {match['function_context']}")
+                    
+                    if len(file_matches) > 5:
+                        all_details.append(f"   ... and {len(file_matches) - 5} more matches in this file")
+                
+                if len(actual_matches) > 15:
+                    all_details.append(f"... and {len(actual_matches) - 15} more matches in other files")
+            else:
+                all_details.append("No actual pattern matches found (only pattern attempts)")
+        
+        # Update all_matches to only include actual matches for further processing
+        all_matches = actual_matches if 'actual_matches' in locals() else []
         
         # Calculate final scores
         coverage = (total_found / total_expected * 100) if total_expected > 0 else 0.0
@@ -665,9 +710,10 @@ class GateValidator:
         if gate_type in [GateType.UI_ERRORS, GateType.UI_ERROR_TOOLS]:
             return has_ui_components
         
-        # Background job gates - check if project has background processing
+        # Background job gates - make always applicable for better coverage
+        # Projects should implement background job logging even if not currently using background jobs
         if gate_type == GateType.LOG_BACKGROUND_JOBS:
-            return self._has_background_jobs(target_path, file_analyses)
+            return True  # Always applicable - encourages implementation
         
         # All other gates are applicable by default
         return True
