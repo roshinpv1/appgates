@@ -207,7 +207,7 @@ class SharedReportGenerator:
         scan_metadata = result_data.get('scan_metadata', {})
         
         # Try to get a clean name from project path first
-        project_path = scan_metadata.get('project_path', '')
+        project_path = scan_metadata.get('repository_url', '')
         if project_path:
             # Get the last part of the path
             path_parts = project_path.rstrip('/').split('/')
