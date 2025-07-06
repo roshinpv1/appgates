@@ -137,12 +137,11 @@ class ErrorLogsValidator(BaseGateValidator):
     def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected error logging instances"""
         
-        # Look for files that likely contain business logic, excluding test files
+        # Look for files that likely contain business logic
         business_files = len([f for f in lang_files 
                             if any(keyword in f.file_path.lower() 
                                   for keyword in ['service', 'controller', 'handler', 'manager', 
-                                                 'repository', 'dao', 'api', 'web'])
-                            and not self._is_test_file(f.file_path)])  # Exclude test files
+                                                 'repository', 'dao', 'api', 'web'])])
         
         # Estimate 1-2 error handling blocks per business file
         return max(business_files * 2, len(lang_files) // 3)

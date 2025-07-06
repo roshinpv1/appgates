@@ -183,11 +183,10 @@ class StructuredLogsValidator(BaseGateValidator):
         # Service/controller files should have more logging
         service_files = len([f for f in lang_files 
                            if any(keyword in f.file_path.lower() 
-                                 for keyword in ['service', 'controller', 'handler', 'manager'])
-                           and not self._is_test_file(f.file_path)])  # Exclude test files
+                                 for keyword in ['service', 'controller', 'handler', 'manager'])])
         service_expectation = service_files * 3
         
-        return base_expectation + loc_expectation + service_expectation
+        return max(base_expectation + loc_expectation + service_expectation, 5)  # At least 5 logs minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess quality of structured logging implementation"""

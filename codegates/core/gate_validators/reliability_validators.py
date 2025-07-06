@@ -145,12 +145,11 @@ class RetryLogicValidator(BaseGateValidator):
     def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
         """Calculate expected retry logic instances"""
         
-        # Look for files that likely make external calls, excluding test files
+        # Look for files that likely make external calls
         external_files = len([f for f in lang_files 
                             if any(keyword in f.file_path.lower() 
                                   for keyword in ['client', 'service', 'api', 'http', 'rest', 
-                                                 'repository', 'dao', 'connector'])
-                            and not self._is_test_file(f.file_path)])  # Exclude test files
+                                                 'repository', 'dao', 'connector'])])
         
         # Estimate retry mechanisms needed:
         # - At least 1 retry mechanism per external service file

@@ -694,10 +694,13 @@ class BaseGateValidator(ABC):
         if not lang_files:
             return 0
         
-        total_loc = sum(f.lines_of_code for f in lang_files)
-        file_count = len(lang_files)
+        # For test gates, use all files
+        if self.gate_type == GateType.AUTOMATED_TESTS:
+            return self._calculate_expected_count(lang_files)
         
-        return self._calculate_expected_count(lang_files)
+        # For all other gates, exclude test files
+        non_test_files = [f for f in lang_files if not self._is_test_file(f.file_path)]
+        return self._calculate_expected_count(non_test_files)
 
     def _calculate_quality_score(self, matches: List[Dict[str, Any]], expected: int) -> float:
         """
