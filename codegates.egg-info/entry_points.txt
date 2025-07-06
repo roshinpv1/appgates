@@ -1,0 +1,3 @@
+[console_scripts]
+codegates = codegates.cli:main
+codegates-server = codegates.api.server:start_server

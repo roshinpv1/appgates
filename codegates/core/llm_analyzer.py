@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from ..models import Language, FileAnalysis
 from ..utils.env_loader import EnvironmentLoader
-from .analysis_result import CodeAnalysisResult  # Add this import
+from .analysis_result import CodeAnalysisResult
 
 
 # Ensure environment is loaded when module is imported
@@ -63,18 +63,6 @@ class TokenInfo:
     token: str
     expires_at: datetime
     refresh_token: Optional[str] = None
-
-
-@dataclass
-class CodeAnalysisResult:
-    """Result of LLM code analysis"""
-    quality_score: float
-    patterns_found: List[str]
-    security_issues: List[str]
-    recommendations: List[str]
-    technology_insights: Dict[str, Any]
-    code_smells: List[str]
-    best_practices: List[str]
 
 
 class EnterpriseTokenManager:

@@ -130,6 +130,7 @@ class ValidationResult(BaseModel):
     total_lines: int = 0
     scan_duration: float = Field(ge=0, description="Scan duration in seconds")
     timestamp: datetime = Field(default_factory=datetime.now)
+    repository_url: Optional[str] = None  # Add repository URL field
     
     # Gate scores
     gate_scores: List[GateScore] = Field(default_factory=list)

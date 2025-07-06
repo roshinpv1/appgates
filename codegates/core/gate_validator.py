@@ -2,8 +2,9 @@
 Core Gate Validator - Orchestrates validation of all 15 hard gates
 """
 
-import time
+import os
 import re
+import time
 from pathlib import Path
 from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -28,68 +29,48 @@ class GateValidator:
         self.validator_factory = GateValidatorFactory()
         
     def validate(self, target_path: Path, llm_manager=None, repository_url: Optional[str] = None) -> ValidationResult:
-        """Validate hard gates for the target codebase"""
+        """Validate all gates for a codebase"""
         
-        start_time = time.time()
-        
-        # Wrap LLM manager with fast optimizer
-        fast_llm_manager = FastLLMIntegrationManager(llm_manager) if llm_manager else None
-        
-        # Extract project name from repository URL if provided, otherwise use directory name
-        project_name = target_path.name  # fallback
-        if repository_url:
-            try:
-                from urllib.parse import urlparse
-                url_parts = repository_url.rstrip('/').split('/')
-                if len(url_parts) >= 2:
-                    project_name = url_parts[-1]
-                    if project_name.endswith('.git'):
-                        project_name = project_name[:-4]
-            except Exception:
-                # If URL parsing fails, keep the directory name
-                project_name = target_path.name
+        # Start timing
+        self._scan_start_time = time.time()
         
         # Initialize result
         result = ValidationResult(
-            project_name=project_name,
+            project_name=target_path.name,
             project_path=str(target_path),
-            language=Language.PYTHON,  # Will be updated
-            scan_duration=0.0
+            language=self.config.languages[0] if self.config.languages else Language.PYTHON,
+            scan_duration=0.0  # Initialize with 0.0
         )
         
         try:
-            # Step 1: Detect languages if not specified
-            if not self.config.languages:
-                detected_languages = self.language_detector.detect_languages(target_path)
-                self.config.languages = detected_languages
-                
-            if not self.config.languages:
-                raise ValueError("No supported languages detected in codebase")
-            
-            # Use primary language for result
-            result.language = self.config.languages[0]
-            
-            # Step 2: Scan files and analyze structure
+            # Scan files first
             file_analyses = self._scan_files(target_path)
             result.file_analyses = file_analyses
-            result.total_files = len(file_analyses)
-            result.total_lines = sum(f.lines_of_code for f in file_analyses)
             
-            # Step 3: Validate each gate across all languages
-            gate_scores = self._validate_all_gates(target_path, file_analyses, fast_llm_manager)
+            # Validate all gates
+            gate_scores = self._validate_all_gates(target_path, file_analyses, llm_manager)
             result.gate_scores = gate_scores
             
-            # Step 4: Calculate overall scores and recommendations
+            # Calculate summary metrics
             self._calculate_summary_metrics(result)
+            
+            # Generate recommendations
             self._generate_recommendations(result)
             
-        except Exception as e:
-            result.critical_issues.append(f"Validation failed: {str(e)}")
-        
-        finally:
-            result.scan_duration = time.time() - start_time
+            # Set repository URL if provided
+            if repository_url:
+                result.repository_url = repository_url
             
-        return result
+            # Update final scan duration
+            result.scan_duration = time.time() - self._scan_start_time
+            
+            return result
+            
+        except Exception as e:
+            print(f"❌ Validation failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def _scan_files(self, target_path: Path) -> List[FileAnalysis]:
         """Scan all files in the target directory"""
@@ -468,6 +449,13 @@ class GateValidator:
         if not result.gate_scores:
             result.overall_score = 0.0
             return
+        
+        # Calculate file and line metrics
+        result.total_files = len(result.file_analyses)
+        result.total_lines = sum(f.lines_of_code for f in result.file_analyses)
+        
+        # Set scan duration
+        result.scan_duration = time.time() - self._scan_start_time
         
         # Count gate statuses
         applicable_gates = []

@@ -17,127 +17,49 @@ class SharedReportGenerator:
     
     @staticmethod
     def transform_result_to_extension_format(result: ValidationResult, report_mode: str = "summary") -> Dict[str, Any]:
-        """Transform ValidationResult to the same format used by VS Code extension
+        """Transform ValidationResult to extension format"""
         
-        Args:
-            result: ValidationResult object to transform
-            report_mode: "summary" for high-level overview, "detailed" for full metadata
-        """
-        # Convert ValidationResult gate statuses to match API format
-        gates = []
-        for gate_score in result.gate_scores:
-            # Map status to match VS Code extension format exactly
-            if gate_score.status == "PASSED":
-                status = "PASS"
-            elif gate_score.status == "FAILED":
-                status = "FAIL"
-            elif gate_score.status == "WARNING":
-                status = "WARNING"
-            elif gate_score.status == "NOT_APPLICABLE":
-                status = "NOT_APPLICABLE"
-            else:
-                # For any other status, map based on score
-                if gate_score.final_score >= 80:
-                    status = "PASS"
-                elif gate_score.final_score >= 60:
-                    status = "WARNING"
-                else:
-                    status = "FAIL"
-            
-            # Filter gate_score.matches to only include actual matches
-            actual_matches = []
-            if gate_score.matches:
-                for match in gate_score.matches:
-                    file_path = match.get('file_path', match.get('file', ''))
-                    matched_text = match.get('matched_text', match.get('match', ''))
-                    line_number = match.get('line_number', match.get('line', 0))
-                    
-                    # Only include actual matches (not pattern attempts)
-                    if (file_path and file_path != 'N/A - No matches found' and 
-                        file_path != 'unknown' and matched_text.strip() and 
-                        line_number > 0):
-                        actual_matches.append(match)
-                
-                # Update gate_score.matches to only include actual matches
-                gate_score.matches = actual_matches
-            
-            # Generate patterns attempted summary based on report mode
-            patterns_attempted = {}
-            if report_mode == "detailed":
-                patterns_attempted = SharedReportGenerator._extract_patterns_attempted(gate_score)
-                if actual_matches:
-                    patterns_attempted["status"] = "matches_found"
-                    patterns_attempted["actual_matches_count"] = len(actual_matches)
-                else:
-                    patterns_attempted["status"] = "no_matches_found"
-            else:
-                # Summary mode - minimal pattern info
-                patterns_attempted = {
-                    "total_patterns_tried": len(actual_matches) if actual_matches else 0,
-                    "status": "matches_found" if actual_matches else "no_matches_found"
-                }
-            
-            # Create gate dictionary with mode-specific information
-            gate_data = {
-                "name": gate_score.gate.value,
-                "status": status,
-                "score": gate_score.final_score,
-                "expected": gate_score.expected,
-                "found": gate_score.found,
-                "coverage": gate_score.coverage,
-                "quality_score": gate_score.quality_score,
-                "patterns_attempted": patterns_attempted
-            }
-            
-            # Add detailed information only in detailed mode
-            if report_mode == "detailed":
-                gate_data.update({
-                    "details": gate_score.details,
-                    "matches": actual_matches,  # Include full match details
-                    "recommendations": getattr(gate_score, 'recommendations', []),
-                    "technologies": getattr(gate_score, 'technologies', {}),
-                    "metadata": {
-                        "validation_time": getattr(gate_score, 'validation_time', 0),
-                        "files_scanned": getattr(gate_score, 'files_scanned', 0),
-                        "patterns_used": getattr(gate_score, 'patterns_used', [])
-                    }
-                })
-            else:
-                # Summary mode - minimal details
-                gate_data.update({
-                    "details": gate_score.details[:2] if gate_score.details else [],  # Only first 2 details
-                    "matches": len(actual_matches),  # Just count, not full match data
-                    "summary_recommendations": gate_score.recommendations[:2] if getattr(gate_score, 'recommendations', []) else []
-                })
-            
-            gates.append(gate_data)
-        
-        # Return in the exact same format as VS Code extension expects
-        base_data = {
-            "gates": gates,
-            "score": result.overall_score,
-            "languages_detected": [lang.value for lang in result.languages] if hasattr(result, 'languages') and result.languages else [],
-            "repository_url": getattr(result, 'repository_url', None),
-            "project_name": result.project_name,
-            "report_mode": report_mode
+        # Basic metadata
+        transformed = {
+            "scan_metadata": {
+                "scan_duration": result.scan_duration,
+                "total_files": result.total_files,
+                "total_lines": result.total_lines,
+                "timestamp": result.timestamp.isoformat(),
+                "project_name": result.project_name,
+                "project_path": result.project_path
+            },
+            "languages_detected": [result.language],  # Add detected languages
+            "gates": [],
+            "score": round(result.overall_score, 2)  # Add overall score
         }
         
-        # Add detailed metadata only in detailed mode
-        if report_mode == "detailed":
-            base_data.update({
-                "scan_metadata": {
-                    "scan_duration": getattr(result, 'scan_duration', 0),
-                    "total_files": getattr(result, 'total_files', 0),
-                    "total_lines": getattr(result, 'total_lines', 0),
-                    "timestamp": getattr(result, 'timestamp', datetime.now()).isoformat(),
-                    "scan_settings": getattr(result, 'scan_settings', {})
-                },
-                "detailed_analysis": getattr(result, 'detailed_analysis', {}),
-                "critical_issues": getattr(result, 'critical_issues', []),
-                "performance_metrics": getattr(result, 'performance_metrics', {})
-            })
+        # Transform gate scores
+        for gate_score in result.gate_scores:
+            gate_data = {
+                "name": gate_score.gate.value,
+                "status": gate_score.status,
+                "score": round(gate_score.final_score, 2),
+                "details": gate_score.details,
+                "expected": gate_score.expected,
+                "found": gate_score.found,
+                "coverage": round(gate_score.coverage, 2),
+                "quality_score": round(gate_score.quality_score, 2),
+                "matches": gate_score.matches
+            }
+            transformed["gates"].append(gate_data)
         
-        return base_data
+        # Add overall metrics
+        transformed["overall_score"] = round(result.overall_score, 2)
+        transformed["passed_gates"] = result.passed_gates
+        transformed["warning_gates"] = result.warning_gates
+        transformed["failed_gates"] = result.failed_gates
+        
+        # Add recommendations
+        transformed["critical_issues"] = result.critical_issues
+        transformed["recommendations"] = result.recommendations
+        
+        return transformed
     
     @staticmethod
     def _extract_patterns_attempted(gate_score) -> Dict[str, Any]:
@@ -923,9 +845,9 @@ class ReportGenerator:
         else:
             # Generate summary highlights
             quick_stats = {
-                "scan_duration": 0,
-                "total_files": 0,
-                "total_lines": 0
+                "scan_duration": result_data.get("scan_metadata", {}).get("scan_duration", 0),
+                "total_files": result_data.get("scan_metadata", {}).get("total_files", 0),
+                "total_lines": result_data.get("scan_metadata", {}).get("total_lines", 0)
             }
             
             # Try to get quick stats from result data
@@ -1127,3 +1049,67 @@ class ReportGenerator:
                             </tr>"""
         
         return html 
+
+
+def generate_report(result: ValidationResult) -> str:
+    """Generate report in the expected format"""
+    
+    # Generate scan ID
+    scan_id = str(uuid.uuid4())
+    
+    # Convert gate scores to expected format
+    gates = []
+    for score in result.gate_scores:
+        if not isinstance(score.gate, GateType):
+            continue
+            
+        gate = {
+            "name": score.gate.value,
+            "status": score.status,
+            "score": round(score.final_score, 2),
+            "details": score.details if score.details else [f"No {score.gate.value} details available"],
+            "expected": score.expected,
+            "found": score.found,
+            "coverage": round(score.coverage, 2),
+            "quality_score": round(score.quality_score, 2),
+            "matches": [
+                {
+                    "file": match.get("file_path", match.get("file", "unknown")),
+                    "line": match.get("line_number", match.get("line", 0)),
+                    "content": match.get("matched_text", match.get("match", ""))
+                }
+                for match in score.matches
+            ] if score.matches else []
+        }
+        gates.append(gate)
+    
+    # Generate recommendations
+    recommendations = []
+    for score in result.gate_scores:
+        if score.status != "PASS" and score.recommendations:
+            recommendations.extend(score.recommendations)
+    
+    # Ensure we have at least one recommendation
+    if not recommendations:
+        recommendations = ["Review implementation of failing gates"]
+    
+    # Create report with scan metadata
+    report = {
+        "scan_id": scan_id,
+        "status": "completed",
+        "score": round(result.overall_score, 2),
+        "gates": gates,
+        "recommendations": list(set(recommendations)),  # Remove duplicates
+        "report_url": f"http://localhost:8000/api/v1/reports/{scan_id}",
+        "jira_result": None,
+        "scan_metadata": {
+            "scan_duration": round(result.scan_duration, 2),
+            "total_files": result.total_files,
+            "total_lines": result.total_lines,
+            "timestamp": datetime.now().isoformat(),
+            "languages_detected": [lang.value for lang in result.languages] if result.languages else []
+        }
+    }
+    
+    # Convert to JSON
+    return json.dumps(report, indent=4) 
