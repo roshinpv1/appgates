@@ -162,7 +162,7 @@ class SharedReportGenerator:
         """Calculate summary statistics - exact same logic as VS Code extension with logical consistency fixes"""
         gates = result_data.get("gates", [])
         
-        # Calculate stats with fixed logical consistency - exact same as extension
+        # Calculate stats with fixed logical consistency
         total_gates = len(gates)
         implemented_gates = 0
         partial_gates = 0
@@ -173,13 +173,11 @@ class SharedReportGenerator:
             found = gate.get("found", 0)
             status = gate.get("status")
             
-            # Apply logical consistency fixes
+            # Special handling for avoid_logging_secrets
             if found > 0 and gate.get("name") == 'avoid_logging_secrets':
                 # Secrets violations should be counted as not implemented
                 not_implemented_gates += 1
-            elif found > 0 and status == 'PASS':
-                # Other gates with violations but PASS status should be partial
-                partial_gates += 1
+            # Standard status-based counting
             elif status == 'PASS':
                 implemented_gates += 1
             elif status == 'WARNING':
@@ -336,11 +334,9 @@ class SharedReportGenerator:
         if gate:
             found = gate.get("found", 0)
             
-            # Fix logical inconsistency: if there are violations, show as warning/fail regardless of status
+            # Only show violations for avoid_logging_secrets when found > 0
             if found > 0 and gate.get("name") == 'avoid_logging_secrets':
                 return {'class': 'not-implemented', 'text': '✗ Violations Found'}
-            elif found > 0 and status == 'PASS':
-                return {'class': 'partial', 'text': '⚬ Has Issues'}
         
         # Default status mapping
         if status == 'PASS':
