@@ -811,6 +811,12 @@ class ReportGenerator:
                 color: #6b7280;
                 margin-top: 5px;
             }
+            .quick-stat-details {
+                font-size: 0.75em;
+                color: #4b5563;
+                margin-top: 3px;
+                font-style: italic;
+            }
             """
     
     def _generate_mode_specific_content(self, result_data: Dict[str, Any], report_mode: str) -> str:
@@ -854,6 +860,10 @@ class ReportGenerator:
             if "quick_stats" in result_data:
                 quick_stats.update(result_data["quick_stats"])
             
+            # Get detected languages
+            languages = result_data.get('languages_detected', [])
+            languages_str = ', '.join(lang.capitalize() for lang in languages) if languages else 'None detected'
+            
             return f"""
             <div class="summary-highlights">
                 <h3>🎯 Quick Overview</h3>
@@ -871,8 +881,9 @@ class ReportGenerator:
                         <div class="quick-stat-label">Lines</div>
                     </div>
                     <div class="quick-stat">
-                        <div class="quick-stat-value">{len(result_data.get('languages_detected', []))}</div>
+                        <div class="quick-stat-value">{len(languages)}</div>
                         <div class="quick-stat-label">Languages</div>
+                        <div class="quick-stat-details">{languages_str}</div>
                     </div>
                 </div>
             </div>
