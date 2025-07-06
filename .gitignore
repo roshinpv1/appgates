@@ -2,3 +2,7 @@
 *.pyc
 *.pyc
 /reports
+env.example
+.env.backup
+codegates/__pycache__/reports.cpython-313.pyc
+codegates/core/__pycache__/llm_analyzer.cpython-313.pyc

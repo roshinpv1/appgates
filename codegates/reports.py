@@ -169,15 +169,48 @@ class SharedReportGenerator:
     @staticmethod
     def extract_project_name(result_data: Dict[str, Any]) -> str:
         """Extract project name - exact same logic as VS Code extension"""
-        project_name = 'Repository Scan Results'
+        default_name = 'Repository Scan Results'
+        
+        # First check scan_metadata
+        scan_metadata = result_data.get('scan_metadata', {})
+        
+        # Try to get a clean name from project path first
+        project_path = scan_metadata.get('project_path', '')
+        if project_path:
+            # Get the last part of the path
+            path_parts = project_path.rstrip('/').split('/')
+            if path_parts:
+                clean_name = path_parts[-1]
+                # Remove any generated suffixes (e.g. _git_1751809820382341_16149_0_xan92jj3)
+                clean_name = clean_name.split('_git_')[0]
+                if clean_name:
+                    return clean_name
+        
+        # Check scan_metadata project_name
+        if scan_metadata.get('project_name'):
+            project_name = scan_metadata['project_name']
+            # Clean up generated suffixes if present
+            if '_git_' in project_name:
+                project_name = project_name.split('_git_')[0]
+            return project_name
+            
+        # Fallback to repository URL if available
         if result_data.get('repository_url'):
             url_parts = result_data['repository_url'].split('/')
-            project_name = url_parts[-1] or project_name
+            project_name = url_parts[-1] or default_name
             if project_name.endswith('.git'):
                 project_name = project_name[:-4]
-        elif result_data.get('project_name'):
+            return project_name
+            
+        # Finally check top-level project_name
+        if result_data.get('project_name'):
             project_name = result_data['project_name']
-        return project_name
+            # Clean up generated suffixes if present
+            if '_git_' in project_name:
+                project_name = project_name.split('_git_')[0]
+            return project_name
+            
+        return default_name
     
     @staticmethod
     def generate_tech_stack(result_data: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -330,7 +363,316 @@ class ReportGenerator:
     
     def __init__(self, config: ReportConfig):
         self.config = config
+
+    def _get_extension_css_styles(self) -> str:
+        """Get CSS styles that exactly match VS Code extension"""
+        return """
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f3f4f6; }
+        h1 { font-size: 2em; color: #1f2937; border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 30px; }
+        h2 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 40px; }
+        h3 { color: #374151; margin-top: 30px; }
         
+        /* Quick Overview Section */
+        .summary-highlights {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 30px 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .summary-highlights h3 {
+            margin-top: 0;
+            color: #1f2937;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+        
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        
+        .quick-stat {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        
+        .quick-stat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .quick-stat-value {
+            font-size: 2em;
+            font-weight: 600;
+            color: #2563eb;
+            margin-bottom: 8px;
+        }
+        
+        .quick-stat-label {
+            color: #6b7280;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .quick-stat-details {
+            margin-top: 8px;
+            color: #4b5563;
+            font-size: 0.9em;
+        }
+        
+        /* Detailed Section */
+        .detailed-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 30px 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        
+        .metadata-item {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .metadata-label {
+            color: #6b7280;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+        
+        .metadata-value {
+            color: #1f2937;
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+        
+        /* Gates Analysis Styling */
+        .gates-analysis { margin-top: 30px; }
+        .gate-category-section { margin-bottom: 40px; }
+        .category-title {
+            color: #1f2937;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .category-content {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Expandable Details Styling */
+        .details-toggle {
+            background: none;
+            border: none;
+            color: #2563eb;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 1.1em;
+            transition: transform 0.2s;
+        }
+        .details-toggle:hover { color: #1d4ed8; }
+        .details-toggle[aria-expanded="true"] { transform: rotate(45deg); }
+        
+        .gate-details {
+            display: none;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            padding: 0;
+            margin: 0;
+        }
+        .gate-details[aria-hidden="false"] { display: table-row; }
+        
+        .details-content {
+            padding: 16px;
+            color: #4b5563;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .metric-label {
+            color: #6b7280;
+            font-size: 0.9em;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            color: #1f2937;
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+        
+        .details-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .details-section-title {
+            color: #1f2937;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .match-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+        
+        .match-file {
+            color: #2563eb;
+            font-family: monospace;
+            margin-bottom: 4px;
+        }
+        
+        .match-code {
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+        }
+        
+        table { width: 100%; border-collapse: collapse; margin: 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #2563eb; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        tr:hover { background: #f9fafb; }
+        .status-implemented { color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-partial { color: #d97706; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not-implemented { color: #dc2626; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+        .stat-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #6b7280; margin-top: 5px; }
+        .compliance-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .compliance-fill { height: 100%; background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); transition: width 0.3s ease; }
+        .comment-cell { font-style: italic; color: #6b7280; max-width: 250px; word-wrap: break-word; background: #f9fafb; }
+        .secrets-unknown { color: #6b7280; background: #f9fafb; padding: 15px; border-radius: 8px; border-left: 4px solid #6b7280; margin: 10px 0; }
+        
+        /* Report Badge Styles */
+        .report-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 15px;
+        }
+        .summary-badge { background: #059669; color: #fff; }
+        .detailed-badge { background: #1f2937; color: #fff; }
+        """
+
+    def _get_mode_specific_styles(self, report_mode: str) -> str:
+        """Get mode-specific styles"""
+        return ""  # Base styles include all necessary styling now
+
+    def _generate_mode_specific_content(self, result_data: Dict[str, Any], report_mode: str) -> str:
+        """Generate mode-specific content sections"""
+        if report_mode == "detailed":
+            # Generate detailed metadata section
+            scan_metadata = result_data.get("scan_metadata", {})
+            
+            return f"""
+            <div class="detailed-section">
+                <h3>📊 Detailed Scan Information</h3>
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <div class="metadata-label">Scan Duration</div>
+                        <div class="metadata-value">{scan_metadata.get('scan_duration', 0):.2f} seconds</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Files Analyzed</div>
+                        <div class="metadata-value">{scan_metadata.get('total_files', 0)} files</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Lines of Code</div>
+                        <div class="metadata-value">{scan_metadata.get('total_lines', 0):,} lines</div>
+                    </div>
+                    <div class="metadata-item">
+                        <div class="metadata-label">Languages Detected</div>
+                        <div class="metadata-value">{', '.join(result_data.get('languages_detected', []))}</div>
+                    </div>
+                </div>
+            </div>
+            """
+        else:
+            # Generate summary highlights
+            quick_stats = {
+                "scan_duration": result_data.get("scan_metadata", {}).get("scan_duration", 0),
+                "total_files": result_data.get("scan_metadata", {}).get("total_files", 0),
+                "total_lines": result_data.get("scan_metadata", {}).get("total_lines", 0)
+            }
+            
+            # Try to get quick stats from result data
+            if "quick_stats" in result_data:
+                quick_stats.update(result_data["quick_stats"])
+            
+            # Get detected languages
+            languages = result_data.get('languages_detected', [])
+            languages_str = ', '.join(lang.capitalize() for lang in languages) if languages else 'None detected'
+            
+            return f"""
+            <div class="summary-highlights">
+                <h3>🎯 Quick Overview</h3>
+                <div class="quick-stats">
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{quick_stats['scan_duration']:.1f}s</div>
+                        <div class="quick-stat-label">Scan Time</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{quick_stats['total_files']}</div>
+                        <div class="quick-stat-label">Files</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{quick_stats['total_lines']:,}</div>
+                        <div class="quick-stat-label">Lines</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-value">{len(languages)}</div>
+                        <div class="quick-stat-label">Languages</div>
+                        <div class="quick-stat-details">{languages_str}</div>
+                    </div>
+                </div>
+            </div>
+            """
+    
     def generate(self, result: ValidationResult, report_mode: str = "summary") -> List[str]:
         """Generate reports in specified format(s)
         
@@ -584,6 +926,26 @@ class ReportGenerator:
         
         # Report type display
         report_type_display = "Detailed" if report_mode == "detailed" else "Summary"
+
+        # Add JavaScript for details toggle
+        toggle_script = """
+        <script>
+        function toggleDetails(button, detailsId) {
+            const details = document.getElementById(detailsId);
+            const isExpanded = button.getAttribute('aria-expanded') === 'true';
+            
+            button.setAttribute('aria-expanded', !isExpanded);
+            details.setAttribute('aria-hidden', isExpanded);
+            
+            // Smooth scroll to expanded content
+            if (!isExpanded) {
+                setTimeout(() => {
+                    details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        }
+        </script>
+        """
         
         html_template = f"""<!DOCTYPE html>
 <html lang="en">
@@ -595,6 +957,7 @@ class ReportGenerator:
         {self._get_extension_css_styles()}
         {self._get_mode_specific_styles(report_mode)}
     </style>
+    {toggle_script}
 </head>
 <body>
     <div class="report-container">
@@ -645,264 +1008,68 @@ class ReportGenerator:
 </html>"""
         
         return html_template
-    
-    def _get_extension_css_styles(self) -> str:
-        """Get CSS styles that exactly match VS Code extension"""
-        return """
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f3f4f6; }
-        h1 { font-size: 2em; color: #1f2937; border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 30px; }
-        h2 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 40px; }
-        h3 { color: #374151; margin-top: 30px; }
+
+    def _generate_gate_details(self, gate: Dict[str, Any]) -> str:
+        """Generate detailed content for a gate"""
+        details = []
         
-        /* Gates Analysis Styling */
-        .gates-analysis {
-            margin-top: 30px;
-        }
-        .gate-category-section {
-            margin-bottom: 40px;
-        }
-        .category-title {
-            color: #1f2937;
-            font-size: 1.5em;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        .category-content {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-        }
+        # Metrics section
+        metrics = [
+            ('Score', f"{gate.get('score', 0):.1f}%"),
+            ('Quality Score', f"{gate.get('quality_score', 0):.1f}%"),
+            ('Coverage', f"{gate.get('coverage', 0):.1f}%"),
+            ('Expected/Found', f"{gate.get('expected', 0)} / {gate.get('found', 0)}")
+        ]
         
-        table { width: 100%; border-collapse: collapse; margin: 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #2563eb; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        tr:hover { background: #f9fafb; }
-        .status-implemented { color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
-        .status-partial { color: #d97706; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
-        .status-not-implemented { color: #dc2626; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
-        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
-        .stat-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
-        .stat-number { font-size: 2em; font-weight: bold; color: #2563eb; }
-        .stat-label { color: #6b7280; margin-top: 5px; }
-        .compliance-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
-        .compliance-fill { height: 100%; background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); transition: width 0.3s ease; }
-        .comment-cell { font-style: italic; color: #6b7280; max-width: 250px; word-wrap: break-word; background: #f9fafb; }
-        .secrets-unknown { color: #6b7280; background: #f9fafb; padding: 15px; border-radius: 8px; border-left: 4px solid #6b7280; margin: 10px 0; }
-        """
-    
-    def _get_mode_specific_styles(self, report_mode: str) -> str:
-        """Get CSS styles specific to the report mode"""
-        if report_mode == "detailed":
-            return """
-            .report-badge.detailed-badge {
-                background: #1f2937;
-                color: #fff;
-                padding: 6px 12px;
-                border-radius: 20px;
-                font-size: 0.8em;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                margin-left: 15px;
-                display: inline-block;
-            }
-            .detailed-section {
-                background: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 20px;
-                margin: 20px 0;
-            }
-            .detailed-section h3 {
-                color: #1e40af;
-                margin-top: 0;
-                border-bottom: 2px solid #dbeafe;
-                padding-bottom: 10px;
-            }
-            .metadata-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 15px;
-                margin: 15px 0;
-            }
-            .metadata-item {
-                background: #ffffff;
-                padding: 12px;
-                border-radius: 6px;
-                border-left: 4px solid #3b82f6;
-            }
-            .metadata-label {
-                font-weight: 600;
-                color: #374151;
-                font-size: 0.9em;
-            }
-            .metadata-value {
-                color: #6b7280;
-                font-size: 0.9em;
-                margin-top: 2px;
-            }
-            .pattern-details {
-                background: #f1f5f9;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                padding: 15px;
-                margin: 10px 0;
-                font-family: 'Courier New', monospace;
-                font-size: 0.85em;
-            }
-            .match-item {
-                background: #fff;
-                border: 1px solid #e2e8f0;
-                border-radius: 4px;
-                padding: 10px;
-                margin: 8px 0;
-            }
-            .match-file {
-                font-weight: 600;
-                color: #1e40af;
-            }
-            .match-line {
-                color: #6b7280;
-                font-size: 0.9em;
-            }
-            .match-code {
-                background: #f8fafc;
-                padding: 8px;
-                border-radius: 4px;
-                margin-top: 8px;
-                font-family: 'Courier New', monospace;
-                font-size: 0.8em;
-                color: #374151;
-                border-left: 3px solid #3b82f6;
-            }
-            """
-        else:
-            return """
-            .report-badge.summary-badge {
-                background: #059669;
-                color: #fff;
-                padding: 6px 12px;
-                border-radius: 20px;
-                font-size: 0.8em;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                margin-left: 15px;
-                display: inline-block;
-            }
-            .summary-highlights {
-                background: #f0f9ff;
-                border: 1px solid #bae6fd;
-                border-radius: 8px;
-                padding: 20px;
-                margin: 20px 0;
-            }
-            .summary-highlights h3 {
-                color: #0369a1;
-                margin-top: 0;
-            }
-            .quick-stats {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 12px;
-                margin: 15px 0;
-            }
-            .quick-stat {
-                text-align: center;
-                padding: 10px;
-                background: #ffffff;
-                border-radius: 6px;
-                border: 1px solid #e0e7ff;
-            }
-            .quick-stat-value {
-                font-size: 1.5em;
-                font-weight: bold;
-                color: #1d4ed8;
-            }
-            .quick-stat-label {
-                font-size: 0.8em;
-                color: #6b7280;
-                margin-top: 5px;
-            }
-            .quick-stat-details {
-                font-size: 0.75em;
-                color: #4b5563;
-                margin-top: 3px;
-                font-style: italic;
-            }
-            """
-    
-    def _generate_mode_specific_content(self, result_data: Dict[str, Any], report_mode: str) -> str:
-        """Generate mode-specific content sections"""
-        if report_mode == "detailed":
-            # Generate detailed metadata section
-            scan_metadata = result_data.get("scan_metadata", {})
+        metrics_html = '<div class="metrics-grid">'
+        for label, value in metrics:
+            metrics_html += f"""
+                <div class="metric-card">
+                    <div class="metric-label">{label}</div>
+                    <div class="metric-value">{value}</div>
+                </div>"""
+        metrics_html += '</div>'
+        details.append(metrics_html)
+        
+        # Details section
+        if gate.get('details'):
+            details_html = """
+                <div class="details-section">
+                    <div class="details-section-title">Implementation Details</div>
+                    <div class="details-content">"""
+            for detail in gate['details']:
+                details_html += f"<p>{detail}</p>"
+            details_html += "</div></div>"
+            details.append(details_html)
+        
+        # Sample matches section
+        if gate.get('matches'):
+            matches = gate['matches'][:3]  # Show first 3 matches
+            matches_html = """
+                <div class="details-section">
+                    <div class="details-section-title">Sample Implementations</div>
+                    <div class="details-content">"""
             
-            return f"""
-            <div class="detailed-section">
-                <h3>📊 Detailed Scan Information</h3>
-                <div class="metadata-grid">
-                    <div class="metadata-item">
-                        <div class="metadata-label">Scan Duration</div>
-                        <div class="metadata-value">{scan_metadata.get('scan_duration', 0):.2f} seconds</div>
-                    </div>
-                    <div class="metadata-item">
-                        <div class="metadata-label">Files Analyzed</div>
-                        <div class="metadata-value">{scan_metadata.get('total_files', 0)} files</div>
-                    </div>
-                    <div class="metadata-item">
-                        <div class="metadata-label">Lines of Code</div>
-                        <div class="metadata-value">{scan_metadata.get('total_lines', 0):,} lines</div>
-                    </div>
-                    <div class="metadata-item">
-                        <div class="metadata-label">Languages Detected</div>
-                        <div class="metadata-value">{', '.join(result_data.get('languages_detected', []))}</div>
-                    </div>
-                </div>
-            </div>
-            """
-        else:
-            # Generate summary highlights
-            quick_stats = {
-                "scan_duration": result_data.get("scan_metadata", {}).get("scan_duration", 0),
-                "total_files": result_data.get("scan_metadata", {}).get("total_files", 0),
-                "total_lines": result_data.get("scan_metadata", {}).get("total_lines", 0)
-            }
+            for match in matches:
+                file_path = match.get('file_path', match.get('file', ''))
+                line_number = match.get('line_number', match.get('line', 0))
+                matched_text = match.get('matched_text', match.get('match', ''))
+                
+                matches_html += f"""
+                    <div class="match-item">
+                        <div class="match-file">{file_path}:{line_number}</div>
+                        <div class="match-code">{matched_text}</div>
+                    </div>"""
             
-            # Try to get quick stats from result data
-            if "quick_stats" in result_data:
-                quick_stats.update(result_data["quick_stats"])
+            if len(gate['matches']) > 3:
+                matches_html += f"""
+                    <p><em>... and {len(gate['matches']) - 3} more implementations</em></p>"""
             
-            # Get detected languages
-            languages = result_data.get('languages_detected', [])
-            languages_str = ', '.join(lang.capitalize() for lang in languages) if languages else 'None detected'
-            
-            return f"""
-            <div class="summary-highlights">
-                <h3>🎯 Quick Overview</h3>
-                <div class="quick-stats">
-                    <div class="quick-stat">
-                        <div class="quick-stat-value">{quick_stats['scan_duration']:.1f}s</div>
-                        <div class="quick-stat-label">Scan Time</div>
-                    </div>
-                    <div class="quick-stat">
-                        <div class="quick-stat-value">{quick_stats['total_files']}</div>
-                        <div class="quick-stat-label">Files</div>
-                    </div>
-                    <div class="quick-stat">
-                        <div class="quick-stat-value">{quick_stats['total_lines']:,}</div>
-                        <div class="quick-stat-label">Lines</div>
-                    </div>
-                    <div class="quick-stat">
-                        <div class="quick-stat-value">{len(languages)}</div>
-                        <div class="quick-stat-label">Languages</div>
-                        <div class="quick-stat-details">{languages_str}</div>
-                    </div>
-                </div>
-            </div>
-            """
-    
+            matches_html += "</div></div>"
+            details.append(matches_html)
+        
+        return ''.join(details)
+
     def _generate_gates_table_html(self, result_data: Dict[str, Any], report_mode: str, comments: Dict[str, str] = None) -> str:
         """Generate gates table HTML with mode-specific details"""
         gates = result_data.get("gates", [])
@@ -916,7 +1083,6 @@ class ReportGenerator:
             if not category_gates:
                 continue
             
-            # Add section with proper styling
             html += f"""
                 <div class="gate-category-section">
                     <h3 class="category-title">{category_name}</h3>
@@ -924,6 +1090,7 @@ class ReportGenerator:
                         <table class="gates-table">
                             <thead>
                                 <tr>
+                                    <th style="width: 30px"></th>
                                     <th>Practice</th>
                                     <th>Status</th>
                                     <th>Evidence</th>
@@ -938,15 +1105,22 @@ class ReportGenerator:
                             </thead>
                             <tbody>"""
             
-            for gate in category_gates:
+            for i, gate in enumerate(category_gates):
+                gate_id = f"{category_name.lower()}-{gate.get('name', '')}-{i}"
                 gate_name = SharedReportGenerator.format_gate_name(gate.get("name", ""))
                 status_info = SharedReportGenerator.get_status_info(gate.get("status", ""), gate)
                 evidence = SharedReportGenerator.format_evidence(gate)
                 recommendation = SharedReportGenerator.get_recommendation(gate, gate_name)
                 comment = SharedReportGenerator.get_gate_comment(gate.get("name", ""), comments) if comments else ""
                 
+                # Generate detailed content
+                details_content = self._generate_gate_details(gate)
+                
                 html += f"""
                                 <tr>
+                                    <td style="text-align: center">
+                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-{gate_id}')" aria-expanded="false" aria-label="Show details for {gate_name}">+</button>
+                                    </td>
                                     <td><strong>{gate_name}</strong></td>
                                     <td><span class="status-{status_info['class']}">{status_info['text']}</span></td>
                                     <td>{evidence}</td>
@@ -957,6 +1131,14 @@ class ReportGenerator:
                                     <td class="comment-cell">{comment if comment else 'No comments'}</td>"""
                 
                 html += """
+                                </tr>"""
+                
+                # Add details row (hidden by default)
+                html += f"""
+                                <tr id="details-{gate_id}" class="gate-details" aria-hidden="true">
+                                    <td colspan="{6 if comments else 5}" class="details-content">
+                                        {details_content}
+                                    </td>
                                 </tr>"""
             
             html += """
