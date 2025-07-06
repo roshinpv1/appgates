@@ -388,17 +388,17 @@ class BaseGateValidator(ABC):
         """Get file extensions for the current language"""
         
         if self.language == Language.PYTHON:
-            return ['*.py']
+            return ['.py']
         elif self.language == Language.JAVA:
-            return ['*.java']
+            return ['.java']
         elif self.language == Language.JAVASCRIPT:
-            return ['*.js', '*.mjs']
+            return ['.js', '.mjs']
         elif self.language == Language.TYPESCRIPT:
-            return ['*.ts', '*.tsx']
+            return ['.ts', '.tsx']
         elif self.language == Language.CSHARP:
-            return ['*.cs']
+            return ['.cs']
         else:
-            return ['*.*']
+            return []  # Empty list instead of *.* to avoid invalid patterns
     
     def _search_files_for_patterns(self, target_path: Path, extensions: List[str], 
                                  patterns: List[str]) -> List[Dict[str, Any]]:
@@ -415,6 +415,7 @@ class BaseGateValidator(ABC):
         # Get all matching files
         files = []
         for ext in extensions:
+            # Use rglob with the extension without *
             files.extend(target_path.rglob(f"*{ext}"))
         
         # Process files in parallel
