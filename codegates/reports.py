@@ -653,7 +653,28 @@ class ReportGenerator:
         h1 { font-size: 2em; color: #1f2937; border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 30px; }
         h2 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 40px; }
         h3 { color: #374151; margin-top: 30px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
+        
+        /* Gates Analysis Styling */
+        .gates-analysis {
+            margin-top: 30px;
+        }
+        .gate-category-section {
+            margin-bottom: 40px;
+        }
+        .category-title {
+            color: #1f2937;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .category-content {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        table { width: 100%; border-collapse: collapse; margin: 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
         th { background: #2563eb; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
         tr:hover { background: #f9fafb; }
@@ -667,14 +688,7 @@ class ReportGenerator:
         .compliance-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
         .compliance-fill { height: 100%; background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); transition: width 0.3s ease; }
         .comment-cell { font-style: italic; color: #6b7280; max-width: 250px; word-wrap: break-word; background: #f9fafb; }
-        .secrets-unknown {
-            color: #6b7280;
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #6b7280;
-            margin: 10px 0;
-        }
+        .secrets-unknown { color: #6b7280; background: #f9fafb; padding: 15px; border-radius: 8px; border-left: 4px solid #6b7280; margin: 10px 0; }
         """
     
     def _get_mode_specific_styles(self, report_mode: str) -> str:
@@ -891,17 +905,10 @@ class ReportGenerator:
     
     def _generate_gates_table_html(self, result_data: Dict[str, Any], report_mode: str, comments: Dict[str, str] = None) -> str:
         """Generate gates table HTML with mode-specific details"""
-        if report_mode == "detailed":
-            return self._generate_detailed_gates_table_html(result_data, comments)
-        else:
-            return self._generate_simple_gates_table_html(result_data, comments)
-    
-    def _generate_detailed_gates_table_html(self, result_data: Dict[str, Any], comments: Dict[str, str] = None) -> str:
-        """Generate detailed gates table with full match information"""
         gates = result_data.get("gates", [])
         gate_categories = SharedReportGenerator.get_gate_categories()
         
-        html = ""
+        html = """<div class="gates-analysis">"""
         
         for category_name, gate_names in gate_categories.items():
             category_gates = [g for g in gates if g.get("name") in gate_names]
@@ -909,26 +916,27 @@ class ReportGenerator:
             if not category_gates:
                 continue
             
+            # Add section with proper styling
             html += f"""
-                <div class="gate-category">
-                    <h3>{category_name}</h3>
-                    <table class="gates-table">
-                        <thead>
-                            <tr>
-                                <th>Practice</th>
-                                <th>Status</th>
-                                <th>Evidence</th>
-                                <th>Detailed Matches</th>
-                                <th>Recommendation</th>"""
+                <div class="gate-category-section">
+                    <h3 class="category-title">{category_name}</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>"""
             
             if comments:
                 html += """
-                                <th>Comments</th>"""
+                                    <th>Comments</th>"""
             
             html += """
-                            </tr>
-                        </thead>
-                        <tbody>"""
+                                </tr>
+                            </thead>
+                            <tbody>"""
             
             for gate in category_gates:
                 gate_name = SharedReportGenerator.format_gate_name(gate.get("name", ""))
@@ -937,29 +945,27 @@ class ReportGenerator:
                 recommendation = SharedReportGenerator.get_recommendation(gate, gate_name)
                 comment = SharedReportGenerator.get_gate_comment(gate.get("name", ""), comments) if comments else ""
                 
-                # Generate detailed match information
-                detailed_matches = self._format_detailed_matches(gate.get("matches", []))
-                
                 html += f"""
-                            <tr>
-                                <td><strong>{gate_name}</strong></td>
-                                <td><span class="status-{status_info['class']}">{status_info['text']}</span></td>
-                                <td>{evidence}</td>
-                                <td>{detailed_matches}</td>
-                                <td>{recommendation}</td>"""
+                                <tr>
+                                    <td><strong>{gate_name}</strong></td>
+                                    <td><span class="status-{status_info['class']}">{status_info['text']}</span></td>
+                                    <td>{evidence}</td>
+                                    <td>{recommendation}</td>"""
                 
                 if comments:
                     html += f"""
-                                <td class="comment-cell">{comment if comment else 'No comments'}</td>"""
+                                    <td class="comment-cell">{comment if comment else 'No comments'}</td>"""
                 
                 html += """
-                            </tr>"""
+                                </tr>"""
             
             html += """
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>"""
         
+        html += """</div>"""
         return html
     
     def _format_detailed_matches(self, matches) -> str:
