@@ -1,35 +1,11 @@
 # Core dependencies for CodeGates Hard Gate Validation System
 
-# CLI interface
-click>=8.1.8
-rich>=13.0.0
-
-# Data validation and API framework
+# Data validation
 pydantic>=2.0.0
-fastapi>=0.68.0
-uvicorn>=0.15.0
 
-# HTTP requests and GitHub integration
-requests>=2.31.0
-PyGithub>=1.59.0
-
-# Legacy Flask API (if needed)
-flask>=2.3.0
-flask-cors>=4.0.0
-flask-limiter>=3.0.0
-werkzeug>=2.3.0
-
-# Authentication
-PyJWT>=2.8.0
-
-# Environment configuration (optional but recommended)
+# Environment configuration
 python-dotenv>=1.0.0
 
-# LLM integrations (optional - only install if using LLM features)
-openai>=1.0.0
-anthropic>=0.25.0
-ollama>=0.1.7
-
-# Development and testing (optional)
+# Development and testing
 pytest>=7.0.0
 pytest-cov>=4.0.0
