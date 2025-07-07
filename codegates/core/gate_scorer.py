@@ -77,13 +77,13 @@ class GateScorer:
     def _get_quality_multiplier(self, quality_score: float) -> float:
         """Get quality multiplier based on quality score"""
         
-        if quality_score >= 90:
+        if quality_score >= 70:
             return self.QUALITY_MULTIPLIERS['excellent']
-        elif quality_score >= 80:
+        elif quality_score >= 50:
             return self.QUALITY_MULTIPLIERS['good']
-        elif quality_score >= 70:
+        elif quality_score >= 40:
             return self.QUALITY_MULTIPLIERS['fair']
-        elif quality_score >= 60:
+        elif quality_score >= 30:
             return self.QUALITY_MULTIPLIERS['poor']
         else:
             return self.QUALITY_MULTIPLIERS['bad']

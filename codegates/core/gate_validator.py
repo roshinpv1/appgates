@@ -436,9 +436,9 @@ class GateValidator:
             return "FAIL"  # Any secrets violation = immediate failure
         
         # Standard score-based evaluation
-        if score >= 80:
+        if score >= 50:
             return "PASS"
-        elif score >= 60:
+        elif score >= 40:
             return "WARNING" 
         else:
             return "FAIL"

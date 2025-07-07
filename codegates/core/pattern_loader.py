@@ -11,6 +11,7 @@ from functools import lru_cache
 import logging
 
 from ..models import Language, GateType
+from .config_manager import get_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -18,29 +19,15 @@ logger = logging.getLogger(__name__)
 class PatternLoader:
     """Loads and manages gate validation patterns from configuration"""
     
-    def __init__(self, config_path: Optional[Path] = None):
-        """Initialize pattern loader with configuration path"""
-        self.config_path = config_path or Path("codegates/core/gate_config.yml")
-        self._config_cache = None
+    def __init__(self):
+        """Initialize pattern loader"""
         self._pattern_cache = {}
-        self._load_config()
-    
-    def _load_config(self) -> None:
-        """Load gate configuration from YAML file"""
-        try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                self._config_cache = yaml.safe_load(f)
-                logger.info(f"Loaded gate configuration from {self.config_path}")
-        except Exception as e:
-            logger.error(f"Failed to load gate configuration: {e}")
-            # Fallback to empty config
-            self._config_cache = {'hard_gates': []}
+        self._config_manager = get_config_manager()
     
     def reload_config(self) -> None:
-        """Reload configuration from file"""
-        self._config_cache = None
+        """Reload configuration"""
         self._pattern_cache.clear()
-        self._load_config()
+        self._config_manager.reload()
         logger.info("Gate configuration reloaded")
     
     @lru_cache(maxsize=128)
@@ -94,6 +81,114 @@ class PatternLoader:
         categorized_patterns = self._categorize_patterns(gate_type, lang_patterns)
         
         return categorized_patterns
+    
+    def _find_gate_by_name(self, gate_name: str) -> Optional[Dict[str, Any]]:
+        """Find gate configuration by name"""
+        config = self._config_manager.config
+        if not config or 'hard_gates' not in config:
+            return None
+        
+        for gate_config in config['hard_gates']:
+            if gate_config.get('name') == gate_name:
+                return gate_config
+        
+        # Try fuzzy matching
+        gate_name_lower = gate_name.lower()
+        for gate_config in config['hard_gates']:
+            config_name = gate_config.get('name', '').lower()
+            if gate_name_lower in config_name or config_name in gate_name_lower:
+                return gate_config
+        
+        return None
+    
+    def get_all_gates(self) -> List[Dict[str, Any]]:
+        """Get all gate configurations"""
+        config = self._config_manager.config
+        if not config or 'hard_gates' not in config:
+            return []
+        
+        return config['hard_gates']
+    
+    def get_gate_by_id(self, gate_id: int) -> Optional[Dict[str, Any]]:
+        """Get gate configuration by ID"""
+        for gate_config in self.get_all_gates():
+            if gate_config.get('id') == gate_id:
+                return gate_config
+        return None
+    
+    def get_supported_languages(self, gate_name: str) -> List[str]:
+        """Get list of supported languages for a gate"""
+        gate_config = self._find_gate_by_name(gate_name)
+        if not gate_config:
+            return []
+        
+        patterns = gate_config.get('patterns', {})
+        return list(patterns.keys())
+    
+    def validate_patterns(self, gate_name: str, language: str) -> List[str]:
+        """Validate regex patterns for a gate/language combination"""
+        patterns = self.get_patterns_for_gate(gate_name, language)
+        invalid_patterns = []
+        
+        for pattern in patterns:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                invalid_patterns.append(f"Pattern '{pattern}': {str(e)}")
+        
+        return invalid_patterns
+    
+    def get_pattern_statistics(self) -> Dict[str, Any]:
+        """Get statistics about loaded patterns"""
+        stats = {
+            'total_gates': 0,
+            'total_patterns': 0,
+            'languages_supported': set(),
+            'gates_by_language': {},
+            'patterns_by_gate': {}
+        }
+        
+        for gate_config in self.get_all_gates():
+            gate_name = gate_config.get('name', 'Unknown')
+            patterns = gate_config.get('patterns', {})
+            
+            stats['total_gates'] += 1
+            stats['patterns_by_gate'][gate_name] = {}
+            
+            for language, lang_patterns in patterns.items():
+                stats['languages_supported'].add(language)
+                pattern_count = len(lang_patterns)
+                stats['total_patterns'] += pattern_count
+                stats['patterns_by_gate'][gate_name][language] = pattern_count
+                
+                if language not in stats['gates_by_language']:
+                    stats['gates_by_language'][language] = 0
+                stats['gates_by_language'][language] += 1
+        
+        stats['languages_supported'] = list(stats['languages_supported'])
+        return stats
+    
+    def _gate_type_to_name(self, gate_type: GateType) -> str:
+        """Convert GateType enum to gate name for lookup"""
+        gate_type_mappings = {
+            GateType.STRUCTURED_LOGS: "Logs Searchable/Available",
+            GateType.AVOID_LOGGING_SECRETS: "Avoid Logging Confidential Data",
+            GateType.AUDIT_TRAIL: "Create Audit Trail Logs",  # Updated to match YAML
+            GateType.ERROR_LOGS: "Error Logs",  # Updated to match YAML
+            GateType.RETRY_LOGIC: "Retry Logic",
+            GateType.TIMEOUTS: "Timeouts in IO Ops",
+            GateType.CIRCUIT_BREAKERS: "Circuit Breakers",
+            GateType.THROTTLING: "Throttling & Drop Request",
+            GateType.CORRELATION_ID: "Correlation ID",
+            GateType.AUTOMATED_TESTS: "Automated Tests",
+            GateType.LOG_API_CALLS: "Log API Calls",
+            GateType.LOG_BACKGROUND_JOBS: "Log Background Jobs",  # Updated to match YAML
+            GateType.UI_ERRORS: "Client UI Errors Logged",
+            GateType.UI_ERROR_TOOLS: "Client Error Tracking",
+            GateType.HTTP_CODES: "HTTP Status Codes"  # Updated to match YAML
+        }
+        
+        return gate_type_mappings.get(gate_type, gate_type.value)
     
     def _categorize_patterns(self, gate_type: GateType, patterns: List[str]) -> Dict[str, List[str]]:
         """Categorize patterns based on gate type"""
@@ -163,124 +258,6 @@ class PatternLoader:
         
         return category_mappings.get(gate_type, {'patterns': patterns})
     
-    def _gate_type_to_name(self, gate_type: GateType) -> str:
-        """Convert GateType enum to gate name for lookup"""
-        gate_type_mappings = {
-            GateType.STRUCTURED_LOGS: "Logs Searchable/Available",
-            GateType.AVOID_LOGGING_SECRETS: "Avoid Logging Confidential Data",
-            GateType.AUDIT_TRAIL: "Create Audit Trail Logs",  # Updated to match YAML
-            GateType.ERROR_LOGS: "Error Logs",  # Updated to match YAML
-            GateType.RETRY_LOGIC: "Retry Logic",
-            GateType.TIMEOUTS: "Timeouts in IO Ops",
-            GateType.CIRCUIT_BREAKERS: "Circuit Breakers",
-            GateType.THROTTLING: "Throttling & Drop Request",
-            GateType.CORRELATION_ID: "Correlation ID",
-            GateType.AUTOMATED_TESTS: "Automated Tests",
-            GateType.LOG_API_CALLS: "Log API Calls",
-            GateType.LOG_BACKGROUND_JOBS: "Log Background Jobs",  # Updated to match YAML
-            GateType.UI_ERRORS: "Client UI Errors Logged",
-            GateType.UI_ERROR_TOOLS: "Client Error Tracking",
-            GateType.HTTP_CODES: "HTTP Status Codes"  # Updated to match YAML
-        }
-        
-        return gate_type_mappings.get(gate_type, gate_type.value)
-    
-    def _find_gate_by_name(self, gate_name: str) -> Optional[Dict[str, Any]]:
-        """Find gate configuration by name"""
-        if not self._config_cache or 'hard_gates' not in self._config_cache:
-            return None
-        
-        for gate_config in self._config_cache['hard_gates']:
-            if gate_config.get('name') == gate_name:
-                return gate_config
-        
-        # Try fuzzy matching
-        gate_name_lower = gate_name.lower()
-        for gate_config in self._config_cache['hard_gates']:
-            config_name = gate_config.get('name', '').lower()
-            if gate_name_lower in config_name or config_name in gate_name_lower:
-                return gate_config
-        
-        return None
-    
-    def get_all_gates(self) -> List[Dict[str, Any]]:
-        """Get all gate configurations"""
-        if not self._config_cache or 'hard_gates' not in self._config_cache:
-            return []
-        
-        return self._config_cache['hard_gates']
-    
-    def get_gate_by_id(self, gate_id: int) -> Optional[Dict[str, Any]]:
-        """Get gate configuration by ID"""
-        for gate_config in self.get_all_gates():
-            if gate_config.get('id') == gate_id:
-                return gate_config
-        return None
-    
-    def get_supported_languages(self, gate_name: str) -> List[str]:
-        """Get list of supported languages for a gate"""
-        gate_config = self._find_gate_by_name(gate_name)
-        if not gate_config:
-            return []
-        
-        patterns = gate_config.get('patterns', {})
-        return list(patterns.keys())
-    
-    def validate_patterns(self, gate_name: str, language: str) -> List[str]:
-        """Validate regex patterns for a gate/language combination"""
-        patterns = self.get_patterns_for_gate(gate_name, language)
-        invalid_patterns = []
-        
-        for pattern in patterns:
-            try:
-                re.compile(pattern)
-            except re.error as e:
-                invalid_patterns.append(f"Pattern '{pattern}': {str(e)}")
-        
-        return invalid_patterns
-    
-    def get_pattern_statistics(self) -> Dict[str, Any]:
-        """Get statistics about loaded patterns"""
-        stats = {
-            'total_gates': 0,
-            'total_patterns': 0,
-            'languages_supported': set(),
-            'gates_by_language': {},
-            'patterns_by_gate': {}
-        }
-        
-        for gate_config in self.get_all_gates():
-            gate_name = gate_config.get('name', 'Unknown')
-            patterns = gate_config.get('patterns', {})
-            
-            stats['total_gates'] += 1
-            stats['patterns_by_gate'][gate_name] = {}
-            
-            for language, lang_patterns in patterns.items():
-                stats['languages_supported'].add(language)
-                pattern_count = len(lang_patterns)
-                stats['total_patterns'] += pattern_count
-                stats['patterns_by_gate'][gate_name][language] = pattern_count
-                
-                if language not in stats['gates_by_language']:
-                    stats['gates_by_language'][language] = 0
-                stats['gates_by_language'][language] += 1
-        
-        stats['languages_supported'] = list(stats['languages_supported'])
-        return stats
-    
-    def export_patterns_for_language(self, language: str) -> Dict[str, List[str]]:
-        """Export all patterns for a specific language"""
-        patterns_by_gate = {}
-        
-        for gate_config in self.get_all_gates():
-            gate_name = gate_config.get('name', 'Unknown')
-            patterns = self.get_patterns_for_gate(gate_name, language)
-            if patterns:
-                patterns_by_gate[gate_name] = patterns
-        
-        return patterns_by_gate
-    
     def add_pattern(self, gate_name: str, language: str, pattern: str) -> bool:
         """Add a new pattern to a gate/language combination"""
         gate_config = self._find_gate_by_name(gate_name)
@@ -304,7 +281,7 @@ class PatternLoader:
         
         if pattern not in gate_config['patterns'][language]:
             gate_config['patterns'][language].append(pattern)
-            self._clear_cache()
+            self._config_manager.save() # Save the entire config after adding a pattern
             logger.info(f"Added pattern '{pattern}' to gate '{gate_name}' for language '{language}'")
             return True
         
@@ -321,7 +298,7 @@ class PatternLoader:
         patterns = gate_config.get('patterns', {}).get(language, [])
         if pattern in patterns:
             patterns.remove(pattern)
-            self._clear_cache()
+            self._config_manager.save() # Save the entire config after removing a pattern
             logger.info(f"Removed pattern '{pattern}' from gate '{gate_name}' for language '{language}'")
             return True
         
@@ -332,16 +309,16 @@ class PatternLoader:
         """Save current configuration back to YAML file"""
         try:
             if backup:
-                backup_path = self.config_path.with_suffix('.yml.backup')
-                if self.config_path.exists():
+                backup_path = Path("codegates/core/gate_config.yml").with_suffix('.yml.backup')
+                if Path("codegates/core/gate_config.yml").exists():
                     import shutil
-                    shutil.copy2(self.config_path, backup_path)
+                    shutil.copy2("codegates/core/gate_config.yml", backup_path)
                     logger.info(f"Created backup at {backup_path}")
             
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(self._config_cache, f, default_flow_style=False, indent=2)
+            # The config_manager handles saving, so we just reload to ensure consistency
+            self._config_manager.reload()
             
-            logger.info(f"Saved configuration to {self.config_path}")
+            logger.info(f"Saved configuration to {Path('codegates/core/gate_config.yml')}")
             return True
         
         except Exception as e:
