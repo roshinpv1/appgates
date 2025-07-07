@@ -84,7 +84,7 @@ class GateValidator:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 future_to_file = {
                     executor.submit(self._analyze_file, file_path, lang): file_path
-                    for file_path in lang_files[:100]  # Limit to 100 files per language
+                    for file_path in lang_files[:5000]  # Limit to 100 files per language
                 }
                 
                 for future in as_completed(future_to_file):
