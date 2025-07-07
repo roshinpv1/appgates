@@ -1510,7 +1510,6 @@ class ApplicationLogsValidator(BaseGateValidator):
                 all_patterns.extend(category_patterns)
         
         if not all_patterns:
-            # Fallback to hardcoded patterns
             all_patterns = self.patterns.get('app_log_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, all_patterns)
@@ -1535,27 +1534,6 @@ class ApplicationLogsValidator(BaseGateValidator):
             matches=matches  # Keep all matches for debugging, but count/process only actual ones
         )
     
-    def enhance_with_llm(self, result: GateValidationResult, llm_manager=None) -> GateValidationResult:
-        """Enhance validation result with LLM-powered recommendations"""
-        if llm_manager and llm_manager.is_enabled():
-            try:
-                llm_recommendations = self._generate_llm_recommendations(
-                    gate_name="log_application_messages",
-                    matches=result.matches,
-                    expected=result.expected,
-                    detected_technologies=result.technologies,
-                    llm_manager=llm_manager
-                )
-                if llm_recommendations:
-                    result.recommendations = llm_recommendations
-                    print(f"✅ LLM recommendations generated for log_application_messages")
-                else:
-                    print(f"⚠️ LLM returned empty recommendations for log_application_messages")
-            except Exception as e:
-                print(f"⚠️ LLM recommendation generation failed for log_application_messages: {e}")
-        
-        return result
-    
     def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
         """Get comprehensive application logging patterns as fallback"""
         
@@ -1575,16 +1553,18 @@ class ApplicationLogsValidator(BaseGateValidator):
                     # Structured logging
                     r'structlog\.get_logger\(',
                     r'loguru\.logger\.',
-                    
-                    # Background job logging (subset of application logging)
-                    r'celery.*logger\.',
-                    r'@task.*\n.*logger\.',
-                    r'scheduler\.',
+                    r'logger\.(info|debug|error|warning|critical)\s*\([^)]*\{[^}]*\}',
+                    r'logger\.(info|debug|error|warning|critical)\s*\([^)]*=\s*\{[^}]*\}',
                     
                     # Service and business logic logging
                     r'service.*log',
                     r'business.*log',
                     r'process.*log',
+                    
+                    # Background job logging (subset)
+                    r'celery.*logger\.',
+                    r'@task.*\n.*logger\.',
+                    r'scheduler\.',
                 ]
             }
         elif self.language == Language.JAVA:
@@ -1599,6 +1579,13 @@ class ApplicationLogsValidator(BaseGateValidator):
                     r'LoggerFactory\.getLogger\s*\(',
                     r'@Slf4j',
                     r'Commons.*Log',
+                    
+                    # Structured logging
+                    r'logger\.(info|debug|error|warn|trace)\s*\([^)]*\{[^}]*\}',
+                    r'logger\.(info|debug|error|warn|trace)\s*\([^)]*=\s*\{[^}]*\}',
+                    r'StructuredArguments\.',
+                    r'Markers\.',
+                    r'MDC\.',
                     
                     # Application context logging
                     r'@Component.*\n.*logger\.',
@@ -1627,6 +1614,11 @@ class ApplicationLogsValidator(BaseGateValidator):
                     r'pino\(',
                     r'log4js\.',
                     
+                    # Structured logging
+                    r'logger\.(info|debug|error|warn)\s*\([^)]*\{[^}]*\}',
+                    r'logger\.(info|debug|error|warn)\s*\([^)]*=\s*\{[^}]*\}',
+                    r'JSON\.stringify\s*\([^)]*\)\s*.*logger',
+                    
                     # Application logging
                     r'app\.log',
                     r'logger\.',
@@ -1653,6 +1645,11 @@ class ApplicationLogsValidator(BaseGateValidator):
                     r'Log\.(Information|Debug|Error|Warning|Critical)\s*\(',
                     r'Serilog\.',
                     r'NLog\.',
+                    
+                    # Structured logging
+                    r'_logger\.Log\w+\s*\([^)]*\{[^}]*\}',
+                    r'_logger\.Log\w+\s*\([^)]*=\s*\{[^}]*\}',
+                    r'LogContext\.PushProperty\s*\(',
                     
                     # Application context
                     r'@Service.*\n.*_logger\.',

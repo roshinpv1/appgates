@@ -36,7 +36,8 @@ class GateValidatorFactory:
         from .logging_validators import (
             StructuredLogsValidator, SecretLogsValidator,
             AuditTrailValidator, CorrelationIdValidator,
-            ApiLogsValidator, BackgroundJobLogsValidator
+            ApiLogsValidator, BackgroundJobLogsValidator,
+            ApplicationLogsValidator
         )
         from .error_validators import (
             ErrorLogsValidator, UiErrorsValidator,
@@ -94,6 +95,13 @@ class GateValidatorFactory:
                 Language.JAVASCRIPT: BackgroundJobLogsValidator,
                 Language.TYPESCRIPT: BackgroundJobLogsValidator,
                 Language.CSHARP: BackgroundJobLogsValidator,
+            },
+            GateType.LOG_APPLICATION_MESSAGES: {
+                Language.JAVA: ApplicationLogsValidator,
+                Language.PYTHON: ApplicationLogsValidator,
+                Language.JAVASCRIPT: ApplicationLogsValidator,
+                Language.TYPESCRIPT: ApplicationLogsValidator,
+                Language.CSHARP: ApplicationLogsValidator,
             },
             
             # Error handling gates

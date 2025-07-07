@@ -703,6 +703,10 @@ class GateValidator:
         if gate_type == GateType.LOG_BACKGROUND_JOBS:
             return True  # Always applicable - encourages implementation
         
+        # Logs Searchable/Available and Log Application Messages gates work together
+        if gate_type in [GateType.STRUCTURED_LOGS, GateType.LOG_APPLICATION_MESSAGES]:
+            return True  # Always applicable - work in conjunction
+        
         # All other gates are applicable by default
         return True
     

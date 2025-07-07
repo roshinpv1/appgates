@@ -173,8 +173,8 @@ class PatternLoader:
         gate_type_mappings = {
             GateType.STRUCTURED_LOGS: "Logs Searchable/Available",
             GateType.AVOID_LOGGING_SECRETS: "Avoid Logging Confidential Data",
-            GateType.AUDIT_TRAIL: "Create Audit Trail Logs",  # Updated to match YAML
-            GateType.ERROR_LOGS: "Error Logs",  # Updated to match YAML
+            GateType.AUDIT_TRAIL: "Create Audit Trail Logs",
+            GateType.ERROR_LOGS: "Error Logs",
             GateType.RETRY_LOGIC: "Retry Logic",
             GateType.TIMEOUTS: "Timeouts in IO Ops",
             GateType.CIRCUIT_BREAKERS: "Circuit Breakers",
@@ -182,10 +182,11 @@ class PatternLoader:
             GateType.CORRELATION_ID: "Correlation ID",
             GateType.AUTOMATED_TESTS: "Automated Tests",
             GateType.LOG_API_CALLS: "Log API Calls",
-            GateType.LOG_BACKGROUND_JOBS: "Log Background Jobs",  # Updated to match YAML
+            GateType.LOG_BACKGROUND_JOBS: "Log Background Jobs",
+            GateType.LOG_APPLICATION_MESSAGES: "Log Application Messages",
             GateType.UI_ERRORS: "Client UI Errors Logged",
             GateType.UI_ERROR_TOOLS: "Client Error Tracking",
-            GateType.HTTP_CODES: "HTTP Status Codes"  # Updated to match YAML
+            GateType.HTTP_CODES: "HTTP Status Codes"
         }
         
         return gate_type_mappings.get(gate_type, gate_type.value)

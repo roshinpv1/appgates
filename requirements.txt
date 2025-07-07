@@ -9,3 +9,7 @@ python-dotenv>=1.0.0
 # Development and testing
 pytest>=7.0.0
 pytest-cov>=4.0.0
+
+markdown==3.4.3
+weasyprint==59.0
+Pygments==2.15.1  # For code highlighting

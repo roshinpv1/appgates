@@ -27,6 +27,7 @@ class GateType(str, Enum):
     CORRELATION_ID = "correlation_id"
     LOG_API_CALLS = "log_api_calls"
     LOG_BACKGROUND_JOBS = "log_background_jobs"
+    LOG_APPLICATION_MESSAGES = "log_application_messages"  # Added new enum value
     UI_ERRORS = "ui_errors"
     RETRY_LOGIC = "retry_logic"
     TIMEOUTS = "timeouts"

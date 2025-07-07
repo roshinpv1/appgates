@@ -778,7 +778,7 @@ Format each example with a brief description followed by the code.
                 samples_context += "\n"
         
         prompt = f"""
-You are a senior software architect and code quality expert. Analyze the following comprehensive code quality gate results and provide detailed insights.
+You are a intelligent code analyzer and code quality expert. Analyze the following comprehensive code quality gate results and provide detailed insights. Provide accurate recommendations based on the results.
 
 ## Gate Analysis: {gate_name}
 - **Language**: {language}

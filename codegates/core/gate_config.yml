@@ -1,8 +1,13 @@
 hard_gates:
 - id: 1
   name: Logs Searchable/Available
-  description: Structured logs with keys/values; consistent formats like JSON
-  validation_method: AST scan for logger usage (logger.info("key={} val={}", ...)); Config parser for logback.xml, log4j2.xml to check structured layout (e.g., JSON formatter)
+  description: Logs are available and searchable. Can be structured (JSON) or standard logging with consistent formats.
+  validation_method: |
+    AST scan for logging patterns:
+    - Validates log format and structure
+    - Checks for JSON/structured formatters
+    - Verifies logging configuration
+    - Accepts standard logging with consistent formats
   patterns:
     java:
     # Logger usage with structured format
@@ -58,73 +63,42 @@ hard_gates:
     - appsettings\.Development\.json.*Logging
     - appsettings\.Production\.json.*Logging
     python:
-    # Structured logging with format strings
-    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*\{[^}]+\}[^\"']*[\"']\s*,
-    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*\{[^}]+:[^}]+\}[^\"']*[\"']\s*,
-    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*=\s*\{[^}]+\}[^\"']*[\"']\s*,
-    - \blogging\.(info|debug|error|warning|critical)\s*\(\s*f?[\"'][^\"']*%\([^)]+\)s[^\"']*[\"']\s*,
-    # Structured logging setup
-    - logging\.basicConfig\(.*format=.*\{[^}]*\}
-    - logging\.basicConfig\(.*format=.*%\([^)]+\)
-    - logging\.Formatter\(.*\{[^}]*\}
-    - logging\.Formatter\(.*%\([^)]+\)
-    - '''format'': ''.*%(asctime)s.*%(name)s.*%(levelname)s.*%(message)s.*'''
-    - '''format'': ''.*\{[^}]*\}.*'''
-    - logging\.getLogger\(
-    - StreamHandler\(\)
-    - FileHandler\(\)
-    - RotatingFileHandler\(\)
-    - TimedRotatingFileHandler\(\)
-    - structlog\.configure\(
-    - structlog\.get_logger\(
-    - pythonjsonlogger\.jsonlogger\.JsonFormatter
+      # General logging patterns
+      - 'logging\.(info|debug|error|warning|critical)\s*\('
+      - 'logger\.(info|debug|error|warning|critical)\s*\('
+      - 'log\.(info|debug|error|warning|critical)\s*\('
+      # Structured logging frameworks
+      - 'structlog\.'
+      - 'loguru\.'
+      - 'python-json-logger'
+      # JSON/structured formats
+      - 'logger\.(info|debug|error|warning|critical)\s*\([^)]*extra\s*='
+      - 'logger\.(info|debug|error|warning|critical)\s*\([^)]*json\.'
+      - 'json\.dumps\s*\([^)]*\)\s*.*logger'
     javascript:
-    # Console logging with structured data
-    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*\{[^}]*\}[^\"']*[\"']\s*,
-    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*=\s*[\"']\s*,
-    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*:[^\"']*[\"']\s*,
-    # Structured logging libraries
-    - winston\.createLogger\(
-    - winston\.format\.json\(\)
-    - winston\.format\.combine\(
-    - winston\.format\.timestamp\(\)
-    - winston\.format\.printf\(
-    - bunyan\.createLogger\(
-    - pino\(\)
-    - pino\.destination\(
-    - morgan\(
-    - debug\(
-    - log4js\.configure\(
-    - log4js\.getLogger\(
+      # General logging patterns
+      - 'console\.(log|info|debug|error|warn)\s*\('
+      - 'logger\.(info|debug|error|warn)\s*\('
+      # Structured logging frameworks
+      - 'winston\.'
+      - 'bunyan\.'
+      - 'pino\('
+      - 'log4js\.'
+      # JSON/structured formats
+      - 'console\.log\s*\(\s*JSON\.stringify\s*\('
+      - 'logger\.info\s*\(\s*\{[^}]*\}'
     typescript:
-    # Console logging with structured data
-    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*\{[^}]*\}[^\"']*[\"']\s*,
-    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*=\s*[\"']\s*,
-    - \bconsole\.(log|error|debug|info|warn)\s*\(\s*[\"'][^\"']*:[^\"']*[\"']\s*,
-    # Structured logging libraries
-    - winston\.createLogger\(
-    - winston\.format\.json\(\)
-    - winston\.format\.combine\(
-    - winston\.format\.timestamp\(\)
-    - winston\.format\.printf\(
-    - bunyan\.createLogger\(
-    - pino\(\)
-    - pino\.destination\(
-    - morgan\(
-    - debug\(
-    - log4js\.configure\(
-    - log4js\.getLogger\(
-    php:
-    # Structured logging
-    - error_log\(.*json_encode\(
-    - \$logger->(info|debug|error|warning|critical)\s*\(\s*[\"'][^\"']*\{[^}]*\}[^\"']*[\"']\s*,
-    - Monolog\\Logger
-    - Monolog\\Handler\\StreamHandler
-    - Monolog\\Handler\\RotatingFileHandler
-    - Monolog\\Formatter\\JsonFormatter
-    - Monolog\\Formatter\\LineFormatter
-    - \$logger->pushHandler\(
-    - \$logger->pushProcessor\(
+      # General logging patterns
+      - 'console\.(log|info|debug|error|warn)\s*\('
+      - 'logger\.(info|debug|error|warn)\s*\('
+      # Structured logging frameworks
+      - 'winston\.'
+      - 'bunyan\.'
+      - 'pino\('
+      - 'log4js\.'
+      # JSON/structured formats
+      - 'console\.log\s*\(\s*JSON\.stringify\s*\('
+      - 'logger\.info\s*\(\s*\{[^}]*\}'
 
 - id: 2
   name: Avoid Logging Confidential Data
@@ -478,7 +452,7 @@ hard_gates:
     - function\s+(create|add|insert|save|persist)[A-Z]\w*\s*\(.*\)
     - function\s+(update|modify|change|edit)[A-Z]\w*\s*\(.*\)
     - function\s+(delete|remove|destroy|purge)[A-Z]\w*\s*\(.*\)
-    - function\s+(activate|deactivate|enable|disable)[A-Z]\w*\s*\(.*\)
+    - function\s+(activate|deactivate|enable|disable)[A-Z]\w*\s*\(.*\)x
     - 'const\s+\w*(create|update|delete|save|remove)\w*\s*='
     - 'async\s+function\s+\w*(create|update|delete|save|remove)\w*\s*\('
     # Security and authorization (NestJS and others)
@@ -758,52 +732,32 @@ hard_gates:
 
 - id: 6
   name: Log Application Messages
-  description: Comprehensive application logging throughout business logic, services, and operations
-  validation_method: Detect general application logging patterns including service layers, controllers, business logic, error handling, and any application state/operation logging
+  description: Logging of application events, services, and internal state info. Works in conjunction with Logs Searchable/Available gate.
+  validation_method: |
+    Detect logging across application components:
+    - Service layer logging
+    - Business logic logging
+    - Internal state changes
+    - Error handling
+    - Integration with structured logging
   patterns:
     java:
       # General logging patterns
       - 'logger\.(info|debug|error|warn|trace)\s*\('
       - 'log\.(info|debug|error|warn|trace)\s*\('
       - 'Logger\.(getLogger|getAnonymousLogger)\s*\('
+      # Framework logging
       - 'LoggerFactory\.getLogger\s*\('
       - '@Slf4j'
+      - 'Commons.*Log'
+      # Job execution logging
+      - '@Scheduled.*\n.*logger\.'
+      - 'JobExecutionContext.*\n.*logger\.'
+      - 'TaskScheduler.*\n.*logger\.'
       # Application context logging
       - '@Component.*\n.*logger\.'
       - '@Service.*\n.*logger\.'
       - '@Controller.*\n.*logger\.'
-      - '@Repository.*\n.*logger\.'
-      # Business logic patterns
-      - 'business.*log'
-      - 'service.*log'
-      - 'application.*log'
-      # Background job logging (subset)
-      - '@Scheduled.*\n.*logger\.'
-      - 'JobExecutionContext'
-      - 'TaskScheduler'
-      - 'KafkaTemplate'
-      - 'JmsTemplate'
-    dotnet:
-      # .NET Core logging
-      - '_logger\.(LogInformation|LogDebug|LogError|LogWarning|LogCritical)\s*\('
-      - 'ILogger.*Log\w+\s*\('
-      - 'Log\.(Information|Debug|Error|Warning|Critical)\s*\('
-      # Framework logging
-      - 'Serilog\.'
-      - 'NLog\.'
-      # Application context
-      - '\[Service\].*\n.*_logger\.'
-      - '\[Controller\].*\n.*_logger\.'
-      # Business logic
-      - 'business.*log'
-      - 'service.*log'
-      # Background services (subset)
-      - '\[Job\]'
-      - '\[Scheduled\]'
-      - 'Hangfire'
-      - 'Quartz'
-      - 'IHostedService.*_logger\.'
-      - 'BackgroundService.*_logger\.'
     python:
       # General logging patterns
       - 'logging\.(info|debug|error|warning|critical)\s*\('
@@ -820,7 +774,7 @@ hard_gates:
       - 'service.*log'
       - 'business.*log'
       - 'process.*log'
-      # Background tasks (subset)
+      # Background tasks
       - '@celery\.task'
       - '@app\.task'
       - 'schedule='
@@ -840,7 +794,7 @@ hard_gates:
       # Business logic
       - 'service.*log'
       - 'business.*log'
-      # Background tasks (subset)
+      # Background tasks
       - 'cron\.'
       - 'node-cron'
       - 'agenda\.'
@@ -861,7 +815,7 @@ hard_gates:
       # Business logic
       - 'service.*log'
       - 'business.*log'
-      # Background tasks (subset)
+      # Background tasks
       - 'cron\.'
       - 'node-cron'
       - 'agenda\.'
@@ -1196,9 +1150,33 @@ hard_gates:
 
 - id: 19
   name: Log API Calls
-  description: Log API request/response details
-  validation_method: Check for API call logging
+  description: Log API request/response details. Works with Logs Searchable/Available gate.
+  validation_method: |
+    Check for API call logging:
+    - Request/response logging
+    - Headers and parameters
+    - Response status and timing
+    - Integration with structured logging
   patterns:
+    java:
+      # API logging patterns
+      - '@RequestMapping.*\n.*logger\.'
+      - '@GetMapping.*\n.*logger\.'
+      - '@PostMapping.*\n.*logger\.'
+      - '@RestController.*\n.*logger\.'
+      - 'logger\.info.*request'
+      - 'logger\.info.*response'
+      # Request details
+      - 'logger\.(info|debug)\s*\([^)]*headers'
+      - 'logger\.(info|debug)\s*\([^)]*params'
+      - 'logger\.(info|debug)\s*\([^)]*body'
+      # Response details
+      - 'logger\.(info|debug)\s*\([^)]*status'
+      - 'logger\.(info|debug)\s*\([^)]*duration'
+      - 'logger\.(info|debug)\s*\([^)]*latency'
+    dotnet:
+      # .NET Core logging
+      - 'ILogger.*Log.*(request|response)'
     python:
       # API call logging
       - log(?:ger)?\.info\(.*request.*
@@ -1216,12 +1194,76 @@ hard_gates:
       - \bapi_logger\.
       - \bhttp_logger\.
       - \brest_logger\.
+    javascript:
+      # API call logging
+      - 'axios\.(get|post|put|delete)\(.*\)'
+      - 'fetch\(.*,\s*\{.*method:.*\}'
+      - 'logger\.(info|debug)\s*\([^)]*url'
+      - 'logger\.(info|debug)\s*\([^)]*status'
+      - 'logger\.(info|debug)\s*\([^)]*duration'
+      - 'logger\.(info|debug)\s*\([^)]*latency'
+    typescript:
+      # API call logging
+      - 'axios\.(get|post|put|delete)\(.*\)'
+      - 'fetch\(.*,\s*\{.*method:.*\}'
+      - 'logger\.(info|debug)\s*\([^)]*url'
+      - 'logger\.(info|debug)\s*\([^)]*status'
+      - 'logger\.(info|debug)\s*\([^)]*duration'
+      - 'logger\.(info|debug)\s*\([^)]*latency'
+    php:
+      # API call logging
+      - 'curl_exec\(.*\)'
+      - 'http_request\(.*\)'
+      - 'logger\.(info|debug)\s*\([^)]*url'
+      - 'logger\.(info|debug)\s*\([^)]*status'
+      - 'logger\.(info|debug)\s*\([^)]*duration'
+      - 'logger\.(info|debug)\s*\([^)]*latency'
 
 - id: 20
   name: Log Background Jobs
-  description: Log background job execution
-  validation_method: Check for background job logging
+  description: Log background job execution. Works with Logs Searchable/Available gate.
+  validation_method: |
+    Check for background job logging:
+    - Job start/completion
+    - Task status and progress
+    - Error handling
+    - Integration with structured logging
   patterns:
+    java:
+      # Job execution logging
+      - '@Scheduled.*\n.*logger\.'
+      - 'JobExecutionContext.*\n.*logger\.'
+      - 'TaskScheduler.*\n.*logger\.'
+      # Job status
+      - 'logger\.(info|debug)\s*\([^)]*started'
+      - 'logger\.(info|debug)\s*\([^)]*completed'
+      - 'logger\.(info|debug)\s*\([^)]*progress'
+      - 'logger\.(info|debug)\s*\([^)]*status'
+      # Integration patterns
+      - 'KafkaTemplate.*\n.*logger\.'
+      - 'JmsTemplate.*\n.*logger\.'
+      - '@RabbitListener.*\n.*logger\.'
+    dotnet:
+      # .NET Core logging
+      - '_logger\.(LogInformation|LogDebug|LogError|LogWarning|LogCritical)\s*\('
+      - 'ILogger.*Log\w+\s*\('
+      - 'Log\.(Information|Debug|Error|Warning|Critical)\s*\('
+      # Framework logging
+      - 'Serilog\.'
+      - 'NLog\.'
+      # Application context
+      - '\[Service\].*\n.*_logger\.'
+      - '\[Controller\].*\n.*_logger\.'
+      # Business logic
+      - 'business.*log'
+      - 'service.*log'
+      # Background services (subset)
+      - '\[Job\]'
+      - '\[Scheduled\]'
+      - 'Hangfire'
+      - 'Quartz'
+      - 'IHostedService.*_logger\.'
+      - 'BackgroundService.*_logger\.'
     python:
       # Background job logging
       - log(?:ger)?\.info\(.*job.*start
