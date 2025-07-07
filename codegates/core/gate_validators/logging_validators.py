@@ -11,7 +11,7 @@ from .base import BaseGateValidator, GateValidationResult
 
 
 class StructuredLogsValidator(BaseGateValidator):
-    """Validates structured logging implementation"""
+    """Validates logging implementation - both structured and standard formats"""
     
     def __init__(self, language: Language, gate_type: GateType = GateType.STRUCTURED_LOGS):
         """Initialize with gate type for pattern loading"""
@@ -19,7 +19,7 @@ class StructuredLogsValidator(BaseGateValidator):
     
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
-        """Validate structured logging implementation"""
+        """Validate logging implementation"""
         
         # Get all patterns for this gate
         all_patterns = []
@@ -28,7 +28,7 @@ class StructuredLogsValidator(BaseGateValidator):
                 all_patterns.extend(category_patterns)
         
         if not all_patterns:
-            all_patterns = self._get_hardcoded_patterns().get('structured_logging', [])
+            all_patterns = self._get_hardcoded_patterns().get('logging_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(
@@ -60,36 +60,25 @@ class StructuredLogsValidator(BaseGateValidator):
             matches=matches
         )
     
-    def enhance_with_llm(self, result: GateValidationResult, llm_manager=None) -> GateValidationResult:
-        """Enhance validation result with LLM-powered recommendations"""
-        if llm_manager and llm_manager.is_enabled():
-            try:
-                llm_recommendations = self._generate_llm_recommendations(
-                    gate_name="structured_logs",
-                    matches=result.matches,
-                    expected=result.expected,
-                    detected_technologies=result.technologies,
-                    llm_manager=llm_manager
-                )
-                if llm_recommendations:
-                    result.recommendations = llm_recommendations
-                    print(f"✅ LLM recommendations generated for structured_logs")
-                else:
-                    print(f"⚠️ LLM returned empty recommendations for structured_logs")
-            except Exception as e:
-                print(f"⚠️ LLM recommendation generation failed for structured_logs: {e}")
-        
-        return result
-    
     def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
-        """Get hardcoded language-specific patterns for structured logging as fallback"""
+        """Get hardcoded language-specific patterns for both structured and standard logging"""
         
         if self.language == Language.PYTHON:
             return {
-                'structured_logging': [
-                    r'logger\.info\s*\(\s*["\'][^"\']*["\']],?\s*extra\s*=',
-                    r'logger\.error\s*\(\s*["\'][^"\']*["\']],?\s*extra\s*=',
-                    r'logger\.warning\s*\(\s*["\'][^"\']*["\']],?\s*extra\s*=',
+                'logging_patterns': [
+                    # Standard logging patterns
+                    r'logging\.(info|debug|error|warning|critical)\s*\(',
+                    r'logger\.(info|debug|error|warning|critical)\s*\(',
+                    r'log\.(info|debug|error|warning|critical)\s*\(',
+                    r'print\s*\([^)]*\)',  # Basic print statements
+                    
+                    # Framework-specific logging
+                    r'app\.logger\.',
+                    r'flask\.current_app\.logger\.',
+                    r'django\.core\.logging\.',
+                    
+                    # Structured logging patterns
+                    r'logger\.(info|debug|error|warning|critical)\s*\(\s*["\'][^"\']*["\']],?\s*extra\s*=',
                     r'structlog\.get_logger\s*\(',
                     r'logging\.getLogger\s*\([^)]*\)\.info\s*\([^)]*\{',
                     r'json\.dumps\s*\([^)]*\)\s*.*logger',
@@ -98,7 +87,19 @@ class StructuredLogsValidator(BaseGateValidator):
             }
         elif self.language == Language.JAVA:
             return {
-                'structured_logging': [
+                'logging_patterns': [
+                    # Standard logging patterns
+                    r'System\.(out|err)\.print(ln)?\s*\(',
+                    r'logger\.(info|debug|error|warn|trace)\s*\(',
+                    r'log\.(info|debug|error|warn|trace)\s*\(',
+                    r'Logger\.(getLogger|getAnonymousLogger)\s*\(',
+                    
+                    # Framework logging
+                    r'LoggerFactory\.getLogger\s*\(',
+                    r'@Slf4j',
+                    r'Commons.*Log',
+                    
+                    # Structured logging patterns
                     r'logger\.info\s*\(\s*["\'][^"\']*\{\}[^"\']*["\']',
                     r'logger\.error\s*\(\s*["\'][^"\']*\{\}[^"\']*["\']',
                     r'Markers\.\w+\(',
@@ -112,7 +113,19 @@ class StructuredLogsValidator(BaseGateValidator):
             }
         elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
             return {
-                'structured_logging': [
+                'logging_patterns': [
+                    # Standard logging patterns
+                    r'console\.(log|info|debug|error|warn)\s*\(',
+                    r'logger\.(info|debug|error|warn)\s*\(',
+                    r'log\.(info|debug|error|warn)\s*\(',
+                    
+                    # Framework logging
+                    r'winston\.',
+                    r'bunyan\.',
+                    r'pino\(',
+                    r'log4js\.',
+                    
+                    # Structured logging patterns
                     r'console\.log\s*\(\s*JSON\.stringify\s*\(',
                     r'logger\.info\s*\(\s*\{[^}]*\}',
                     r'winston\.createLogger\s*\(',
@@ -123,7 +136,19 @@ class StructuredLogsValidator(BaseGateValidator):
             }
         elif self.language == Language.CSHARP:
             return {
-                'structured_logging': [
+                'logging_patterns': [
+                    # Standard logging patterns
+                    r'Console\.(WriteLine|Write)\s*\(',
+                    r'Debug\.(WriteLine|Write)\s*\(',
+                    r'_logger\.(LogInformation|LogDebug|LogError|LogWarning|LogCritical)\s*\(',
+                    r'ILogger.*Log\w+\s*\(',
+                    
+                    # Framework logging
+                    r'Log\.(Information|Debug|Error|Warning|Critical)\s*\(',
+                    r'Serilog\.',
+                    r'NLog\.',
+                    
+                    # Structured logging patterns
                     r'_logger\.LogInformation\s*\([^)]*\{[^}]*\}',
                     r'_logger\.LogError\s*\([^)]*\{[^}]*\}',
                     r'ILogger<\w+>',
@@ -133,7 +158,7 @@ class StructuredLogsValidator(BaseGateValidator):
                 ]
             }
         else:
-            return {'structured_logging': []}
+            return {'logging_patterns': []}
     
     def _get_config_patterns(self) -> Dict[str, List[str]]:
         """Get configuration file patterns for structured logging"""
@@ -220,57 +245,33 @@ class StructuredLogsValidator(BaseGateValidator):
         return quality_scores
     
     def _get_zero_implementation_recommendations(self) -> List[str]:
-        """Recommendations when no structured logging found"""
-        
-        if self.language == Language.PYTHON:
-            return [
-                "Implement structured logging using Python's logging module with extra fields",
-                "Consider using structlog for better structured logging support",
-                "Add JSON formatting to your log handlers",
-                "Include context fields like request_id, user_id in log messages"
-            ]
-        elif self.language == Language.JAVA:
-            return [
-                "Implement structured logging using SLF4J with Logback",
-                "Use MDC (Mapped Diagnostic Context) for context fields",
-                "Configure JSON formatting in logback.xml",
-                "Add structured arguments to log statements"
-            ]
-        elif self.language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
-            return [
-                "Implement structured logging using Winston or Pino",
-                "Use JSON format for log output",
-                "Add context objects to log statements",
-                "Configure proper log levels and transports"
-            ]
-        elif self.language == Language.CSHARP:
-            return [
-                "Implement structured logging using ILogger with Serilog",
-                "Use structured logging templates with property placeholders",
-                "Configure JSON formatting in appsettings.json",
-                "Add context using LogContext.PushProperty"
-            ]
-        else:
-            return ["Implement structured logging for your language stack"]
+        """Recommendations when no logging found"""
+        return [
+            "Implement logging throughout your codebase",
+            "Use either standard logging or structured logging with consistent formats",
+            "Configure proper log handlers and formatters",
+            "Include context fields in log messages",
+            "Consider using structured logging for better searchability"
+        ]
     
     def _get_partial_implementation_recommendations(self) -> List[str]:
-        """Recommendations when partial structured logging found"""
-        
+        """Recommendations for partial logging implementation"""
         return [
-            "Extend structured logging to more files and functions",
-            "Ensure consistent context fields across all log statements",
-            "Add proper error context in exception handling",
-            "Implement log correlation across service boundaries"
+            "Extend logging coverage to more components",
+            "Ensure consistent logging patterns across all modules",
+            "Add more context to log messages",
+            "Consider using structured logging where appropriate",
+            "Configure centralized log aggregation"
         ]
     
     def _get_quality_improvement_recommendations(self) -> List[str]:
-        """Recommendations for improving structured logging quality"""
-        
+        """Recommendations for improving logging quality"""
         return [
-            "Standardize log message format and field names",
-            "Add more context fields (user_id, request_id, correlation_id)",
-            "Implement proper log levels (ERROR, WARN, INFO, DEBUG)",
-            "Configure centralized log aggregation and parsing"
+            "Standardize log message formats across the application",
+            "Add more contextual information to log messages",
+            "Consider using structured logging for complex data",
+            "Set up log aggregation and monitoring",
+            "Review and optimize log levels for production"
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:

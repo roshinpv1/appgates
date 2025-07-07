@@ -1,14 +1,39 @@
 hard_gates:
 - id: 1
   name: Logs Searchable/Available
-  description: Logs are available and searchable. Can be structured (JSON) or standard logging with consistent formats.
+  description: Ensures logs are available and searchable. Accepts both structured (JSON) and standard logging formats with consistent patterns.
   validation_method: |
     AST scan for logging patterns:
-    - Validates log format and structure
-    - Checks for JSON/structured formatters
+    - Validates both structured and standard logging
+    - Checks for consistent logging formats
     - Verifies logging configuration
-    - Accepts standard logging with consistent formats
+    - Ensures logs are searchable and available
   patterns:
+    standard_logging:
+      - r'log\.(info|debug|error|warning|critical)\s*\('
+      - r'logger\.(info|debug|error|warning|critical)\s*\('
+      - r'console\.(log|info|debug|error|warn)\s*\('
+      - r'System\.(out|err)\.print(ln)?\s*\('
+      - r'Console\.(WriteLine|Write)\s*\('
+      - r'Debug\.(WriteLine|Write)\s*\('
+    structured_logging:
+      - r'logger\.\w+\s*\([^)]*\{[^}]*\}'
+      - r'logger\.\w+\s*\([^)]*extra\s*='
+      - r'JSON\.stringify\s*\([^)]*\)'
+      - r'structlog\.get_logger\s*\('
+      - r'LogContext\.PushProperty\s*\('
+    framework_logging:
+      - r'app\.logger\.'
+      - r'flask\.current_app\.logger\.'
+      - r'django\.core\.logging\.'
+      - r'winston\.'
+      - r'bunyan\.'
+      - r'pino\('
+      - r'log4js\.'
+      - r'Serilog\.'
+      - r'NLog\.'
+      - r'LoggerFactory\.getLogger\s*\('
+      - r'@Slf4j'
     java:
     # Logger usage with structured format
     - \blogger\.(info|debug|error|warn|trace)\s*\(\s*[\"'][^\"']*\{\}[^\"']*[\"']\s*,
