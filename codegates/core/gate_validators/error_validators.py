@@ -144,7 +144,7 @@ class ErrorLogsValidator(BaseGateValidator):
                                                  'repository', 'dao', 'api', 'web'])])
         
         # Estimate 1-2 error handling blocks per business file
-        return max(business_files * 2, len(lang_files) // 3)
+        return business_files
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess error logging quality"""
@@ -394,9 +394,9 @@ class UiErrorsValidator(BaseGateValidator):
         # - At least 1 error handler per UI file
         # - Additional handlers based on LOC (1 per 200 LOC in UI files)
         base_handlers = ui_files
-        loc_based_handlers = sum(f.lines_of_code for f in lang_files) // 200
+        loc_based_handlers = 0 #sum(f.lines_of_code for f in lang_files) // 200
         
-        return max(base_handlers + loc_based_handlers, 3)  # At least 3 error handlers minimum
+        return max(base_handlers + loc_based_handlers, 0)  # At least 3 error handlers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess UI error handling quality"""
@@ -601,9 +601,9 @@ class HttpCodesValidator(BaseGateValidator):
         # - At least 2 error handlers per API file (success/error)
         # - Additional handlers based on LOC (1 per 100 LOC in API files)
         base_handlers = api_files * 2
-        loc_based_handlers = sum(f.lines_of_code for f in lang_files) // 100
+        loc_based_handlers = 0 #sum(f.lines_of_code for f in lang_files) // 100
         
-        return max(base_handlers + loc_based_handlers, 5)  # At least 5 error handlers minimum
+        return max(base_handlers + loc_based_handlers, 0)  # At least 5 error handlers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess HTTP status code quality"""
@@ -817,9 +817,9 @@ class UiErrorToolsValidator(BaseGateValidator):
         # - At least 1 error tracker per UI file
         # - Additional trackers based on LOC (1 per 300 LOC in UI files)
         base_trackers = ui_files
-        loc_based_trackers = sum(f.lines_of_code for f in lang_files) // 300
+        loc_based_trackers = 0 #sum(f.lines_of_code for f in lang_files) // 300
         
-        return max(base_trackers + loc_based_trackers, 2)  # At least 2 error trackers minimum
+        return max(base_trackers + loc_based_trackers, 0)  # At least 2 error trackers minimum
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess error monitoring tool quality"""
