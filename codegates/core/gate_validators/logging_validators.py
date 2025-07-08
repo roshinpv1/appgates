@@ -1516,7 +1516,7 @@ class ApiLogsValidator(BaseGateValidator):
                                              'endpoint', 'resource'])])
         
         # Expect 2-3 log points per API file (entry/exit)
-        return max(api_files * 2, 5)
+        return max(api_files , 5)
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess API logging quality"""

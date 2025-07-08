@@ -371,6 +371,13 @@ hard_gates:
   validation_method: Scan for @RequestMapping, @GetMapping, etc., and ensure logging statements exist; additionally, check for HTTP clients like RestTemplate, WebClient, axios logs
   patterns:
     java:
+      - \blogger\.(info|debug|error|warn|trace)
+      - <encoder.*class=.*JsonEncoder.*>
+      - <appender.*class=.*ConsoleAppender.*>
+      - <appender.*class=.*FileAppender.*>
+      - logback\.xml
+      - log4j2\.xml
+      - log4j\.properties    
       - '@RequestMapping'
       - '@GetMapping'
       - '@PostMapping'
@@ -428,101 +435,60 @@ hard_gates:
     - Error handling
     - Integration with structured logging
   patterns:
+    standard_logging:
+      - r'log\.(info|debug|error|warning|critical)'
+      - r'logger\.(info|debug|error|warning|critical)'
+      - r'console\.(log|info|debug|error|warn)'
+    structured_logging:
+      - r'logger\.\w+\s*\([^)]*\{[^}]*\}'
+      - r'JSON\.stringify'
+      - r'structlog\.get_logger'
+    framework_logging:
+      - r'app\.logger'
+      - r'flask\.current_app\.logger'
+      - r'django\.core\.logging'
+      - r'winston'
+      - r'bunyan'
+      - r'pino'
+      - r'log4js'
+      - r'Serilog'
+      - r'NLog'
     java:
-      # General logging patterns
-      - 'logger\.(info|debug|error|warn|trace)\s*\('
-      - 'log\.(info|debug|error|warn|trace)\s*\('
-      - 'Logger\.(getLogger|getAnonymousLogger)\s*\('
-      # Framework logging
-      - 'LoggerFactory\.getLogger\s*\('
-      - '@Slf4j'
-      - 'Commons.*Log'
-      # Job execution logging
-      - '@Scheduled.*\n.*logger\.'
-      - 'JobExecutionContext.*\n.*logger\.'
-      - 'TaskScheduler.*\n.*logger\.'
-      # Application context logging
-      - '@Component.*\n.*logger\.'
-      - '@Service.*\n.*logger\.'
-      - '@Controller.*\n.*logger\.'
+      - \blogger\.(info|debug|error|warn|trace)
+      - <encoder.*class=.*JsonEncoder.*>
+      - <appender.*class=.*ConsoleAppender.*>
+      - <appender.*class=.*FileAppender.*>
+      - logback\.xml
+      - log4j2\.xml
+      - log4j\.properties
+    dotnet:
+      - \bLog\.(Information|Debug|Error|Warning|Critical)
+      - Log\.Logger\s*=\s*new\s+LoggerConfiguration\(\)
+      - WriteTo\.Console\(\)
+      - WriteTo\.File\(\)
+      - AddSerilog\(\)
+      - AddConsole\(\)
+      - appsettings\.json.*Logging
     python:
-      # General logging patterns
-      - 'logging\.(info|debug|error|warning|critical)\s*\('
-      - 'logger\.(info|debug|error|warning|critical)\s*\('
-      - 'log\.(info|debug|error|warning|critical)\s*\('
-      # Framework-specific logging
-      - 'app\.logger\.'
-      - 'flask\.current_app\.logger\.'
-      - 'django\.core\.logging\.'
-      # Structured logging
-      - 'structlog\.get_logger\('
-      - 'loguru\.logger\.'
-      # Business logic patterns
-      - 'service.*log'
-      - 'business.*log'
-      - 'process.*log'
-      # Background tasks
-      - '@celery\.task'
-      - '@app\.task'
-      - 'schedule='
-      - 'apscheduler'
+      - 'logging\.(info|debug|error|warning|critical)'
+      - 'logger\.(info|debug|error|warning|critical)'
+      - 'structlog\.'
+      - 'loguru\.'
+      - 'python-json-logger'
     javascript:
-      # Console logging
-      - 'console\.(log|info|debug|error|warn)\s*\('
-      # Framework logging
+      - 'console\.(log|info|debug|error|warn)'
+      - 'logger\.(info|debug|error|warn)'
       - 'winston\.'
       - 'bunyan\.'
-      - 'pino\('
+      - 'pino'
       - 'log4js\.'
-      # Application logging
-      - 'app\.log'
-      - 'logger\.'
-      - 'log\.'
-      # Business logic
-      - 'service.*log'
-      - 'business.*log'
-      # Background tasks
-      - 'cron\.'
-      - 'node-cron'
-      - 'agenda\.'
-      - 'bull\.'
-      - 'kafka\.'
     typescript:
-      # Console logging
-      - 'console\.(log|info|debug|error|warn)\s*\('
-      # Framework logging
+      - 'console\.(log|info|debug|error|warn)'
+      - 'logger\.(info|debug|error|warn)'
       - 'winston\.'
       - 'bunyan\.'
-      - 'pino\('
+      - 'pino'
       - 'log4js\.'
-      # Application logging
-      - 'app\.log'
-      - 'logger\.'
-      - 'log\.'
-      # Business logic
-      - 'service.*log'
-      - 'business.*log'
-      # Background tasks
-      - 'cron\.'
-      - 'node-cron'
-      - 'agenda\.'
-      - 'bull\.'
-      - 'kafka\.'
-    php:
-      # General logging
-      - 'error_log\('
-      - '\$logger->(info|debug|error|warning|critical)\s*\('
-      # Framework logging
-      - 'Monolog\\Logger'
-      - 'Monolog\\Handler'
-      - 'Monolog\\Formatter'
-      # Business logic
-      - 'service.*log'
-      - 'business.*log'
-      # Background tasks (subset)
-      - 'Cron\\CronExpression'
-      - 'Symfony\\Component\\Messenger'
-      - 'enqueue\\client'
 
 - id: 7
   name: Client UI Errors Logged
