@@ -36,7 +36,7 @@ class BaseGateValidator(ABC):
     
     def __init__(self, language: Language, gate_type: Optional[GateType] = None):
         self.language = language
-        self.gate_type = gate_type
+        self._gate_type = gate_type  # Store as protected variable
         
         # Initialize pattern loader if available
         self.pattern_loader = None
@@ -50,7 +50,17 @@ class BaseGateValidator(ABC):
         self.patterns = self._load_patterns()
         self.config_patterns = self._get_config_patterns()
         self.technology_patterns = self._get_technology_patterns()
-
+    
+    @property
+    def gate_type(self) -> Optional[GateType]:
+        """Get the gate type"""
+        return self._gate_type
+    
+    @gate_type.setter
+    def gate_type(self, value: Optional[GateType]):
+        """Set the gate type"""
+        self._gate_type = value
+        
     def _is_test_file(self, file_path: str) -> bool:
         """
         Check if a file is a test file based on common test file indicators.
