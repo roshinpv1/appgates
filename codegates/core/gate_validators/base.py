@@ -770,13 +770,14 @@ class BaseGateValidator(ABC):
             List[str]: List of detail messages
         """
         if not matches:
-            if self.gate_type and 'avoid' in self.gate_type.value.lower():
+            gate_name = self.gate_type.value.lower().replace('_', ' ')
+            if 'avoid' in gate_name:
                 return [
                     "✅ No violations found - this is good!",
                     "All code follows security best practices"
                 ]
             return [
-                f"No {self.gate_type.value.lower().replace('_', ' ')} implementations found",
+                f"No {gate_name} implementations found",
                 "Consider adding appropriate implementations based on project requirements"
             ]
         

@@ -277,61 +277,58 @@ class AutomatedTestsValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate test implementation details"""
+        """Generate test coverage details"""
         
-        if not matches:
-            return [
-                "No automated tests found",
-                "Consider implementing a testing strategy"
-            ]
+        # Filter out non-matching patterns
+        actual_matches = self._filter_actual_matches(matches)
         
-        details = []
+        if not actual_matches:
+            return super()._generate_details([])
         
-        # Basic count information
-        found_count = len(matches)
-        details.append(f"Found {found_count} test implementations")
+        details = [f"Found {len(actual_matches)} test implementations"]
         
-        # Test types distribution
+        # Check for different test types
         test_types = {
-            'Unit Tests': ['test_', '@test', 'it(', 'should'],
-            'Integration Tests': ['integration', 'end-to-end', 'e2e'],
-            'Mock Tests': ['mock', 'stub', 'spy', 'fake']
+            'Unit Tests': ['test_', '@test', 'should_', 'describe', 'it('],
+            'Integration Tests': ['integration', 'end_to_end', 'e2e'],
+            'Functional Tests': ['functional', 'feature', 'scenario'],
+            'Performance Tests': ['performance', 'load', 'stress', 'benchmark']
         }
         
         type_counts = {}
-        for match in matches:
-            match_text = match.get('matched_text', match.get('match', '')).lower()
+        for match in actual_matches:
+            match_text = match.get('matched_text', '').lower()
             for test_type, patterns in test_types.items():
-                if any(pattern in match_text for pattern in patterns):
+                if any(pattern.lower() in match_text for pattern in patterns):
                     type_counts[test_type] = type_counts.get(test_type, 0) + 1
         
         if type_counts:
-            details.append("\nTest type distribution:")
-            for test_type, count in sorted(type_counts.items()):
-                details.append(f"  - {test_type}: {count} tests")
+            details.append("\nTest types found:")
+            for test_type, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  - {test_type}: {count}")
         
-        # Framework usage
+        # Check for test frameworks
         frameworks = {
             'pytest': ['pytest', '@pytest'],
-            'unittest': ['unittest', 'testcase'],
-            'jest': ['jest', 'describe'],
-            'mocha': ['mocha', 'describe it'],
-            'junit': ['junit', '@test'],
-            'nunit': ['nunit', '[test]'],
-            'xunit': ['xunit', '[fact]']
+            'unittest': ['unittest', 'TestCase'],
+            'jest': ['jest', 'describe', 'it('],
+            'mocha': ['mocha', 'describe', 'it('],
+            'xunit': ['xunit', '[Fact]', '[Theory]'],
+            'nunit': ['nunit', '[Test]', 'TestFixture'],
+            'mstest': ['mstest', '[TestMethod]', 'TestClass']
         }
         
-        used_frameworks = set()
-        for match in matches:
-            match_text = match.get('matched_text', match.get('match', '')).lower()
+        framework_counts = {}
+        for match in actual_matches:
+            match_text = match.get('matched_text', '').lower()
             for framework, patterns in frameworks.items():
-                if any(pattern in match_text for pattern in patterns):
-                    used_frameworks.add(framework)
+                if any(pattern.lower() in match_text for pattern in patterns):
+                    framework_counts[framework] = framework_counts.get(framework, 0) + 1
         
-        if used_frameworks:
-            details.append("\nTest frameworks detected:")
-            for framework in sorted(used_frameworks):
-                details.append(f"  - {framework}")
+        if framework_counts:
+            details.append("\nTest frameworks found:")
+            for framework, count in sorted(framework_counts.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  - {framework}: {count}")
         
         return details
     

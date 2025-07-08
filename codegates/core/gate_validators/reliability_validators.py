@@ -246,10 +246,7 @@ class RetryLogicValidator(BaseGateValidator):
         """Generate retry implementation details"""
         
         if not matches:
-            return [
-                "No retry logic implementations found",
-                "Consider implementing retry mechanisms for external service calls"
-            ]
+            return super()._generate_details(matches)
         
         details = []
         
@@ -525,7 +522,7 @@ class TimeoutsValidator(BaseGateValidator):
                 actual_matches.append(match)
         
         if not actual_matches:
-            return ["No timeout implementations found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(actual_matches)} timeout implementations"]
         

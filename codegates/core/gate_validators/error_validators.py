@@ -225,7 +225,7 @@ class ErrorLogsValidator(BaseGateValidator):
                 actual_matches.append(match)
         
         if not actual_matches:
-            return ["No error logging implementations found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(actual_matches)} error logging implementations"]
         
@@ -464,7 +464,7 @@ class UiErrorsValidator(BaseGateValidator):
         """Generate UI error handling details"""
         
         if not matches:
-            return ["No UI error handling patterns found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(matches)} UI error handling implementations"]
         
@@ -661,7 +661,7 @@ class HttpCodesValidator(BaseGateValidator):
         """Generate HTTP status code details"""
         
         if not matches:
-            return ["No HTTP status code patterns found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(matches)} HTTP status code implementations"]
         
@@ -873,12 +873,11 @@ class UiErrorToolsValidator(BaseGateValidator):
             "Set up error monitoring analytics and reporting"
         ]
     
-    def _generate_details(self, matches: List[Dict[str, Any]], 
-                         detected_technologies: Dict[str, List[str]]) -> List[str]:
+    def _generate_details(self, matches: List[Dict[str, Any]], detected_technologies: Dict[str, List[str]]) -> List[str]:
         """Generate error monitoring tool details"""
         
         if not matches:
-            return ["No error monitoring tools found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(matches)} error monitoring tool implementations"]
         

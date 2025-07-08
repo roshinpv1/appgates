@@ -290,7 +290,7 @@ class StructuredLogsValidator(BaseGateValidator):
         actual_matches = self._filter_actual_matches(matches)
         
         if not actual_matches:
-            return ["No structured logging implementations found"]
+            return super()._generate_details([])
         
         details = []
         
@@ -728,7 +728,7 @@ class SecretLogsValidator(BaseGateValidator):
                 actual_violations.append(match)
         
         if not actual_violations:
-            return ["✅ No actual confidential data logging violations found"]
+            return super()._generate_details([])
         
         details = [f"🚨 Found {len(actual_violations)} actual confidential data logging violations:"]
         
@@ -1036,7 +1036,7 @@ class AuditTrailValidator(BaseGateValidator):
         actual_matches = self._filter_actual_matches(matches)
         
         if not actual_matches:
-            return ["No audit trail logging implementations found"]
+            return super()._generate_details([])
         
         details = []
         
@@ -1343,7 +1343,7 @@ class CorrelationIdValidator(BaseGateValidator):
                 actual_matches.append(match)
         
         if not actual_matches:
-            return ["No correlation ID implementations found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(actual_matches)} correlation ID implementations"]
         
@@ -1592,7 +1592,7 @@ class ApiLogsValidator(BaseGateValidator):
                 actual_matches.append(match)
         
         if not actual_matches:
-            return ["No API logging implementations found"]
+            return super()._generate_details([])
         
         details = [f"Found {len(actual_matches)} API logging implementations"]
         
