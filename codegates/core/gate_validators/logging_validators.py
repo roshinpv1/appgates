@@ -920,10 +920,7 @@ class AuditTrailValidator(BaseGateValidator):
         """Calculate expected audit logging instances"""
         
         # Look for files that likely contain business operations
-        business_files = len([f for f in lang_files 
-                            if any(keyword in f.file_path.lower() 
-                                  for keyword in ['service', 'controller', 'handler', 'manager', 
-                                                 'repository', 'dao', 'model', 'entity'])])
+        business_files = len([f for f in lang_files ])
         
         # Estimate 2-3 audit points per business file
         return max(business_files * 2, 5)
@@ -1681,22 +1678,39 @@ class ApplicationLogsValidator(BaseGateValidator):
         }
     
     def _calculate_expected_count(self, lang_files: List[FileAnalysis]) -> int:
-        """Calculate expected application logging instances"""
+        """Calculate expected logging instances across all files
         
-        # Look for service, controller, and business logic files
-        business_files = len([f for f in lang_files 
-                            if any(keyword in f.file_path.lower() 
-                                  for keyword in ['service', 'controller', 'handler', 'manager', 
-                                                 'repository', 'dao', 'model', 'entity', 'business',
-                                                 'processor', 'worker', 'job', 'task'])])
+        Args:
+            lang_files: List of FileAnalysis objects containing file information
+            
+        Returns:
+            int: Expected number of logging instances based on:
+                - Total number of non-test files
+                - Lines of code in non-test files
+        """
+        if not lang_files:
+            return 0
+            
+        # Filter out test files
+        non_test_files = [f for f in lang_files if not self._is_test_file(f.file_path)]
         
-        # Base expectation: most business logic files should have logging
-        base_expectation = max(business_files, len(lang_files) // 3)
+        if not non_test_files:
+            return 0
+            
+        # Base expectation from total files (1 log per 2 files)
+        base_expectation = max(len(non_test_files) // 2, 3)  # At least 3 logs minimum
         
-        # Add expectation based on LOC (1 log per 50 LOC for application logs)
-        loc_expectation = sum(f.lines_of_code for f in lang_files) // 50
+        # LOC-based expectation (1 log per 40 lines of code)
+        total_loc = sum(f.lines_of_code for f in non_test_files)
+        loc_expectation = total_loc // 40
         
-        return max(base_expectation + loc_expectation, 5)
+        # Calculate final expectation
+        final_expectation = max(
+            base_expectation + loc_expectation,
+            5  # Minimum of 5 logs for any non-empty codebase
+        )
+        
+        return final_expectation
     
     def _assess_implementation_quality(self, matches: List[Dict[str, Any]]) -> Dict[str, float]:
         """Assess application logging quality"""

@@ -1341,9 +1341,9 @@ def analyze_repository(repo_path: str, threshold: int, repository_url: Optional[
                 # Handle different status types including NOT_APPLICABLE
                 if gate_score.status == "NOT_APPLICABLE":
                     status = "NOT_APPLICABLE"
-                elif gate_score.final_score >= 80:
+                elif gate_score.final_score >= 50:
                     status = "PASS"
-                elif gate_score.final_score >= 60:
+                elif gate_score.final_score >= 40:
                     status = "WARNING"
                 else:
                     status = "FAIL"

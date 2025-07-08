@@ -409,8 +409,8 @@ class BaseGateValidator(ABC):
         if not patterns:
             return matches
             
-        # Compile patterns for performance
-        compiled_patterns = [re.compile(pattern) for pattern in patterns]
+        # Compile patterns for performance - using re.IGNORECASE flag for case-insensitive matching
+        compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
         
         # Get all matching files
         files = []
