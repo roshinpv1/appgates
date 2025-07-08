@@ -277,68 +277,64 @@ class AutomatedTestsValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate test coverage details"""
+        """Generate test implementation details"""
         
-        # Filter out non-matching patterns
-        actual_matches = self._filter_actual_matches(matches)
-        
-        if not actual_matches:
+        if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(actual_matches)} test implementations"]
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} test implementations")
         
-        # Check for different test types
-        test_types = {
-            'Unit Tests': ['test_', '@test', 'should_', 'describe', 'it('],
-            'Integration Tests': ['integration', 'end_to_end', 'e2e'],
-            'Functional Tests': ['functional', 'feature', 'scenario'],
-            'Performance Tests': ['performance', 'load', 'stress', 'benchmark']
-        }
+        # Group by file
+        files_with_tests = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Tests present in {files_with_tests} files")
         
-        type_counts = {}
-        for match in actual_matches:
-            match_text = match.get('matched_text', '').lower()
-            for test_type, patterns in test_types.items():
-                if any(pattern.lower() in match_text for pattern in patterns):
-                    type_counts[test_type] = type_counts.get(test_type, 0) + 1
+        # Check for different types of tests
+        types = set()  # Use set for unique types
+        if any('unit' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Unit tests')
+        if any('integration' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Integration tests')
+        if any('e2e' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('End-to-end tests')
         
-        if type_counts:
-            details.append("\nTest types found:")
-            for test_type, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  - {test_type}: {count}")
+        if types:
+            self._details_set.add(f"Test types: {', '.join(sorted(types))}")
         
-        # Check for test frameworks
-        frameworks = {
-            'pytest': ['pytest', '@pytest'],
-            'unittest': ['unittest', 'TestCase'],
-            'jest': ['jest', 'describe', 'it('],
-            'mocha': ['mocha', 'describe', 'it('],
-            'xunit': ['xunit', '[Fact]', '[Theory]'],
-            'nunit': ['nunit', '[Test]', 'TestFixture'],
-            'mstest': ['mstest', '[TestMethod]', 'TestClass']
-        }
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for tests
+            category_keywords = {
+                'Test Frameworks': ['@test', 'describe', 'it(', 'test_', 'fact'],
+                'Assertions': ['assert', 'expect', 'should', 'verify'],
+                'Mocking': ['mock', 'stub', 'spy', 'fake'],
+                'Setup/Teardown': ['before', 'after', 'setup', 'teardown'],
+                'Test Utilities': ['fixture', 'helper', 'factory', 'builder']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
         
-        framework_counts = {}
-        for match in actual_matches:
-            match_text = match.get('matched_text', '').lower()
-            for framework, patterns in frameworks.items():
-                if any(pattern.lower() in match_text for pattern in patterns):
-                    framework_counts[framework] = framework_counts.get(framework, 0) + 1
-        
-        if framework_counts:
-            details.append("\nTest frameworks found:")
-            for framework, count in sorted(framework_counts.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  - {framework}: {count}")
-        
-        return details
-    
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on test findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations() 
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set) 

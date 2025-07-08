@@ -227,27 +227,28 @@ class ErrorLogsValidator(BaseGateValidator):
         if not actual_matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(actual_matches)} error logging implementations"]
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(actual_matches)} error logging implementations")
         
         # Group by file
         files_with_errors = len(set(match.get('file_path', match.get('file', 'unknown')) for match in actual_matches))
-        details.append(f"Error logging present in {files_with_errors} files")
+        self._details_set.add(f"Error logging present in {files_with_errors} files")
         
         # Check for different types of error handling
-        types = []
+        types = set()  # Use set for unique types
         if any('exception' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            types.append('Exception handling')
+            types.add('Exception handling')
         if any('catch' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            types.append('Try-catch blocks')
+            types.add('Try-catch blocks')
         if any('throw' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            types.append('Error throwing')
+            types.add('Error throwing')
         
         if types:
-            details.append(f"Error handling types: {', '.join(types)}")
+            self._details_set.add(f"Error handling types: {', '.join(sorted(types))}")
         
         # Add detailed match information using the standardized method
         if actual_matches:
-            details.append("")  # Add spacing
+            self._details_set.add("")  # Add spacing
             
             # Define categories for error logging
             category_keywords = {
@@ -265,9 +266,9 @@ class ErrorLogsValidator(BaseGateValidator):
                 show_categories=True,
                 category_keywords=category_keywords
             )
-            details.extend(detailed_matches)
+            self._details_set.update(detailed_matches)
         
-        return details
+        return list(self._details_set)
     
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
@@ -466,16 +467,16 @@ class UiErrorsValidator(BaseGateValidator):
         if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(matches)} UI error handling implementations"]
+        self._details_set.add(f"Found {len(matches)} UI error handling implementations")
         
         # Add technology detection details
         if detected_technologies:
-            details.append("\n🎨 Detected Technologies:")
+            self._details_set.add("\n🎨 Detected Technologies:")
             for category, techs in detected_technologies.items():
                 if techs:
-                    details.append(f"  {category.title()}: {', '.join(techs)}")
+                    self._details_set.add(f"  {category.title()}: {', '.join(techs)}")
         
-        return details
+        return list(self._details_set)
     
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
@@ -663,29 +664,28 @@ class HttpCodesValidator(BaseGateValidator):
         if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(matches)} HTTP status code implementations"]
+        self._details_set.add(f"Found {len(matches)} HTTP status code implementations")
         
         # Analyze status code distribution
-        status_codes = []
+        status_codes = set()  # Use set for unique codes
         for match in matches:
             # Extract status codes from matches
             import re
             matched_text = match.get('matched_text', match.get('match', ''))
             codes = re.findall(r'\b[2-5]\d{2}\b', matched_text)
-            status_codes.extend(codes)
+            status_codes.update(codes)
         
         if status_codes:
-            unique_codes = set(status_codes)
-            details.append(f"Status codes used: {', '.join(sorted(unique_codes))}")
+            self._details_set.add(f"Status codes used: {', '.join(sorted(status_codes))}")
         
         # Add technology detection details
         if detected_technologies:
-            details.append("\n🌐 Detected Technologies:")
+            self._details_set.add("\n🌐 Detected Technologies:")
             for category, techs in detected_technologies.items():
                 if techs:
-                    details.append(f"  {category.title()}: {', '.join(techs)}")
+                    self._details_set.add(f"  {category.title()}: {', '.join(techs)}")
         
-        return details
+        return list(self._details_set)
     
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
@@ -879,33 +879,32 @@ class UiErrorToolsValidator(BaseGateValidator):
         if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(matches)} error monitoring tool implementations"]
+        self._details_set.add(f"Found {len(matches)} error monitoring tool implementations")
         
         # Identify specific tools
-        tools_found = []
+        tools_found = set()  # Use set for unique tools
         for match in matches:
             match_text = match.get('matched_text', match.get('match', '')).lower()
             if 'sentry' in match_text:
-                tools_found.append('Sentry')
+                tools_found.add('Sentry')
             elif 'rollbar' in match_text:
-                tools_found.append('Rollbar')
+                tools_found.add('Rollbar')
             elif 'bugsnag' in match_text:
-                tools_found.append('Bugsnag')
+                tools_found.add('Bugsnag')
             elif 'airbrake' in match_text:
-                tools_found.append('Airbrake')
+                tools_found.add('Airbrake')
         
         if tools_found:
-            unique_tools = list(set(tools_found))
-            details.append(f"Tools detected: {', '.join(unique_tools)}")
+            self._details_set.add(f"Tools detected: {', '.join(sorted(tools_found))}")
         
         # Add technology detection details
         if detected_technologies:
-            details.append("\n📊 Detected Technologies:")
+            self._details_set.add("\n📊 Detected Technologies:")
             for category, techs in detected_technologies.items():
                 if techs:
-                    details.append(f"  {category.title()}: {', '.join(techs)}")
+                    self._details_set.add(f"  {category.title()}: {', '.join(techs)}")
         
-        return details
+        return list(self._details_set)
     
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:

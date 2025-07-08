@@ -68,11 +68,17 @@ class SharedReportGenerator:
         
         # Transform gate scores
         for gate_score in result.gate_scores:
+            # Deduplicate details using a set
+            details_set = set()
+            if gate_score.details:
+                for detail in gate_score.details:
+                    details_set.add(detail)
+            
             gate_data = {
                 "name": gate_score.gate.value,
                 "status": gate_score.status,
                 "score": round(gate_score.final_score, 2),
-                "details": gate_score.details,
+                "details": list(details_set),  # Convert back to list after deduplication
                 "expected": gate_score.expected,
                 "found": gate_score.found,
                 "coverage": round(gate_score.coverage, 2),
@@ -1044,7 +1050,6 @@ class ReportGenerator:
         # Metrics section
         metrics = [
             ('Score', f"{gate.get('score', 0):.1f}%"),
-            ('Quality Score', f"{gate.get('quality_score', 0):.1f}%"),
             ('Coverage', f"{gate.get('coverage', 0):.1f}%"),
             ('Expected/Found', f"{gate.get('expected', 0)} / {gate.get('found', 0)}")
         ]
@@ -1059,13 +1064,14 @@ class ReportGenerator:
         metrics_html += '</div>'
         details.append(metrics_html)
         
-        # Details section
+        # Details section - deduplicate details
         if gate.get('details'):
+            details_set = set(gate['details'])  # Convert to set to remove duplicates
             details_html = """
                 <div class="details-section">
                     <div class="details-section-title">Implementation Details</div>
                     <div class="details-content">"""
-            for detail in gate['details']:
+            for detail in details_set:  # Iterate over deduplicated details
                 details_html += f"<p>{detail}</p>"
             details_html += "</div></div>"
             details.append(details_html)

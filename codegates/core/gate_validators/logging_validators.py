@@ -284,111 +284,68 @@ class StructuredLogsValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate details about structured logging implementation"""
+        """Generate structured logging details"""
         
-        # Filter out non-matching patterns
-        actual_matches = self._filter_actual_matches(matches)
-        
-        if not actual_matches:
+        if not matches:
             return super()._generate_details([])
         
-        details = []
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} logging implementations")
         
-        # 1. Scoring Summary Section
-        details.append("\n📊 Scoring Methodology:")
-        details.append("1. Expected Count Calculation:")
-        details.append("   • Base: 1 log per 2 non-test files (minimum 3)")
-        details.append("   • LOC-based: 1 log per 40 lines of code")
-        details.append("   • Minimum threshold: 5 logs")
+        # Group by file
+        files_with_logs = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Logging present in {files_with_logs} files")
         
-        details.append("\n2. Quality Score Components (100% total):")
-        details.append("   • Log Level Usage (25%)")
-        details.append("     - Proper use of info/debug/error/warn levels")
-        details.append("   • Context Information (25%)")
-        details.append("     - Including correlation IDs, user context")
-        details.append("   • Pattern Diversity (25%)")
-        details.append("     - Using various logging patterns")
-        details.append("   • File Coverage (25%)")
-        details.append("     - Distribution across codebase")
+        # Check for different types of logging
+        types = set()  # Use set for unique types
+        if any('structured' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Structured logging')
+        if any('json' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('JSON logging')
+        if any('logger' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Standard logging')
         
-        # 2. Implementation Statistics
-        details.append("\n📈 Current Implementation:")
-        details.append(f"• Found {len(actual_matches)} logging implementations")
+        if types:
+            self._details_set.add(f"Logging types: {', '.join(sorted(types))}")
         
-        # File coverage
-        files_with_logging = len(set(match.get('file_path', match.get('file', 'unknown')) 
-                                   for match in actual_matches))
-        details.append(f"• Present in {files_with_logging} files")
-        
-        # Log level analysis
-        log_levels = {}
-        for match in actual_matches:
-            matched_text = match.get('matched_text', '').lower()
-            for level in ['info', 'debug', 'error', 'warn', 'warning', 'critical']:
-                if level in matched_text:
-                    log_levels[level] = log_levels.get(level, 0) + 1
-        
-        if log_levels:
-            details.append("\n📋 Log Level Distribution:")
-            for level, count in sorted(log_levels.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  • {level.upper()}: {count} occurrences")
-        
-        # Context analysis
-        context_patterns = ['correlation', 'request_id', 'user_id', 'trace_id', 'session']
-        context_found = {}
-        for match in actual_matches:
-            matched_text = match.get('matched_text', '').lower()
-            for ctx in context_patterns:
-                if ctx in matched_text:
-                    context_found[ctx] = context_found.get(ctx, 0) + 1
-        
-        if context_found:
-            details.append("\n🔍 Context Information Found:")
-            for ctx, count in sorted(context_found.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  • {ctx}: {count} occurrences")
-        
-        # Add detailed match information
-        if actual_matches:
-            details.append("\n🔎 Implementation Details:")
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for logging
             category_keywords = {
-                'Structured Logging': ['json', 'structured', 'format'],
-                'Error Logging': ['error', 'exception', 'catch'],
-                'Info Logging': ['info', 'debug', 'trace'],
-                'Context Logging': ['correlation', 'context', 'request_id']
+                'Structured Logging': ['structured', 'json', 'extra', 'context'],
+                'Standard Logging': ['logger', 'logging', 'log.', 'console'],
+                'Framework Logging': ['winston', 'bunyan', 'pino', 'serilog', 'nlog'],
+                'Debug Logging': ['debug', 'trace', 'verbose'],
+                'Error Logging': ['error', 'exception', 'critical'],
+                'Info Logging': ['info', 'information', 'notice']
             }
             
             detailed_matches = self._generate_detailed_match_info(
-                actual_matches,
+                matches, 
                 max_items=15,
                 show_categories=True,
                 category_keywords=category_keywords
             )
-            details.extend(detailed_matches)
+            self._details_set.update(detailed_matches)
         
-        return details
-    
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
-        """Generate recommendations based on structured logging findings"""
+        """Generate recommendations based on logging findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
-    
-    def generate_llm_recommendations(self, matches: List[Dict[str, Any]], expected: int, 
-                                   detected_technologies: Dict[str, List[str]], 
-                                   llm_manager=None) -> List[str]:
-        """Generate LLM-powered recommendations for structured logging"""
-        return self._generate_llm_recommendations(
-            gate_name="structured_logs",
-            matches=matches,
-            expected=expected,
-            detected_technologies=detected_technologies,
-            llm_manager=llm_manager
-        )
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class SecretLogsValidator(BaseGateValidator):
@@ -712,127 +669,70 @@ class SecretLogsValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate details about secret logging violations"""
-        
-        # Filter out non-matching patterns - only show actual violations
-        actual_violations = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
-            
-            # Only include actual violations (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_violations.append(match)
-        
-        if not actual_violations:
-            return super()._generate_details([])
-        
-        details = [f"🚨 Found {len(actual_violations)} actual confidential data logging violations:"]
-        
-        # Categorize violations
-        violation_categories = {
-            'Authentication & Tokens': ['token', 'auth', 'bearer', 'session', 'csrf', 'jwt'],
-            'Credentials & Passwords': ['password', 'secret', 'key', 'credential', 'user', 'login'],
-            'Financial Information': ['card', 'account', 'bank', 'credit', 'cvv', 'pin', 'ssn', 'iban'],
-            'Personal Information': ['name', 'email', 'phone', 'address', 'birth', 'dob'],
-            'API Keys & Service Credentials': ['api_key', 'apikey', 'aws_', 'azure_', 'gcp_'],
-            'Database & Connection Info': ['db_', 'database', 'connection', 'jdbc', 'mongo'],
-        }
-        
-        category_counts = {}
-        categorized_matches = {}
-        
-        for match in actual_violations:
-            match_text = match.get('matched_text', match.get('match', '')).lower()
-            categorized = False
-            
-            for category, keywords in violation_categories.items():
-                if any(keyword in match_text for keyword in keywords):
-                    if category not in categorized_matches:
-                        categorized_matches[category] = []
-                        category_counts[category] = 0
-                    categorized_matches[category].append(match)
-                    category_counts[category] += 1
-                    categorized = True
-                    break
-            
-            if not categorized:
-                if 'Other' not in categorized_matches:
-                    categorized_matches['Other'] = []
-                    category_counts['Other'] = 0
-                categorized_matches['Other'].append(match)
-                category_counts['Other'] += 1
-        
-        # Show breakdown by category
-        details.append("\n📊 Violations by Category:")
-        for category, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True):
-            severity = "🔴 CRITICAL" if count >= 5 else "🟡 HIGH" if count >= 2 else "🟠 MEDIUM"
-            details.append(f"  {severity} {category}: {count} violations")
-        
-        # Show actual violations found with file details
-        details.append("\n🔍 Actual Violations Found:")
-        violation_count = 0
-        
-        # Show violations by category priority
-        priority_categories = ['Authentication & Tokens', 'Credentials & Passwords', 'API Keys & Service Credentials',
-                             'Financial Information', 'Personal Information', 'Database & Connection Info', 'Other']
-        
-        for category in priority_categories:
-            if category in categorized_matches:
-                if len(categorized_matches[category]) > 0:
-                    details.append(f"\n  📋 {category}:")
-                
-                for match in categorized_matches[category]:
-                    violation_count += 1
-                    file_path = match.get('file_path', match.get('file', 'unknown'))
-                    file_name = Path(file_path).name if file_path != 'unknown' else 'unknown'
-                    line_num = match.get('line_number', match.get('line', '?'))
-                    matched_text = match.get('matched_text', match.get('match', ''))
-                    pattern = match.get('pattern', '')
-                    
-                    # Show more context - up to 100 characters
-                    display_text = matched_text[:100] + ('...' if len(matched_text) > 100 else '')
-                    
-                    details.append(f"    {violation_count:2d}. {file_name}:{line_num}")
-                    details.append(f"        Code: {display_text}")
-                    if pattern:
-                        details.append(f"        Pattern: {pattern}")
-                    
-                    # Add additional metadata if available
-                    if match.get('severity'):
-                        details.append(f"        Severity: {match.get('severity')}")
-                    if match.get('function_context'):
-                        details.append(f"        Function: {match.get('function_context')}")
-                    
-                    # If there are too many violations (>20), start limiting per category
-                    if violation_count >= 20:
-                        remaining_in_category = len(categorized_matches[category]) - categorized_matches[category].index(match) - 1
-                        if remaining_in_category > 0:
-                            details.append(f"       ... and {remaining_in_category} more {category.lower()} violations")
-                        break
-                
-                # If we've shown 20 violations total, summarize the rest
-                if violation_count >= 20:
-                    remaining_total = len(actual_violations) - violation_count
-                    if remaining_total > 0:
-                        details.append(f"\n  📊 Summary: {remaining_total} additional violations not shown above")
-                    break
-        
-        details.append(f"\n⚠️  Total: {len(actual_violations)} violations pose serious security risks and should be addressed immediately!")
-        
-        return details
-    
-    def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
-                                             expected: int) -> List[str]:
-        """Generate recommendations based on violations found"""
+        """Generate secret logging details"""
         
         if not matches:
-            return self._get_zero_implementation_recommendations()
+            return super()._generate_details([])
+        
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} potential secret logging instances")
+        
+        # Group by file
+        files_with_secrets = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Potential secrets found in {files_with_secrets} files")
+        
+        # Check for different types of secrets
+        types = set()  # Use set for unique types
+        if any('password' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Passwords')
+        if any('token' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Tokens')
+        if any('key' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Keys')
+        if any('secret' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Secrets')
+        
+        if types:
+            self._details_set.add(f"Secret types detected: {', '.join(sorted(types))}")
+        
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for secrets
+            category_keywords = {
+                'Passwords': ['password', 'passwd', 'pwd'],
+                'Tokens': ['token', 'jwt', 'bearer'],
+                'Keys': ['key', 'apikey', 'secret_key'],
+                'Credentials': ['credential', 'auth', 'login'],
+                'Certificates': ['cert', 'certificate', 'pem'],
+                'Other Secrets': ['secret', 'private', 'sensitive']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
+        
+        return list(self._details_set)
+
+    def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
+                                             expected: int) -> List[str]:
+        """Generate recommendations based on secret findings"""
+        
+        if len(matches) == 0:
+            recommendations = self._get_zero_implementation_recommendations()
+        elif len(matches) < expected:
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class AuditTrailValidator(BaseGateValidator):
@@ -1030,104 +930,69 @@ class AuditTrailValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate audit trail details with scoring methodology"""
+        """Generate audit trail details"""
         
-        # Filter out non-matching patterns
-        actual_matches = self._filter_actual_matches(matches)
-        
-        if not actual_matches:
+        if not matches:
             return super()._generate_details([])
         
-        details = []
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} audit trail implementations")
         
-        # 1. Scoring Summary Section
-        details.append("\n📊 Scoring Methodology:")
-        details.append("1. Expected Count Calculation:")
-        details.append("   • Base: 1 log per 2 non-test files (minimum 3)")
-        details.append("   • LOC-based: 1 log per 40 lines of code")
-        details.append("   • Minimum threshold: 5 logs")
+        # Group by file
+        files_with_audit = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Audit logging present in {files_with_audit} files")
         
-        details.append("\n2. Quality Score Components (100% total):")
-        details.append("   • Log Level Usage (25%)")
-        details.append("     - Proper use of info/debug/error/warn levels")
-        details.append("   • Context Information (25%)")
-        details.append("     - Including user actions, timestamps")
-        details.append("   • Pattern Diversity (25%)")
-        details.append("     - Using various audit patterns")
-        details.append("   • File Coverage (25%)")
-        details.append("     - Distribution across codebase")
+        # Check for different types of audit events
+        types = set()  # Use set for unique types
+        if any('create' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Create events')
+        if any('update' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Update events')
+        if any('delete' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Delete events')
+        if any('access' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Access events')
         
-        # 2. Implementation Statistics
-        details.append("\n📈 Current Implementation:")
-        details.append(f"• Found {len(actual_matches)} audit logging implementations")
+        if types:
+            self._details_set.add(f"Audit event types: {', '.join(sorted(types))}")
         
-        # File coverage
-        files_with_audit = len(set(match.get('file_path', match.get('file', 'unknown')) 
-                                 for match in actual_matches))
-        details.append(f"• Present in {files_with_audit} files")
-        
-        # Audit event analysis
-        event_types = {
-            'create': 0, 'update': 0, 'delete': 0,
-            'login': 0, 'logout': 0, 'access': 0
-        }
-        
-        for match in actual_matches:
-            matched_text = match.get('matched_text', '').lower()
-            for event in event_types.keys():
-                if event in matched_text:
-                    event_types[event] += 1
-        
-        active_events = {k: v for k, v in event_types.items() if v > 0}
-        if active_events:
-            details.append("\n📋 Audit Event Types Found:")
-            for event, count in sorted(active_events.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  • {event.upper()}: {count} occurrences")
-        
-        # Context analysis
-        context_patterns = ['user', 'admin', 'actor', 'timestamp', 'ip_address']
-        context_found = {}
-        for match in actual_matches:
-            matched_text = match.get('matched_text', '').lower()
-            for ctx in context_patterns:
-                if ctx in matched_text:
-                    context_found[ctx] = context_found.get(ctx, 0) + 1
-        
-        if context_found:
-            details.append("\n🔍 Audit Context Information:")
-            for ctx, count in sorted(context_found.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  • {ctx}: {count} occurrences")
-        
-        # Add detailed match information
-        if actual_matches:
-            details.append("\n🔎 Implementation Details:")
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for audit events
             category_keywords = {
-                'User Actions': ['create', 'update', 'delete'],
-                'Authentication': ['login', 'logout', 'auth'],
-                'Access Control': ['access', 'permission', 'role'],
-                'Data Changes': ['modify', 'change', 'alter']
+                'Data Changes': ['create', 'update', 'delete', 'modify'],
+                'Access Events': ['access', 'view', 'read', 'download'],
+                'Security Events': ['login', 'logout', 'auth', 'permission'],
+                'System Events': ['startup', 'shutdown', 'config', 'deploy'],
+                'User Actions': ['user', 'account', 'profile', 'settings']
             }
             
             detailed_matches = self._generate_detailed_match_info(
-                actual_matches,
+                matches, 
                 max_items=15,
                 show_categories=True,
                 category_keywords=category_keywords
             )
-            details.extend(detailed_matches)
+            self._details_set.update(detailed_matches)
         
-        return details
-    
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on audit findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class CorrelationIdValidator(BaseGateValidator):
@@ -1329,48 +1194,65 @@ class CorrelationIdValidator(BaseGateValidator):
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate correlation ID details"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
-            
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
-        
-        if not actual_matches:
+        if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(actual_matches)} correlation ID implementations"]
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} correlation ID implementations")
         
-        # Check for different types
-        types = []
-        if any('correlation' in match.get('matched_text', '').lower() for match in actual_matches):
-            types.append('correlation_id')
-        if any('request' in match.get('matched_text', '').lower() for match in actual_matches):
-            types.append('request_id')
-        if any('trace' in match.get('matched_text', '').lower() for match in actual_matches):
-            types.append('trace_id')
+        # Group by file
+        files_with_correlation = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Correlation ID handling present in {files_with_correlation} files")
+        
+        # Check for different types of correlation handling
+        types = set()  # Use set for unique types
+        if any('header' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('HTTP header propagation')
+        if any('context' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Context propagation')
+        if any('generate' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('ID generation')
         
         if types:
-            details.append(f"Types found: {', '.join(types)}")
+            self._details_set.add(f"Correlation handling types: {', '.join(sorted(types))}")
         
-        return details
-    
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for correlation ID handling
+            category_keywords = {
+                'ID Generation': ['generate', 'create', 'new', 'uuid'],
+                'HTTP Headers': ['header', 'x-correlation-id', 'x-request-id'],
+                'Context Handling': ['context', 'scope', 'async'],
+                'Logging Integration': ['logger', 'log', 'trace'],
+                'Error Handling': ['error', 'exception', 'catch']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
+        
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on correlation ID findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class ApiLogsValidator(BaseGateValidator):
@@ -1578,45 +1460,65 @@ class ApiLogsValidator(BaseGateValidator):
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate API logging details"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
-            
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
-        
-        if not actual_matches:
+        if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(actual_matches)} API logging implementations"]
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} API logging implementations")
         
-        # Check for different types
-        request_count = len([m for m in actual_matches if 'request' in m.get('matched_text', '').lower()])
-        response_count = len([m for m in actual_matches if 'response' in m.get('matched_text', '').lower()])
+        # Group by file
+        files_with_api_logs = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"API logging present in {files_with_api_logs} files")
         
-        if request_count > 0:
-            details.append(f"Request logging: {request_count} instances")
-        if response_count > 0:
-            details.append(f"Response logging: {response_count} instances")
+        # Check for different types of API logging
+        types = set()  # Use set for unique types
+        if any('request' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Request logging')
+        if any('response' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Response logging')
+        if any('error' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Error logging')
         
-        return details
-    
+        if types:
+            self._details_set.add(f"API logging types: {', '.join(sorted(types))}")
+        
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for API logging
+            category_keywords = {
+                'Request Logging': ['request', 'payload', 'body', 'headers'],
+                'Response Logging': ['response', 'result', 'status'],
+                'Error Logging': ['error', 'exception', 'fail'],
+                'Performance Logging': ['timing', 'duration', 'latency'],
+                'Security Logging': ['auth', 'token', 'permission']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
+        
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on API logging findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class ApplicationLogsValidator(StructuredLogsValidator):

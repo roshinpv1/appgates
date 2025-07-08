@@ -37,6 +37,8 @@ class BaseGateValidator(ABC):
     def __init__(self, language: Language, gate_type: Optional[GateType] = None):
         self.language = language
         self._gate_type = gate_type  # Store as protected variable
+        self._details_set = set()  # Store unique details
+        self._recommendations_set = set()  # Store unique recommendations
         
         # Initialize pattern loader if available
         self.pattern_loader = None
@@ -760,32 +762,19 @@ class BaseGateValidator(ABC):
         return round(final_score, 2)
 
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """
-        Generate non-duplicate, informative details about the matches.
+        """Generate non-duplicate details about the matches"""
+        # Clear the details set before generating new details
+        self._details_set.clear()
         
-        Args:
-            matches: List of pattern matches
-            
-        Returns:
-            List[str]: List of detail messages
-        """
         if not matches:
             gate_name = self.gate_type.value.lower().replace('_', ' ')
-            if 'avoid' in gate_name:
-                return [
-                    "✅ No violations found - this is good!",
-                    "All code follows security best practices"
-                ]
-            return [
-                f"No {gate_name} implementations found",
-                "Consider adding appropriate implementations based on project requirements"
-            ]
-        
-        details = []
+            self._details_set.add(f"No {gate_name} implementations found")
+            self._details_set.add("Consider adding appropriate implementations based on project requirements")
+            return list(self._details_set)
         
         # Basic count information
         found_count = len(matches)
-        details.append(f"Found {found_count} {self.gate_type.value.lower().replace('_', ' ')} pattern matches")
+        self._details_set.add(f"Found {found_count} {self.gate_type.value.lower().replace('_', ' ')} pattern matches")
         
         # Implementation types
         impl_types = set()
@@ -795,7 +784,7 @@ class BaseGateValidator(ABC):
                 impl_types.add(pattern_type)
         
         if impl_types:
-            details.append(f"Implementation types: {', '.join(sorted(impl_types))}")
+            self._details_set.add(f"Implementation types: {', '.join(sorted(impl_types))}")
         
         # Severity distribution
         severity_counts = {}
@@ -804,9 +793,9 @@ class BaseGateValidator(ABC):
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
         
         if severity_counts:
-            details.append("Severity distribution:")
+            self._details_set.add("Severity distribution:")
             for severity, count in sorted(severity_counts.items()):
-                details.append(f"  - {severity}: {count} occurrences")
+                self._details_set.add(f"  - {severity}: {count} occurrences")
         
         # File distribution
         file_counts = {}
@@ -817,9 +806,9 @@ class BaseGateValidator(ABC):
                 file_counts[file_name] = file_counts.get(file_name, 0) + 1
         
         if len(file_counts) > 1:
-            details.append(f"Implementations found in {len(file_counts)} files")
+            self._details_set.add(f"Implementations found in {len(file_counts)} files")
         
-        return details
+        return list(self._details_set)
 
     def _generate_llm_recommendations(self, gate_name: str, matches: List[Dict[str, Any]], 
                                     expected: int, detected_technologies: Dict[str, List[str]],
@@ -1016,6 +1005,23 @@ Provide your response as a JSON object with this structure:
             return self._get_partial_implementation_recommendations()
         else:
             return self._get_quality_improvement_recommendations() 
+
+    def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
+                                             expected: int) -> List[str]:
+        """Generate recommendations based on findings"""
+        # Clear the recommendations set before generating new recommendations
+        self._recommendations_set.clear()
+        
+        if len(matches) == 0:
+            recommendations = self._get_zero_implementation_recommendations()
+        elif len(matches) < expected:
+            recommendations = self._get_partial_implementation_recommendations()
+        else:
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
     def _generate_detailed_match_info(self, matches: List[Dict[str, Any]], 
                                     max_items: int = 20,

@@ -246,65 +246,64 @@ class RetryLogicValidator(BaseGateValidator):
         """Generate retry implementation details"""
         
         if not matches:
-            return super()._generate_details(matches)
+            return super()._generate_details([])
         
-        details = []
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} retry logic implementations")
         
-        # Basic count information
-        found_count = len(matches)
-        details.append(f"Found {found_count} retry logic implementations")
+        # Group by file
+        files_with_retry = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Retry logic present in {files_with_retry} files")
         
-        # Implementation types
-        impl_types = {
-            'Decorator-based': ['@retry', '@retryable'],
-            'Manual retry': ['for', 'while', 'attempt'],
-            'Library-based': ['tenacity', 'polly', 'resilience4j', 'retry-axios']
-        }
+        # Check for different types of retry mechanisms
+        types = set()  # Use set for unique types
+        if any('decorator' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Decorator-based retry')
+        if any('backoff' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Backoff strategy')
+        if any('policy' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Policy-based retry')
         
-        type_counts = {}
-        for match in matches:
-            match_text = match.get('matched_text', match.get('match', '')).lower()
-            for impl_type, patterns in impl_types.items():
-                if any(pattern in match_text for pattern in patterns):
-                    type_counts[impl_type] = type_counts.get(impl_type, 0) + 1
+        if types:
+            self._details_set.add(f"Retry mechanism types: {', '.join(sorted(types))}")
         
-        if type_counts:
-            details.append("\nImplementation types:")
-            for impl_type, count in sorted(type_counts.items()):
-                details.append(f"  - {impl_type}: {count}")
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for retry mechanisms
+            category_keywords = {
+                'Retry Decorators': ['@retry', '@retryable', 'retry_template'],
+                'Backoff Strategies': ['backoff', 'exponential', 'linear', 'delay'],
+                'Retry Configuration': ['max_retries', 'retry_count', 'retry_limit'],
+                'Error Handling': ['catch', 'exception', 'error', 'failure'],
+                'Framework Integration': ['resilience4j', 'polly', 'tenacity', 'spring']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
         
-        # Backoff strategies
-        backoff_types = {
-            'Exponential': ['exponential', 'exp_backoff'],
-            'Linear': ['linear', 'fixed_delay'],
-            'Random': ['random', 'jitter'],
-            'Custom': ['custom_backoff', 'strategy']
-        }
-        
-        backoff_counts = {}
-        for match in matches:
-            match_text = match.get('matched_text', match.get('match', '')).lower()
-            for backoff_type, patterns in backoff_types.items():
-                if any(pattern in match_text for pattern in patterns):
-                    backoff_counts[backoff_type] = backoff_counts.get(backoff_type, 0) + 1
-        
-        if backoff_counts:
-            details.append("\nBackoff strategies:")
-            for backoff_type, count in sorted(backoff_counts.items()):
-                details.append(f"  - {backoff_type}: {count}")
-        
-        return details
+        return list(self._details_set)
     
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on retry findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class TimeoutsValidator(BaseGateValidator):
@@ -508,48 +507,65 @@ class TimeoutsValidator(BaseGateValidator):
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate timeout details"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
-            
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
-        
-        if not actual_matches:
+        if not matches:
             return super()._generate_details([])
         
-        details = [f"Found {len(actual_matches)} timeout implementations"]
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} timeout implementations")
         
-        # Check for different timeout types
-        timeout_types = []
-        if any('connect' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            timeout_types.append('Connection')
-        if any('read' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            timeout_types.append('Read')
-        if any('request' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            timeout_types.append('Request')
+        # Group by file
+        files_with_timeouts = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Timeout handling present in {files_with_timeouts} files")
         
-        if timeout_types:
-            details.append(f"Timeout types found: {', '.join(timeout_types)}")
+        # Check for different types of timeouts
+        types = set()  # Use set for unique types
+        if any('connect' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Connection timeouts')
+        if any('read' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Read timeouts')
+        if any('operation' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Operation timeouts')
         
-        return details
-    
+        if types:
+            self._details_set.add(f"Timeout types: {', '.join(sorted(types))}")
+        
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
+            
+            # Define categories for timeouts
+            category_keywords = {
+                'Connection Timeouts': ['connect', 'socket', 'network'],
+                'Read Timeouts': ['read', 'response', 'receive'],
+                'Operation Timeouts': ['operation', 'execution', 'task'],
+                'Configuration': ['timeout_ms', 'duration', 'interval'],
+                'Error Handling': ['catch', 'exception', 'error']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
+        
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on timeout findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class ThrottlingValidator(BaseGateValidator):
@@ -753,48 +769,65 @@ class ThrottlingValidator(BaseGateValidator):
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate throttling details"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
+        if not matches:
+            return super()._generate_details([])
+        
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} throttling implementations")
+        
+        # Group by file
+        files_with_throttling = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Throttling present in {files_with_throttling} files")
+        
+        # Check for different types of throttling
+        types = set()  # Use set for unique types
+        if any('rate' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Rate limiting')
+        if any('concurrency' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Concurrency limiting')
+        if any('bucket' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Token bucket')
+        
+        if types:
+            self._details_set.add(f"Throttling types: {', '.join(sorted(types))}")
+        
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
             
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
+            # Define categories for throttling
+            category_keywords = {
+                'Rate Limiting': ['rate', 'limit', 'requests_per'],
+                'Concurrency Control': ['concurrency', 'semaphore', 'parallel'],
+                'Token Bucket': ['bucket', 'token', 'leaky'],
+                'Window Limiting': ['window', 'sliding', 'fixed'],
+                'Error Handling': ['reject', 'throttle', 'backpressure']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
         
-        if not actual_matches:
-            return ["No throttling implementations found"]
-        
-        details = [f"Found {len(actual_matches)} throttling implementations"]
-        
-        # Check for different throttling approaches
-        throttling_types = []
-        if any('@' in match.get('matched_text', match.get('match', '')) for match in actual_matches):
-            throttling_types.append('Decorator-based')
-        if any('middleware' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            throttling_types.append('Middleware-based')
-        if any('library' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            throttling_types.append('Library-based')
-        
-        if throttling_types:
-            details.append(f"Throttling types found: {', '.join(throttling_types)}")
-        
-        return details
-    
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on throttling findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations()
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set)
 
 
 class CircuitBreakerValidator(BaseGateValidator):
@@ -998,47 +1031,62 @@ class CircuitBreakerValidator(BaseGateValidator):
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate circuit breaker details"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
+        if not matches:
+            return super()._generate_details([])
+        
+        # Add to details set for uniqueness
+        self._details_set.add(f"Found {len(matches)} circuit breaker implementations")
+        
+        # Group by file
+        files_with_breakers = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
+        self._details_set.add(f"Circuit breakers present in {files_with_breakers} files")
+        
+        # Check for different types of circuit breakers
+        types = set()  # Use set for unique types
+        if any('state' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('State-based')
+        if any('threshold' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Threshold-based')
+        if any('fallback' in match.get('matched_text', match.get('match', '')).lower() for match in matches):
+            types.add('Fallback-enabled')
+        
+        if types:
+            self._details_set.add(f"Circuit breaker types: {', '.join(sorted(types))}")
+        
+        # Add detailed match information using the standardized method
+        if matches:
+            self._details_set.add("")  # Add spacing
             
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
+            # Define categories for circuit breakers
+            category_keywords = {
+                'State Management': ['state', 'open', 'closed', 'half-open'],
+                'Failure Detection': ['threshold', 'failure_rate', 'error_count'],
+                'Recovery': ['reset', 'recover', 'heal'],
+                'Fallback': ['fallback', 'alternative', 'backup'],
+                'Configuration': ['window', 'timeout', 'threshold']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                matches, 
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            self._details_set.update(detailed_matches)
         
-        if not actual_matches:
-            return ["No circuit breaker implementations found"]
-        
-        details = [f"Found {len(actual_matches)} circuit breaker implementations"]
-        
-        # Check for different circuit breaker libraries
-        libraries = []
-        if any('resilience4j' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            libraries.append('Resilience4j')
-        if any('hystrix' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            libraries.append('Hystrix')
-        if any('polly' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            libraries.append('Polly')
-        if any('opossum' in match.get('matched_text', match.get('match', '')).lower() for match in actual_matches):
-            libraries.append('Opossum')
-        
-        if libraries:
-            details.append(f"Circuit breaker libraries found: {', '.join(libraries)}")
-        
-        return details
-    
+        return list(self._details_set)
+
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on circuit breaker findings"""
         
         if len(matches) == 0:
-            return self._get_zero_implementation_recommendations()
+            recommendations = self._get_zero_implementation_recommendations()
         elif len(matches) < expected:
-            return self._get_partial_implementation_recommendations()
+            recommendations = self._get_partial_implementation_recommendations()
         else:
-            return self._get_quality_improvement_recommendations() 
+            recommendations = self._get_quality_improvement_recommendations()
+            
+        # Add recommendations to set for uniqueness
+        self._recommendations_set.update(recommendations)
+        return list(self._recommendations_set) 
