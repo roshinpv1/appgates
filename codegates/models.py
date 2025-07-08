@@ -45,20 +45,12 @@ class GateScore(BaseModel):
     expected: int = Field(ge=0, description="Expected number of implementations")
     found: int = Field(ge=0, description="Actual number found")
     coverage: float = Field(default=0.0, ge=0, le=100, description="Coverage percentage")
-    quality_score: float = Field(default=0.0, ge=0, le=100, description="Quality score")
+    quality_score: float = Field(default=0.0, ge=0, le=100, description="Quality score (deprecated)")
     final_score: float = Field(default=0.0, ge=0, le=100, description="Final weighted score")
     status: str = Field(default="UNKNOWN", description="Pass/Fail/Warning status")
     details: List[str] = Field(default_factory=list, description="Implementation details")
     recommendations: List[str] = Field(default_factory=list, description="Improvement recommendations")
-    matches: List[Dict[str, Any]] = Field(default_factory=list, description="Enhanced metadata for pattern matches")
-    
-    @field_validator('quality_score', mode='before')
-    @classmethod
-    def validate_quality_score(cls, v):
-        """Ensure quality_score is never None"""
-        if v is None:
-            return 0.0
-        return max(0.0, min(float(v), 100.0))
+    matches: List[Dict[str, Any]] = Field(default_factory=list, description="Pattern matches")
     
     @field_validator('coverage', mode='before')
     @classmethod
@@ -84,9 +76,7 @@ class GateScore(BaseModel):
             
         data = info.data if hasattr(info, 'data') else {}
         coverage = data.get('coverage', 0)
-        quality = data.get('quality_score', 0)
-        final_score = (coverage * 0.7) + (quality * 0.3)
-        return min(max(final_score, 0.0), 100.0)  # Clamp between 0 and 100
+        return min(max(coverage, 0.0), 100.0)  # Final score is just weighted coverage
     
     @field_validator('recommendations', mode='before')
     @classmethod

@@ -245,7 +245,6 @@ class GateValidator:
         total_found = 0
         all_details = []
         all_recommendations = []
-        quality_scores = []
         all_matches = []
         
         for validator in validators:
@@ -255,9 +254,8 @@ class GateValidator:
                 total_found += result.found
                 all_details.extend(result.details)
                 all_recommendations.extend(result.recommendations)
-                quality_scores.append(result.quality_score)
                 
-                # Collect matches for LLM analysis and detailed reporting
+                # Collect matches for detailed reporting
                 if hasattr(result, 'matches') and result.matches:
                     all_matches.extend(result.matches)
                 
@@ -279,79 +277,8 @@ class GateValidator:
                     # Set conservative values that won't result in false PASS
                     if total_expected == 0:
                         total_expected = 1  # Prevent division by zero
-                    # Don't increment total_found to avoid false failure due to error
-        
-        # Add detailed match information to details
-        if all_matches:
-            # Filter out non-matching patterns - only show actual matches
-            actual_matches = []
-            for match in all_matches:
-                file_path = match.get('file_path', match.get('file', ''))
-                matched_text = match.get('matched_text', match.get('match', ''))
-                line_number = match.get('line_number', match.get('line', 0))
-                
-                # Only include actual matches (not pattern attempts)
-                if (file_path and file_path != 'N/A - No matches found' and 
-                    file_path != 'unknown' and matched_text.strip() and 
-                    line_number > 0):
-                    actual_matches.append(match)
-            
-            if actual_matches:
-                all_details.append(f"Found {len(actual_matches)} actual pattern matches:")
-                
-                # Group matches by file for better organization
-                matches_by_file = {}
-                for match in actual_matches[:15]:  # Limit to first 15 actual matches
-                    file_path = match.get('file_path', match.get('file', 'unknown'))
-                    if file_path not in matches_by_file:
-                        matches_by_file[file_path] = []
-                    matches_by_file[file_path].append(match)
-                
-                # Add organized match details
-                for file_path, file_matches in matches_by_file.items():
-                    # Make file path relative to target for readability
-                    try:
-                        relative_path = Path(file_path).relative_to(target_path)
-                    except ValueError:
-                        relative_path = Path(file_path).name
-                    
-                    all_details.append(f"📁 {relative_path}:")
-                    for match in file_matches[:5]:  # Limit to 5 matches per file
-                        line_num = match.get('line_number', match.get('line', '?'))
-                        match_text = match.get('matched_text', match.get('match', '')).strip()
-                        pattern = match.get('pattern', '')
-                        
-                        # Truncate long matches for readability
-                        if len(match_text) > 80:
-                            match_text = match_text[:77] + "..."
-                        
-                        all_details.append(f"   Line {line_num}: {match_text}")
-                        if pattern:
-                            all_details.append(f"   Pattern: {pattern}")
-                        
-                        # Add additional metadata if available
-                        if match.get('severity'):
-                            all_details.append(f"   Severity: {match['severity']}")
-                        if match.get('function_context'):
-                            all_details.append(f"   Function: {match['function_context']}")
-                    
-                    if len(file_matches) > 5:
-                        all_details.append(f"   ... and {len(file_matches) - 5} more matches in this file")
-                
-                if len(actual_matches) > 15:
-                    all_details.append(f"... and {len(actual_matches) - 15} more matches in other files")
-            else:
-                all_details.append("No actual pattern matches found (only pattern attempts)")
-        
-        # Update all_matches to only include actual matches for further processing
-        all_matches = actual_matches if 'actual_matches' in locals() else []
-        
-        # Calculate final scores
-        coverage = (total_found / total_expected * 100) if total_expected > 0 else 0.0
 
-        # Special handling for "negative" gates where lower found count is better
-        # For gates where expected = 0 (like avoid_logging_secrets), 
-        # found = 0 means perfect implementation (100% coverage)
+        # Calculate coverage based on expected vs found
         if total_expected == 0:
             if total_found == 0:
                 coverage = 100.0  # Perfect: no violations found
@@ -361,58 +288,15 @@ class GateValidator:
                     coverage = 0.0  # Any secrets violation = complete failure
                 else:
                     coverage = max(0.0, 100.0 - (total_found * 10))  # Penalty for violations
+        else:
+            coverage = min((total_found / total_expected) * 100, 100.0)
 
-        avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
-        
-        # Ensure avg_quality is never None and is within valid range
-        if avg_quality is None:
-            avg_quality = 0.0
-        avg_quality = max(0.0, min(float(avg_quality), 100.0))
-        
+        # Calculate final score using simplified scoring
         final_score = self.gate_scorer.calculate_gate_score(
-            coverage, avg_quality, gate_type
+            coverage, 0.0, gate_type  # Quality score is no longer used
         )
         
-        # Apply LLM enhancement if available
-        if llm_manager and llm_manager.is_enabled():
-            print(f"🤖 LLM analyzing gate: {gate_type.value}, matches: {len(all_matches)}")
-            try:
-                enhancement = llm_manager.enhance_gate_validation(
-                    gate_type.value,
-                    all_matches,
-                    self.config.languages[0] if self.config.languages else Language.PYTHON,
-                    self._detect_technologies_for_gate(target_path, file_analyses),
-                    all_recommendations
-                )
-                
-                if enhancement:
-                    # Apply LLM enhancements
-                    if 'enhanced_quality_score' in enhancement and enhancement['enhanced_quality_score'] is not None:
-                        enhanced_score = float(enhancement['enhanced_quality_score'])
-                        avg_quality = max(0.0, min(enhanced_score, 100.0))
-                    
-                    if 'llm_recommendations' in enhancement and enhancement['llm_recommendations']:
-                        all_recommendations = enhancement['llm_recommendations']
-                    
-                    if 'code_examples' in enhancement and enhancement['code_examples']:
-                        all_details.extend([f"💡 {example[:200]}..." for example in enhancement['code_examples'][:2]])
-                    
-                    if 'security_insights' in enhancement and enhancement['security_insights']:
-                        all_details.extend([f"🔒 {insight}" for insight in enhancement['security_insights'][:2]])
-                    
-                    print(f"✅ LLM enhancement applied to {gate_type.value}")
-                else:
-                    print(f"⚠️ LLM returned empty enhancement for {gate_type.value}")
-                    
-            except Exception as e:
-                print(f"⚠️ LLM enhancement failed for {gate_type.value}: {str(e)[:100]}...")
-                # Continue with pattern-based analysis
-        elif llm_manager:
-            print(f"⚠️ LLM not available, using pattern-based analysis for {gate_type.value}")
-        else:
-            print(f"📊 Using pattern-based analysis for {gate_type.value}")
-        
-        # Determine status
+        # Determine status based on coverage
         status = self._determine_gate_status(final_score, gate_type, total_found)
         
         return GateScore(
@@ -420,12 +304,12 @@ class GateValidator:
             expected=total_expected,
             found=total_found,
             coverage=coverage,
-            quality_score=avg_quality,
+            quality_score=0.0,  # Quality score is no longer used
             final_score=final_score,
             status=status,
             details=all_details,
-            recommendations=all_recommendations,  # Don't use set() to avoid unhashable type error
-            matches=all_matches  # Include enhanced metadata
+            recommendations=all_recommendations,
+            matches=all_matches
         )
     
     def _determine_gate_status(self, score: float, gate_type: GateType = None, found: int = 0) -> str:
