@@ -37,27 +37,36 @@ class StructuredLogsValidator(BaseGateValidator):
             all_patterns
         )
         
+        # Log pattern match results
+        self._log_pattern_match(matches)
+        
         # Filter out test files
         matches = self._filter_non_test_files(matches)
+        
+        # Filter out invalid matches
+        actual_matches = self._filter_actual_matches(matches)
+        
+        # Log filtered results
+        self._log_pattern_match(actual_matches, "After filtering")
         
         # Estimate expected count based on non-test files
         non_test_files = [f for f in file_analyses if not self._is_test_file(f.file_path)]
         expected = self._estimate_expected_count(non_test_files)
         
-        # Calculate quality score
-        quality_score = self._calculate_quality_score(matches, expected)
+        # Calculate quality score based on actual matches
+        quality_score = self._calculate_quality_score(actual_matches, expected)
         
-        # Generate details and recommendations
-        details = self._generate_details(matches)
-        recommendations = self._generate_recommendations_from_matches(matches, expected)
+        # Generate details and recommendations based on actual matches
+        details = self._generate_details(actual_matches)
+        recommendations = self._generate_recommendations_from_matches(actual_matches, expected)
         
         return GateValidationResult(
             expected=expected,
-            found=len(matches),
+            found=len(actual_matches),
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            matches=matches
+            matches=actual_matches  # Store actual matches
         )
     
     def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
@@ -277,63 +286,79 @@ class StructuredLogsValidator(BaseGateValidator):
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
         """Generate details about structured logging implementation"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
-            
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
+        # Filter out non-matching patterns
+        actual_matches = self._filter_actual_matches(matches)
         
         if not actual_matches:
             return ["No structured logging implementations found"]
         
-        details = [f"Found {len(actual_matches)} structured logging implementations"]
+        details = []
         
-        # Get unique files with structured logging
-        try:
-            files_with_logging = len(set(match.get('file_path', match.get('file', 'unknown')) for match in actual_matches))
-        except Exception:
-            files_with_logging = 0
+        # 1. Scoring Summary Section
+        details.append("\n📊 Scoring Methodology:")
+        details.append("1. Expected Count Calculation:")
+        details.append("   • Base: 1 log per 2 non-test files (minimum 3)")
+        details.append("   • LOC-based: 1 log per 40 lines of code")
+        details.append("   • Minimum threshold: 5 logs")
         
-        details.append(f"Structured logging present in {files_with_logging} files")
+        details.append("\n2. Quality Score Components (100% total):")
+        details.append("   • Log Level Usage (25%)")
+        details.append("     - Proper use of info/debug/error/warn levels")
+        details.append("   • Context Information (25%)")
+        details.append("     - Including correlation IDs, user context")
+        details.append("   • Pattern Diversity (25%)")
+        details.append("     - Using various logging patterns")
+        details.append("   • File Coverage (25%)")
+        details.append("     - Distribution across codebase")
         
-        # Detect technologies used
-        detected_technologies = {}
+        # 2. Implementation Statistics
+        details.append("\n📈 Current Implementation:")
+        details.append(f"• Found {len(actual_matches)} logging implementations")
+        
+        # File coverage
+        files_with_logging = len(set(match.get('file_path', match.get('file', 'unknown')) 
+                                   for match in actual_matches))
+        details.append(f"• Present in {files_with_logging} files")
+        
+        # Log level analysis
+        log_levels = {}
         for match in actual_matches:
             matched_text = match.get('matched_text', '').lower()
-            if 'structlog' in matched_text:
-                detected_technologies['structlog'] = detected_technologies.get('structlog', 0) + 1
-            elif 'loguru' in matched_text:
-                detected_technologies['loguru'] = detected_technologies.get('loguru', 0) + 1
-            elif 'json' in matched_text:
-                detected_technologies['json_logging'] = detected_technologies.get('json_logging', 0) + 1
+            for level in ['info', 'debug', 'error', 'warn', 'warning', 'critical']:
+                if level in matched_text:
+                    log_levels[level] = log_levels.get(level, 0) + 1
         
-        if detected_technologies:
-            details.append("Detected logging technologies:")
-            for tech, count in detected_technologies.items():
-                details.append(f"  - {tech}: {count} occurrences")
+        if log_levels:
+            details.append("\n📋 Log Level Distribution:")
+            for level, count in sorted(log_levels.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  • {level.upper()}: {count} occurrences")
         
-        # Add detailed match information using the standardized method
+        # Context analysis
+        context_patterns = ['correlation', 'request_id', 'user_id', 'trace_id', 'session']
+        context_found = {}
+        for match in actual_matches:
+            matched_text = match.get('matched_text', '').lower()
+            for ctx in context_patterns:
+                if ctx in matched_text:
+                    context_found[ctx] = context_found.get(ctx, 0) + 1
+        
+        if context_found:
+            details.append("\n🔍 Context Information Found:")
+            for ctx, count in sorted(context_found.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  • {ctx}: {count} occurrences")
+        
+        # Add detailed match information
         if actual_matches:
-            details.append("")  # Add spacing
-            
-            # Define categories for structured logging
+            details.append("\n🔎 Implementation Details:")
             category_keywords = {
-                'JSON Logging': ['json', 'stringify', 'jsonformatter', 'jsonlayout'],
-                'Structured Fields': ['{', 'key=', 'extra=', 'structured'],
-                'Correlation/Context': ['correlation', 'request_id', 'trace_id', 'session', 'user_id'],
-                'Log Levels': ['info', 'error', 'debug', 'warn', 'warning'],
-                'Frameworks': ['structlog', 'loguru', 'winston', 'bunyan', 'pino', 'slf4j', 'logback']
+                'Structured Logging': ['json', 'structured', 'format'],
+                'Error Logging': ['error', 'exception', 'catch'],
+                'Info Logging': ['info', 'debug', 'trace'],
+                'Context Logging': ['correlation', 'context', 'request_id']
             }
             
             detailed_matches = self._generate_detailed_match_info(
-                actual_matches, 
+                actual_matches,
                 max_items=15,
                 show_categories=True,
                 category_keywords=category_keywords
@@ -394,14 +419,27 @@ class SecretLogsValidator(BaseGateValidator):
             all_patterns = self.patterns.get('secret_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, all_patterns)
-        found = len(matches)
+        
+        # Log initial pattern matches
+        self._log_pattern_match(matches)
+        
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Filter out invalid matches
+        actual_matches = self._filter_actual_matches(matches)
+        
+        # Log filtered results
+        self._log_pattern_match(actual_matches, "After filtering")
+        
+        found = len(actual_matches)
         
         # For secrets, quality score is inverted (fewer findings = better)
         quality_score = max(0, 100 - (found * 10))  # Penalize each secret found
         
-        # Generate details and recommendations
-        details = self._generate_details(matches)
-        recommendations = self._generate_recommendations_from_matches(matches, expected)
+        # Generate details and recommendations based on actual matches
+        details = self._generate_details(actual_matches)
+        recommendations = self._generate_recommendations_from_matches(actual_matches, expected)
         
         return GateValidationResult(
             expected=expected,
@@ -409,7 +447,7 @@ class SecretLogsValidator(BaseGateValidator):
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            matches=matches
+            matches=actual_matches  # Store actual matches
         )
     
     def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
@@ -816,14 +854,27 @@ class AuditTrailValidator(BaseGateValidator):
         patterns = self.patterns.get('audit_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
         
-        # Calculate quality score
-        quality_score = self._calculate_quality_score(matches, expected)
+        # Log initial pattern matches
+        self._log_pattern_match(matches)
         
-        # Generate details and recommendations
-        details = self._generate_details(matches)
-        recommendations = self._generate_recommendations_from_matches(matches, expected)
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Filter out invalid matches
+        actual_matches = self._filter_actual_matches(matches)
+        
+        # Log filtered results
+        self._log_pattern_match(actual_matches, "After filtering")
+        
+        found = len(actual_matches)
+        
+        # Calculate quality score based on actual matches
+        quality_score = self._calculate_quality_score(actual_matches, expected)
+        
+        # Generate details and recommendations based on actual matches
+        details = self._generate_details(actual_matches)
+        recommendations = self._generate_recommendations_from_matches(actual_matches, expected)
         
         return GateValidationResult(
             expected=expected,
@@ -831,7 +882,7 @@ class AuditTrailValidator(BaseGateValidator):
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            matches=matches
+            matches=actual_matches  # Store actual matches
         )
     
     def enhance_with_llm(self, result: GateValidationResult, llm_manager=None) -> GateValidationResult:
@@ -979,33 +1030,91 @@ class AuditTrailValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate audit trail details"""
+        """Generate audit trail details with scoring methodology"""
         
-        # Filter out non-matching patterns - only show actual matches
-        actual_matches = []
-        for match in matches:
-            file_path = match.get('file_path', match.get('file', ''))
-            matched_text = match.get('matched_text', match.get('match', ''))
-            line_number = match.get('line_number', match.get('line', 0))
-            
-            # Only include actual matches (not pattern attempts)
-            if (file_path and file_path != 'N/A - No matches found' and 
-                file_path != 'unknown' and matched_text.strip() and 
-                line_number > 0):
-                actual_matches.append(match)
+        # Filter out non-matching patterns
+        actual_matches = self._filter_actual_matches(matches)
         
         if not actual_matches:
             return ["No audit trail logging implementations found"]
         
-        details = [f"Found {len(actual_matches)} audit trail logging implementations"]
+        details = []
         
-        # Get unique files with audit logging
-        try:
-            files_with_audit = len(set(match.get('file_path', match.get('file', 'unknown')) for match in actual_matches))
-        except Exception:
-            files_with_audit = 0
+        # 1. Scoring Summary Section
+        details.append("\n📊 Scoring Methodology:")
+        details.append("1. Expected Count Calculation:")
+        details.append("   • Base: 1 log per 2 non-test files (minimum 3)")
+        details.append("   • LOC-based: 1 log per 40 lines of code")
+        details.append("   • Minimum threshold: 5 logs")
         
-        details.append(f"Audit logging present in {files_with_audit} files")
+        details.append("\n2. Quality Score Components (100% total):")
+        details.append("   • Log Level Usage (25%)")
+        details.append("     - Proper use of info/debug/error/warn levels")
+        details.append("   • Context Information (25%)")
+        details.append("     - Including user actions, timestamps")
+        details.append("   • Pattern Diversity (25%)")
+        details.append("     - Using various audit patterns")
+        details.append("   • File Coverage (25%)")
+        details.append("     - Distribution across codebase")
+        
+        # 2. Implementation Statistics
+        details.append("\n📈 Current Implementation:")
+        details.append(f"• Found {len(actual_matches)} audit logging implementations")
+        
+        # File coverage
+        files_with_audit = len(set(match.get('file_path', match.get('file', 'unknown')) 
+                                 for match in actual_matches))
+        details.append(f"• Present in {files_with_audit} files")
+        
+        # Audit event analysis
+        event_types = {
+            'create': 0, 'update': 0, 'delete': 0,
+            'login': 0, 'logout': 0, 'access': 0
+        }
+        
+        for match in actual_matches:
+            matched_text = match.get('matched_text', '').lower()
+            for event in event_types.keys():
+                if event in matched_text:
+                    event_types[event] += 1
+        
+        active_events = {k: v for k, v in event_types.items() if v > 0}
+        if active_events:
+            details.append("\n📋 Audit Event Types Found:")
+            for event, count in sorted(active_events.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  • {event.upper()}: {count} occurrences")
+        
+        # Context analysis
+        context_patterns = ['user', 'admin', 'actor', 'timestamp', 'ip_address']
+        context_found = {}
+        for match in actual_matches:
+            matched_text = match.get('matched_text', '').lower()
+            for ctx in context_patterns:
+                if ctx in matched_text:
+                    context_found[ctx] = context_found.get(ctx, 0) + 1
+        
+        if context_found:
+            details.append("\n🔍 Audit Context Information:")
+            for ctx, count in sorted(context_found.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  • {ctx}: {count} occurrences")
+        
+        # Add detailed match information
+        if actual_matches:
+            details.append("\n🔎 Implementation Details:")
+            category_keywords = {
+                'User Actions': ['create', 'update', 'delete'],
+                'Authentication': ['login', 'logout', 'auth'],
+                'Access Control': ['access', 'permission', 'role'],
+                'Data Changes': ['modify', 'change', 'alter']
+            }
+            
+            detailed_matches = self._generate_detailed_match_info(
+                actual_matches,
+                max_items=15,
+                show_categories=True,
+                category_keywords=category_keywords
+            )
+            details.extend(detailed_matches)
         
         return details
     
@@ -1040,7 +1149,20 @@ class CorrelationIdValidator(BaseGateValidator):
         patterns = self.patterns.get('correlation_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        
+        # Log initial pattern matches
+        self._log_pattern_match(matches)
+        
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Filter out invalid matches
+        actual_matches = self._filter_actual_matches(matches)
+        
+        # Log filtered results
+        self._log_pattern_match(actual_matches, "After filtering")
+        
+        found = len(actual_matches)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
@@ -1270,7 +1392,20 @@ class ApiLogsValidator(BaseGateValidator):
         patterns = self.patterns.get('api_log_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
-        found = len(matches)
+        
+        # Log initial pattern matches
+        self._log_pattern_match(matches)
+        
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Filter out invalid matches
+        actual_matches = self._filter_actual_matches(matches)
+        
+        # Log filtered results
+        self._log_pattern_match(actual_matches, "After filtering")
+        
+        found = len(actual_matches)
         
         # Calculate quality score
         quality_score = self._calculate_quality_score(matches, expected)
@@ -1512,8 +1647,18 @@ class ApplicationLogsValidator(BaseGateValidator):
         
         matches = self._search_files_for_patterns(target_path, extensions, all_patterns)
         
-        # Filter out pattern attempts and count only actual matches
+        # Log initial pattern matches
+        self._log_pattern_match(matches)
+        
+        # Filter out test files
+        matches = self._filter_non_test_files(matches)
+        
+        # Filter out invalid matches
         actual_matches = self._filter_actual_matches(matches)
+        
+        # Log filtered results
+        self._log_pattern_match(actual_matches, "After filtering")
+        
         found = len(actual_matches)
         
         # Calculate quality score based on actual matches
@@ -1529,7 +1674,7 @@ class ApplicationLogsValidator(BaseGateValidator):
             quality_score=quality_score,
             details=details,
             recommendations=recommendations,
-            matches=matches  # Keep all matches for debugging, but count/process only actual ones
+            matches=actual_matches  # Store actual matches
         )
     
     def _get_hardcoded_patterns(self) -> Dict[str, List[str]]:
@@ -1783,72 +1928,82 @@ class ApplicationLogsValidator(BaseGateValidator):
         ]
     
     def _generate_details(self, matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate application logging details"""
+        """Generate application logging details with scoring methodology"""
         
-        # matches parameter now contains only actual matches (filtered by validate method)
-        if not matches:
+        # Filter out non-matching patterns
+        actual_matches = self._filter_actual_matches(matches)
+        
+        if not actual_matches:
             return ["No application logging implementations found"]
         
-        details = [f"Found {len(matches)} application logging implementations"]
+        details = []
         
-        # Get unique files with logging
-        try:
-            files_with_logging = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
-        except Exception:
-            files_with_logging = 0
+        # 1. Scoring Summary Section
+        details.append("\n📊 Scoring Methodology:")
+        details.append("1. Expected Count Calculation:")
+        details.append("   • Base: 1 log per 2 non-test files (minimum 3)")
+        details.append("   • LOC-based: 1 log per 40 lines of code")
+        details.append("   • Minimum threshold: 5 logs")
         
-        details.append(f"Application logging present in {files_with_logging} files")
+        details.append("\n2. Quality Score Components (100% total):")
+        details.append("   • Log Level Usage (25%)")
+        details.append("     - Proper use of info/debug/error/warn levels")
+        details.append("   • Context Information (25%)")
+        details.append("     - Including method names, parameters, states")
+        details.append("   • Pattern Diversity (25%)")
+        details.append("     - Using various logging patterns")
+        details.append("   • File Coverage (25%)")
+        details.append("     - Distribution across codebase")
         
-        # Analyze log level distribution
+        # 2. Implementation Statistics
+        details.append("\n📈 Current Implementation:")
+        details.append(f"• Found {len(actual_matches)} logging implementations")
+        
+        # File coverage
+        files_with_logging = len(set(match.get('file_path', match.get('file', 'unknown')) 
+                                   for match in actual_matches))
+        details.append(f"• Present in {files_with_logging} files")
+        
+        # Log level analysis
         log_levels = {}
-        for match in matches:
+        for match in actual_matches:
             matched_text = match.get('matched_text', '').lower()
             for level in ['info', 'debug', 'error', 'warn', 'warning', 'critical']:
                 if level in matched_text:
                     log_levels[level] = log_levels.get(level, 0) + 1
         
         if log_levels:
-            details.append("Log level distribution:")
+            details.append("\n📋 Log Level Distribution:")
             for level, count in sorted(log_levels.items(), key=lambda x: x[1], reverse=True):
-                details.append(f"  - {level.upper()}: {count} occurrences")
+                details.append(f"  • {level.upper()}: {count} occurrences")
         
-        # Detect logging frameworks used
-        frameworks = {}
-        for match in matches:
+        # Context analysis
+        context_patterns = ['method', 'function', 'class', 'parameter', 'state', 'value']
+        context_found = {}
+        for match in actual_matches:
             matched_text = match.get('matched_text', '').lower()
-            if 'winston' in matched_text:
-                frameworks['winston'] = frameworks.get('winston', 0) + 1
-            elif 'loguru' in matched_text:
-                frameworks['loguru'] = frameworks.get('loguru', 0) + 1
-            elif 'structlog' in matched_text:
-                frameworks['structlog'] = frameworks.get('structlog', 0) + 1
-            elif 'serilog' in matched_text:
-                frameworks['serilog'] = frameworks.get('serilog', 0) + 1
-            elif 'slf4j' in matched_text or 'logback' in matched_text:
-                frameworks['slf4j/logback'] = frameworks.get('slf4j/logback', 0) + 1
+            for ctx in context_patterns:
+                if ctx in matched_text:
+                    context_found[ctx] = context_found.get(ctx, 0) + 1
         
-        if frameworks:
-            details.append("Detected logging frameworks:")
-            for framework, count in frameworks.items():
-                details.append(f"  - {framework}: {count} occurrences")
+        if context_found:
+            details.append("\n🔍 Context Information Found:")
+            for ctx, count in sorted(context_found.items(), key=lambda x: x[1], reverse=True):
+                details.append(f"  • {ctx}: {count} occurrences")
         
-        # Add detailed match information using the standardized method
-        if matches:
-            details.append("")  # Add spacing
-            
-            # Define categories for application logging
+        # Add detailed match information
+        if actual_matches:
+            details.append("\n🔎 Implementation Details:")
             category_keywords = {
-                'Service Layer': ['service', 'business', 'manager', 'processor'],
-                'Controllers/Handlers': ['controller', 'handler', 'endpoint', 'route'],
-                'Data Layer': ['repository', 'dao', 'model', 'entity'],
-                'Background Tasks': ['job', 'task', 'worker', 'scheduler', 'cron'],
-                'Error Handling': ['error', 'exception', 'failed', 'failure'],
-                'Framework Logging': ['winston', 'loguru', 'structlog', 'serilog', 'slf4j', 'logback']
+                'Error Handling': ['error', 'exception', 'catch', 'throw'],
+                'Info Logging': ['info', 'debug', 'trace'],
+                'Warning Logs': ['warn', 'warning', 'alert'],
+                'Method Logging': ['method', 'function', 'called']
             }
             
             detailed_matches = self._generate_detailed_match_info(
-                matches, 
-                max_items=20,
+                actual_matches,
+                max_items=15,
                 show_categories=True,
                 category_keywords=category_keywords
             )
