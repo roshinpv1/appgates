@@ -1138,3 +1138,34 @@ Provide your response as a JSON object with this structure:
                 details.append(f"\n  ... and {len(actual_matches) - max_items} more matches")
         
         return details 
+
+    def _log_pattern_match(self, matches: List[Dict[str, Any]], pattern: str = None) -> None:
+        """Log pattern match results
+        
+        Args:
+            matches: List of matches found
+            pattern: Optional pattern that was searched
+        """
+        print("\n🔍 Debug Info:")
+        print(f"Gate Type: {self.gate_type}")
+        print(f"Gate Type Type: {type(self.gate_type)}")
+        print(f"Has name attr: {hasattr(self.gate_type, 'name')}")
+        
+        gate_name = self.gate_type.value if hasattr(self.gate_type, 'value') else str(self.gate_type)
+        
+        print(f"\n🔍 Gate: {gate_name}")
+        if pattern:
+            print(f"Pattern: {pattern}")
+        print(f"Found {len(matches)} matches")
+        
+        if matches:
+            print("\nMatches:")
+            for idx, match in enumerate(matches[:5], 1):  # Show first 5 matches
+                file_path = match.get('file_path', match.get('file', 'unknown'))
+                line_num = match.get('line_number', match.get('line', '?'))
+                matched_text = match.get('matched_text', match.get('match', ''))[:100]  # Truncate long matches
+                print(f"{idx}. {file_path}:{line_num} - {matched_text}")
+            
+            if len(matches) > 5:
+                print(f"... and {len(matches) - 5} more matches")
+        print("-" * 50) 
