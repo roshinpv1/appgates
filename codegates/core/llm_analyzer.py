@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from ..models import Language, FileAnalysis
 from ..utils.env_loader import EnvironmentLoader
 from .analysis_result import CodeAnalysisResult
+from .enterprise_llm import get_enterprise_analyzer, EnterpriseLLMAnalyzer
 
 
 # Ensure environment is loaded when module is imported
@@ -32,6 +33,7 @@ class LLMProvider(Enum):
     OLLAMA = "ollama"
     LOCAL = "local"
     ENTERPRISE = "enterprise"
+    APIGEE = "apigee"  # New provider for Apigee-based enterprise LLM
 
 
 @dataclass
@@ -527,6 +529,28 @@ Format your response as JSON:
                     raise Exception(f"Enterprise LLM request failed: {response.text}")
                 
                 return response.json()["response"]
+            
+            elif provider == LLMProvider.APIGEE:
+                # Use the new enterprise LLM module with Apigee authentication
+                try:
+                    enterprise_analyzer = get_enterprise_analyzer()
+                    # Create a mock context for the enterprise analyzer
+                    mock_context = {
+                        'gate_name': 'test_gate',
+                        'language': Language.PYTHON,
+                        'technologies': {},
+                        'code_samples': [prompt]
+                    }
+                    
+                    # Call the enterprise LLM directly
+                    response = enterprise_analyzer.enterprise_client.call_enterprise_llm(
+                        prompt, model, temperature, max_tokens
+                    )
+                    return response
+                    
+                except Exception as e:
+                    print(f"⚠️ Apigee LLM call failed: {str(e)}")
+                    raise Exception(f"Apigee LLM call failed: {str(e)}")
             
             elif provider == LLMProvider.LOCAL:
                 # Local LLM implementation using OpenAI-compatible API

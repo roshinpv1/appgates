@@ -175,6 +175,8 @@ class GateValidator:
         
         # Process each gate type
         for gate_type in GateType:
+            if gate_type == GateType.LOG_BACKGROUND_JOBS:
+                continue
             try:
                 # Check if this gate is applicable to the project
                 if not self._is_gate_applicable(gate_type, target_path, file_analyses, has_ui_components):

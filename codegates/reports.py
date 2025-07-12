@@ -290,7 +290,7 @@ class SharedReportGenerator:
     def get_gate_categories() -> Dict[str, List[str]]:
         """Get gate categories - exact same as VS Code extension"""
         return {
-            'Auditability': ['structured_logs', 'avoid_logging_secrets', 'audit_trail', 'correlation_id', 'log_api_calls', 'log_background_jobs', 'ui_errors'],
+            'Auditability': ['structured_logs', 'avoid_logging_secrets', 'audit_trail', 'correlation_id', 'log_api_calls', 'log_application_messages', 'ui_errors'],
             'Availability': ['retry_logic', 'timeouts', 'throttling', 'circuit_breakers'],
             'Error Handling': ['error_logs', 'http_codes', 'ui_error_tools'],
             'Testing': ['automated_tests']
@@ -305,7 +305,7 @@ class SharedReportGenerator:
             'audit_trail': 'Create Audit Trail Logs',
             'correlation_id': 'Tracking ID For Log Messages',
             'log_api_calls': 'Log Rest API Calls',
-            'log_background_jobs': 'Log Application Messages',
+            'log_application_messages': 'Log Application Messages',
             'ui_errors': 'Client UI Errors Logged',
             'retry_logic': 'Retry Logic',
             'timeouts': 'Set Timeouts IO Operations',

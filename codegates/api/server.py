@@ -1282,6 +1282,24 @@ def analyze_repository(repo_path: str, threshold: int, repository_url: Optional[
                             temperature=provider_config['temperature'],
                             max_tokens=provider_config['max_tokens']
                         )
+                    elif preferred_provider == 'enterprise':
+                        llm_config = LLMConfig(
+                            provider=LLMProvider.ENTERPRISE,
+                            model=provider_config['model'],
+                            api_key=provider_config.get('api_key'),
+                            base_url=provider_config['url'],
+                            temperature=provider_config['temperature'],
+                            max_tokens=provider_config['max_tokens']
+                        )
+                    elif preferred_provider == 'apigee':
+                        llm_config = LLMConfig(
+                            provider=LLMProvider.APIGEE,
+                            model=provider_config['model'],
+                            api_key=provider_config.get('consumer_key'),
+                            base_url=provider_config['enterprise_base_url'],
+                            temperature=provider_config['temperature'],
+                            max_tokens=provider_config['max_tokens']
+                        )
                     else:
                         print(f"⚠️ Unsupported provider: {preferred_provider}")
                         llm_config = None

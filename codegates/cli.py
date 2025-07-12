@@ -305,7 +305,7 @@ def view_report(report_path: Path):
 
 @main.command()
 @click.option('--llm-provider', 
-              type=click.Choice(['openai', 'anthropic', 'gemini', 'ollama', 'local']),
+              type=click.Choice(['openai', 'anthropic', 'gemini', 'ollama', 'local', 'enterprise', 'apigee']),
               default='openai',
               help='LLM provider to test')
 @click.option('--llm-model', help='LLM model to test (e.g., gpt-4, claude-3, gemini-pro)')

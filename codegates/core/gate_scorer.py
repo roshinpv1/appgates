@@ -22,10 +22,10 @@ class GateScorer:
         GateType.HTTP_CODES: 1.2,                # API quality
         GateType.CORRELATION_ID: 1.1,            # Tracing
         GateType.LOG_API_CALLS: 1.1,             # Observability
+        GateType.LOG_APPLICATION_MESSAGES: 1.1,  # Observability
         GateType.THROTTLING: 1.0,                # Performance
         GateType.UI_ERRORS: 1.0,                 # UX
         GateType.UI_ERROR_TOOLS: 1.0,            # Monitoring
-        GateType.LOG_BACKGROUND_JOBS: 0.9,       # Monitoring
     }
     
     def calculate_gate_score(self, coverage: float, quality_score: float, 

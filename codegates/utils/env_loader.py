@@ -133,6 +133,23 @@ class EnvironmentLoader:
             }
             print(f"   🏢 Enterprise LLM configuration loaded: {enterprise_url}")
         
+        # Apigee Enterprise LLM Configuration
+        apigee_login_url = os.getenv('APIGEE_NONPROD_LOGIN_URL')
+        if apigee_login_url:
+            config['apigee'] = {
+                'login_url': apigee_login_url,
+                'consumer_key': os.getenv('APIGEE_CONSUMER_KEY'),
+                'consumer_secret': os.getenv('APIGEE_CONSUMER_SECRET'),
+                'enterprise_base_url': os.getenv('ENTERPRISE_BASE_URL'),
+                'wf_use_case_id': os.getenv('WF_USE_CASE_ID'),
+                'wf_client_id': os.getenv('WF_CLIENT_ID'),
+                'wf_api_key': os.getenv('WF_API_KEY'),
+                'model': os.getenv('APIGEE_MODEL', 'gpt-4'),
+                'temperature': float(os.getenv('APIGEE_TEMPERATURE', '0.1')),
+                'max_tokens': int(os.getenv('APIGEE_MAX_TOKENS', '4000'))
+            }
+            print(f"   🔐 Apigee Enterprise LLM configuration loaded: {apigee_login_url}")
+        
         # Ollama Configuration (alternative to local)
         ollama_url = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
         if ollama_url != 'http://localhost:11434' or os.getenv('OLLAMA_MODEL'):
@@ -249,6 +266,18 @@ LOCAL_LLM_MAX_TOKENS=4000
 # ENTERPRISE_LLM_HEADERS={}
 # ENTERPRISE_LLM_TEMPERATURE=0.1
 # ENTERPRISE_LLM_MAX_TOKENS=4000
+
+# Apigee Enterprise LLM Configuration
+# APIGEE_NONPROD_LOGIN_URL=https://your-apigee-login-url
+# APIGEE_CONSUMER_KEY=your-consumer-key
+# APIGEE_CONSUMER_SECRET=your-consumer-secret
+# ENTERPRISE_BASE_URL=https://your-enterprise-base-url
+# WF_USE_CASE_ID=your-wf-use-case-id
+# WF_CLIENT_ID=your-wf-client-id
+# WF_API_KEY=your-wf-api-key
+# APIGEE_MODEL=gpt-4
+# APIGEE_TEMPERATURE=0.1
+# APIGEE_MAX_TOKENS=4000
 
 # CodeGates Configuration
 # CODEGATES_LOG_LEVEL=INFO
