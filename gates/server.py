@@ -87,6 +87,9 @@ class ScanResult(BaseModel):
     json_report_url: Optional[str] = None
     completed_at: Optional[str] = None
     errors: List[str] = []
+    current_step: Optional[str] = None
+    progress_percentage: Optional[int] = None
+    step_details: Optional[str] = None
 
 
 class GateInfo(BaseModel):
@@ -190,7 +193,10 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
             "failed_gates": 0,
             "warning_gates": 0,
             "total_gates": 0,
-            "errors": []
+            "errors": [],
+            "current_step": None,
+            "progress_percentage": None,
+            "step_details": None
         }
         
         # Start background scan
@@ -230,7 +236,10 @@ async def get_scan_status(scan_id: str):
         html_report_url=result.get("html_report_url"),
         json_report_url=result.get("json_report_url"),
         completed_at=result.get("completed_at"),
-        errors=result["errors"]
+        errors=result["errors"],
+        current_step=result.get("current_step"),
+        progress_percentage=result.get("progress_percentage"),
+        step_details=result.get("step_details")
     )
 
 
@@ -316,6 +325,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
     try:
         # Update status
         scan_results[scan_id]["status"] = "running"
+        scan_results[scan_id]["current_step"] = "Initializing scan..."
+        scan_results[scan_id]["progress_percentage"] = 0
         
         # Get server URL for report access
         server_url = get_server_url()
@@ -382,11 +393,16 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             },
             "hard_gates": HARD_GATES,
             "temp_dir": scan_temp_dir,
-            "errors": []
+            "errors": [],
+            "current_step": None,
+            "progress_percentage": None,
+            "step_details": None
         }
         
-        # Run validation flow
-        validation_flow = create_validation_flow()
+        # Create progress-aware flow
+        validation_flow = create_progress_aware_flow(scan_id)
+        
+        # Run the flow with progress tracking
         validation_flow.run(shared)
         
         # Update scan results
@@ -414,7 +430,10 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "html_report_url": html_report_url,
                 "json_report_url": json_report_url,
                 "completed_at": datetime.now().isoformat(),
-                "errors": shared["errors"]
+                "errors": shared["errors"],
+                "current_step": "Completed",
+                "progress_percentage": 100,
+                "step_details": "Scan completed successfully"
             })
             
             # Print report URLs to logs
@@ -426,14 +445,83 @@ async def perform_scan(scan_id: str, request: ScanRequest):
         else:
             scan_results[scan_id].update({
                 "status": "failed",
-                "errors": shared["errors"] + ["No validation results generated"]
+                "errors": shared["errors"] + ["No validation results generated"],
+                "current_step": "Failed",
+                "progress_percentage": 0,
+                "step_details": "Scan failed - no validation results generated"
             })
     
     except Exception as e:
         scan_results[scan_id].update({
             "status": "failed",
-            "errors": [str(e)]
+            "errors": [str(e)],
+            "current_step": "Failed",
+            "progress_percentage": 0,
+            "step_details": f"Scan failed with error: {str(e)}"
         })
+
+
+def create_progress_aware_flow(scan_id: str):
+    """
+    Create a progress-aware validation flow that reports progress to scan_results
+    """
+    from flow import create_validation_flow
+    
+    # Get the original flow
+    original_flow = create_validation_flow()
+    
+    # Define step mappings
+    step_mappings = {
+        'FetchRepositoryNode': ('Fetching repository...', 10),
+        'ProcessCodebaseNode': ('Processing codebase...', 25),
+        'ExtractConfigNode': ('Extracting configuration...', 35),
+        'GeneratePromptNode': ('Generating LLM prompt...', 45),
+        'CallLLMNode': ('Calling LLM for patterns...', 65),
+        'ValidateGatesNode': ('Validating gates...', 85),
+        'GenerateReportNode': ('Generating reports...', 95),
+        'CleanupNode': ('Cleaning up...', 100)
+    }
+    
+    # Create a wrapper that updates progress
+    def update_progress(node_name: str, step_details: str = None):
+        if node_name in step_mappings:
+            step_name, progress = step_mappings[node_name]
+            scan_results[scan_id]["current_step"] = step_name
+            scan_results[scan_id]["progress_percentage"] = progress
+            if step_details:
+                scan_results[scan_id]["step_details"] = step_details
+            else:
+                scan_results[scan_id]["step_details"] = f"Executing: {step_name}"
+    
+    # Override the flow's run method to track progress
+    original_run = original_flow.run
+    
+    def progress_aware_run(shared):
+        try:
+            # Update initial progress
+            scan_results[scan_id]["current_step"] = "Starting validation..."
+            scan_results[scan_id]["progress_percentage"] = 5
+            scan_results[scan_id]["step_details"] = "Initializing validation flow"
+            
+            # Run the original flow
+            result = original_run(shared)
+            
+            # Update final progress
+            scan_results[scan_id]["current_step"] = "Completed"
+            scan_results[scan_id]["progress_percentage"] = 100
+            scan_results[scan_id]["step_details"] = "Validation completed successfully"
+            
+            return result
+        except Exception as e:
+            scan_results[scan_id]["current_step"] = "Failed"
+            scan_results[scan_id]["progress_percentage"] = 0
+            scan_results[scan_id]["step_details"] = f"Validation failed: {str(e)}"
+            raise
+    
+    # Replace the run method
+    original_flow.run = progress_aware_run
+    
+    return original_flow
 
 
 if __name__ == "__main__":

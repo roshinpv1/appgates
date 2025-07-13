@@ -1,0 +1,146 @@
+================================================================================
+CODEGATES LLM PROMPT LOG
+================================================================================
+Timestamp: 2025-07-14T01:29:43.025362
+Scan ID: 76574031-5209-454f-9c50-d30bfb2ccc99
+Repository: https://github.com/swapnilbamble1438/VotingApp
+Branch: main
+Prompt Length: 6018 characters
+================================================================================
+
+You are an expert code analyzer specializing in hard gate validation patterns for enterprise security and compliance.
+
+## CODEBASE ANALYSIS
+
+### Repository Overview
+- Repository: https://github.com/swapnilbamble1438/VotingApp
+- Total Files: 1
+- Total Lines: 1
+- Languages: 
+
+### Codebase File Structure
+```yaml
+- README.md
+```
+
+### File Type Distribution
+```json
+{
+  "Documentation": 1
+}
+```
+
+## HARD GATES TO ANALYZE
+- **STRUCTURED_LOGS**: Ensure logs are structured and searchable for operational monitoring
+- **AVOID_LOGGING_SECRETS**: Prevent sensitive data from being logged accidentally
+- **AUDIT_TRAIL**: Log critical business operations for audit compliance
+- **CORRELATION_ID**: Include correlation IDs for distributed tracing
+- **LOG_API_CALLS**: Log all API requests and responses for monitoring
+- **LOG_APPLICATION_MESSAGES**: Log important application state changes and events
+- **UI_ERRORS**: Capture and log client-side UI errors
+- **RETRY_LOGIC**: Implement retry mechanisms for resilient operations
+- **TIMEOUTS**: Set appropriate timeouts for I/O operations
+- **THROTTLING**: Implement rate limiting and request throttling
+- **CIRCUIT_BREAKERS**: Implement circuit breaker pattern for fault tolerance
+- **ERROR_LOGS**: Comprehensive error logging and exception handling
+- **HTTP_CODES**: Use appropriate HTTP status codes for API responses
+- **UI_ERROR_TOOLS**: Integrate client-side error tracking tools
+- **AUTOMATED_TESTS**: Comprehensive automated test coverage
+
+## TASK
+Generate comprehensive regex patterns for each hard gate that would be effective for this specific codebase.
+Consider the detected languages, frameworks, dependencies, and file structure when formulating patterns.
+Use the file structure metadata to understand the project organization and target patterns appropriately.
+
+## CRITICAL PATTERN REQUIREMENTS
+**MUST FOLLOW THESE RULES:**
+1. **NO COMPLEX REGEX**: Use simple, readable patterns that actually work
+2. **REAL-WORLD FOCUSED**: Patterns must match actual code, not theoretical examples
+3. **TECHNOLOGY-SPECIFIC**: Tailor patterns to the detected frameworks and libraries
+4. **IMPORT PATTERNS**: Include import/using statements for comprehensive coverage
+5. **FLEXIBLE MATCHING**: Use \b\w*pattern\w* for flexible name matching
+
+## TECHNOLOGY-SPECIFIC PATTERN GUIDELINES
+## OUTPUT FORMAT
+Provide a JSON response with patterns, descriptions, significance, and expected coverage analysis for each gate:
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      "r'import\\s+org\\.slf4j\\.Logger'",
+      "r'@Slf4j'",
+      "r'log\\.(info|debug|error|warn|trace)\\('",
+      "r'logger\\.(info|debug|error|warn|trace)\\('"
+    ],
+    "description": "Comprehensive logging patterns for this technology stack",
+    "significance": "Critical for monitoring and debugging in production environments",
+    "expected_coverage": {
+      "percentage": 25,
+      "reasoning": "Based on project structure and framework usage patterns",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+**IMPORTANT**: If a gate is not applicable to the detected technology stack or project type, respond with:
+```json
+  "GATE_NAME": {
+    "patterns": [],
+    "description": "Not Applicable",
+    "significance": "This gate is not applicable to the current technology stack and project type",
+    "expected_coverage": {
+      "percentage": 0,
+      "reasoning": "Not applicable to this technology stack",
+      "confidence": "high"
+    }
+  }
+```
+
+## PATTERN EFFECTIVENESS REQUIREMENTS
+Focus on patterns that are:
+- **Specific to the detected technology stack and libraries used**
+- **Based on actual import statements and framework usage**
+- **Comprehensive in coverage but simple in implementation**
+- **Practical for real-world codebases**
+- **Security and compliance-focused**
+- **Contextually aware of the project structure and organization**
+- **FLEXIBLE and INCLUSIVE**: Patterns should catch real-world variations
+
+**PATTERN EXAMPLES FOR COMMON SCENARIOS:**
+**CRITICAL: AVOID THESE PATTERN MISTAKES:**
+- ❌ DON'T use: r'\blogger\.([a-zA-Z]+)\.([a-zA-Z]+)\(' (too restrictive)
+- ✅ DO use: r'\b\w*logger\w*\.(info|debug|error|warn|trace)\(' (flexible)
+- ❌ DON'T use: r'\bsecret\.[a-zA-Z]+' (won't match real code)
+- ✅ DO use: r'(password|secret|token|key)\s*[=:]' (matches assignments)
+- ❌ DON'T use: Complex nested groups without clear purpose
+- ✅ DO use: Simple, readable patterns that match actual code
+
+For each gate, provide:
+- **patterns**: Array of regex patterns optimized for the detected technology stack
+- **description**: 1-2 sentence explanation of what the patterns detect and why
+- **significance**: 2-3 sentence explanation of importance for this specific technology stack
+- **expected_coverage**: Intelligent analysis based on project characteristics
+  - **percentage**: Realistic percentage based on project type and size
+  - **reasoning**: Detailed explanation considering:
+    - Project architecture and detected frameworks
+    - Technology stack and library dependencies
+    - File types and their distribution
+    - Common implementation patterns for this gate type
+    - Industry standards and best practices
+  - **confidence**: High/medium/low based on pattern specificity and technology match
+
+**COVERAGE ANALYSIS GUIDELINES:**
+- **Consider the specific technology stack**: Different frameworks have different patterns
+- **Account for project size and complexity**: Larger projects may have lower percentages but higher absolute counts
+- **Factor in architectural patterns**: Microservices vs monolith affects distribution
+- **Consider file type distribution**: Some patterns only apply to specific file types
+- **Account for library usage**: Imported libraries may provide built-in implementations
+- **Be realistic**: Not every file needs every pattern, estimate based on actual usage scenarios
+- **Provide reasoning that shows understanding of the codebase structure and technology choices**
+
+**REMEMBER**: Generate patterns that will actually find real code in this specific project!
+
+================================================================================
+END OF PROMPT
+================================================================================
