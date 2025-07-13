@@ -4,16 +4,30 @@ Defines the complete validation workflow using PocketFlow nodes
 """
 
 from pocketflow import Flow
-from nodes import (
-    FetchRepositoryNode,
-    ProcessCodebaseNode, 
-    ExtractConfigNode,
-    GeneratePromptNode,
-    CallLLMNode,
-    ValidateGatesNode,
-    GenerateReportNode,
-    CleanupNode
-)
+try:
+    # Try relative imports first (when run as module)
+    from .nodes import (
+        FetchRepositoryNode,
+        ProcessCodebaseNode, 
+        ExtractConfigNode,
+        GeneratePromptNode,
+        CallLLMNode,
+        ValidateGatesNode,
+        GenerateReportNode,
+        CleanupNode
+    )
+except ImportError:
+    # Fall back to absolute imports (when run directly)
+    from nodes import (
+        FetchRepositoryNode,
+        ProcessCodebaseNode, 
+        ExtractConfigNode,
+        GeneratePromptNode,
+        CallLLMNode,
+        ValidateGatesNode,
+        GenerateReportNode,
+        CleanupNode
+    )
 
 
 def create_validation_flow() -> Flow:

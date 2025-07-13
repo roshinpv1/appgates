@@ -6,6 +6,14 @@ Comprehensive technology-specific patterns as secondary validation
 STATIC_PATTERN_LIBRARY = {
     "STRUCTURED_LOGS": {
         "java": [
+            # Spring Boot / SLF4J specific patterns - ENHANCED
+            r'import\s+org\.slf4j\.Logger',
+            r'import\s+org\.slf4j\.LoggerFactory',
+            r'LoggerFactory\.getLogger\(',
+            r'@Slf4j',
+            r'private\s+static\s+final\s+Logger\s+\w+',
+            r'private\s+final\s+Logger\s+\w+',
+            
             # More flexible logger patterns to catch real-world variations
             r'\b\w*logger\w*\.(info|debug|error|warn|trace|fatal)',
             r'\b\w*log\w*\.(info|debug|error|warn|trace|fatal)', 
@@ -13,19 +21,45 @@ STATIC_PATTERN_LIBRARY = {
             r'\bLoggerFactory\.getLogger',
             r'\.getLogger\(',
             r'getLogger\(',
+            
+            # Spring Boot specific logging patterns
+            r'log\.(info|debug|error|warn|trace|fatal)\(',
+            r'logger\.(info|debug|error|warn|trace|fatal)\(',
+            r'LOG\.(info|debug|error|warn|trace|fatal)\(',
+            r'LOGGER\.(info|debug|error|warn|trace|fatal)\(',
+            
             # Configuration patterns
             r'<encoder.*class=.*JsonEncoder.*>',
             r'<appender.*class=.*ConsoleAppender.*>',
             r'<appender.*class=.*FileAppender.*>',
             r'logback\.xml',
+            r'logback-spring\.xml',
             r'log4j2\.xml',
             r'log4j\.properties',
+            r'application\.properties.*logging',
+            r'application\.yml.*logging',
+            
             # Framework-specific patterns
             r'@Slf4j',
             r'slf4j',
-            r'logback'
+            r'logback',
+            r'ch\.qos\.logback',
+            r'org\.springframework\.boot\.logging',
+            
+            # Structured logging patterns
+            r'MDC\.put\(',
+            r'Markers\.',
+            r'StructuredArguments\.',
+            r'KeyValuePair\.'
         ],
         "csharp": [
+            # Enhanced .NET logging patterns
+            r'using\s+Microsoft\.Extensions\.Logging',
+            r'using\s+Serilog',
+            r'using\s+NLog',
+            r'ILogger<\w+>',
+            r'ILoggerFactory',
+            
             # More flexible .NET logging patterns
             r'\b\w*[Ll]og\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
             r'\b\w*[Ll]ogger\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
@@ -38,9 +72,22 @@ STATIC_PATTERN_LIBRARY = {
             r'appsettings\.json.*Logging',
             r'ILogger<',
             r'ILoggerFactory',
-            r'CreateLogger\('
+            r'CreateLogger\(',
+            
+            # .NET Core specific
+            r'LogLevel\.(Information|Debug|Error|Warning|Critical|Trace)',
+            r'LoggerExtensions\.',
+            r'EventId\(',
+            r'LoggerMessage\.'
         ],
         "python": [
+            # Enhanced Python logging patterns
+            r'import\s+logging',
+            r'from\s+logging\s+import',
+            r'import\s+structlog',
+            r'import\s+loguru',
+            r'from\s+loguru\s+import\s+logger',
+            
             # More flexible Python logging patterns
             r'\b\w*log\w*\.(info|debug|error|warning|critical|exception)',
             r'\b\w*logger\w*\.(info|debug|error|warning|critical|exception)',
@@ -51,9 +98,27 @@ STATIC_PATTERN_LIBRARY = {
             r'python-json-logger',
             r'\.log\(',
             r'logging\.basicConfig',
-            r'logging\.config'
+            r'logging\.config',
+            
+            # Python framework specific
+            r'logger\s*=\s*logging\.getLogger\(',
+            r'log\s*=\s*structlog\.get_logger\(',
+            r'from\s+loguru\s+import\s+logger',
+            r'logger\.bind\(',
+            r'logger\.with_fields\(',
+            r'structlog\.configure\(',
+            
+            # Django/Flask specific
+            r'django\.utils\.log',
+            r'flask\.logging',
+            r'app\.logger\.'
         ],
         "javascript": [
+            # Enhanced JavaScript logging patterns
+            r'const\s+\w*[Ll]og\w*\s*=\s*require\(',
+            r'import\s+\w*[Ll]og\w*\s+from',
+            r'import\s*\*\s*as\s+\w*[Ll]og\w*',
+            
             # More flexible JavaScript logging patterns
             r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
             r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
@@ -64,9 +129,28 @@ STATIC_PATTERN_LIBRARY = {
             r'log4js\.',
             r'debug\(',
             r'createLogger\(',
-            r'getLogger\('
+            r'getLogger\(',
+            
+            # Modern JavaScript frameworks
+            r'winston\.createLogger\(',
+            r'pino\(\)',
+            r'bunyan\.createLogger\(',
+            r'log4js\.getLogger\(',
+            r'signale\.',
+            r'consola\.',
+            
+            # Node.js specific
+            r'process\.stdout\.write\(',
+            r'util\.debuglog\(',
+            r'console\.time\(',
+            r'console\.timeEnd\('
         ],
         "typescript": [
+            # Enhanced TypeScript logging patterns
+            r'import\s+\{\s*Logger\s*\}',
+            r'import\s+\w*[Ll]og\w*\s+from',
+            r'import\s*\*\s*as\s+\w*[Ll]og\w*',
+            
             # More flexible TypeScript logging patterns
             r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
             r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
@@ -77,7 +161,47 @@ STATIC_PATTERN_LIBRARY = {
             r'log4js\.',
             r'debug\(',
             r'createLogger\(',
-            r'getLogger\('
+            r'getLogger\(',
+            
+            # TypeScript specific
+            r'Logger\s*:\s*winston\.Logger',
+            r'private\s+logger\s*:\s*Logger',
+            r'@Injectable\(\).*Logger',
+            r'NestJS.*Logger',
+            
+            # Angular/React specific
+            r'console\.group\(',
+            r'console\.groupEnd\(',
+            r'console\.table\('
+        ],
+        "go": [
+            # Go logging patterns
+            r'import\s+"log"',
+            r'import\s+"fmt"',
+            r'import\s+"github\.com/sirupsen/logrus"',
+            r'import\s+"go\.uber\.org/zap"',
+            r'log\.(Print|Printf|Println|Fatal|Fatalf|Fatalln|Panic|Panicf|Panicln)',
+            r'fmt\.(Print|Printf|Println)',
+            r'logrus\.(Info|Debug|Error|Warn|Trace|Fatal|Panic)',
+            r'zap\.(Info|Debug|Error|Warn|Fatal|Panic)',
+            r'logger\.(Info|Debug|Error|Warn|Trace|Fatal|Panic)',
+            r'Sugar\(\)\.(Info|Debug|Error|Warn|Fatal|Panic)'
+        ],
+        "rust": [
+            # Rust logging patterns
+            r'use\s+log::\{',
+            r'use\s+env_logger',
+            r'use\s+tracing',
+            r'log::(info|debug|error|warn|trace)',
+            r'tracing::(info|debug|error|warn|trace)',
+            r'println!\(',
+            r'eprintln!\(',
+            r'dbg!\(',
+            r'info!\(',
+            r'debug!\(',
+            r'error!\(',
+            r'warn!\(',
+            r'trace!\('
         ],
         "standard_logging": [
             # Generic flexible patterns for any language
@@ -86,29 +210,47 @@ STATIC_PATTERN_LIBRARY = {
             r'console\.(log|info|debug|error|warn)',
             r'getLogger\(',
             r'createLogger\(',
-            r'\.log\('
+            r'\.log\(',
+            r'print\(',
+            r'println\(',
+            r'printf\(',
+            r'fprintf\(',
+            r'syslog\(',
+            r'eventlog\('
         ],
         "structured_logging": [
-            # Structured logging patterns
+            # Structured logging patterns across languages
             r'\b\w*logger\w*\.\w+\s*\([^)]*\{[^}]*\}',
             r'JSON\.stringify',
             r'structlog\.get_logger',
             r'structured.*log',
-            r'json.*log'
+            r'json.*log',
+            r'logstash',
+            r'elastic.*log',
+            r'kibana',
+            r'fluentd',
+            r'MDC\.',
+            r'NDC\.',
+            r'ThreadContext\.',
+            r'LogContext\.',
+            r'with_fields\(',
+            r'bind\(',
+            r'context\(',
+            r'fields\('
         ],
         "framework_logging": [
             # Framework-specific logging patterns
-            r'app\.logger',
-            r'flask\.current_app\.logger',
-            r'django\.core\.logging',
-            r'winston',
-            r'bunyan',
-            r'pino',
-            r'log4js',
-            r'Serilog',
-            r'NLog',
-            r'logback',
-            r'slf4j'
+            r'Spring.*Log',
+            r'Django.*Log',
+            r'Rails.*Log',
+            r'Express.*Log',
+            r'Flask.*Log',
+            r'FastAPI.*Log',
+            r'Gin.*Log',
+            r'Echo.*Log',
+            r'Fiber.*Log',
+            r'Actix.*Log',
+            r'Rocket.*Log'
         ]
     },
     
@@ -672,41 +814,174 @@ STATIC_PATTERN_LIBRARY = {
 
 def get_static_patterns_for_gate(gate_name: str, primary_technologies: list) -> list:
     """
-    Get static patterns for a specific gate and technology stack
-    
-    Args:
-        gate_name: Name of the gate (e.g., 'STRUCTURED_LOGS')
-        primary_technologies: List of primary technologies detected
-    
-    Returns:
-        List of regex patterns for the gate and technologies
+    Get static patterns for a specific gate and technology stack.
+    Enhanced with better technology detection and coverage.
     """
-    patterns = []
-    
     if gate_name not in STATIC_PATTERN_LIBRARY:
-        return patterns
+        return []
     
     gate_patterns = STATIC_PATTERN_LIBRARY[gate_name]
+    all_patterns = []
     
-    # Add patterns for detected technologies
-    for tech in primary_technologies:
-        tech_key = tech.lower()
-        if tech_key in gate_patterns:
-            patterns.extend(gate_patterns[tech_key])
+    # Normalize technology names for better matching
+    normalized_technologies = [tech.lower() for tech in primary_technologies]
     
-    # Add generic patterns if available
-    for generic_key in ['standard_logging', 'structured_logging', 'framework_logging', 'all_languages']:
-        if generic_key in gate_patterns:
-            patterns.extend(gate_patterns[generic_key])
+    # Technology mapping for better coverage
+    tech_mapping = {
+        'java': ['java', 'spring', 'kotlin', 'scala'],
+        'python': ['python', 'django', 'flask', 'fastapi'],
+        'javascript': ['javascript', 'js', 'node', 'nodejs', 'react', 'angular', 'vue'],
+        'typescript': ['typescript', 'ts', 'angular', 'nest', 'nestjs'],
+        'csharp': ['csharp', 'c#', 'dotnet', '.net', 'aspnet'],
+        'go': ['go', 'golang'],
+        'rust': ['rust'],
+        'php': ['php', 'laravel', 'symfony'],
+        'ruby': ['ruby', 'rails'],
+        'swift': ['swift', 'ios'],
+        'kotlin': ['kotlin', 'android']
+    }
+    
+    # Find matching technologies with expanded coverage
+    matched_technologies = set()
+    for tech in normalized_technologies:
+        for pattern_tech, variations in tech_mapping.items():
+            if tech in variations or any(var in tech for var in variations):
+                matched_technologies.add(pattern_tech)
+    
+    # Include patterns for matched technologies
+    for tech in matched_technologies:
+        if tech in gate_patterns:
+            patterns = gate_patterns[tech]
+            all_patterns.extend(patterns)
+            print(f"   📋 Added {len(patterns)} {tech} patterns for {gate_name}")
+    
+    # Always include standard patterns for broader coverage
+    standard_categories = ['standard_logging', 'structured_logging', 'framework_logging']
+    for category in standard_categories:
+        if category in gate_patterns:
+            patterns = gate_patterns[category]
+            all_patterns.extend(patterns)
+            print(f"   📋 Added {len(patterns)} {category} patterns for {gate_name}")
+    
+    # Include multi-language patterns if available
+    if 'multi_language' in gate_patterns:
+        patterns = gate_patterns['multi_language']
+        all_patterns.extend(patterns)
+        print(f"   📋 Added {len(patterns)} multi-language patterns for {gate_name}")
+    
+    # For specific gates, include additional relevant patterns
+    if gate_name == "STRUCTURED_LOGS":
+        # Include configuration file patterns
+        config_patterns = [
+            r'logback\.xml',
+            r'logback-spring\.xml',
+            r'log4j2\.xml',
+            r'log4j\.properties',
+            r'application\.properties',
+            r'application\.yml',
+            r'appsettings\.json',
+            r'web\.config',
+            r'logging\.conf',
+            r'logger\.config'
+        ]
+        all_patterns.extend(config_patterns)
+        print(f"   📋 Added {len(config_patterns)} configuration patterns for {gate_name}")
+    
+    elif gate_name == "AUTOMATED_TESTS":
+        # Include test-specific patterns
+        test_patterns = [
+            r'@Test',
+            r'@TestCase',
+            r'@Mock',
+            r'@MockBean',
+            r'@SpringBootTest',
+            r'@WebMvcTest',
+            r'@DataJpaTest',
+            r'import.*junit',
+            r'import.*testng',
+            r'import.*mockito',
+            r'import.*pytest',
+            r'import.*unittest',
+            r'describe\(',
+            r'it\(',
+            r'test\(',
+            r'expect\(',
+            r'assert',
+            r'should',
+            r'def test_',
+            r'class.*Test',
+            r'Test.*class'
+        ]
+        all_patterns.extend(test_patterns)
+        print(f"   📋 Added {len(test_patterns)} test-specific patterns for {gate_name}")
+    
+    elif gate_name == "LOG_API_CALLS":
+        # Include API-specific patterns
+        api_patterns = [
+            r'@RestController',
+            r'@Controller',
+            r'@RequestMapping',
+            r'@GetMapping',
+            r'@PostMapping',
+            r'@PutMapping',
+            r'@DeleteMapping',
+            r'@PatchMapping',
+            r'@PathVariable',
+            r'@RequestParam',
+            r'@RequestBody',
+            r'@api\.route',
+            r'@app\.route',
+            r'app\.(get|post|put|delete|patch)',
+            r'router\.(get|post|put|delete|patch)',
+            r'@Controller',
+            r'@Get',
+            r'@Post',
+            r'@Put',
+            r'@Delete',
+            r'HttpGet',
+            r'HttpPost',
+            r'HttpPut',
+            r'HttpDelete',
+            r'Route\('
+        ]
+        all_patterns.extend(api_patterns)
+        print(f"   📋 Added {len(api_patterns)} API-specific patterns for {gate_name}")
+    
+    elif gate_name == "ERROR_LOGS":
+        # Include error handling patterns
+        error_patterns = [
+            r'try\s*\{',
+            r'catch\s*\(',
+            r'finally\s*\{',
+            r'throw\s+new',
+            r'Exception',
+            r'Error',
+            r'try:',
+            r'except\s+\w+:',
+            r'except:',
+            r'raise\s+\w+',
+            r'try\s*\{',
+            r'catch\s*\(\w+\)',
+            r'throw\s+new\s+Error',
+            r'\.error\(',
+            r'\.exception\(',
+            r'\.fatal\(',
+            r'ERROR',
+            r'FATAL',
+            r'EXCEPTION'
+        ]
+        all_patterns.extend(error_patterns)
+        print(f"   📋 Added {len(error_patterns)} error handling patterns for {gate_name}")
     
     # Remove duplicates while preserving order
-    seen = set()
     unique_patterns = []
-    for pattern in patterns:
+    seen = set()
+    for pattern in all_patterns:
         if pattern not in seen:
-            seen.add(pattern)
             unique_patterns.append(pattern)
+            seen.add(pattern)
     
+    print(f"   ✅ Total unique patterns for {gate_name}: {len(unique_patterns)}")
     return unique_patterns
 
 def get_all_static_patterns_for_gate(gate_name: str) -> dict:
@@ -742,30 +1017,42 @@ def get_supported_technologies() -> list:
 
 def get_pattern_statistics() -> dict:
     """
-    Get statistics about the static pattern library
-    
-    Returns:
-        Dictionary with statistics
+    Get comprehensive statistics about the static pattern library
     """
     stats = {
-        'total_gates': len(STATIC_PATTERN_LIBRARY),
-        'total_technologies': len(get_supported_technologies()),
-        'total_patterns': 0,
-        'patterns_by_gate': {},
-        'patterns_by_technology': {}
+        "total_gates": len(STATIC_PATTERN_LIBRARY),
+        "total_patterns": 0,
+        "average_patterns_per_gate": 0.0,
+        "patterns_by_gate": {},
+        "patterns_by_technology": {},
+        "technology_coverage": {}
     }
     
+    # Count patterns by gate
     for gate_name, gate_patterns in STATIC_PATTERN_LIBRARY.items():
-        gate_pattern_count = 0
-        for tech, patterns in gate_patterns.items():
-            pattern_count = len(patterns)
-            gate_pattern_count += pattern_count
-            stats['total_patterns'] += pattern_count
+        gate_total = 0
+        for tech_name, patterns in gate_patterns.items():
+            gate_total += len(patterns)
             
-            if tech not in stats['patterns_by_technology']:
-                stats['patterns_by_technology'][tech] = 0
-            stats['patterns_by_technology'][tech] += pattern_count
+            # Count by technology
+            if tech_name not in stats["patterns_by_technology"]:
+                stats["patterns_by_technology"][tech_name] = 0
+            stats["patterns_by_technology"][tech_name] += len(patterns)
         
-        stats['patterns_by_gate'][gate_name] = gate_pattern_count
+        stats["patterns_by_gate"][gate_name] = gate_total
+        stats["total_patterns"] += gate_total
+    
+    # Calculate average
+    if stats["total_gates"] > 0:
+        stats["average_patterns_per_gate"] = stats["total_patterns"] / stats["total_gates"]
+    
+    # Technology coverage
+    for tech_name in stats["patterns_by_technology"]:
+        gates_with_tech = sum(1 for gate_patterns in STATIC_PATTERN_LIBRARY.values() 
+                             if tech_name in gate_patterns)
+        stats["technology_coverage"][tech_name] = {
+            "gates_covered": gates_with_tech,
+            "coverage_percentage": (gates_with_tech / stats["total_gates"]) * 100
+        }
     
     return stats  

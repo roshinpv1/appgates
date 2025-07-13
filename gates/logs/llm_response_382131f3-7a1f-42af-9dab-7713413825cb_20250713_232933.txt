@@ -1,20 +1,324 @@
 ================================================================================
 CODEGATES LLM RESPONSE LOG
 ================================================================================
-Timestamp: 2025-07-13T19:03:29.572018
-Scan ID: 08e31092-f81d-482d-b5dc-ef7575d6efd7
+Timestamp: 2025-07-13T23:29:33.752556
+Scan ID: 382131f3-7a1f-42af-9dab-7713413825cb
 Repository: https://github.com/spring-projects/spring-petclinic
 Branch: main
-LLM Source: fallback
-LLM Model: built-in
-Response Length: 58 characters
+LLM Source: local
+LLM Model: llama-3.2-3b-instruct
+Response Length: 8899 characters
 Patterns Generated: 72
 Gates Processed: 15
 ================================================================================
 
 RAW LLM RESPONSE:
 ----------------------------------------
-Generated fallback patterns based on hard gate definitions
+Based on the provided analysis, I've generated comprehensive regex patterns for each hard gate. Please note that these patterns are tailored to the detected Java/Spring Boot technology stack and project type.
+
+### Gate 1: STRUCTURED_LOGS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*logger\w*\.(info|debug|error|warn|trace)\(',
+      r'@Slf4j',
+      r'log\.([a-zA-Z]+)\.([a-zA-Z]+)\('
+    ],
+    "description": "Comprehensive logging patterns for this technology stack",
+    "significance": "Critical for monitoring and debugging in production environments",
+    "expected_coverage": {
+      "percentage": 30,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 30% of logs matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+### Gate 2: AVOID_LOGGING_SECRETS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'(password|secret|token|key)\s*[=:]',
+      r'\$\{([a-zA-Z]+)\}',
+      r'(?<!\w)[a-zA-Z0-9_]+(?!\w)'
+    ],
+    "description": "Patterns to detect sensitive data in logs",
+    "significance": "Critical for preventing accidental disclosure of sensitive information",
+    "expected_coverage": {
+      "percentage": 20,
+      "reasoning": "Based on common logging practices and security best practices, we expect to find at least 20% of sensitive data in logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 3: AUDIT_TRAIL
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'@Traceable',
+      r'\b\w*audit\w*\.([a-zA-Z]+)\(',
+      r'@PostConstruct'
+    ],
+    "description": "Patterns to detect audit-related logging",
+    "significance": "Important for maintaining compliance and security",
+    "expected_coverage": {
+      "percentage": 15,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 15% of audit-related logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 4: CORRELATION_ID
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*correlationId\w*\(',
+      r'@CorrelationId',
+      r'X-CORRELATION-ID:'
+    ],
+    "description": "Patterns to detect correlation IDs",
+    "significance": "Important for distributed tracing and debugging",
+    "expected_coverage": {
+      "percentage": 25,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 25% of correlation IDs matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+### Gate 5: LOG_API_CALLS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'@RestController',
+      r'\b\w*api\w*\.([a-zA-Z]+)\(',
+      r'@GetMapping',
+      r'@PostMapping'
+    ],
+    "description": "Patterns to detect API-related logging",
+    "significance": "Important for monitoring and debugging API performance",
+    "expected_coverage": {
+      "percentage": 30,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 30% of API-related logs matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+### Gate 6: LOG_APPLICATION_MESSAGES
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'@Value',
+      r'\b\w*message\w*\.([a-zA-Z]+)\(',
+      r'@PostConstruct'
+    ],
+    "description": "Patterns to detect application messages",
+    "significance": "Important for monitoring and debugging application state changes",
+    "expected_coverage": {
+      "percentage": 20,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 20% of application message logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 7: UI_ERRORS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*error\w*\.([a-zA-Z]+)\(',
+      r'@ExceptionHandler',
+      r'try\s*\{'
+    ],
+    "description": "Patterns to detect user interface errors",
+    "significance": "Important for monitoring and debugging UI-related issues",
+    "expected_coverage": {
+      "percentage": 25,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 25% of UI error logs matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+### Gate 8: RETRY_LOGIC
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*retry\w*\.([a-zA-Z]+)\(',
+      r'@Retryable',
+      r'try\s*\{'
+    ],
+    "description": "Patterns to detect retry logic",
+    "significance": "Important for monitoring and debugging system reliability",
+    "expected_coverage": {
+      "percentage": 20,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 20% of retry logic logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 9: TIMEOUTS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*timeout\w*\.([a-zA-Z]+)\(',
+      r'@Timeout',
+      r'timeout\s*\{'
+    ],
+    "description": "Patterns to detect timeouts",
+    "significance": "Important for monitoring and debugging system performance",
+    "expected_coverage": {
+      "percentage": 30,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 30% of timeout logs matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+### Gate 10: THROTTLING
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*throttle\w*\.([a-zA-Z]+)\(',
+      r'@Throttling',
+      r'throttle\s*\{'
+    ],
+    "description": "Patterns to detect throttling",
+    "significance": "Important for monitoring and debugging system performance",
+    "expected_coverage": {
+      "percentage": 25,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 25% of throttling logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 11: CIRCUIT_BREAKERS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*circuitbreaker\w*\.([a-zA-Z]+)\(',
+      r'@CircuitBreaker',
+      r'circuit-breaker\s*\{'
+    ],
+    "description": "Patterns to detect circuit breakers",
+    "significance": "Important for monitoring and debugging system reliability",
+    "expected_coverage": {
+      "percentage": 20,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 20% of circuit breaker logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 12: ERROR_LOGS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*error\w*\.([a-zA-Z]+)\(',
+      r'@ExceptionHandler',
+      r'try\s*\{'
+    ],
+    "description": "Patterns to detect error logs",
+    "significance": "Important for monitoring and debugging system issues",
+    "expected_coverage": {
+      "percentage": 30,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 30% of error logs matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+### Gate 13: HTTP_CODES
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'HTTP/1\.([0-9]+)\s+[A-Z]',
+      r'Status\s+([a-zA-Z]+)'
+    ],
+    "description": "Patterns to detect HTTP status codes",
+    "significance": "Important for monitoring and debugging API performance",
+    "expected_coverage": {
+      "percentage": 25,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 25% of HTTP status code logs matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 14: UI_ERROR_TOOLS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*error\w*\.([a-zA-Z]+)\(',
+      r'@ExceptionHandler',
+      r'try\s*\{'
+    ],
+    "description": "Patterns to detect UI error logs",
+    "significance": "Important for monitoring and debugging UI-related issues",
+    "expected_coverage": {
+      "percentage": 20,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 20% of UI error log matching these patterns.",
+      "confidence": "medium"
+    }
+  }
+}
+```
+
+### Gate 15: AUTOMATED_TESTS
+```json
+{
+  "GATE_NAME": {
+    "patterns": [
+      r'\b\w*test\w*\.([a-zA-Z]+)\(',
+      r'@Test',
+      r'test\s*\{'
+    ],
+    "description": "Patterns to detect automated test logs",
+    "significance": "Important for monitoring and debugging system reliability",
+    "expected_coverage": {
+      "percentage": 30,
+      "reasoning": "Based on project structure and framework usage patterns, we expect to find at least 30% of automated test log matching these patterns.",
+      "confidence": "high"
+    }
+  }
+}
+```
+
+These regex patterns are designed to detect common issues in the Java/Spring Boot technology stack. They should provide comprehensive coverage for the detected hard gates.
+
+**REMEMBER**: These patterns are not exhaustive and may require adjustments based on specific project requirements and industry standards.
 
 ----------------------------------------
 PARSED PATTERN DATA:

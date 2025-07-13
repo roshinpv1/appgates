@@ -11,11 +11,20 @@ from typing import Dict, Any, List, Optional
 from pocketflow import Node 
 
 # Import utilities
-from utils.git_operations import clone_repository, cleanup_repository
-from utils.file_scanner import scan_directory
-from utils.hard_gates import HARD_GATES
-from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
-from utils.static_patterns import get_static_patterns_for_gate, get_pattern_statistics
+try:
+    # Try relative imports first (when run as module)
+    from .utils.git_operations import clone_repository, cleanup_repository
+    from .utils.file_scanner import scan_directory
+    from .utils.hard_gates import HARD_GATES
+    from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
+    from .utils.static_patterns import get_static_patterns_for_gate, get_pattern_statistics
+except ImportError:
+    # Fall back to absolute imports (when run directly)
+    from utils.git_operations import clone_repository, cleanup_repository
+    from utils.file_scanner import scan_directory
+    from utils.hard_gates import HARD_GATES
+    from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
+    from utils.static_patterns import get_static_patterns_for_gate, get_pattern_statistics
 
 
 class FetchRepositoryNode(Node):
@@ -284,7 +293,7 @@ class GeneratePromptNode(Node):
             for filename, info in config["config_files"].items():
                 prompt_parts.append(f"**{filename}** ({info['type']})")
                 prompt_parts.append(f"```")
-                prompt_parts.append(info["content"][:500])  # First 500 chars for config files
+                prompt_parts.append(info["content"][:1000])  # First 1000 chars for config files
                 prompt_parts.append(f"```")
                 prompt_parts.append("")
         
@@ -318,28 +327,64 @@ class GeneratePromptNode(Node):
         prompt_parts.append("Consider the detected languages, frameworks, dependencies, and file structure when formulating patterns.")
         prompt_parts.append("Use the file structure metadata to understand the project organization and target patterns appropriately.")
         prompt_parts.append("")
+        prompt_parts.append("## CRITICAL PATTERN REQUIREMENTS")
+        prompt_parts.append("**MUST FOLLOW THESE RULES:**")
+        prompt_parts.append("1. **NO COMPLEX REGEX**: Use simple, readable patterns that actually work")
+        prompt_parts.append("2. **REAL-WORLD FOCUSED**: Patterns must match actual code, not theoretical examples")
+        prompt_parts.append("3. **TECHNOLOGY-SPECIFIC**: Tailor patterns to the detected frameworks and libraries")
+        prompt_parts.append("4. **IMPORT PATTERNS**: Include import/using statements for comprehensive coverage")
+        prompt_parts.append("5. **FLEXIBLE MATCHING**: Use \\b\\w*pattern\\w* for flexible name matching")
+        prompt_parts.append("")
+        prompt_parts.append("## TECHNOLOGY-SPECIFIC PATTERN GUIDELINES")
+        
+        # Add technology-specific guidelines based on detected languages
+        primary_languages = metadata.get('language_stats', {})
+        if 'Java' in primary_languages:
+            prompt_parts.append("### Java/Spring Boot Patterns:")
+            prompt_parts.append("- **Imports**: r'import\\s+org\\.slf4j\\.Logger', r'import\\s+org\\.slf4j\\.LoggerFactory'")
+            prompt_parts.append("- **Annotations**: r'@Slf4j', r'@RestController', r'@Service', r'@Component'")
+            prompt_parts.append("- **Logging**: r'log\\.(info|debug|error|warn|trace)\\(', r'logger\\.(info|debug|error|warn|trace)\\('")
+            prompt_parts.append("- **Spring**: r'LoggerFactory\\.getLogger\\(', r'private\\s+static\\s+final\\s+Logger'")
+            prompt_parts.append("")
+        
+        if 'Python' in primary_languages:
+            prompt_parts.append("### Python Patterns:")
+            prompt_parts.append("- **Imports**: r'import\\s+logging', r'from\\s+logging\\s+import', r'import\\s+structlog'")
+            prompt_parts.append("- **Logging**: r'logging\\.(info|debug|error|warning|critical)', r'logger\\.(info|debug|error|warning|critical)'")
+            prompt_parts.append("- **Framework**: r'app\\.logger\\.', r'flask\\.logging', r'django\\.utils\\.log'")
+            prompt_parts.append("")
+        
+        if 'JavaScript' in primary_languages or 'TypeScript' in primary_languages:
+            prompt_parts.append("### JavaScript/TypeScript Patterns:")
+            prompt_parts.append("- **Imports**: r'import\\s+\\w*[Ll]og\\w*\\s+from', r'const\\s+\\w*[Ll]og\\w*\\s*=\\s*require'")
+            prompt_parts.append("- **Logging**: r'console\\.(log|info|debug|error|warn)', r'winston\\.', r'pino\\.'")
+            prompt_parts.append("- **Modern**: r'winston\\.createLogger\\(', r'pino\\(\\)', r'bunyan\\.createLogger\\('")
+            prompt_parts.append("")
+        
+        if 'C#' in primary_languages:
+            prompt_parts.append("### C#/.NET Patterns:")
+            prompt_parts.append("- **Imports**: r'using\\s+Microsoft\\.Extensions\\.Logging', r'using\\s+Serilog'")
+            prompt_parts.append("- **Logging**: r'ILogger<\\w+>', r'Log\\.(Information|Debug|Error|Warning|Critical)'")
+            prompt_parts.append("- **Framework**: r'AddSerilog\\(\\)', r'AddLogging\\(\\)', r'LoggerFactory'")
+            prompt_parts.append("")
+        
         prompt_parts.append("## OUTPUT FORMAT")
         prompt_parts.append("Provide a JSON response with patterns, descriptions, significance, and expected coverage analysis for each gate:")
         prompt_parts.append("```json")
         prompt_parts.append("{")
         prompt_parts.append('  "GATE_NAME": {')
-        prompt_parts.append('    "patterns": ["pattern1_regex", "pattern2_regex"],')
-        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested",')
-        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack",')
+        prompt_parts.append('    "patterns": [')
+        prompt_parts.append('      "r\'import\\\\s+org\\\\.slf4j\\\\.Logger\'",')
+        prompt_parts.append('      "r\'@Slf4j\'",')
+        prompt_parts.append('      "r\'log\\\\.(info|debug|error|warn|trace)\\\\(\'",')
+        prompt_parts.append('      "r\'logger\\\\.(info|debug|error|warn|trace)\\\\(\'"')
+        prompt_parts.append('    ],')
+        prompt_parts.append('    "description": "Comprehensive logging patterns for this technology stack",')
+        prompt_parts.append('    "significance": "Critical for monitoring and debugging in production environments",')
         prompt_parts.append('    "expected_coverage": {')
         prompt_parts.append('      "percentage": 25,')
-        prompt_parts.append('      "reasoning": "Based on the project structure and libraries, approximately 25% of files should implement this pattern",')
+        prompt_parts.append('      "reasoning": "Based on project structure and framework usage patterns",')
         prompt_parts.append('      "confidence": "high"')
-        prompt_parts.append('    }')
-        prompt_parts.append('  },')
-        prompt_parts.append('  "ANOTHER_GATE": {')
-        prompt_parts.append('    "patterns": ["pattern3_regex"],')
-        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested",')
-        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack",')
-        prompt_parts.append('    "expected_coverage": {')
-        prompt_parts.append('      "percentage": 10,')
-        prompt_parts.append('      "reasoning": "This pattern is typically found in configuration files and middleware, affecting about 10% of the codebase",')
-        prompt_parts.append('      "confidence": "medium"')
         prompt_parts.append('    }')
         prompt_parts.append('  }')
         prompt_parts.append("}")
@@ -359,50 +404,75 @@ class GeneratePromptNode(Node):
         prompt_parts.append('  }')
         prompt_parts.append("```")
         prompt_parts.append("")
+        prompt_parts.append("## PATTERN EFFECTIVENESS REQUIREMENTS")
         prompt_parts.append("Focus on patterns that are:")
-        prompt_parts.append("- Specific to the detected technology stack and libraries used")
-        prompt_parts.append("- Consider all common patterns and keywords as applicable")
-        prompt_parts.append("- Comprehensive in coverage")
-        prompt_parts.append("- Practical for real-world codebases")
-        prompt_parts.append("- Security and compliance-focused")
-        prompt_parts.append("- Contextually aware of the project structure and organization")
+        prompt_parts.append("- **Specific to the detected technology stack and libraries used**")
+        prompt_parts.append("- **Based on actual import statements and framework usage**")
+        prompt_parts.append("- **Comprehensive in coverage but simple in implementation**")
+        prompt_parts.append("- **Practical for real-world codebases**")
+        prompt_parts.append("- **Security and compliance-focused**")
+        prompt_parts.append("- **Contextually aware of the project structure and organization**")
         prompt_parts.append("- **FLEXIBLE and INCLUSIVE**: Patterns should catch real-world variations")
         prompt_parts.append("")
-        prompt_parts.append("**IMPORTANT PATTERN GUIDELINES:**")
-        prompt_parts.append("- **Use flexible patterns**: Instead of exact matches like 'logger.info', use patterns like r'\\b\\w*logger\\w*\\.(info|debug|error|warn|trace)'")
-        prompt_parts.append("- **Catch variations**: Patterns should match myLogger.info(), customLogger.debug(), appLogger.error(), etc.")
-        prompt_parts.append("- **Don't be too restrictive**: Real codebases have many naming conventions")
-        prompt_parts.append("- **Include common prefixes/suffixes**: serviceLogger, auditLog, LOG, LOGGER, etc.")
-        prompt_parts.append("- **Multiple pattern approaches**: Provide several patterns per gate to maximize coverage")
-        prompt_parts.append("- **Framework-agnostic**: Include both framework-specific and generic patterns")
-        prompt_parts.append("")
-        prompt_parts.append("**PATTERN EXAMPLES:**")
-        prompt_parts.append("- Instead of: 'logger.info' → Use: r'\\b\\w*logger\\w*\\.(info|debug|error|warn|trace|fatal)'")
-        prompt_parts.append("- Instead of: 'log.error' → Use: r'\\b\\w*log\\w*\\.(info|debug|error|warn|trace|fatal)'")
-        prompt_parts.append("- Include: r'\\bLogger\\.(getLogger|info|debug|error|warn|trace)', r'LoggerFactory\\.getLogger', r'\\.getLogger\\('")
+        prompt_parts.append("**PATTERN EXAMPLES FOR COMMON SCENARIOS:**")
+        
+        # Add specific examples based on detected technologies
+        if 'Java' in primary_languages:
+            prompt_parts.append("**Java/Spring Boot Examples:**")
+            prompt_parts.append("- Logging: r'import\\s+org\\.slf4j\\.Logger', r'@Slf4j', r'log\\.(info|debug|error|warn|trace)\\('")
+            prompt_parts.append("- API: r'@RestController', r'@GetMapping', r'@PostMapping', r'@RequestMapping'")
+            prompt_parts.append("- Error: r'try\\s*\\{', r'catch\\s*\\(\\w+\\s+\\w+\\)', r'throw\\s+new\\s+\\w+Exception'")
+            prompt_parts.append("- Tests: r'@Test', r'@MockBean', r'@SpringBootTest', r'import\\s+org\\.junit'")
+            prompt_parts.append("")
+        
+        if 'Python' in primary_languages:
+            prompt_parts.append("**Python Examples:**")
+            prompt_parts.append("- Logging: r'import\\s+logging', r'logging\\.(info|debug|error|warning|critical)', r'logger\\s*=\\s*logging\\.getLogger'")
+            prompt_parts.append("- API: r'@app\\.route', r'@api\\.route', r'from\\s+flask\\s+import', r'from\\s+fastapi\\s+import'")
+            prompt_parts.append("- Error: r'try:', r'except\\s+\\w+:', r'raise\\s+\\w+Error'")
+            prompt_parts.append("- Tests: r'import\\s+unittest', r'import\\s+pytest', r'def\\s+test_\\w+'")
+            prompt_parts.append("")
+        
+        if 'JavaScript' in primary_languages or 'TypeScript' in primary_languages:
+            prompt_parts.append("**JavaScript/TypeScript Examples:**")
+            prompt_parts.append("- Logging: r'console\\.(log|info|debug|error|warn)', r'winston\\.', r'import\\s+\\w*[Ll]og\\w*\\s+from'")
+            prompt_parts.append("- API: r'app\\.(get|post|put|delete)', r'router\\.(get|post|put|delete)', r'@Controller', r'@Get'")
+            prompt_parts.append("- Error: r'try\\s*\\{', r'catch\\s*\\(\\w+\\)', r'throw\\s+new\\s+Error'")
+            prompt_parts.append("- Tests: r'describe\\(', r'it\\(', r'test\\(', r'expect\\('")
+            prompt_parts.append("")
+        
+        prompt_parts.append("**CRITICAL: AVOID THESE PATTERN MISTAKES:**")
+        prompt_parts.append("- ❌ DON'T use: r'\\blogger\\.([a-zA-Z]+)\\.([a-zA-Z]+)\\(' (too restrictive)")
+        prompt_parts.append("- ✅ DO use: r'\\b\\w*logger\\w*\\.(info|debug|error|warn|trace)\\(' (flexible)")
+        prompt_parts.append("- ❌ DON'T use: r'\\bsecret\\.[a-zA-Z]+' (won't match real code)")
+        prompt_parts.append("- ✅ DO use: r'(password|secret|token|key)\\s*[=:]' (matches assignments)")
+        prompt_parts.append("- ❌ DON'T use: Complex nested groups without clear purpose")
+        prompt_parts.append("- ✅ DO use: Simple, readable patterns that match actual code")
         prompt_parts.append("")
         prompt_parts.append("For each gate, provide:")
-        prompt_parts.append("- **patterns**: Array of regex patterns as many as possible for the technology. Consider the libraries used for coming up with the relevant implementation as well. Usage like import should also be considered. Consider all known keywords and patterns as applicable.")
-        prompt_parts.append("- **description**: 1-2 sentence explanation of reason of why the patterns suggested")
-        prompt_parts.append("- **significance**: 2-3 sentence explanation of why the patterns matters for the specific technology stack and libraries used and project type")
-        prompt_parts.append("- **expected_coverage**: Intelligent analysis of expected coverage based on:")
-        prompt_parts.append("  - **percentage**: Expected percentage of files that should contain this pattern (0-100)")
-        prompt_parts.append("  - **reasoning**: Detailed explanation of why this coverage percentage is expected based on:")
-        prompt_parts.append("    - Project architecture and structure")
-        prompt_parts.append("    - Technology stack and frameworks used")
-        prompt_parts.append("    - Library dependencies and their typical usage patterns")
+        prompt_parts.append("- **patterns**: Array of regex patterns optimized for the detected technology stack")
+        prompt_parts.append("- **description**: 1-2 sentence explanation of what the patterns detect and why")
+        prompt_parts.append("- **significance**: 2-3 sentence explanation of importance for this specific technology stack")
+        prompt_parts.append("- **expected_coverage**: Intelligent analysis based on project characteristics")
+        prompt_parts.append("  - **percentage**: Realistic percentage based on project type and size")
+        prompt_parts.append("  - **reasoning**: Detailed explanation considering:")
+        prompt_parts.append("    - Project architecture and detected frameworks")
+        prompt_parts.append("    - Technology stack and library dependencies")
         prompt_parts.append("    - File types and their distribution")
         prompt_parts.append("    - Common implementation patterns for this gate type")
-        prompt_parts.append("  - **confidence**: Confidence level in the estimate (high/medium/low)")
+        prompt_parts.append("    - Industry standards and best practices")
+        prompt_parts.append("  - **confidence**: High/medium/low based on pattern specificity and technology match")
         prompt_parts.append("")
         prompt_parts.append("**COVERAGE ANALYSIS GUIDELINES:**")
-        prompt_parts.append("- Consider the specific technology stack: different frameworks have different patterns")
-        prompt_parts.append("- Account for project size and complexity: larger projects may have lower percentages but higher absolute counts")
-        prompt_parts.append("- Factor in architectural patterns: microservices vs monolith affects distribution")
-        prompt_parts.append("- Consider file type distribution: some patterns only apply to specific file types")
-        prompt_parts.append("- Account for library usage: imported libraries may provide built-in implementations")
-        prompt_parts.append("- Be realistic: not every file needs every pattern, estimate based on actual usage scenarios")
-        prompt_parts.append("- Provide reasoning that shows understanding of the codebase structure and technology choices")
+        prompt_parts.append("- **Consider the specific technology stack**: Different frameworks have different patterns")
+        prompt_parts.append("- **Account for project size and complexity**: Larger projects may have lower percentages but higher absolute counts")
+        prompt_parts.append("- **Factor in architectural patterns**: Microservices vs monolith affects distribution")
+        prompt_parts.append("- **Consider file type distribution**: Some patterns only apply to specific file types")
+        prompt_parts.append("- **Account for library usage**: Imported libraries may provide built-in implementations")
+        prompt_parts.append("- **Be realistic**: Not every file needs every pattern, estimate based on actual usage scenarios")
+        prompt_parts.append("- **Provide reasoning that shows understanding of the codebase structure and technology choices**")
+        prompt_parts.append("")
+        prompt_parts.append("**REMEMBER**: Generate patterns that will actually find real code in this specific project!")
         
         prompt = "\n".join(prompt_parts)
         return prompt
@@ -536,7 +606,7 @@ class CallLLMNode(Node):
                     "pattern_data": pattern_data,
                     "source": llm_client.config.provider.value,
                     "model": llm_client.config.model,
-                    "response": response[:500] + "..." if len(response) > 500 else response
+                    "response": response[:10000] + "..." if len(response) > 10000 else response
                 }
                 
             except Exception as e:
@@ -624,26 +694,49 @@ class CallLLMNode(Node):
     def _parse_enhanced_llm_response(self, response: str) -> Dict[str, Dict[str, Any]]:
         """Parse LLM response to extract patterns with descriptions, significance, and expected coverage"""
         try:
-            # Try to find JSON in the response
+            # Try to find JSON in the response with multiple strategies
+            json_str = None
+            
+            # Strategy 1: Look for JSON in code blocks
             json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
             else:
-                # Try to find JSON without code blocks
+                # Strategy 2: Look for JSON without code blocks
                 json_match = re.search(r'(\{.*?\})', response, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(1)
                 else:
-                    raise ValueError("No JSON found in response")
+                    # Strategy 3: Try to extract patterns from structured text
+                    return self._extract_patterns_from_text(response)
             
-            # Parse JSON
-            raw_data = json.loads(json_str)
+            if not json_str:
+                print("⚠️ No JSON found in LLM response, using fallback parsing")
+                return self._extract_patterns_from_text(response)
+            
+            # Parse JSON with error handling
+            try:
+                raw_data = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                print(f"⚠️ JSON parsing failed: {e}")
+                # Try to fix common JSON issues
+                json_str = self._fix_common_json_issues(json_str)
+                try:
+                    raw_data = json.loads(json_str)
+                except json.JSONDecodeError:
+                    print("⚠️ JSON repair failed, using text extraction")
+                    return self._extract_patterns_from_text(response)
             
             # Validate and structure the data
             pattern_data = {}
             for gate_name, gate_info in raw_data.items():
                 if isinstance(gate_info, dict):
                     # Enhanced format with expected coverage
+                    patterns = gate_info.get("patterns", [])
+                    
+                    # Clean and validate patterns
+                    cleaned_patterns = self._clean_and_validate_patterns(patterns)
+                    
                     expected_coverage = gate_info.get("expected_coverage", {})
                     if isinstance(expected_coverage, dict):
                         coverage_data = {
@@ -660,15 +753,16 @@ class CallLLMNode(Node):
                         }
                     
                     pattern_data[gate_name] = {
-                        "patterns": gate_info.get("patterns", []),
+                        "patterns": cleaned_patterns,
                         "description": gate_info.get("description", "Pattern analysis for this gate"),
                         "significance": gate_info.get("significance", "Important for code quality and compliance"),
                         "expected_coverage": coverage_data
                     }
                 elif isinstance(gate_info, list):
                     # Old format - just patterns
+                    cleaned_patterns = self._clean_and_validate_patterns(gate_info)
                     pattern_data[gate_name] = {
-                        "patterns": gate_info,
+                        "patterns": cleaned_patterns,
                         "description": "Pattern analysis for this gate",
                         "significance": "Important for code quality and compliance",
                         "expected_coverage": {
@@ -679,8 +773,9 @@ class CallLLMNode(Node):
                     }
                 else:
                     # Single pattern
+                    cleaned_patterns = self._clean_and_validate_patterns([str(gate_info)] if gate_info else [])
                     pattern_data[gate_name] = {
-                        "patterns": [str(gate_info)] if gate_info else [],
+                        "patterns": cleaned_patterns,
                         "description": "Pattern analysis for this gate",
                         "significance": "Important for code quality and compliance",
                         "expected_coverage": {
@@ -697,6 +792,149 @@ class CallLLMNode(Node):
             print(f"Response preview: {response[:200]}...")
             # Return fallback patterns
             return self._generate_fallback_pattern_data()
+    
+    def _fix_common_json_issues(self, json_str: str) -> str:
+        """Fix common JSON formatting issues in LLM responses"""
+        # Remove trailing commas
+        json_str = re.sub(r',\s*}', '}', json_str)
+        json_str = re.sub(r',\s*]', ']', json_str)
+        
+        # Fix unescaped quotes in strings
+        json_str = re.sub(r'(?<!\\)"(?![,}\]])', '\\"', json_str)
+        
+        # Fix single quotes to double quotes
+        json_str = re.sub(r"'([^']*)':", r'"\1":', json_str)
+        
+        # Fix missing quotes around keys
+        json_str = re.sub(r'(\w+):', r'"\1":', json_str)
+        
+        return json_str
+    
+    def _clean_and_validate_patterns(self, patterns: List[str]) -> List[str]:
+        """Clean and validate regex patterns from LLM"""
+        cleaned_patterns = []
+        
+        for pattern in patterns:
+            if not pattern or not isinstance(pattern, str):
+                continue
+                
+            # Remove common LLM formatting artifacts
+            pattern = pattern.strip()
+            
+            # Remove r' prefix and ' suffix if present
+            if pattern.startswith("r'") and pattern.endswith("'"):
+                pattern = pattern[2:-1]
+            elif pattern.startswith('r"') and pattern.endswith('"'):
+                pattern = pattern[2:-1]
+            elif pattern.startswith("'") and pattern.endswith("'"):
+                pattern = pattern[1:-1]
+            elif pattern.startswith('"') and pattern.endswith('"'):
+                pattern = pattern[1:-1]
+            
+            # Skip empty patterns
+            if not pattern:
+                continue
+            
+            # Basic validation - try to compile the regex
+            try:
+                re.compile(pattern)
+                cleaned_patterns.append(pattern)
+            except re.error as e:
+                print(f"⚠️ Invalid regex pattern skipped: {pattern} - {e}")
+                # Try to fix common issues
+                fixed_pattern = self._fix_regex_pattern(pattern)
+                if fixed_pattern:
+                    try:
+                        re.compile(fixed_pattern)
+                        cleaned_patterns.append(fixed_pattern)
+                        print(f"✅ Fixed pattern: {pattern} → {fixed_pattern}")
+                    except re.error:
+                        print(f"⚠️ Could not fix pattern: {pattern}")
+        
+        return cleaned_patterns
+    
+    def _fix_regex_pattern(self, pattern: str) -> str:
+        """Attempt to fix common regex pattern issues"""
+        # Fix unescaped dots
+        pattern = re.sub(r'(?<!\\)\.(?![*+?{])', r'\\.', pattern)
+        
+        # Fix unescaped parentheses in contexts where they should be literal
+        pattern = re.sub(r'(?<!\\)\((?![^)]*\|)', r'\\(', pattern)
+        pattern = re.sub(r'(?<!\\)\)(?![*+?{])', r'\\)', pattern)
+        
+        # Fix missing word boundaries
+        if not pattern.startswith(r'\b') and pattern.startswith(r'\w'):
+            pattern = r'\b' + pattern
+        
+        return pattern
+    
+    def _extract_patterns_from_text(self, response: str) -> Dict[str, Dict[str, Any]]:
+        """Extract patterns from unstructured text response"""
+        pattern_data = {}
+        
+        # Look for gate sections in the response
+        gate_sections = re.findall(r'\*\*([A-Z_]+)\*\*.*?(?=\*\*[A-Z_]+\*\*|\Z)', response, re.DOTALL)
+        
+        for section in gate_sections:
+            lines = section.split('\n')
+            gate_name = lines[0].strip('*').strip()
+            
+            # Extract patterns from the section
+            patterns = []
+            description = "Pattern analysis for this gate"
+            significance = "Important for code quality and compliance"
+            percentage = 10
+            confidence = "medium"
+            
+            for line in lines[1:]:
+                line = line.strip()
+                if line.startswith('- **patterns**:') or line.startswith('* **patterns**:'):
+                    # Extract patterns from this line and following lines
+                    pattern_text = line.split(':', 1)[1].strip() if ':' in line else ""
+                    patterns.extend(self._extract_patterns_from_line(pattern_text))
+                elif line.startswith('- **description**:') or line.startswith('* **description**:'):
+                    description = line.split(':', 1)[1].strip() if ':' in line else description
+                elif line.startswith('- **significance**:') or line.startswith('* **significance**:'):
+                    significance = line.split(':', 1)[1].strip() if ':' in line else significance
+                elif line.startswith('- **expected_coverage**:') or line.startswith('* **expected_coverage**:'):
+                    # Try to extract percentage
+                    percentage_match = re.search(r'(\d+)%', line)
+                    if percentage_match:
+                        percentage = int(percentage_match.group(1))
+            
+            if patterns:
+                pattern_data[gate_name] = {
+                    "patterns": patterns,
+                    "description": description,
+                    "significance": significance,
+                    "expected_coverage": {
+                        "percentage": percentage,
+                        "reasoning": "Extracted from text analysis",
+                        "confidence": confidence
+                    }
+                }
+        
+        # If no patterns found, return fallback
+        if not pattern_data:
+            return self._generate_fallback_pattern_data()
+        
+        return pattern_data
+    
+    def _extract_patterns_from_line(self, line: str) -> List[str]:
+        """Extract regex patterns from a line of text"""
+        patterns = []
+        
+        # Look for patterns in various formats
+        pattern_matches = re.findall(r'r[\'"]([^\'\"]+)[\'"]', line)
+        patterns.extend(pattern_matches)
+        
+        # Look for patterns without r prefix
+        pattern_matches = re.findall(r'[\'"]([^\'\"]+)[\'"]', line)
+        for match in pattern_matches:
+            if match not in patterns and len(match) > 3:  # Avoid short strings
+                patterns.append(match)
+        
+        return patterns
     
     def _parse_llm_response(self, response: str) -> Dict[str, List[str]]:
         """Parse LLM response to extract patterns (legacy method)"""
@@ -784,7 +1022,8 @@ class ValidateGatesNode(Node):
             "patterns": shared["llm"]["patterns"],
             "pattern_data": shared["llm"].get("pattern_data", {}),
             "hard_gates": shared["hard_gates"],
-            "threshold": shared["request"]["threshold"]
+            "threshold": shared["request"]["threshold"],
+            "shared": shared  # Pass shared context for configuration
         }
     
     def exec(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -795,6 +1034,10 @@ class ValidateGatesNode(Node):
         llm_patterns = params["patterns"]
         pattern_data = params["pattern_data"]
         metadata = params["metadata"]
+        
+        # Get pattern matching configuration
+        config = self._get_pattern_matching_config(params.get("shared", {}))
+        print(f"   📋 Pattern matching config: max_files={config['max_files']}, max_size={config['max_file_size_mb']}MB, lang_threshold={config['language_threshold_percent']}%")
         
         # Get primary technologies for static pattern selection
         primary_technologies = self._get_primary_technologies(metadata)
@@ -848,9 +1091,9 @@ class ValidateGatesNode(Node):
                 # Get static patterns for this gate and technology stack
                 static_gate_patterns = get_static_patterns_for_gate(gate_name, primary_technologies)
                 
-                # Hybrid validation: LLM patterns + Static patterns
-                llm_matches = self._find_pattern_matches(repo_path, llm_gate_patterns, metadata, gate, "LLM")
-                static_matches = self._find_pattern_matches(repo_path, static_gate_patterns, metadata, gate, "Static")
+                # Hybrid validation: LLM patterns + Static patterns (with improved matching)
+                llm_matches = self._find_pattern_matches_with_config(repo_path, llm_gate_patterns, metadata, gate, config, "LLM")
+                static_matches = self._find_pattern_matches_with_config(repo_path, static_gate_patterns, metadata, gate, config, "Static")
                 
                 # Combine matches and remove duplicates based on file and line
                 all_matches = llm_matches + static_matches
@@ -858,9 +1101,9 @@ class ValidateGatesNode(Node):
                 
                 # Calculate relevant file count for this gate type
                 if gate_name == "AUTOMATED_TESTS":
-                    relevant_files = self._get_technology_relevant_files(metadata, file_type="Test Code")
+                    relevant_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
                 else:
-                    relevant_files = self._get_technology_relevant_files(metadata, file_type="Source Code")
+                    relevant_files = self._get_improved_relevant_files(metadata, file_type="Source Code", gate_name=gate_name, config=config)
                 
                 relevant_file_count = len(relevant_files)
                 
@@ -1003,47 +1246,95 @@ class ValidateGatesNode(Node):
         
         return stats
     
-    def _find_pattern_matches(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any], source: str = "LLM") -> List[Dict[str, Any]]:
-        """Find pattern matches in appropriate files based on gate type and primary technology"""
+    def _find_pattern_matches_with_config(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any], config: Dict[str, Any], source: str = "LLM") -> List[Dict[str, Any]]:
+        """Find pattern matches in appropriate files with improved coverage and error handling"""
         matches = []
         
-        # Filter files based on gate type and primary technology
+        # Filter files based on gate type with improved logic
         gate_name = gate.get("name", "")
         
         if gate_name == "AUTOMATED_TESTS":
-            # For automated tests gate, only look at test files of the primary technology
-            target_files = self._get_technology_relevant_files(metadata, file_type="Test Code")
+            # For automated tests gate, look at test files across all languages
+            target_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
             print(f"   Looking at {len(target_files)} relevant test files for {gate_name}")
         else:
-            # For all other gates, only look at source code files of the primary technology
-            target_files = self._get_technology_relevant_files(metadata, file_type="Source Code")
+            # For all other gates, look at source code files with more inclusive filtering
+            target_files = self._get_improved_relevant_files(metadata, file_type="Source Code", gate_name=gate_name, config=config)
             print(f"   Looking at {len(target_files)} relevant source code files for {gate_name}")
+        
+        # Pre-compile patterns for efficiency (fix pattern recompilation issue)
+        compiled_patterns = []
+        invalid_patterns = []
         
         for pattern in patterns:
             try:
                 compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
-                
-                for file_info in target_files[:100]:  # Limit to first 100 files
-                    file_path = repo_path / file_info["relative_path"]
-                    
-                    if file_path.exists() and file_path.stat().st_size < 1024 * 1024:  # Skip large files
-                        try:
-                            content = file_path.read_text(encoding='utf-8', errors='ignore')
-                            
-                            for match in compiled_pattern.finditer(content):
-                                matches.append({
-                                    "file": file_info["relative_path"],
-                                    "pattern": pattern,
-                                    "match": match.group(),
-                                    "line": content[:match.start()].count('\n') + 1,
-                                    "language": file_info["language"],
-                                    "source": source
-                                })
-                        except Exception:
-                            continue
-            except re.error:
-                # Skip invalid regex patterns
+                compiled_patterns.append((pattern, compiled_pattern))
+            except re.error as e:
+                invalid_patterns.append((pattern, str(e)))
+                print(f"   ⚠️ Invalid regex pattern skipped: {pattern} - {e}")
+        
+        # Report pattern compilation results
+        if invalid_patterns:
+            print(f"   ⚠️ Skipped {len(invalid_patterns)} invalid patterns out of {len(patterns)} total")
+        
+        # Process files with improved limits and error handling
+        files_processed = 0
+        files_skipped = 0
+        files_too_large = 0
+        files_read_errors = 0
+        
+        # Configurable limits (remove hard-coded 100 file limit)
+        max_files = min(len(target_files), config["max_files"])
+        max_file_size = config["max_file_size_mb"] * 1024 * 1024  # Convert MB to bytes
+        
+        for file_info in target_files[:max_files]:
+            file_path = repo_path / file_info["relative_path"]
+            
+            if not file_path.exists():
+                files_skipped += 1
                 continue
+                
+            try:
+                file_size = file_path.stat().st_size
+                if file_size > max_file_size:
+                    files_too_large += 1
+                    if config.get("enable_detailed_logging", True):
+                        print(f"   ⚠️ Skipping large file ({file_size/1024/1024:.1f}MB): {file_info['relative_path']}")
+                    continue
+                
+                content = file_path.read_text(encoding='utf-8', errors='ignore')
+                
+                # Apply all compiled patterns to this file
+                for pattern, compiled_pattern in compiled_patterns:
+                    try:
+                        for match in compiled_pattern.finditer(content):
+                            matches.append({
+                                "file": file_info["relative_path"],
+                                "pattern": pattern,
+                                "match": match.group(),
+                                "line": content[:match.start()].count('\n') + 1,
+                                "language": file_info["language"],
+                                "source": source
+                            })
+                    except Exception as e:
+                        if config.get("enable_detailed_logging", True):
+                            print(f"   ⚠️ Pattern matching error in {file_info['relative_path']}: {e}")
+                
+                files_processed += 1
+                
+            except Exception as e:
+                files_read_errors += 1
+                if config.get("enable_detailed_logging", True):
+                    print(f"   ⚠️ Error reading file {file_info['relative_path']}: {e}")
+                continue
+        
+        # Report processing statistics (fix silent failures)
+        if config.get("enable_detailed_logging", True):
+            print(f"   📊 File processing stats: {files_processed} processed, {files_skipped} skipped, {files_too_large} too large, {files_read_errors} read errors")
+        
+        if len(target_files) > max_files:
+            print(f"   ⚠️ File limit reached: processed {max_files} out of {len(target_files)} eligible files")
         
         return matches
     
@@ -1323,6 +1614,157 @@ class ValidateGatesNode(Node):
             return "medium"
         else:
             return "low"
+
+    def _get_pattern_matching_config(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Get configurable pattern matching parameters"""
+        # Default configuration
+        default_config = {
+            "max_files": 500,
+            "max_file_size_mb": 5,
+            "language_threshold_percent": 5.0,
+            "config_threshold_percent": 1.0,
+            "min_languages": 1,
+            "enable_detailed_logging": True,
+            "skip_binary_files": True,
+            "process_large_files": False
+        }
+        
+        # Override with request-specific config if available
+        request_config = shared.get("request", {}).get("pattern_matching", {})
+        config = {**default_config, **request_config}
+        
+        # Validate configuration
+        config["max_files"] = max(50, min(config["max_files"], 2000))  # Between 50-2000
+        config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 50))  # Between 1-50 MB
+        config["language_threshold_percent"] = max(0.5, min(config["language_threshold_percent"], 50.0))  # Between 0.5-50%
+        
+        return config
+
+    def _get_improved_relevant_files(self, metadata: Dict[str, Any], file_type: str = "Source Code", gate_name: str = "", config: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """Get files that are relevant with improved, less aggressive filtering"""
+        all_files = [f for f in metadata.get("file_list", []) 
+                    if f["type"] == file_type and not f["is_binary"]]
+        
+        # Use default config if none provided
+        if config is None:
+            config = {
+                "language_threshold_percent": 5.0,
+                "config_threshold_percent": 1.0,
+                "min_languages": 1
+            }
+        
+        # Get language statistics for intelligent filtering
+        language_stats = metadata.get("language_stats", {})
+        total_files = sum(stats.get("files", 0) for stats in language_stats.values())
+        
+        if not language_stats or total_files == 0:
+            print(f"   No language statistics available, using all {len(all_files)} {file_type.lower()} files")
+            return all_files
+        
+        # Define technology categories for more intelligent filtering
+        primary_languages = {
+            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
+            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
+        }
+        
+        config_languages = {
+            "XML", "JSON", "YAML", "Properties", "TOML", "INI"
+        }
+        
+        web_languages = {
+            "HTML", "CSS", "SCSS", "SASS", "Less"
+        }
+        
+        script_languages = {
+            "Shell", "Batch", "PowerShell", "Dockerfile"
+        }
+        
+        # Calculate language percentages
+        language_percentages = {}
+        for language, stats in language_stats.items():
+            file_count = stats.get("files", 0)
+            percentage = (file_count / total_files) * 100
+            language_percentages[language] = percentage
+        
+        # Determine relevant languages based on gate type and configurable thresholds
+        relevant_languages = set()
+        
+        # Get configurable thresholds
+        primary_threshold = config["language_threshold_percent"]
+        config_threshold = config["config_threshold_percent"]
+        
+        # Gate-specific logic for better relevance
+        if gate_name in ["STRUCTURED_LOGS", "AVOID_LOGGING_SECRETS", "AUDIT_TRAIL", "LOG_API_CALLS", "LOG_APPLICATION_MESSAGES", "ERROR_LOGS"]:
+            # Logging-related gates: include primary languages + config files
+            for language, percentage in language_percentages.items():
+                if language in primary_languages and percentage >= primary_threshold:
+                    relevant_languages.add(language)
+                elif language in config_languages and percentage >= config_threshold:
+                    relevant_languages.add(language)
+        elif gate_name in ["UI_ERRORS", "UI_ERROR_TOOLS"]:
+            # UI-related gates: include web languages + primary languages
+            for language, percentage in language_percentages.items():
+                if language in web_languages and percentage >= config_threshold:
+                    relevant_languages.add(language)
+                elif language in primary_languages and percentage >= primary_threshold:
+                    relevant_languages.add(language)
+        elif gate_name == "AUTOMATED_TESTS":
+            # Test-related gates: include all primary languages with lower threshold
+            test_threshold = max(primary_threshold * 0.6, 1.0)  # 60% of primary threshold, minimum 1%
+            for language, percentage in language_percentages.items():
+                if language in primary_languages and percentage >= test_threshold:
+                    relevant_languages.add(language)
+        else:
+            # Other gates: include primary languages with configurable threshold
+            for language, percentage in language_percentages.items():
+                if language in primary_languages and percentage >= primary_threshold:
+                    relevant_languages.add(language)
+                elif language in script_languages and percentage >= config_threshold * 2:
+                    relevant_languages.add(language)
+        
+        # If no languages meet the threshold, include the most dominant ones
+        if not relevant_languages:
+            sorted_languages = sorted(language_percentages.items(), key=lambda x: x[1], reverse=True)
+            
+            # Include top languages or languages with >2% representation
+            min_languages = config.get("min_languages", 1)
+            for language, percentage in sorted_languages[:max(min_languages, 3)]:
+                if language in primary_languages or percentage >= 2.0:
+                    relevant_languages.add(language)
+        
+        # Always include the dominant language if it's a primary language
+        if language_percentages:
+            dominant_language = max(language_percentages.items(), key=lambda x: x[1])[0]
+            if dominant_language in primary_languages:
+                relevant_languages.add(dominant_language)
+        
+        # Filter files to include relevant languages
+        if relevant_languages:
+            relevant_files = [f for f in all_files 
+                             if f["language"] in relevant_languages]
+        else:
+            # Fallback: use all files if no relevant languages found
+            relevant_files = all_files
+        
+        # Sort files by relevance (prioritize larger files and common patterns)
+        relevant_files.sort(key=lambda f: (
+            f["language"] in primary_languages,  # Primary languages first
+            f["size"],  # Larger files first
+            not f["relative_path"].startswith("test"),  # Non-test files first (except for test gates)
+            f["relative_path"]  # Alphabetical as tiebreaker
+        ), reverse=True)
+        
+        # Report filtering results
+        relevant_langs_str = ", ".join(sorted(relevant_languages))
+        print(f"   Relevant languages: {relevant_langs_str}")
+        print(f"   Filtered to {len(relevant_files)} relevant files (from {len(all_files)} total {file_type.lower()} files)")
+        
+        # Show percentage breakdown
+        if len(all_files) > 0:
+            coverage_percentage = (len(relevant_files) / len(all_files)) * 100
+            print(f"   Coverage: {coverage_percentage:.1f}% of {file_type.lower()} files")
+        
+        return relevant_files
 
 
 class GenerateReportNode(Node):

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hard Gate Assessment (Summary) - spring-projects/spring-petclinic</title>
+    <title>Hard Gate Assessment (Hybrid Validation) - spring-projects/spring-petclinic</title>
     <style>
         
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f3f4f6; }
@@ -152,9 +152,9 @@
     <div class="report-container">
         <div class="report-header">
             <h1>spring-projects/spring-petclinic</h1>
-            <div class="report-badge summary-badge">Summary Report</div>
+            <div class="report-badge summary-badge">Hybrid Validation Report</div>
             <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
-            <p style="color: #6b7280; margin-bottom: 20px;">Generated with fallback (built-in)</p>
+            <p style="color: #6b7280; margin-bottom: 20px;">Generated with local (llama-3.2-3b-instruct) + Static Pattern Library</p>
         </div>
         
         <h2>Executive Summary</h2>
@@ -165,7 +165,7 @@
                 <div class="stat-label">Total Gates Evaluated</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">2</div>
+                <div class="stat-number">5</div>
                 <div class="stat-label">Gates Met</div>
             </div>
             <div class="stat-card">
@@ -173,7 +173,7 @@
                 <div class="stat-label">Partially Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">13</div>
+                <div class="stat-number">10</div>
                 <div class="stat-label">Not Met</div>
             </div>
             <div class="stat-card">
@@ -184,12 +184,41 @@
         
         <h3>Overall Compliance</h3>
         <div class="compliance-bar">
-            <div class="compliance-fill" style="width: 12.1%"></div>
+            <div class="compliance-fill" style="width: 28.3%"></div>
         </div>
-        <p><strong>12.1% Hard Gates Compliance</strong></p>
+        <p><strong>28.3% Hard Gates Compliance</strong></p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
             <em>Percentage calculated based on 15 applicable gates (excluding 0 N/A gates)</em>
         </p>
+        
+        
+        <h3>Hybrid Validation Summary</h3>
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-number">72</div>
+                <div class="stat-label">LLM Patterns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">220</div>
+                <div class="stat-label">Static Patterns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">572</div>
+                <div class="stat-label">Unique Matches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">16.7%</div>
+                <div class="stat-label">Coverage Improvement</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">1</div>
+                <div class="stat-label">High Confidence Gates</div>
+            </div>
+        </div>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 10px;">
+            <em>Hybrid validation combines LLM-generated patterns with comprehensive static pattern library for enhanced coverage and accuracy</em>
+        </p>
+        
         
         <h2>Hard Gates Analysis</h2>
         <div class="gates-analysis">
@@ -212,29 +241,29 @@
                                         <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-STRUCTURED_LOGS-0')" aria-expanded="false" aria-label="Show details for Logs Searchable/Available">+</button>
                                     </td>
                                     <td><strong>Logs Searchable/Available</strong></td>
-                                    <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
-                                    <td>Critical: Implement Logs Searchable/Available throughout your codebase</td>
+                                    <td><span class="status-implemented">✓ Implemented</span></td>
+                                    <td>Found 6 implementations with 81.0% coverage</td>
+                                    <td>Excellent implementation of Logs Searchable/Available</td>
                                 </tr>
                                 <tr id="details-auditability-STRUCTURED_LOGS-0" class="gate-details" aria-hidden="true">
                                     <td colspan="5" class="details-content">
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">81.0%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">81.0%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">5</div>
+                    <div class="metric-value">83</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Logging</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Ensure logs are structured and searchable for operational monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for STRUCTURED_LOGS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 0.0% (0/25 relevant files)</li><li>Technology Filter: Using 25 relevant files (from 112 total files)</li><li>Confidence: low</li><li>No matches found for Logs Searchable/Available</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Critical: Implement Logs Searchable/Available throughout your codebase</li><li>Expected 10% coverage, currently at 0.0% (based on 25 relevant files)</li><li>Focus on ensure logs are structured and searchable for operational monitoring</li></ul></div>
+                    <div class="metric-value">6</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Logging</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Ensure logs are structured and searchable for operational monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for STRUCTURED_LOGS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 16.0% (4/25 relevant files)</li><li>Technology Filter: Using 25 relevant files (from 112 total files)</li><li>Confidence: low</li><li>Found 6 matches across 4 files</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Excellent implementation of Logs Searchable/Available</li><li>Coverage exceeds expectations (16.0% vs 10%)</li><li>Note: Coverage estimate has low confidence - manual review recommended</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -259,7 +288,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">6</div>
+                    <div class="metric-value">11</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -289,7 +318,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">20</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -319,7 +348,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">17</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -332,29 +361,29 @@
                                         <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-LOG_API_CALLS-4')" aria-expanded="false" aria-label="Show details for Log REST API Calls">+</button>
                                     </td>
                                     <td><strong>Log REST API Calls</strong></td>
-                                    <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
-                                    <td>Critical: Implement Log REST API Calls throughout your codebase</td>
+                                    <td><span class="status-implemented">✓ Implemented</span></td>
+                                    <td>Found 35 implementations with 81.0% coverage</td>
+                                    <td>Excellent implementation of Log REST API Calls</td>
                                 </tr>
                                 <tr id="details-auditability-LOG_API_CALLS-4" class="gate-details" aria-hidden="true">
                                     <td colspan="5" class="details-content">
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">81.0%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">81.0%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">32</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> API</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Log all API requests and responses for monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for LOG_API_CALLS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 0.0% (0/25 relevant files)</li><li>Technology Filter: Using 25 relevant files (from 112 total files)</li><li>Confidence: low</li><li>No matches found for Log REST API Calls</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Critical: Implement Log REST API Calls throughout your codebase</li><li>Expected 10% coverage, currently at 0.0% (based on 25 relevant files)</li><li>Focus on log all api requests and responses for monitoring</li></ul></div>
+                    <div class="metric-value">35</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> API</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Log all API requests and responses for monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for LOG_API_CALLS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 24.0% (6/25 relevant files)</li><li>Technology Filter: Using 25 relevant files (from 112 total files)</li><li>Confidence: low</li><li>Found 35 matches across 6 files</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Excellent implementation of Log REST API Calls</li><li>Coverage exceeds expectations (24.0% vs 10%)</li><li>Note: Coverage estimate has low confidence - manual review recommended</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -379,7 +408,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">20</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -457,7 +486,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">5</div>
+                    <div class="metric-value">8</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -487,7 +516,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">9</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -517,7 +546,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">8</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -547,7 +576,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">5</div>
+                    <div class="metric-value">8</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -578,29 +607,29 @@
                                         <button class="details-toggle" onclick="toggleDetails(this, 'details-error handling-ERROR_LOGS-0')" aria-expanded="false" aria-label="Show details for Log System Errors">+</button>
                                     </td>
                                     <td><strong>Log System Errors</strong></td>
-                                    <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
-                                    <td>Critical: Implement Log System Errors throughout your codebase</td>
+                                    <td><span class="status-implemented">✓ Implemented</span></td>
+                                    <td>Found 31 implementations with 81.0% coverage</td>
+                                    <td>Excellent implementation of Log System Errors</td>
                                 </tr>
                                 <tr id="details-error handling-ERROR_LOGS-0" class="gate-details" aria-hidden="true">
                                     <td colspan="5" class="details-content">
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">81.0%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">81.0%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">26</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Error Handling</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive error logging and exception handling</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for ERROR_LOGS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 0.0% (0/25 relevant files)</li><li>Technology Filter: Using 25 relevant files (from 112 total files)</li><li>Confidence: low</li><li>No matches found for Log System Errors</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Critical: Implement Log System Errors throughout your codebase</li><li>Expected 10% coverage, currently at 0.0% (based on 25 relevant files)</li><li>Focus on comprehensive error logging and exception handling</li></ul></div>
+                    <div class="metric-value">31</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Error Handling</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive error logging and exception handling</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for ERROR_LOGS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 32.0% (8/25 relevant files)</li><li>Technology Filter: Using 25 relevant files (from 112 total files)</li><li>Confidence: low</li><li>Found 31 matches across 8 files</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Excellent implementation of Log System Errors</li><li>Coverage exceeds expectations (32.0% vs 10%)</li><li>Note: Coverage estimate has low confidence - manual review recommended</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -625,7 +654,7 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">7</div>
+                    <div class="metric-value">10</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
@@ -687,7 +716,7 @@
                                     </td>
                                     <td><strong>Automated Tests</strong></td>
                                     <td><span class="status-implemented">✓ Implemented</span></td>
-                                    <td>Found 490 implementations with 81.0% coverage</td>
+                                    <td>Found 500 implementations with 81.0% coverage</td>
                                     <td>Excellent implementation of Automated Tests</td>
                                 </tr>
                                 <tr id="details-testing-AUTOMATED_TESTS-0" class="gate-details" aria-hidden="true">
@@ -703,12 +732,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">7</div>
+                    <div class="metric-value">31</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">490</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Testing</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive automated test coverage</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for AUTOMATED_TESTS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 88.9% (16/18 relevant files)</li><li>Technology Filter: Using 18 relevant files (from 112 total files)</li><li>Confidence: low</li><li>Found 490 matches across 16 files</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Excellent implementation of Automated Tests</li><li>Coverage exceeds expectations (88.9% vs 10%)</li><li>Note: Coverage estimate has low confidence - manual review recommended</li></ul></div>
+                    <div class="metric-value">500</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Testing</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive automated test coverage</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Fallback patterns for AUTOMATED_TESTS - basic implementation patterns</p><p><strong>Significance:</strong> These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)</li><li>Actual Coverage: 88.9% (16/18 relevant files)</li><li>Technology Filter: Using 18 relevant files (from 112 total files)</li><li>Confidence: low</li><li>Found 500 matches across 16 files</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Excellent implementation of Automated Tests</li><li>Coverage exceeds expectations (88.9% vs 10%)</li><li>Note: Coverage estimate has low confidence - manual review recommended</li></ul></div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -717,7 +746,7 @@
                 </div></div>
         
         <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-            <p>Hard Gate Assessment Summary Report generated on 2025-07-13 18:10:03</p>
+            <p>Hard Gate Assessment Hybrid Validation Report generated on 2025-07-13 23:29:33</p>
         </footer>
     </div>
 </body>
