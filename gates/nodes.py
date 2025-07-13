@@ -825,6 +825,14 @@ class ValidateGatesNode(Node):
                 # Count matches for this gate
                 matches = self._find_pattern_matches(repo_path, gate_patterns, metadata, gate)
                 
+                # Calculate relevant file count for this gate type
+                if gate_name == "AUTOMATED_TESTS":
+                    relevant_files = self._get_technology_relevant_files(metadata, file_type="Test Code")
+                else:
+                    relevant_files = self._get_technology_relevant_files(metadata, file_type="Source Code")
+                
+                relevant_file_count = len(relevant_files)
+                
                 # Prepare gate with expected coverage for scoring
                 gate_with_coverage = {
                     **gate,
@@ -833,7 +841,8 @@ class ValidateGatesNode(Node):
                         "reasoning": "Standard expectation for this gate type",
                         "confidence": "medium"
                     }),
-                    "total_files": metadata.get("total_files", 1)
+                    "total_files": metadata.get("total_files", 1),
+                    "relevant_files": relevant_file_count
                 }
                 
                 # Calculate score based on gate type and matches
@@ -859,7 +868,8 @@ class ValidateGatesNode(Node):
                         "reasoning": "Standard expectation for this gate type",
                         "confidence": "medium"
                     }),
-                    "total_files": metadata.get("total_files", 1)
+                    "total_files": metadata.get("total_files", 1),
+                    "relevant_files": relevant_file_count
                 }
             
             gate_results.append(gate_result)
@@ -893,22 +903,20 @@ class ValidateGatesNode(Node):
         return "default"
     
     def _find_pattern_matches(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find pattern matches in appropriate files based on gate type"""
+        """Find pattern matches in appropriate files based on gate type and primary technology"""
         matches = []
         
-        # Filter files based on gate type
+        # Filter files based on gate type and primary technology
         gate_name = gate.get("name", "")
         
         if gate_name == "AUTOMATED_TESTS":
-            # For automated tests gate, only look at test files
-            target_files = [f for f in metadata.get("file_list", []) 
-                           if f["type"] == "Test Code" and not f["is_binary"]]
-            print(f"   Looking at {len(target_files)} test files for {gate_name}")
+            # For automated tests gate, only look at test files of the primary technology
+            target_files = self._get_technology_relevant_files(metadata, file_type="Test Code")
+            print(f"   Looking at {len(target_files)} relevant test files for {gate_name}")
         else:
-            # For all other gates, only look at source code files (excluding test files)
-            target_files = [f for f in metadata.get("file_list", []) 
-                           if f["type"] == "Source Code" and not f["is_binary"]]
-            print(f"   Looking at {len(target_files)} source code files for {gate_name}")
+            # For all other gates, only look at source code files of the primary technology
+            target_files = self._get_technology_relevant_files(metadata, file_type="Source Code")
+            print(f"   Looking at {len(target_files)} relevant source code files for {gate_name}")
         
         for pattern in patterns:
             try:
@@ -937,11 +945,97 @@ class ValidateGatesNode(Node):
         
         return matches
     
+    def _get_technology_relevant_files(self, metadata: Dict[str, Any], file_type: str = "Source Code") -> List[Dict[str, Any]]:
+        """Get files that are relevant to the primary technology stack"""
+        all_files = [f for f in metadata.get("file_list", []) 
+                    if f["type"] == file_type and not f["is_binary"]]
+        
+        # Determine primary technologies from language distribution
+        primary_technologies = self._get_primary_technologies(metadata)
+        
+        if not primary_technologies:
+            # Fallback to all files if no primary technology detected
+            print(f"   No primary technology detected, using all {len(all_files)} {file_type.lower()} files")
+            return all_files
+        
+        # Filter files to only include primary technology files
+        relevant_files = [f for f in all_files 
+                         if f["language"] in primary_technologies]
+        
+        primary_tech_str = ", ".join(primary_technologies)
+        print(f"   Primary technologies: {primary_tech_str}")
+        print(f"   Filtered to {len(relevant_files)} relevant files (from {len(all_files)} total {file_type.lower()} files)")
+        
+        return relevant_files
+    
+    def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
+        """Determine primary technologies based on language distribution"""
+        language_stats = metadata.get("language_stats", {})
+        
+        if not language_stats:
+            return []
+        
+        # Calculate total files
+        total_files = sum(stats.get("files", 0) for stats in language_stats.values())
+        
+        if total_files == 0:
+            return []
+        
+        # Define technology relevance mapping
+        # Languages that are typically used for business logic and application code
+        primary_languages = {
+            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
+            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
+        }
+        
+        # Languages that are typically configuration, markup, or data files
+        secondary_languages = {
+            "HTML", "CSS", "SCSS", "SASS", "XML", "JSON", "YAML", "SQL", 
+            "Dockerfile", "Shell", "Batch", "Markdown", "Properties"
+        }
+        
+        primary_technologies = []
+        
+        # Find languages that make up significant portion of the codebase
+        for language, stats in language_stats.items():
+            file_count = stats.get("files", 0)
+            percentage = (file_count / total_files) * 100
+            
+            # Consider a language primary if:
+            # 1. It's in the primary languages list AND
+            # 2. It represents at least 20% of files OR is the dominant language
+            if language in primary_languages:
+                if percentage >= 20.0:
+                    primary_technologies.append(language)
+                    print(f"   Primary technology detected: {language} ({percentage:.1f}%, {file_count} files)")
+        
+        # If no primary technology found with 20% threshold, take the most dominant primary language
+        if not primary_technologies:
+            dominant_primary = None
+            max_percentage = 0
+            
+            for language, stats in language_stats.items():
+                if language in primary_languages:
+                    file_count = stats.get("files", 0)
+                    percentage = (file_count / total_files) * 100
+                    if percentage > max_percentage:
+                        max_percentage = percentage
+                        dominant_primary = language
+            
+            if dominant_primary and max_percentage >= 10.0:  # At least 10% to be considered
+                primary_technologies.append(dominant_primary)
+                file_count = language_stats[dominant_primary].get("files", 0)
+                print(f"   Dominant primary technology: {dominant_primary} ({max_percentage:.1f}%, {file_count} files)")
+        
+        return primary_technologies
+    
     def _calculate_gate_score(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], metadata: Dict[str, Any]) -> float:
         """Calculate score for a gate based on matches and LLM-provided expected coverage"""
         
         gate_name = gate["name"]
-        total_files = metadata.get("total_files", 1)
+        
+        # Use technology-relevant file count instead of total files
+        relevant_file_count = gate.get("relevant_files", metadata.get("total_files", 1))
         
         # Get expected coverage from LLM analysis
         expected_coverage_data = gate.get("expected_coverage", {})
@@ -971,12 +1065,12 @@ class ValidateGatesNode(Node):
             if len(matches) == 0:
                 return 0.0
             else:
-                # Score based on coverage vs expected coverage
+                # Score based on coverage vs expected coverage (using relevant files)
                 files_with_matches = len(set(m["file"] for m in matches))
-                actual_coverage = files_with_matches / total_files
+                actual_coverage = files_with_matches / relevant_file_count
                 
-                # Calculate expected files based on LLM analysis
-                expected_files = max(total_files * expected_coverage_ratio, 1)
+                # Calculate expected files based on LLM analysis (using relevant files)
+                expected_files = max(relevant_file_count * expected_coverage_ratio, 1)
                 
                 # Calculate coverage ratio (actual vs expected)
                 coverage_ratio = min(files_with_matches / expected_files, 1.0)
@@ -1025,14 +1119,20 @@ class ValidateGatesNode(Node):
         coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
         confidence = expected_coverage.get("confidence", "medium")
         
-        # Calculate actual coverage
-        total_files = gate.get("total_files", 1)  # This should be passed from metadata
+        # Calculate actual coverage using relevant files
+        total_files = gate.get("total_files", 1)
+        relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
-        actual_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+        actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
-        # Coverage analysis
+        # Coverage analysis with technology-specific information
         details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
-        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{total_files} files)")
+        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+        
+        # Show technology filtering information if different from total
+        if relevant_files != total_files:
+            details.append(f"Technology Filter: Using {relevant_files} relevant files (from {total_files} total files)")
+        
         details.append(f"Confidence: {confidence}")
         
         if matches:
@@ -1059,24 +1159,25 @@ class ValidateGatesNode(Node):
         coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
         confidence = expected_coverage.get("confidence", "medium")
         
-        # Calculate actual coverage
+        # Calculate actual coverage using relevant files
         total_files = gate.get("total_files", 1)
+        relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
-        actual_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+        actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
         # Generate recommendations based on coverage gap
         coverage_gap = expected_percentage - actual_percentage
         
         if score < 50.0:
             recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
-            recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}%")
+            recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
             recommendations.append(f"Focus on {gate['description'].lower()}")
             if coverage_reasoning:
                 recommendations.append(f"Rationale: {coverage_reasoning}")
         elif score < 80.0:
             recommendations.append(f"Improve {gate['display_name']} coverage")
             if coverage_gap > 5:
-                recommendations.append(f"Gap: Expected {expected_percentage}%, current {actual_percentage:.1f}%")
+                recommendations.append(f"Gap: Expected {expected_percentage}%, current {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
             recommendations.append("Consider adding more comprehensive implementation")
         else:
             if actual_percentage >= expected_percentage:
@@ -1091,6 +1192,10 @@ class ValidateGatesNode(Node):
             recommendations.append("Note: Coverage estimate has low confidence - manual review recommended")
         elif confidence == "high" and coverage_gap > 10:
             recommendations.append("High confidence in coverage gap - prioritize implementation")
+        
+        # Add technology-specific note if filtering was applied
+        if relevant_files != total_files:
+            recommendations.append(f"Note: Analysis focused on {relevant_files} technology-relevant files (filtered from {total_files} total)")
         
         return recommendations
 
@@ -1173,8 +1278,9 @@ class GenerateReportNode(Node):
         for gate_result in gate_results:
             expected_coverage = gate_result.get("expected_coverage", {})
             total_files = gate_result.get("total_files", 1)
+            relevant_files = gate_result.get("relevant_files", total_files)
             files_with_matches = len(set(m.get('file', '') for m in gate_result.get("matches", []))) if gate_result.get("matches") else 0
-            actual_coverage_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+            actual_coverage_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
             
             gate = {
                 "name": gate_result["gate"],
@@ -1190,7 +1296,7 @@ class GenerateReportNode(Node):
                 "recommendations": gate_result.get("recommendations", []),
                 "pattern_description": gate_result.get("pattern_description", ""),
                 "pattern_significance": gate_result.get("pattern_significance", ""),
-                # Enhanced coverage information
+                # Enhanced coverage information with technology filtering
                 "expected_coverage": {
                     "percentage": expected_coverage.get("percentage", 10),
                     "reasoning": expected_coverage.get("reasoning", "Standard expectation"),
@@ -1199,12 +1305,15 @@ class GenerateReportNode(Node):
                 "actual_coverage": {
                     "percentage": round(actual_coverage_percentage, 1),
                     "files_with_matches": files_with_matches,
-                    "total_files": total_files
+                    "relevant_files": relevant_files,
+                    "total_files": total_files,
+                    "technology_filtered": relevant_files != total_files
                 },
                 "coverage_analysis": {
                     "gap": round(expected_coverage.get("percentage", 10) - actual_coverage_percentage, 1),
                     "meets_expectation": actual_coverage_percentage >= expected_coverage.get("percentage", 10),
-                    "confidence_level": expected_coverage.get("confidence", "medium")
+                    "confidence_level": expected_coverage.get("confidence", "medium"),
+                    "analysis_basis": f"Based on {relevant_files} relevant files" + (f" (filtered from {total_files} total)" if relevant_files != total_files else "")
                 },
                 # For compatibility with old format
                 "expected": gate_result.get("patterns_used", 0),
@@ -1804,14 +1913,20 @@ class GenerateReportNode(Node):
         coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
         confidence = expected_coverage.get("confidence", "medium")
         
-        # Calculate actual coverage
-        total_files = gate.get("total_files", 1)  # This should be passed from metadata
+        # Calculate actual coverage using relevant files
+        total_files = gate.get("total_files", 1)
+        relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
-        actual_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+        actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
-        # Coverage analysis
+        # Coverage analysis with technology-specific information
         details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
-        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{total_files} files)")
+        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+        
+        # Show technology filtering information if different from total
+        if relevant_files != total_files:
+            details.append(f"Technology Filter: Using {relevant_files} relevant files (from {total_files} total files)")
+        
         details.append(f"Confidence: {confidence}")
         
         if matches:
