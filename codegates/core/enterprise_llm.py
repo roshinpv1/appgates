@@ -175,9 +175,9 @@ class EnterpriseLLMClient:
             "Authorization": f"Bearer {apigee_access_token}",  # Apigee token proxy authentication
             "x-request-id": str(uuid.uuid4()),
             "x-correlation-id": str(uuid.uuid4()),
-            "x-wf-client-id": self.wf_client_id,
-            "x-wf-api-key": self.wf_api_key,
-            "x-wf-usecase-id": self.wf_use_case_id,
+            "X-YY-client-id": self.wf_client_id,
+            "X-YY-api-key": self.wf_api_key,
+            "X-YY-usecase-id": self.wf_use_case_id,
         }
         
         self.logger.info(f"Initializing OpenAI client with base URL: {self.enterprise_base_url}")

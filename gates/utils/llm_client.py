@@ -449,9 +449,9 @@ class LLMClient:
             "Authorization": f"Bearer {apigee_token}",
             "x-request-id": str(uuid.uuid4()),
             "x-correlation-id": str(uuid.uuid4()),
-            "x-wf-client-id": wf_client_id,
-            "x-wf-api-key": wf_api_key,
-            "x-wf-usecase-id": wf_use_case_id,
+            "X-YY-client-id": wf_client_id,
+            "X-YY-api-key": wf_api_key,
+            "X-YY-usecase-id": wf_use_case_id,
             "Content-Type": "application/json"
         }
         

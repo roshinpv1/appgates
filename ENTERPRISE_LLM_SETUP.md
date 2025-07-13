@@ -117,9 +117,9 @@ headers = {
     "Authorization": "Bearer <apigee_token>",
     "x-request-id": "<uuid>",
     "x-correlation-id": "<uuid>",
-    "x-wf-client-id": "<client_id>",
-    "x-wf-api-key": "<api_key>",
-    "x-wf-usecase-id": "<use_case_id>"
+    "X-YY-client-id": "<client_id>",
+    "X-YY-api-key": "<api_key>",
+    "X-YY-usecase-id": "<use_case_id>"
 }
 ```
 
