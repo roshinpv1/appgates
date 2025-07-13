@@ -22,6 +22,38 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from flow import create_validation_flow
 from utils.hard_gates import HARD_GATES
 
+# Add server configuration at the top of the file
+import socket
+
+# Environment variable configuration
+SERVER_HOST = os.getenv("CODEGATES_HOST", "0.0.0.0")
+SERVER_PORT = int(os.getenv("CODEGATES_PORT", "8000"))
+REPORTS_DIR = os.getenv("CODEGATES_REPORTS_DIR", "./reports")
+LOGS_DIR = os.getenv("CODEGATES_LOGS_DIR", "./logs")
+TEMP_DIR = os.getenv("CODEGATES_TEMP_DIR", None)  # None means use system temp
+CORS_ORIGINS = os.getenv("CODEGATES_CORS_ORIGINS", "*").split(",")
+LOG_LEVEL = os.getenv("CODEGATES_LOG_LEVEL", "info")
+
+def get_server_url():
+    """Get the server URL for report access"""
+    # Try to get the actual IP address
+    try:
+        # Connect to a remote address to get the local IP
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+        return f"http://{local_ip}:{SERVER_PORT}"
+    except:
+        # Fallback to localhost
+        return f"http://localhost:{SERVER_PORT}"
+
+def ensure_directories():
+    """Ensure required directories exist"""
+    directories = [REPORTS_DIR, LOGS_DIR]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
+        print(f"📁 Ensured directory exists: {directory}")
+
 
 # Pydantic Models
 class ScanRequest(BaseModel):
@@ -63,24 +95,22 @@ class GateInfo(BaseModel):
     category: str
 
 
-# FastAPI App
+# Initialize FastAPI app
 app = FastAPI(
     title="CodeGates API",
-    description="Hard Gate Validation System with AI-powered pattern generation",
+    description="Hard Gate Validation API for Code Quality Assessment",
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# Add CORS middleware
+# Enhanced CORS configuration with environment variables
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),  # Environment variable support
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # In-memory storage for scan results (in production, use Redis/Database)
@@ -287,7 +317,20 @@ async def perform_scan(scan_id: str, request: ScanRequest):
         # Update status
         scan_results[scan_id]["status"] = "running"
         
-        # Initialize shared store
+        # Get server URL for report access
+        server_url = get_server_url()
+        
+        # Create scan-specific directories
+        scan_reports_dir = os.path.join(REPORTS_DIR, scan_id)
+        os.makedirs(scan_reports_dir, exist_ok=True)
+        
+        # Create temp directory for this scan
+        if TEMP_DIR:
+            scan_temp_dir = tempfile.mkdtemp(prefix=f"codegates_{scan_id}_", dir=TEMP_DIR)
+        else:
+            scan_temp_dir = tempfile.mkdtemp(prefix=f"codegates_{scan_id}_")
+        
+        # Initialize shared store with environment-based paths
         shared = {
             "request": {
                 "repository_url": request.repository_url,
@@ -295,9 +338,21 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "github_token": request.github_token,
                 "threshold": request.threshold,
                 "scan_id": scan_id,
-                "output_dir": f"./reports/{scan_id}",
+                "output_dir": scan_reports_dir,
                 "report_format": request.report_format,
                 "verbose": False
+            },
+            "server": {
+                "url": server_url,
+                "host": SERVER_HOST,
+                "port": SERVER_PORT
+            },
+            "directories": {
+                "reports": REPORTS_DIR,
+                "logs": LOGS_DIR,
+                "temp": TEMP_DIR,
+                "scan_reports": scan_reports_dir,
+                "scan_temp": scan_temp_dir
             },
             "llm_config": {
                 "url": request.llm_url,
@@ -326,7 +381,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "json_path": None
             },
             "hard_gates": HARD_GATES,
-            "temp_dir": tempfile.mkdtemp(prefix=f"codegates_{scan_id}_"),
+            "temp_dir": scan_temp_dir,
             "errors": []
         }
         
@@ -341,6 +396,10 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             failed = len([g for g in gate_results if g.get("status") == "FAIL"])
             warnings = len([g for g in gate_results if g.get("status") == "WARNING"])
             
+            # Generate report URLs
+            html_report_url = f"{server_url}/api/v1/scan/{scan_id}/report/html" if shared["reports"]["html_path"] else None
+            json_report_url = f"{server_url}/api/v1/scan/{scan_id}/report/json" if shared["reports"]["json_path"] else None
+            
             scan_results[scan_id].update({
                 "status": "completed",
                 "overall_score": shared["validation"]["overall_score"],
@@ -352,11 +411,18 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "total_gates": len(gate_results),
                 "html_report_path": shared["reports"]["html_path"],
                 "json_report_path": shared["reports"]["json_path"],
-                "html_report_url": f"/api/v1/scan/{scan_id}/report/html" if shared["reports"]["html_path"] else None,
-                "json_report_url": f"/api/v1/scan/{scan_id}/report/json" if shared["reports"]["json_path"] else None,
+                "html_report_url": html_report_url,
+                "json_report_url": json_report_url,
                 "completed_at": datetime.now().isoformat(),
                 "errors": shared["errors"]
             })
+            
+            # Print report URLs to logs
+            print(f"📄 Scan {scan_id} completed successfully!")
+            if html_report_url:
+                print(f"🌐 HTML Report URL: {html_report_url}")
+            if json_report_url:
+                print(f"🌐 JSON Report URL: {json_report_url}")
         else:
             scan_results[scan_id].update({
                 "status": "failed",
@@ -372,10 +438,39 @@ async def perform_scan(scan_id: str, request: ScanRequest):
 
 if __name__ == "__main__":
     import uvicorn
+    
+    # Ensure required directories exist
+    ensure_directories()
+    
+    # Print configuration information
+    print("🔧 Configuration:")
+    print("=" * 60)
+    print(f"📁 Reports Directory: {REPORTS_DIR}")
+    print(f"📁 Logs Directory: {LOGS_DIR}")
+    print(f"📁 Temp Directory: {TEMP_DIR or 'System default'}")
+    print(f"🌐 CORS Origins: {', '.join(CORS_ORIGINS)}")
+    print(f"📊 Log Level: {LOG_LEVEL}")
+    print("=" * 60)
+    
+    # Print startup information
+    server_url = get_server_url()
+    print("🚀 Starting CodeGates Server...")
+    print("=" * 60)
+    print(f"🌐 Server URL: {server_url}")
+    print(f"🏠 Host: {SERVER_HOST}")
+    print(f"🚪 Port: {SERVER_PORT}")
+    print(f"📋 API Documentation: {server_url}/docs")
+    print(f"🏥 Health Check: {server_url}/api/v1/health")
+    print(f"🔍 Available Gates: {server_url}/api/v1/gates")
+    print("=" * 60)
+    print("📄 Report URLs will be printed in the logs when scans complete")
+    print("🔍 Example: POST to /api/v1/scan to start a scan")
+    print("=" * 60)
+    
     uvicorn.run(
         "server:app",
-        host="0.0.0.0",
-        port=8000,
+        host=SERVER_HOST,
+        port=SERVER_PORT,
         reload=True,
-        log_level="info"
+        log_level=LOG_LEVEL
     ) 

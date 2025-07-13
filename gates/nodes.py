@@ -509,8 +509,8 @@ class GeneratePromptNode(Node):
             import os
             from datetime import datetime
             
-            # Create logs directory if it doesn't exist
-            logs_dir = "logs"
+            # Get logs directory from shared context
+            logs_dir = shared.get("directories", {}).get("logs", "./logs")
             os.makedirs(logs_dir, exist_ok=True)
             
             # Generate timestamp for log file
@@ -643,13 +643,10 @@ class CallLLMNode(Node):
         print(f"✅ Generated {pattern_count} patterns for {len(exec_res['pattern_data'])} gates")
         print(f"   Source: {exec_res['source']} ({exec_res['model']})")
         
-        # Log the LLM response
+        # Log the LLM response using environment-based paths
         try:
-            import os
-            from datetime import datetime
-            
-            # Create logs directory if it doesn't exist
-            logs_dir = "logs"
+            # Get logs directory from shared context
+            logs_dir = shared.get("directories", {}).get("logs", "./logs")
             os.makedirs(logs_dir, exist_ok=True)
             
             # Generate timestamp for log file
@@ -1824,9 +1821,22 @@ class GenerateReportNode(Node):
         shared["reports"]["json_path"] = exec_res.get("json")
         shared["reports"]["html_path"] = exec_res.get("html")
         
+        # Get server info for URL generation
+        server_info = shared.get("server", {})
+        server_url = server_info.get("url", "http://localhost:8000")
+        scan_id = shared["request"]["scan_id"]
+        
         print(f"✅ Reports generated:")
         for format_type, path in exec_res.items():
             print(f"   {format_type.upper()}: {path}")
+            
+            # Print URL for HTML report
+            if format_type == "html" and path:
+                report_url = f"{server_url}/api/v1/scan/{scan_id}/report/html"
+                print(f"   🌐 HTML Report URL: {report_url}")
+            elif format_type == "json" and path:
+                report_url = f"{server_url}/api/v1/scan/{scan_id}/report/json"
+                print(f"   🌐 JSON Report URL: {report_url}")
         
         return "default"
     
