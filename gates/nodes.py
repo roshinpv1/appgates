@@ -15,6 +15,7 @@ from utils.git_operations import clone_repository, cleanup_repository
 from utils.file_scanner import scan_directory
 from utils.hard_gates import HARD_GATES
 from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
+from utils.static_patterns import get_static_patterns_for_gate, get_pattern_statistics
 
 
 class FetchRepositoryNode(Node):
@@ -773,28 +774,31 @@ class ValidateGatesNode(Node):
         }
     
     def exec(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Validate all gates against the codebase"""
-        print("🎯 Validating gates against codebase...")
+        """Validate all gates against the codebase using hybrid pattern validation"""
+        print("🎯 Validating gates against codebase with hybrid pattern validation...")
         
         repo_path = Path(params["repo_path"])
-        patterns = params["patterns"]
+        llm_patterns = params["patterns"]
         pattern_data = params["pattern_data"]
         metadata = params["metadata"]
+        
+        # Get primary technologies for static pattern selection
+        primary_technologies = self._get_primary_technologies(metadata)
         
         gate_results = []
         
         # Validate each gate (Map phase)
         for gate in params["hard_gates"]:
             gate_name = gate["name"]
-            gate_patterns = patterns.get(gate_name, [])
+            llm_gate_patterns = llm_patterns.get(gate_name, [])
             gate_pattern_info = pattern_data.get(gate_name, {})
             
-            print(f"   Validating {gate_name}...")
+            print(f"   Validating {gate_name} with hybrid patterns...")
             
             # Check if gate is not applicable
             is_not_applicable = (
                 gate_pattern_info.get("description", "").strip() == "Not Applicable" or
-                (len(gate_patterns) == 0 and gate_pattern_info.get("significance", "").find("not applicable") != -1)
+                (len(llm_gate_patterns) == 0 and gate_pattern_info.get("significance", "").find("not applicable") != -1)
             )
             
             if is_not_applicable:
@@ -818,12 +822,25 @@ class ValidateGatesNode(Node):
                         "reasoning": "Not applicable to this technology stack",
                         "confidence": "high"
                     }),
-                    "total_files": metadata.get("total_files", 1)
+                    "total_files": metadata.get("total_files", 1),
+                    "validation_sources": {
+                        "llm_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
+                        "static_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
+                        "combined_confidence": "high"
+                    }
                 }
                 print(f"   {gate_name} marked as NOT_APPLICABLE")
             else:
-                # Count matches for this gate
-                matches = self._find_pattern_matches(repo_path, gate_patterns, metadata, gate)
+                # Get static patterns for this gate and technology stack
+                static_gate_patterns = get_static_patterns_for_gate(gate_name, primary_technologies)
+                
+                # Hybrid validation: LLM patterns + Static patterns
+                llm_matches = self._find_pattern_matches(repo_path, llm_gate_patterns, metadata, gate, "LLM")
+                static_matches = self._find_pattern_matches(repo_path, static_gate_patterns, metadata, gate, "Static")
+                
+                # Combine matches and remove duplicates based on file and line
+                all_matches = llm_matches + static_matches
+                unique_matches = self._deduplicate_matches(all_matches)
                 
                 # Calculate relevant file count for this gate type
                 if gate_name == "AUTOMATED_TESTS":
@@ -845,8 +862,13 @@ class ValidateGatesNode(Node):
                     "relevant_files": relevant_file_count
                 }
                 
-                # Calculate score based on gate type and matches
-                score = self._calculate_gate_score(gate_with_coverage, matches, metadata)
+                # Calculate score based on gate type and combined matches
+                score = self._calculate_gate_score(gate_with_coverage, unique_matches, metadata)
+                
+                # Determine combined confidence
+                combined_confidence = self._calculate_combined_confidence(
+                    len(llm_matches), len(static_matches), len(unique_matches)
+                )
                 
                 gate_result = {
                     "gate": gate_name,
@@ -854,12 +876,12 @@ class ValidateGatesNode(Node):
                     "description": gate["description"],
                     "category": gate["category"],
                     "priority": gate["priority"],
-                    "patterns_used": len(gate_patterns),
-                    "matches_found": len(matches),
+                    "patterns_used": len(llm_gate_patterns) + len(static_gate_patterns),
+                    "matches_found": len(unique_matches),
                     "score": score,
                     "status": self._determine_status(score, gate),
-                    "details": self._generate_gate_details(gate_with_coverage, matches),
-                    "recommendations": self._generate_gate_recommendations(gate_with_coverage, matches, score),
+                    "details": self._generate_gate_details(gate_with_coverage, unique_matches),
+                    "recommendations": self._generate_gate_recommendations(gate_with_coverage, unique_matches, score),
                     # Add LLM-generated pattern information
                     "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
                     "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance"),
@@ -869,15 +891,34 @@ class ValidateGatesNode(Node):
                         "confidence": "medium"
                     }),
                     "total_files": metadata.get("total_files", 1),
-                    "relevant_files": relevant_file_count
+                    "relevant_files": relevant_file_count,
+                    # Enhanced validation tracking
+                    "validation_sources": {
+                        "llm_patterns": {
+                            "count": len(llm_gate_patterns),
+                            "matches": len(llm_matches),
+                            "source": "llm_generated"
+                        },
+                        "static_patterns": {
+                            "count": len(static_gate_patterns),
+                            "matches": len(static_matches),
+                            "source": "static_library"
+                        },
+                        "combined_confidence": combined_confidence,
+                        "unique_matches": len(unique_matches),
+                        "overlap_matches": len(llm_matches) + len(static_matches) - len(unique_matches)
+                    }
                 }
+                
+                # Log validation details
+                print(f"   {gate_name}: LLM({len(llm_gate_patterns)} patterns, {len(llm_matches)} matches) + Static({len(static_gate_patterns)} patterns, {len(static_matches)} matches) = {len(unique_matches)} unique matches")
             
             gate_results.append(gate_result)
         
         return gate_results
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: List[Dict[str, Any]]) -> str:
-        """Store validation results and calculate overall score"""
+        """Store validation results and calculate overall score with hybrid validation statistics"""
         shared["validation"]["gate_results"] = exec_res
         
         # Calculate overall score (Reduce phase) - exclude NOT_APPLICABLE gates
@@ -897,12 +938,58 @@ class ValidateGatesNode(Node):
         warnings = len([r for r in exec_res if r["status"] == "WARNING"])
         not_applicable = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
         
-        print(f"✅ Validation complete: {overall_score:.1f}% overall (based on {len(applicable_gates)} applicable gates)")
+        # Calculate hybrid validation statistics
+        hybrid_stats = self._calculate_hybrid_validation_stats(exec_res)
+        shared["validation"]["hybrid_stats"] = hybrid_stats
+        
+        print(f"✅ Hybrid validation complete: {overall_score:.1f}% overall (based on {len(applicable_gates)} applicable gates)")
         print(f"   Passed: {passed}, Failed: {failed}, Warnings: {warnings}, Not Applicable: {not_applicable}")
+        print(f"   Pattern Sources: LLM({hybrid_stats['total_llm_patterns']} patterns, {hybrid_stats['total_llm_matches']} matches) + Static({hybrid_stats['total_static_patterns']} patterns, {hybrid_stats['total_static_matches']} matches)")
+        print(f"   Coverage Enhancement: {hybrid_stats['coverage_improvement']:.1f}% improvement from hybrid validation")
         
         return "default"
     
-    def _find_pattern_matches(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _calculate_hybrid_validation_stats(self, gate_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculate statistics for hybrid validation"""
+        stats = {
+            "total_llm_patterns": 0,
+            "total_static_patterns": 0,
+            "total_llm_matches": 0,
+            "total_static_matches": 0,
+            "total_unique_matches": 0,
+            "total_overlap_matches": 0,
+            "coverage_improvement": 0.0,
+            "confidence_distribution": {"high": 0, "medium": 0, "low": 0}
+        }
+        
+        applicable_gates = [g for g in gate_results if g["status"] != "NOT_APPLICABLE"]
+        
+        for gate in applicable_gates:
+            validation_sources = gate.get("validation_sources", {})
+            
+            # Pattern and match counts
+            llm_info = validation_sources.get("llm_patterns", {})
+            static_info = validation_sources.get("static_patterns", {})
+            
+            stats["total_llm_patterns"] += llm_info.get("count", 0)
+            stats["total_static_patterns"] += static_info.get("count", 0)
+            stats["total_llm_matches"] += llm_info.get("matches", 0)
+            stats["total_static_matches"] += static_info.get("matches", 0)
+            stats["total_unique_matches"] += validation_sources.get("unique_matches", 0)
+            stats["total_overlap_matches"] += validation_sources.get("overlap_matches", 0)
+            
+            # Confidence distribution
+            confidence = validation_sources.get("combined_confidence", "medium")
+            stats["confidence_distribution"][confidence] += 1
+        
+        # Calculate coverage improvement
+        if stats["total_llm_matches"] > 0:
+            improvement = ((stats["total_unique_matches"] - stats["total_llm_matches"]) / stats["total_llm_matches"]) * 100
+            stats["coverage_improvement"] = max(0, improvement)
+        
+        return stats
+    
+    def _find_pattern_matches(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any], source: str = "LLM") -> List[Dict[str, Any]]:
         """Find pattern matches in appropriate files based on gate type and primary technology"""
         matches = []
         
@@ -935,7 +1022,8 @@ class ValidateGatesNode(Node):
                                     "pattern": pattern,
                                     "match": match.group(),
                                     "line": content[:match.start()].count('\n') + 1,
-                                    "language": file_info["language"]
+                                    "language": file_info["language"],
+                                    "source": source
                                 })
                         except Exception:
                             continue
@@ -1198,6 +1286,29 @@ class ValidateGatesNode(Node):
             recommendations.append(f"Note: Analysis focused on {relevant_files} technology-relevant files (filtered from {total_files} total)")
         
         return recommendations
+    
+    def _deduplicate_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate matches based on file and line"""
+        seen = set()
+        unique_matches = []
+        for match in matches:
+            key = (match["file"], match["line"])
+            if key not in seen:
+                seen.add(key)
+                unique_matches.append(match)
+        return unique_matches
+    
+    def _calculate_combined_confidence(self, llm_matches: int, static_matches: int, unique_matches: int) -> str:
+        """Calculate combined confidence based on LLM, static, and unique matches"""
+        total_matches = llm_matches + static_matches + unique_matches
+        if total_matches == 0:
+            return "low"
+        elif llm_matches > 0 and static_matches > 0 and unique_matches > 0:
+            return "high"
+        elif llm_matches > 0 or static_matches > 0 or unique_matches > 0:
+            return "medium"
+        else:
+            return "low"
 
 
 class GenerateReportNode(Node):
@@ -1264,7 +1375,7 @@ class GenerateReportNode(Node):
         return "default"
     
     def _generate_json_report(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate JSON report with same structure as original"""
+        """Generate JSON report with same structure as original plus hybrid validation info"""
         
         validation = params["validation_results"]
         metadata = params["metadata"]
@@ -1272,6 +1383,7 @@ class GenerateReportNode(Node):
         
         # Use the new data structure directly
         gate_results = validation["gate_results"]
+        hybrid_stats = validation.get("hybrid_stats", {})
         
         # Transform to match expected JSON format while preserving new data
         gates = []
@@ -1315,6 +1427,8 @@ class GenerateReportNode(Node):
                     "confidence_level": expected_coverage.get("confidence", "medium"),
                     "analysis_basis": f"Based on {relevant_files} relevant files" + (f" (filtered from {total_files} total)" if relevant_files != total_files else "")
                 },
+                # Hybrid validation information
+                "validation_sources": gate_result.get("validation_sources", {}),
                 # For compatibility with old format
                 "expected": gate_result.get("patterns_used", 0),
                 "found": gate_result.get("matches_found", 0),
@@ -1332,7 +1446,8 @@ class GenerateReportNode(Node):
                 "generated_at": self._get_timestamp(),
                 "version": "2.0.0",
                 "llm_source": llm_info["source"],
-                "llm_model": llm_info["model"]
+                "llm_model": llm_info["model"],
+                "validation_type": "hybrid"
             },
             "scan_metadata": {
                 "scan_duration": 0,  # Could be tracked
@@ -1354,11 +1469,21 @@ class GenerateReportNode(Node):
             "total_applicable_gates": len([g for g in gate_results if g["status"] != "NOT_APPLICABLE"]),
             "total_all_gates": len(gate_results),
             "critical_issues": [],
-            "recommendations": [rec for gate in gate_results for rec in gate.get("recommendations", [])]
+            "recommendations": [rec for gate in gate_results for rec in gate.get("recommendations", [])],
+            # Enhanced hybrid validation statistics
+            "hybrid_validation": {
+                "enabled": True,
+                "statistics": hybrid_stats,
+                "pattern_library_version": "1.0.0",
+                "static_patterns_used": hybrid_stats.get("total_static_patterns", 0),
+                "llm_patterns_used": hybrid_stats.get("total_llm_patterns", 0),
+                "coverage_improvement": hybrid_stats.get("coverage_improvement", 0.0),
+                "confidence_distribution": hybrid_stats.get("confidence_distribution", {})
+            }
         }
     
     def _generate_html_report(self, params: Dict[str, Any]) -> str:
-        """Generate HTML report using exact same template as original report.py"""
+        """Generate HTML report using exact same template as original report.py with hybrid validation info"""
         
         validation = params["validation_results"]
         metadata = params["metadata"]
@@ -1366,6 +1491,7 @@ class GenerateReportNode(Node):
         
         # Use the new data structure directly
         gate_results = validation["gate_results"]
+        hybrid_stats = validation.get("hybrid_stats", {})
         
         # Calculate summary statistics from new data
         stats = self._calculate_summary_stats_from_new_data(gate_results)
@@ -1377,7 +1503,7 @@ class GenerateReportNode(Node):
         timestamp = self._get_timestamp_formatted()
         
         # Report type display
-        report_type_display = "Summary"  # Default to summary for now
+        report_type_display = "Hybrid Validation"
         
         # JavaScript for details toggle
         toggle_script = """
@@ -1399,6 +1525,9 @@ class GenerateReportNode(Node):
         </script>
         """
         
+        # Generate hybrid validation summary
+        hybrid_summary = self._generate_hybrid_validation_summary_html(hybrid_stats)
+        
         html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1416,7 +1545,7 @@ class GenerateReportNode(Node):
             <h1>{project_name}</h1>
             <div class="report-badge summary-badge">{report_type_display} Report</div>
             <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
-            <p style="color: #6b7280; margin-bottom: 20px;">Generated with {llm_info['source']} ({llm_info['model']})</p>
+            <p style="color: #6b7280; margin-bottom: 20px;">Generated with {llm_info['source']} ({llm_info['model']}) + Static Pattern Library</p>
         </div>
         
         <h2>Executive Summary</h2>
@@ -1453,6 +1582,8 @@ class GenerateReportNode(Node):
             <em>Percentage calculated based on {stats['total_gates']} applicable gates (excluding {stats['not_applicable_gates']} N/A gates)</em>
         </p>
         
+        {hybrid_summary}
+        
         <h2>Hard Gates Analysis</h2>
         {self._generate_gates_table_html_from_new_data(gate_results)}
         
@@ -1464,6 +1595,43 @@ class GenerateReportNode(Node):
 </html>"""
         
         return html_template
+    
+    def _generate_hybrid_validation_summary_html(self, hybrid_stats: Dict[str, Any]) -> str:
+        """Generate HTML summary for hybrid validation statistics"""
+        if not hybrid_stats:
+            return ""
+        
+        confidence_dist = hybrid_stats.get("confidence_distribution", {})
+        coverage_improvement = hybrid_stats.get("coverage_improvement", 0.0)
+        
+        return f"""
+        <h3>Hybrid Validation Summary</h3>
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-number">{hybrid_stats.get('total_llm_patterns', 0)}</div>
+                <div class="stat-label">LLM Patterns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{hybrid_stats.get('total_static_patterns', 0)}</div>
+                <div class="stat-label">Static Patterns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{hybrid_stats.get('total_unique_matches', 0)}</div>
+                <div class="stat-label">Unique Matches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{coverage_improvement:.1f}%</div>
+                <div class="stat-label">Coverage Improvement</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{confidence_dist.get('high', 0)}</div>
+                <div class="stat-label">High Confidence Gates</div>
+            </div>
+        </div>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 10px;">
+            <em>Hybrid validation combines LLM-generated patterns with comprehensive static pattern library for enhanced coverage and accuracy</em>
+        </p>
+        """
     
     def _get_extension_css_styles(self) -> str:
         """Get CSS styles that exactly match the original report.py"""
