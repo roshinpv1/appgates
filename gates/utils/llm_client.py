@@ -11,7 +11,7 @@ import base64
 import logging
 import threading
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
@@ -445,7 +445,7 @@ class LLMClient:
         
         # Prepare headers
         headers = {
-            "x-w-request-date": datetime.now(datetime.timezone.utc).isoformat(),
+            "x-w-request-date": datetime.now(timezone.utc).isoformat(),
             "Authorization": f"Bearer {apigee_token}",
             "x-request-id": str(uuid.uuid4()),
             "x-correlation-id": str(uuid.uuid4()),

@@ -129,6 +129,20 @@ API will be available at:
 - **ReDoc**: http://localhost:8000/redoc
 - **API Base**: http://localhost:8000/api/v1/
 
+#### CORS Configuration
+
+The API server includes CORS (Cross-Origin Resource Sharing) support for web applications. By default, it allows all origins for development. For production, configure specific origins:
+
+```bash
+# Allow specific origins
+export CORS_ORIGINS="https://your-frontend.com,https://dashboard.company.com"
+
+# Start the server
+python server.py
+```
+
+See [CORS Configuration Guide](CORS_CONFIG.md) for detailed configuration options.
+
 ### Programmatic Usage
 
 ```python
