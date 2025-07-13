@@ -12,7 +12,7 @@ from pathlib import Path
 # Add the current directory to the path so we can import our modules
 sys.path.append(str(Path(__file__).parent))
 
-from utils.static_patterns import (
+from gates.utils.static_patterns import (
     get_static_patterns_for_gate, 
     get_pattern_statistics, 
     get_supported_technologies,
