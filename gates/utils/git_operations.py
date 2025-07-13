@@ -33,7 +33,22 @@ def clone_repository(repo_url: str, branch: str = "main",
     """
     
     if target_dir is None:
-        target_dir = tempfile.mkdtemp(prefix="codegates_repo_")
+        try:
+            target_dir = tempfile.mkdtemp(prefix="codegates_repo_", suffix="_temp")
+            print(f"📁 Created temp directory: {target_dir}")
+        except Exception as e:
+            raise Exception(f"Failed to create temporary directory: {e}")
+    
+    # Ensure target directory exists and is writable
+    if not os.path.exists(target_dir):
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+        except Exception as e:
+            raise Exception(f"Failed to create target directory {target_dir}: {e}")
+    
+    # Verify directory is writable
+    if not os.access(target_dir, os.W_OK):
+        raise Exception(f"Target directory is not writable: {target_dir}")
     
     # Determine if this is GitHub Enterprise
     parsed_url = urlparse(repo_url)
@@ -54,6 +69,9 @@ def clone_repository(repo_url: str, branch: str = "main",
                 return _clone_with_git(repo_url, branch, github_token, target_dir)
             except Exception as git_error:
                 print(f"⚠️ Git clone also failed: {git_error}")
+                # Clean up temp directory on failure
+                if target_dir and target_dir.startswith(tempfile.gettempdir()):
+                    cleanup_repository(target_dir)
                 raise Exception(f"Both API and Git clone failed. API: {api_error}, Git: {git_error}")
     else:
         # For GitHub.com or other Git servers: Try Git clone first (unlimited, no rate limits)
@@ -70,8 +88,14 @@ def clone_repository(repo_url: str, branch: str = "main",
                     return _download_with_github_api(repo_url, branch, github_token, target_dir)
                 except Exception as api_error:
                     print(f"⚠️ GitHub API download failed: {api_error}")
+                    # Clean up temp directory on failure
+                    if target_dir and target_dir.startswith(tempfile.gettempdir()):
+                        cleanup_repository(target_dir)
                     raise Exception(f"Both Git clone and API download failed. Git: {git_error}, API: {api_error}")
             else:
+                # Clean up temp directory on failure
+                if target_dir and target_dir.startswith(tempfile.gettempdir()):
+                    cleanup_repository(target_dir)
                 raise git_error
 
 
@@ -279,37 +303,65 @@ def _download_with_github_api(repo_url: str, branch: str, github_token: Optional
     
         # Save and extract zip file
         zip_path = os.path.join(target_dir, "repo.zip")
-        with open(zip_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:  # Filter out keep-alive chunks
-                    f.write(chunk)
         
-        print(f"📦 Downloaded {os.path.getsize(zip_path)} bytes")
+        try:
+            # Ensure we can write to the target directory
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir, exist_ok=True)
+            
+            # Write the zip file
+            with open(zip_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:  # Filter out keep-alive chunks
+                        f.write(chunk)
+            
+            # Verify the zip file was created and has content
+            if not os.path.exists(zip_path) or os.path.getsize(zip_path) == 0:
+                raise Exception("Downloaded zip file is empty or was not created")
+            
+            print(f"📦 Downloaded {os.path.getsize(zip_path)} bytes to {zip_path}")
+            
+            # Extract zip file
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(target_dir)
+            
+            # Remove zip file
+            os.remove(zip_path)
+            
+            # Find extracted directory (GitHub creates a directory with commit hash)
+            extracted_dirs = [d for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))]
+            if not extracted_dirs:
+                raise Exception("No directory found after extraction")
+            
+            # Move contents to target directory
+            extracted_dir = os.path.join(target_dir, extracted_dirs[0])
+            temp_dir = target_dir + "_temp"
+            
+            # Ensure temp_dir doesn't already exist
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            
+            shutil.move(extracted_dir, temp_dir)
+            
+            # Remove old target directory and rename temp
+            shutil.rmtree(target_dir)
+            shutil.move(temp_dir, target_dir)
+            
+            print(f"✅ Repository downloaded successfully to: {target_dir}")
+            return target_dir
+            
+        except zipfile.BadZipFile as e:
+            # Clean up the bad zip file
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise Exception(f"Downloaded file is not a valid zip file: {e}")
         
-        # Extract zip file
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(target_dir)
-        
-        # Remove zip file
-        os.remove(zip_path)
-        
-        # Find extracted directory (GitHub creates a directory with commit hash)
-        extracted_dirs = [d for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))]
-        if not extracted_dirs:
-            raise Exception("No directory found after extraction")
-        
-        # Move contents to target directory
-        extracted_dir = os.path.join(target_dir, extracted_dirs[0])
-        temp_dir = target_dir + "_temp"
-        shutil.move(extracted_dir, temp_dir)
-        
-        # Remove old target directory and rename temp
-        shutil.rmtree(target_dir)
-        shutil.move(temp_dir, target_dir)
-        
-        print(f"✅ Repository downloaded successfully to: {target_dir}")
-        return target_dir
-        
+        except Exception as e:
+            # Clean up any partial files
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise Exception(f"Failed to extract repository: {e}")
+    
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
             raise Exception(f"Repository not found or access denied: {repo_url}")

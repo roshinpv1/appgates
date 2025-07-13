@@ -33,7 +33,19 @@ class FetchRepositoryNode(Node):
         """Clone the repository"""
         print(f"🔄 Fetching repository: {params['repository_url']}")
         
-        target_dir = os.path.join(params["temp_dir"], "repository")
+        # Create a more robust target directory
+        temp_dir = params["temp_dir"]
+        if not temp_dir or not os.path.exists(temp_dir):
+            raise Exception(f"Invalid temp directory: {temp_dir}")
+        
+        target_dir = os.path.join(temp_dir, "repository")
+        
+        # Ensure the target directory path is valid
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+            print(f"📁 Target directory created: {target_dir}")
+        except Exception as e:
+            raise Exception(f"Failed to create target directory {target_dir}: {e}")
         
         repo_path = clone_repository(
             repo_url=params["repository_url"],
