@@ -318,18 +318,28 @@ class GeneratePromptNode(Node):
         prompt_parts.append("Use the file structure metadata to understand the project organization and target patterns appropriately.")
         prompt_parts.append("")
         prompt_parts.append("## OUTPUT FORMAT")
-        prompt_parts.append("Provide a JSON response with patterns, descriptions, and significance for each gate:")
+        prompt_parts.append("Provide a JSON response with patterns, descriptions, significance, and expected coverage analysis for each gate:")
         prompt_parts.append("```json")
         prompt_parts.append("{")
         prompt_parts.append('  "GATE_NAME": {')
         prompt_parts.append('    "patterns": ["pattern1_regex", "pattern2_regex"],')
-        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested ",')
-        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack"')
+        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested",')
+        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 25,')
+        prompt_parts.append('      "reasoning": "Based on the project structure and libraries, approximately 25% of files should implement this pattern",')
+        prompt_parts.append('      "confidence": "high"')
+        prompt_parts.append('    }')
         prompt_parts.append('  },')
         prompt_parts.append('  "ANOTHER_GATE": {')
         prompt_parts.append('    "patterns": ["pattern3_regex"],')
-        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested ",')
-        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack"')
+        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested",')
+        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 10,')
+        prompt_parts.append('      "reasoning": "This pattern is typically found in configuration files and middleware, affecting about 10% of the codebase",')
+        prompt_parts.append('      "confidence": "medium"')
+        prompt_parts.append('    }')
         prompt_parts.append('  }')
         prompt_parts.append("}")
         prompt_parts.append("```")
@@ -339,7 +349,12 @@ class GeneratePromptNode(Node):
         prompt_parts.append('  "GATE_NAME": {')
         prompt_parts.append('    "patterns": [],')
         prompt_parts.append('    "description": "Not Applicable",')
-        prompt_parts.append('    "significance": "This gate is not applicable to the current technology stack and project type"')
+        prompt_parts.append('    "significance": "This gate is not applicable to the current technology stack and project type",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 0,')
+        prompt_parts.append('      "reasoning": "Not applicable to this technology stack",')
+        prompt_parts.append('      "confidence": "high"')
+        prompt_parts.append('    }')
         prompt_parts.append('  }')
         prompt_parts.append("```")
         prompt_parts.append("")
@@ -355,6 +370,24 @@ class GeneratePromptNode(Node):
         prompt_parts.append("- **patterns**: Array of regex patterns as many as possible for the technology. Consider the libraries used for coming up with the relevant implementation as well. Usage like import should also be considered. Consider all known keywords and patterns as applicable.")
         prompt_parts.append("- **description**: 1-2 sentence explanation of reason of why the patterns suggested")
         prompt_parts.append("- **significance**: 2-3 sentence explanation of why the patterns matters for the specific technology stack and libraries used and project type")
+        prompt_parts.append("- **expected_coverage**: Intelligent analysis of expected coverage based on:")
+        prompt_parts.append("  - **percentage**: Expected percentage of files that should contain this pattern (0-100)")
+        prompt_parts.append("  - **reasoning**: Detailed explanation of why this coverage percentage is expected based on:")
+        prompt_parts.append("    - Project architecture and structure")
+        prompt_parts.append("    - Technology stack and frameworks used")
+        prompt_parts.append("    - Library dependencies and their typical usage patterns")
+        prompt_parts.append("    - File types and their distribution")
+        prompt_parts.append("    - Common implementation patterns for this gate type")
+        prompt_parts.append("  - **confidence**: Confidence level in the estimate (high/medium/low)")
+        prompt_parts.append("")
+        prompt_parts.append("**COVERAGE ANALYSIS GUIDELINES:**")
+        prompt_parts.append("- Consider the specific technology stack: different frameworks have different patterns")
+        prompt_parts.append("- Account for project size and complexity: larger projects may have lower percentages but higher absolute counts")
+        prompt_parts.append("- Factor in architectural patterns: microservices vs monolith affects distribution")
+        prompt_parts.append("- Consider file type distribution: some patterns only apply to specific file types")
+        prompt_parts.append("- Account for library usage: imported libraries may provide built-in implementations")
+        prompt_parts.append("- Be realistic: not every file needs every pattern, estimate based on actual usage scenarios")
+        prompt_parts.append("- Provide reasoning that shows understanding of the codebase structure and technology choices")
         
         prompt = "\n".join(prompt_parts)
         return prompt
@@ -574,7 +607,7 @@ class CallLLMNode(Node):
         return "default"
     
     def _parse_enhanced_llm_response(self, response: str) -> Dict[str, Dict[str, Any]]:
-        """Parse LLM response to extract patterns with descriptions and significance"""
+        """Parse LLM response to extract patterns with descriptions, significance, and expected coverage"""
         try:
             # Try to find JSON in the response
             json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
@@ -595,25 +628,51 @@ class CallLLMNode(Node):
             pattern_data = {}
             for gate_name, gate_info in raw_data.items():
                 if isinstance(gate_info, dict):
-                    # New enhanced format
+                    # Enhanced format with expected coverage
+                    expected_coverage = gate_info.get("expected_coverage", {})
+                    if isinstance(expected_coverage, dict):
+                        coverage_data = {
+                            "percentage": expected_coverage.get("percentage", 10),  # Default 10%
+                            "reasoning": expected_coverage.get("reasoning", "Standard expectation for this gate type"),
+                            "confidence": expected_coverage.get("confidence", "medium")
+                        }
+                    else:
+                        # Fallback if expected_coverage is not a dict
+                        coverage_data = {
+                            "percentage": 10,
+                            "reasoning": "Standard expectation for this gate type",
+                            "confidence": "medium"
+                        }
+                    
                     pattern_data[gate_name] = {
                         "patterns": gate_info.get("patterns", []),
                         "description": gate_info.get("description", "Pattern analysis for this gate"),
-                        "significance": gate_info.get("significance", "Important for code quality and compliance")
+                        "significance": gate_info.get("significance", "Important for code quality and compliance"),
+                        "expected_coverage": coverage_data
                     }
                 elif isinstance(gate_info, list):
                     # Old format - just patterns
                     pattern_data[gate_name] = {
                         "patterns": gate_info,
                         "description": "Pattern analysis for this gate",
-                        "significance": "Important for code quality and compliance"
+                        "significance": "Important for code quality and compliance",
+                        "expected_coverage": {
+                            "percentage": 10,
+                            "reasoning": "Standard expectation for this gate type",
+                            "confidence": "medium"
+                        }
                     }
                 else:
                     # Single pattern
                     pattern_data[gate_name] = {
                         "patterns": [str(gate_info)] if gate_info else [],
                         "description": "Pattern analysis for this gate",
-                        "significance": "Important for code quality and compliance"
+                        "significance": "Important for code quality and compliance",
+                        "expected_coverage": {
+                            "percentage": 10,
+                            "reasoning": "Standard expectation for this gate type",
+                            "confidence": "medium"
+                        }
                     }
             
             return pattern_data
@@ -659,26 +718,20 @@ class CallLLMNode(Node):
             return self._generate_fallback_patterns()
     
     def _generate_fallback_pattern_data(self) -> Dict[str, Dict[str, Any]]:
-        """Generate fallback pattern data with descriptions and significance"""
-        pattern_data = {}
+        """Generate fallback pattern data when LLM fails"""
+        fallback_patterns = self._generate_fallback_patterns()
         
-        for gate in HARD_GATES:
-            gate_patterns = []
-            
-            # Use patterns from gate definition
-            if "patterns" in gate:
-                gate_patterns.extend(gate["patterns"].get("positive", []))
-                gate_patterns.extend(gate["patterns"].get("violations", []))
-            
-            # Add some basic patterns if none exist
-            if not gate_patterns:
-                gate_name_lower = gate["name"].lower()
-                gate_patterns = [gate_name_lower, gate_name_lower.replace("_", ".*")]
-            
-            pattern_data[gate["name"]] = {
-                "patterns": gate_patterns,
-                "description": f"Built-in patterns for {gate['display_name']} validation",
-                "significance": f"This gate ensures {gate['description'].lower()} which is essential for enterprise-grade applications"
+        pattern_data = {}
+        for gate_name, patterns in fallback_patterns.items():
+            pattern_data[gate_name] = {
+                "patterns": patterns,
+                "description": f"Fallback patterns for {gate_name} - basic implementation patterns",
+                "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+                "expected_coverage": {
+                    "percentage": 10,  # Conservative default
+                    "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+                    "confidence": "low"
+                }
             }
         
         return pattern_data
@@ -759,15 +812,32 @@ class ValidateGatesNode(Node):
                     "details": ["This gate is not applicable to the current technology stack and project type"],
                     "recommendations": ["Not applicable to this project type"],
                     "pattern_description": gate_pattern_info.get("description", "Not Applicable"),
-                    "pattern_significance": gate_pattern_info.get("significance", "This gate is not applicable to the current technology stack and project type")
+                    "pattern_significance": gate_pattern_info.get("significance", "This gate is not applicable to the current technology stack and project type"),
+                    "expected_coverage": gate_pattern_info.get("expected_coverage", {
+                        "percentage": 0,
+                        "reasoning": "Not applicable to this technology stack",
+                        "confidence": "high"
+                    }),
+                    "total_files": metadata.get("total_files", 1)
                 }
                 print(f"   {gate_name} marked as NOT_APPLICABLE")
             else:
                 # Count matches for this gate
                 matches = self._find_pattern_matches(repo_path, gate_patterns, metadata, gate)
                 
+                # Prepare gate with expected coverage for scoring
+                gate_with_coverage = {
+                    **gate,
+                    "expected_coverage": gate_pattern_info.get("expected_coverage", {
+                        "percentage": 10,
+                        "reasoning": "Standard expectation for this gate type",
+                        "confidence": "medium"
+                    }),
+                    "total_files": metadata.get("total_files", 1)
+                }
+                
                 # Calculate score based on gate type and matches
-                score = self._calculate_gate_score(gate, matches, metadata)
+                score = self._calculate_gate_score(gate_with_coverage, matches, metadata)
                 
                 gate_result = {
                     "gate": gate_name,
@@ -779,11 +849,17 @@ class ValidateGatesNode(Node):
                     "matches_found": len(matches),
                     "score": score,
                     "status": self._determine_status(score, gate),
-                    "details": self._generate_gate_details(gate, matches),
-                    "recommendations": self._generate_gate_recommendations(gate, matches, score),
+                    "details": self._generate_gate_details(gate_with_coverage, matches),
+                    "recommendations": self._generate_gate_recommendations(gate_with_coverage, matches, score),
                     # Add LLM-generated pattern information
                     "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
-                    "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance")
+                    "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance"),
+                    "expected_coverage": gate_pattern_info.get("expected_coverage", {
+                        "percentage": 10,
+                        "reasoning": "Standard expectation for this gate type",
+                        "confidence": "medium"
+                    }),
+                    "total_files": metadata.get("total_files", 1)
                 }
             
             gate_results.append(gate_result)
@@ -862,26 +938,62 @@ class ValidateGatesNode(Node):
         return matches
     
     def _calculate_gate_score(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], metadata: Dict[str, Any]) -> float:
-        """Calculate score for a gate based on matches"""
+        """Calculate score for a gate based on matches and LLM-provided expected coverage"""
         
         gate_name = gate["name"]
         total_files = metadata.get("total_files", 1)
+        
+        # Get expected coverage from LLM analysis
+        expected_coverage_data = gate.get("expected_coverage", {})
+        expected_percentage = expected_coverage_data.get("percentage", 10)  # Default 10%
+        confidence = expected_coverage_data.get("confidence", "medium")
+        
+        # Convert percentage to decimal
+        expected_coverage_ratio = expected_percentage / 100.0
+        
+        # Calculate confidence multiplier for score adjustment
+        confidence_multiplier = {
+            "high": 1.0,
+            "medium": 0.9,
+            "low": 0.8
+        }.get(confidence, 0.9)
         
         if gate_name == "AVOID_LOGGING_SECRETS":
             # For security gates, fewer matches = better score
             if len(matches) == 0:
                 return 100.0
             else:
-                return max(0.0, 100.0 - (len(matches) * 10))
+                # Penalize based on number of violations
+                violation_penalty = min(len(matches) * 10, 100)
+                return max(0.0, 100.0 - violation_penalty)
         else:
             # For other gates, more matches = better score
             if len(matches) == 0:
                 return 0.0
             else:
-                # Score based on coverage
+                # Score based on coverage vs expected coverage
                 files_with_matches = len(set(m["file"] for m in matches))
-                coverage = min(files_with_matches / max(total_files * 0.1, 1), 1.0)  # Expect 10% coverage
-                return coverage * 100.0
+                actual_coverage = files_with_matches / total_files
+                
+                # Calculate expected files based on LLM analysis
+                expected_files = max(total_files * expected_coverage_ratio, 1)
+                
+                # Calculate coverage ratio (actual vs expected)
+                coverage_ratio = min(files_with_matches / expected_files, 1.0)
+                
+                # Base score from coverage ratio
+                base_score = coverage_ratio * 100.0
+                
+                # Apply confidence multiplier
+                final_score = base_score * confidence_multiplier
+                
+                # Bonus for exceeding expectations (up to 10% bonus)
+                if files_with_matches > expected_files:
+                    excess_ratio = min((files_with_matches - expected_files) / expected_files, 0.1)
+                    bonus = excess_ratio * 10.0
+                    final_score = min(final_score + bonus, 100.0)
+                
+                return final_score
     
     def _determine_status(self, score: float, gate: Dict[str, Any]) -> str:
         """Determine gate status based on score"""
@@ -904,11 +1016,27 @@ class ValidateGatesNode(Node):
             return "FAIL"
     
     def _generate_gate_details(self, gate: Dict[str, Any], matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate details for gate result"""
+        """Generate details for gate result including expected coverage analysis"""
         details = []
         
+        # Get expected coverage information
+        expected_coverage = gate.get("expected_coverage", {})
+        expected_percentage = expected_coverage.get("percentage", 10)
+        coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
+        confidence = expected_coverage.get("confidence", "medium")
+        
+        # Calculate actual coverage
+        total_files = gate.get("total_files", 1)  # This should be passed from metadata
+        files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
+        actual_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+        
+        # Coverage analysis
+        details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{total_files} files)")
+        details.append(f"Confidence: {confidence}")
+        
         if matches:
-            details.append(f"Found {len(matches)} matches across {len(set(m['file'] for m in matches))} files")
+            details.append(f"Found {len(matches)} matches across {files_with_matches} files")
             
             # Show sample matches
             for match in matches[:3]:
@@ -922,18 +1050,47 @@ class ValidateGatesNode(Node):
         return details
     
     def _generate_gate_recommendations(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], score: float) -> List[str]:
-        """Generate recommendations for gate"""
+        """Generate recommendations for gate based on expected coverage analysis"""
         recommendations = []
         
+        # Get expected coverage information
+        expected_coverage = gate.get("expected_coverage", {})
+        expected_percentage = expected_coverage.get("percentage", 10)
+        coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
+        confidence = expected_coverage.get("confidence", "medium")
+        
+        # Calculate actual coverage
+        total_files = gate.get("total_files", 1)
+        files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
+        actual_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+        
+        # Generate recommendations based on coverage gap
+        coverage_gap = expected_percentage - actual_percentage
+        
         if score < 50.0:
-            recommendations.append(f"Implement {gate['display_name']} throughout your codebase")
+            recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+            recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}%")
             recommendations.append(f"Focus on {gate['description'].lower()}")
+            if coverage_reasoning:
+                recommendations.append(f"Rationale: {coverage_reasoning}")
         elif score < 80.0:
             recommendations.append(f"Improve {gate['display_name']} coverage")
+            if coverage_gap > 5:
+                recommendations.append(f"Gap: Expected {expected_percentage}%, current {actual_percentage:.1f}%")
             recommendations.append("Consider adding more comprehensive implementation")
         else:
-            recommendations.append(f"Good implementation of {gate['display_name']}")
-            recommendations.append("Consider optimizing existing patterns")
+            if actual_percentage >= expected_percentage:
+                recommendations.append(f"Excellent implementation of {gate['display_name']}")
+                recommendations.append(f"Coverage exceeds expectations ({actual_percentage:.1f}% vs {expected_percentage}%)")
+            else:
+                recommendations.append(f"Good implementation of {gate['display_name']}")
+                recommendations.append("Consider optimizing existing patterns")
+        
+        # Add confidence-based recommendations
+        if confidence == "low":
+            recommendations.append("Note: Coverage estimate has low confidence - manual review recommended")
+        elif confidence == "high" and coverage_gap > 10:
+            recommendations.append("High confidence in coverage gap - prioritize implementation")
         
         return recommendations
 
@@ -1014,6 +1171,11 @@ class GenerateReportNode(Node):
         # Transform to match expected JSON format while preserving new data
         gates = []
         for gate_result in gate_results:
+            expected_coverage = gate_result.get("expected_coverage", {})
+            total_files = gate_result.get("total_files", 1)
+            files_with_matches = len(set(m.get('file', '') for m in gate_result.get("matches", []))) if gate_result.get("matches") else 0
+            actual_coverage_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
+            
             gate = {
                 "name": gate_result["gate"],
                 "display_name": gate_result["display_name"],
@@ -1028,6 +1190,22 @@ class GenerateReportNode(Node):
                 "recommendations": gate_result.get("recommendations", []),
                 "pattern_description": gate_result.get("pattern_description", ""),
                 "pattern_significance": gate_result.get("pattern_significance", ""),
+                # Enhanced coverage information
+                "expected_coverage": {
+                    "percentage": expected_coverage.get("percentage", 10),
+                    "reasoning": expected_coverage.get("reasoning", "Standard expectation"),
+                    "confidence": expected_coverage.get("confidence", "medium")
+                },
+                "actual_coverage": {
+                    "percentage": round(actual_coverage_percentage, 1),
+                    "files_with_matches": files_with_matches,
+                    "total_files": total_files
+                },
+                "coverage_analysis": {
+                    "gap": round(expected_coverage.get("percentage", 10) - actual_coverage_percentage, 1),
+                    "meets_expectation": actual_coverage_percentage >= expected_coverage.get("percentage", 10),
+                    "confidence_level": expected_coverage.get("confidence", "medium")
+                },
                 # For compatibility with old format
                 "expected": gate_result.get("patterns_used", 0),
                 "found": gate_result.get("matches_found", 0),
@@ -1616,41 +1794,40 @@ class GenerateReportNode(Node):
         html += """</div>"""
         return html
     
-    def _generate_gate_details(self, gate: Dict[str, Any]) -> str:
-        """Generate detailed content for a gate"""
+    def _generate_gate_details(self, gate: Dict[str, Any], matches: List[Dict[str, Any]]) -> List[str]:
+        """Generate details for gate result including expected coverage analysis"""
         details = []
         
-        # Metrics section
-        metrics = [
-            ('Score', f"{gate.get('score', 0):.1f}%"),
-            ('Coverage', f"{gate.get('score', 0):.1f}%"),
-            ('Expected/Found', f"{gate.get('expected', 0)} / {gate.get('found', 0)}")
-        ]
+        # Get expected coverage information
+        expected_coverage = gate.get("expected_coverage", {})
+        expected_percentage = expected_coverage.get("percentage", 10)
+        coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
+        confidence = expected_coverage.get("confidence", "medium")
         
-        metrics_html = '<div class="metrics-grid">'
-        for label, value in metrics:
-            metrics_html += f"""
-                <div class="metric-card">
-                    <div class="metric-label">{label}</div>
-                    <div class="metric-value">{value}</div>
-                </div>"""
-        metrics_html += '</div>'
-        details.append(metrics_html)
+        # Calculate actual coverage
+        total_files = gate.get("total_files", 1)  # This should be passed from metadata
+        files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
+        actual_percentage = (files_with_matches / total_files) * 100 if total_files > 0 else 0
         
-        # Details section
-        gate_details = gate.get('details', [])
-        if gate_details:
-            details_html = '<div class="details-section">'
-            details_html += '<div class="details-section-title">Analysis Details:</div>'
-            details_html += '<ul>'
-            for detail in gate_details[:5]:  # Show first 5 details
-                details_html += f'<li>{detail}</li>'
-            details_html += '</ul>'
-            details_html += '</div>'
-            details.append(details_html)
+        # Coverage analysis
+        details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{total_files} files)")
+        details.append(f"Confidence: {confidence}")
         
-        return ''.join(details)
-
+        if matches:
+            details.append(f"Found {len(matches)} matches across {files_with_matches} files")
+            
+            # Show sample matches
+            for match in matches[:3]:
+                details.append(f"  {match['file']}:{match['line']} - {match['match'][:50]}")
+            
+            if len(matches) > 3:
+                details.append(f"  ... and {len(matches) - 3} more matches")
+        else:
+            details.append(f"No matches found for {gate['display_name']}")
+        
+        return details
+    
     def _generate_gates_table_html_from_new_data(self, gate_results: List[Dict[str, Any]]) -> str:
         """Generate gates table HTML with categories using new data structure"""
         gate_categories = self._get_new_gate_categories()
