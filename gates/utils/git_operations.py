@@ -12,6 +12,8 @@ import git
 import requests
 import zipfile
 from urllib.parse import urlparse
+import time
+import urllib3
 
 
 def clone_repository(repo_url: str, branch: str = "main", 
@@ -74,74 +76,216 @@ def clone_repository(repo_url: str, branch: str = "main",
 
 
 def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], target_dir: str) -> str:
-    """Clone repository using Git"""
+    """Clone repository using Git with enterprise support"""
+    
+    # Parse repository URL to determine if it's enterprise
+    parsed_url = urlparse(repo_url)
+    hostname = parsed_url.netloc.lower()
+    is_github_enterprise = 'github' in hostname and hostname != 'github.com'
     
     # Prepare URL with token if provided
-    if github_token and "github.com" in repo_url:
-        # Insert token into URL
-        parsed = urlparse(repo_url)
-        auth_url = f"https://{github_token}@{parsed.netloc}{parsed.path}"
+    if github_token:
+        if is_github_enterprise or "github.com" in repo_url:
+            # Insert token into URL for GitHub authentication
+            auth_url = f"https://{github_token}@{hostname}{parsed_url.path}"
+        else:
+            # For other Git servers, use the original URL
+            auth_url = repo_url
     else:
         auth_url = repo_url
     
     print(f"🔄 Cloning repository with Git: {repo_url} (branch: {branch})")
     
-    # Clone repository
-    repo = git.Repo.clone_from(auth_url, target_dir, branch=branch, depth=1)
+    # Configure Git environment for enterprise scenarios
+    env = os.environ.copy()
     
-    print(f"✅ Repository cloned successfully to: {target_dir}")
-    return target_dir
+    if is_github_enterprise:
+        # Enterprise-specific Git configurations
+        disable_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() == 'true'
+        if disable_ssl:
+            env['GIT_SSL_NO_VERIFY'] = 'true'
+            print("⚠️ SSL verification disabled for Git clone")
+        
+        # Set custom CA bundle if provided
+        ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE')
+        if ca_bundle and os.path.exists(ca_bundle):
+            env['GIT_SSL_CAINFO'] = ca_bundle
+            print(f"🔐 Using custom CA bundle for Git: {ca_bundle}")
+    
+    try:
+        # Clone repository with timeout and proper error handling
+        repo = git.Repo.clone_from(
+            auth_url, 
+            target_dir, 
+            branch=branch, 
+            depth=1,
+            env=env
+        )
+        
+        print(f"✅ Repository cloned successfully to: {target_dir}")
+        return target_dir
+        
+    except git.exc.GitCommandError as e:
+        # Handle specific Git errors with helpful messages
+        error_msg = str(e)
+        
+        if "authentication failed" in error_msg.lower():
+            raise Exception(f"Git authentication failed. Check your GitHub token and permissions.")
+        elif "repository not found" in error_msg.lower():
+            raise Exception(f"Repository not found or access denied: {repo_url}")
+        elif "ssl certificate problem" in error_msg.lower():
+            raise Exception(f"SSL certificate issue. For enterprise GitHub, try setting GITHUB_ENTERPRISE_DISABLE_SSL=true or provide a CA bundle.")
+        elif "connection refused" in error_msg.lower():
+            raise Exception(f"Connection refused. Check network connectivity and repository URL.")
+        elif "timeout" in error_msg.lower():
+            raise Exception(f"Git clone timeout. The repository might be too large or network is slow.")
+        else:
+            raise Exception(f"Git clone failed: {error_msg}")
+    
+    except Exception as e:
+        raise Exception(f"Failed to clone repository: {str(e)}")
 
 
 def _download_with_github_api(repo_url: str, branch: str, github_token: Optional[str], target_dir: str) -> str:
-    """Download repository using GitHub API"""
+    """Download repository using GitHub API with enterprise support"""
+    
+    # Parse repository URL to determine if it's enterprise
+    parsed_url = urlparse(repo_url)
+    hostname = parsed_url.netloc.lower()
+    is_github_enterprise = 'github' in hostname and hostname != 'github.com'
     
     # Extract owner and repo name from URL
     owner, repo_name = _parse_github_url(repo_url)
     
-    # Prepare API URL
-    api_url = f"https://api.github.com/repos/{owner}/{repo_name}/zipball/{branch}"
+    # Construct API URL based on repository type
+    if is_github_enterprise:
+        # For GitHub Enterprise: use enterprise API endpoint
+        api_url = f"https://{hostname}/api/v3/repos/{owner}/{repo_name}/zipball/{branch}"
+        print(f"🏢 Using GitHub Enterprise API: {api_url}")
+    else:
+        # For GitHub.com: use public API endpoint
+        api_url = f"https://api.github.com/repos/{owner}/{repo_name}/zipball/{branch}"
+        print(f"🌐 Using GitHub.com API: {api_url}")
     
     # Prepare headers
-    headers = {"Accept": "application/vnd.github.v3+json"}
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "CodeGates/1.0"
+    }
+    
     if github_token:
         headers["Authorization"] = f"token {github_token}"
     
     print(f"🔄 Downloading repository with GitHub API: {repo_url} (branch: {branch})")
     
-    # Download zip file
-    response = requests.get(api_url, headers=headers, stream=True)
-    response.raise_for_status()
+    # Configure request session with enterprise-friendly settings
+    session = requests.Session()
+    session.headers.update(headers)
     
-    # Save and extract zip file
-    zip_path = os.path.join(target_dir, "repo.zip")
-    with open(zip_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+    # Enterprise-specific configurations
+    request_kwargs = {
+        "stream": True,
+        "timeout": (30, 300),  # (connect_timeout, read_timeout)
+        "allow_redirects": True
+    }
     
-    # Extract zip file
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(target_dir)
+    # Handle SSL verification for enterprise environments
+    if is_github_enterprise:
+        # Check if SSL verification should be disabled (common in enterprise)
+        disable_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() == 'true'
+        if disable_ssl:
+            request_kwargs["verify"] = False
+            print("⚠️ SSL verification disabled for GitHub Enterprise")
+            # Suppress SSL warnings
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        else:
+            # Use custom CA bundle if provided
+            ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE')
+            if ca_bundle and os.path.exists(ca_bundle):
+                request_kwargs["verify"] = ca_bundle
+                print(f"🔐 Using custom CA bundle: {ca_bundle}")
     
-    # Remove zip file
-    os.remove(zip_path)
+    try:
+        # Download zip file with retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = session.get(api_url, **request_kwargs)
+                response.raise_for_status()
+                break
+            except requests.exceptions.ConnectionError as e:
+                if "Connection reset by peer" in str(e) and attempt < max_retries - 1:
+                    print(f"⚠️ Connection reset, retrying... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                else:
+                    raise
+            except requests.exceptions.Timeout as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠️ Request timeout, retrying... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(2 ** attempt)
+                    continue
+                else:
+                    raise
     
-    # Find extracted directory (GitHub creates a directory with commit hash)
-    extracted_dirs = [d for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))]
-    if not extracted_dirs:
-        raise Exception("No directory found after extraction")
+        # Save and extract zip file
+        zip_path = os.path.join(target_dir, "repo.zip")
+        with open(zip_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:  # Filter out keep-alive chunks
+                    f.write(chunk)
+        
+        print(f"📦 Downloaded {os.path.getsize(zip_path)} bytes")
+        
+        # Extract zip file
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(target_dir)
+        
+        # Remove zip file
+        os.remove(zip_path)
+        
+        # Find extracted directory (GitHub creates a directory with commit hash)
+        extracted_dirs = [d for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))]
+        if not extracted_dirs:
+            raise Exception("No directory found after extraction")
+        
+        # Move contents to target directory
+        extracted_dir = os.path.join(target_dir, extracted_dirs[0])
+        temp_dir = target_dir + "_temp"
+        shutil.move(extracted_dir, temp_dir)
+        
+        # Remove old target directory and rename temp
+        shutil.rmtree(target_dir)
+        shutil.move(temp_dir, target_dir)
+        
+        print(f"✅ Repository downloaded successfully to: {target_dir}")
+        return target_dir
+        
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            raise Exception(f"Repository not found or access denied: {repo_url}")
+        elif e.response.status_code == 401:
+            raise Exception(f"Authentication failed. Check your GitHub token.")
+        elif e.response.status_code == 403:
+            raise Exception(f"Access forbidden. Check repository permissions and token scopes.")
+        else:
+            raise Exception(f"HTTP error {e.response.status_code}: {e.response.text}")
     
-    # Move contents to target directory
-    extracted_dir = os.path.join(target_dir, extracted_dirs[0])
-    temp_dir = target_dir + "_temp"
-    shutil.move(extracted_dir, temp_dir)
+    except requests.exceptions.ConnectionError as e:
+        if "Connection reset by peer" in str(e):
+            raise Exception(f"Connection reset by peer. This often happens with enterprise GitHub due to network/SSL issues. Try: 1) Check SSL settings 2) Use git clone instead 3) Contact your IT team")
+        else:
+            raise Exception(f"Connection error: {str(e)}")
     
-    # Remove old target directory and rename temp
-    shutil.rmtree(target_dir)
-    shutil.move(temp_dir, target_dir)
+    except requests.exceptions.Timeout as e:
+        raise Exception(f"Request timeout. The repository might be too large or the network is slow: {str(e)}")
     
-    print(f"✅ Repository downloaded successfully to: {target_dir}")
-    return target_dir
+    except Exception as e:
+        raise Exception(f"Failed to download repository via API: {str(e)}")
+    
+    finally:
+        session.close()
 
 
 def _parse_github_url(repo_url: str) -> Tuple[str, str]:
