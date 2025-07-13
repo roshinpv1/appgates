@@ -1,0 +1,450 @@
+{
+  "report_metadata": {
+    "scan_id": "15e0ec53-86e8-4d8c-bbf6-5a4a2255d06a",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic",
+    "branch": "main",
+    "generated_at": "2025-07-13T13:56:01.888595",
+    "version": "2.0.0",
+    "llm_source": "local",
+    "llm_model": "meta-llama-3.1-8b-instruct"
+  },
+  "scan_metadata": {
+    "scan_duration": 0,
+    "total_files": 112,
+    "total_lines": 14402,
+    "timestamp": "2025-07-13T13:56:01.888603",
+    "project_name": "spring-projects/spring-petclinic",
+    "project_path": "https://github.com/spring-projects/spring-petclinic",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic"
+  },
+  "languages_detected": [
+    "Docker",
+    "JSON",
+    "YAML",
+    "Batch",
+    "XML",
+    "Gradle",
+    "Java",
+    "SQL",
+    "CSS",
+    "HTML",
+    "SCSS"
+  ],
+  "gates": [
+    {
+      "name": "STRUCTURED_LOGS",
+      "display_name": "Logs Searchable/Available",
+      "status": "FAIL",
+      "score": 8.928571428571427,
+      "details": [
+        "Found 2 matches across 1 files",
+        "  src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java:18 - lang=de</code>).",
+        "  src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java:41 - lang=es</code>."
+      ],
+      "category": "Logging",
+      "priority": "high",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "patterns_used": 2,
+      "matches_found": 2,
+      "recommendations": [
+        "Implement Logs Searchable/Available throughout your codebase",
+        "Focus on ensure logs are structured and searchable for operational monitoring"
+      ],
+      "pattern_description": "Structured logs typically follow a timestamp format and key-value pairs. These patterns ensure that log messages are properly formatted.",
+      "pattern_significance": "Properly structured logs enable efficient monitoring, auditing, and troubleshooting.",
+      "expected": 2,
+      "found": 2,
+      "coverage": 8.928571428571427,
+      "quality_score": 8.928571428571427,
+      "matches": []
+    },
+    {
+      "name": "AVOID_LOGGING_SECRETS",
+      "display_name": "Avoid Logging Confidential Data",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "No matches found for Avoid Logging Confidential Data"
+      ],
+      "category": "Security",
+      "priority": "critical",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "Good implementation of Avoid Logging Confidential Data",
+        "Consider optimizing existing patterns"
+      ],
+      "pattern_description": "These patterns prevent sensitive information like secrets, passwords, or API keys from being logged accidentally.",
+      "pattern_significance": "Avoiding logging of sensitive data is crucial for security and compliance reasons.",
+      "expected": 3,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0,
+      "matches": []
+    },
+    {
+      "name": "AUDIT_TRAIL",
+      "display_name": "Create Audit Trail Logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Create Audit Trail Logs"
+      ],
+      "category": "Compliance",
+      "priority": "high",
+      "description": "Log critical business operations for audit compliance",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Create Audit Trail Logs throughout your codebase",
+        "Focus on log critical business operations for audit compliance"
+      ],
+      "pattern_description": "These patterns capture critical business operations like user authentication attempts or system errors.",
+      "pattern_significance": "Auditing critical events ensures compliance and enables post-incident analysis.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Tracking ID for Logs"
+      ],
+      "category": "Observability",
+      "priority": "medium",
+      "description": "Include correlation IDs for distributed tracing",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Tracking ID for Logs throughout your codebase",
+        "Focus on include correlation ids for distributed tracing"
+      ],
+      "pattern_description": "These patterns ensure that correlation IDs are properly included in logs for distributed tracing.",
+      "pattern_significance": "Correlation IDs facilitate efficient troubleshooting and root cause analysis.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Log REST API Calls"
+      ],
+      "category": "API",
+      "priority": "medium",
+      "description": "Log all API requests and responses for monitoring",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Log REST API Calls throughout your codebase",
+        "Focus on log all api requests and responses for monitoring"
+      ],
+      "pattern_description": "These patterns capture all API requests and responses for monitoring.",
+      "pattern_significance": "Logging API calls enables efficient monitoring, troubleshooting, and performance optimization.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Log Application Messages"
+      ],
+      "category": "Logging",
+      "priority": "medium",
+      "description": "Log important application state changes and events",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Log Application Messages throughout your codebase",
+        "Focus on log important application state changes and events"
+      ],
+      "pattern_description": "These patterns capture important application state changes and events.",
+      "pattern_significance": "Logging application messages facilitates efficient monitoring, troubleshooting, and performance optimization.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Client UI Errors Logged"
+      ],
+      "category": "Frontend",
+      "priority": "medium",
+      "description": "Capture and log client-side UI errors",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Client UI Errors Logged throughout your codebase",
+        "Focus on capture and log client-side ui errors"
+      ],
+      "pattern_description": "These patterns capture client-side UI errors for monitoring.",
+      "pattern_significance": "Capturing UI errors enables efficient troubleshooting and user experience improvement.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Retry Logic"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Implement retry mechanisms for resilient operations",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Retry Logic throughout your codebase",
+        "Focus on implement retry mechanisms for resilient operations"
+      ],
+      "pattern_description": "These patterns ensure that retry mechanisms are properly implemented for resilient operations.",
+      "pattern_significance": "Implementing retry logic enables efficient error handling and system resilience.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Timeouts in IO Ops"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Set appropriate timeouts for I/O operations",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Timeouts in IO Ops throughout your codebase",
+        "Focus on set appropriate timeouts for i/o operations"
+      ],
+      "pattern_description": "These patterns ensure that timeouts are properly set for I/O operations.",
+      "pattern_significance": "Setting appropriate timeouts enables efficient error handling and system performance optimization.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Throttling & Drop Request"
+      ],
+      "category": "Performance",
+      "priority": "medium",
+      "description": "Implement rate limiting and request throttling",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Throttling & Drop Request throughout your codebase",
+        "Focus on implement rate limiting and request throttling"
+      ],
+      "pattern_description": "These patterns implement rate limiting and request throttling for efficient resource utilization.",
+      "pattern_significance": "Implementing rate limiting and request throttling enables efficient system performance optimization.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Circuit Breakers"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Circuit Breakers throughout your codebase",
+        "Focus on implement circuit breaker pattern for fault tolerance"
+      ],
+      "pattern_description": "These patterns implement circuit breaker pattern for fault tolerance.",
+      "pattern_significance": "Implementing circuit breakers enables efficient error handling and system resilience.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Log System Errors"
+      ],
+      "category": "Error Handling",
+      "priority": "high",
+      "description": "Comprehensive error logging and exception handling",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Log System Errors throughout your codebase",
+        "Focus on comprehensive error logging and exception handling"
+      ],
+      "pattern_description": "These patterns capture comprehensive error logs for efficient troubleshooting.",
+      "pattern_significance": "Capturing comprehensive error logs enables efficient troubleshooting and user experience improvement.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for HTTP Error Codes"
+      ],
+      "category": "API",
+      "priority": "medium",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement HTTP Error Codes throughout your codebase",
+        "Focus on use appropriate http status codes for api responses"
+      ],
+      "pattern_description": "These patterns ensure that proper HTTP status codes are used for API responses.",
+      "pattern_significance": "Using correct HTTP status codes enables efficient error handling and system performance optimization.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Client Error Tracking"
+      ],
+      "category": "Frontend",
+      "priority": "medium",
+      "description": "Integrate client-side error tracking tools",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Client Error Tracking throughout your codebase",
+        "Focus on integrate client-side error tracking tools"
+      ],
+      "pattern_description": "These patterns integrate client-side error tracking tools for efficient monitoring.",
+      "pattern_significance": "Integrating client-side error tracking tools enables efficient troubleshooting and user experience improvement.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Automated Tests"
+      ],
+      "category": "Testing",
+      "priority": "high",
+      "description": "Comprehensive automated test coverage",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "recommendations": [
+        "Implement Automated Tests throughout your codebase",
+        "Focus on comprehensive automated test coverage"
+      ],
+      "pattern_description": "These patterns ensure that comprehensive automated tests are implemented for efficient testing.",
+      "pattern_significance": "Implementing comprehensive automated tests enables efficient testing and system reliability.",
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    }
+  ],
+  "score": 7.261904761904762,
+  "overall_score": 7.261904761904762,
+  "passed_gates": 1,
+  "warning_gates": 0,
+  "failed_gates": 14,
+  "critical_issues": [],
+  "recommendations": [
+    "Implement Logs Searchable/Available throughout your codebase",
+    "Focus on ensure logs are structured and searchable for operational monitoring",
+    "Good implementation of Avoid Logging Confidential Data",
+    "Consider optimizing existing patterns",
+    "Implement Create Audit Trail Logs throughout your codebase",
+    "Focus on log critical business operations for audit compliance",
+    "Implement Tracking ID for Logs throughout your codebase",
+    "Focus on include correlation ids for distributed tracing",
+    "Implement Log REST API Calls throughout your codebase",
+    "Focus on log all api requests and responses for monitoring",
+    "Implement Log Application Messages throughout your codebase",
+    "Focus on log important application state changes and events",
+    "Implement Client UI Errors Logged throughout your codebase",
+    "Focus on capture and log client-side ui errors",
+    "Implement Retry Logic throughout your codebase",
+    "Focus on implement retry mechanisms for resilient operations",
+    "Implement Timeouts in IO Ops throughout your codebase",
+    "Focus on set appropriate timeouts for i/o operations",
+    "Implement Throttling & Drop Request throughout your codebase",
+    "Focus on implement rate limiting and request throttling",
+    "Implement Circuit Breakers throughout your codebase",
+    "Focus on implement circuit breaker pattern for fault tolerance",
+    "Implement Log System Errors throughout your codebase",
+    "Focus on comprehensive error logging and exception handling",
+    "Implement HTTP Error Codes throughout your codebase",
+    "Focus on use appropriate http status codes for api responses",
+    "Implement Client Error Tracking throughout your codebase",
+    "Focus on integrate client-side error tracking tools",
+    "Implement Automated Tests throughout your codebase",
+    "Focus on comprehensive automated test coverage"
+  ]
+}

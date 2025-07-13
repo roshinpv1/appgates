@@ -236,6 +236,24 @@ class GeneratePromptNode(Node):
         prompt_parts.append(f"- Languages: {', '.join(metadata.get('languages', {}).keys())}")
         prompt_parts.append("")
         
+        # Language statistics
+        language_stats = metadata.get('language_stats', {})
+        if language_stats:
+            prompt_parts.append("### Language Distribution")
+            prompt_parts.append("```json")
+            prompt_parts.append(json.dumps(language_stats, indent=2))
+            prompt_parts.append("```")
+            prompt_parts.append("")
+        
+        # File structure metadata
+        directory_structure = metadata.get('directory_structure', {})
+        if directory_structure:
+            prompt_parts.append("### Codebase File Structure")
+            prompt_parts.append("```yaml")
+            prompt_parts.append(self._convert_structure_to_yaml(directory_structure))
+            prompt_parts.append("```")
+            prompt_parts.append("")
+        
         # Build files
         config = data["config"]
         if config["build_files"]:
@@ -244,6 +262,16 @@ class GeneratePromptNode(Node):
                 prompt_parts.append(f"**{filename}** ({info['type']})")
                 prompt_parts.append(f"```")
                 prompt_parts.append(info["content"][:1000])  # First 1000 chars
+                prompt_parts.append(f"```")
+                prompt_parts.append("")
+        
+        # Config files
+        if config["config_files"]:
+            prompt_parts.append("### Configuration Files")
+            for filename, info in config["config_files"].items():
+                prompt_parts.append(f"**{filename}** ({info['type']})")
+                prompt_parts.append(f"```")
+                prompt_parts.append(info["content"][:500])  # First 500 chars for config files
                 prompt_parts.append(f"```")
                 prompt_parts.append("")
         
@@ -256,6 +284,15 @@ class GeneratePromptNode(Node):
                 prompt_parts.append(f"- ... and {len(config['dependencies']) - 50} more")
             prompt_parts.append("")
         
+        # File type distribution
+        file_types = metadata.get('file_types', {})
+        if file_types:
+            prompt_parts.append("### File Type Distribution")
+            prompt_parts.append("```json")
+            prompt_parts.append(json.dumps(file_types, indent=2))
+            prompt_parts.append("```")
+            prompt_parts.append("")
+        
         # Hard gates
         prompt_parts.append("## HARD GATES TO ANALYZE")
         for gate in data["hard_gates"]:
@@ -265,7 +302,8 @@ class GeneratePromptNode(Node):
         # Task description
         prompt_parts.append("## TASK")
         prompt_parts.append("Generate comprehensive regex patterns for each hard gate that would be effective for this specific codebase.")
-        prompt_parts.append("Consider the detected languages, frameworks, and dependencies when formulating patterns.")
+        prompt_parts.append("Consider the detected languages, frameworks, dependencies, and file structure when formulating patterns.")
+        prompt_parts.append("Use the file structure metadata to understand the project organization and target patterns appropriately.")
         prompt_parts.append("")
         prompt_parts.append("## OUTPUT FORMAT")
         prompt_parts.append("Provide a JSON response with patterns, descriptions, and significance for each gate:")
@@ -273,35 +311,104 @@ class GeneratePromptNode(Node):
         prompt_parts.append("{")
         prompt_parts.append('  "GATE_NAME": {')
         prompt_parts.append('    "patterns": ["pattern1_regex", "pattern2_regex"],')
-        prompt_parts.append('    "description": "Brief description how did the sysytem arrive the suggested pattern",')
-        prompt_parts.append('    "significance": "Why this pattern is relevant for this codebase by looking at the technologies and libraries used."')
+        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested ",')
+        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack"')
         prompt_parts.append('  },')
         prompt_parts.append('  "ANOTHER_GATE": {')
         prompt_parts.append('    "patterns": ["pattern3_regex"],')
-        prompt_parts.append('    "description": "Brief description how did the sysytem arrive the suggested pattern",')
-        prompt_parts.append('    "significance": "Why this pattern is relevant for this codebase by looking at the technologies and libraries used."')
+        prompt_parts.append('    "description": "Brief description of what these patterns meant to the gate and why it was suggested ",')
+        prompt_parts.append('    "significance": "Why the patterns are significant for this codebase and technology stack"')
         prompt_parts.append('  }')
         prompt_parts.append("}")
         prompt_parts.append("```")
         prompt_parts.append("")
+        prompt_parts.append("**IMPORTANT**: If a gate is not applicable to the detected technology stack or project type, respond with:")
+        prompt_parts.append("```json")
+        prompt_parts.append('  "GATE_NAME": {')
+        prompt_parts.append('    "patterns": [],')
+        prompt_parts.append('    "description": "Not Applicable",')
+        prompt_parts.append('    "significance": "This gate is not applicable to the current technology stack and project type"')
+        prompt_parts.append('  }')
+        prompt_parts.append("```")
+        prompt_parts.append("")
         prompt_parts.append("Focus on patterns that are:")
-        prompt_parts.append("- Specific to the detected technology stack")
+        prompt_parts.append("- Specific to the detected technology stack and libraries used")
+        prompt_parts.append("- Consider all common patterns and keywords as applicable")
         prompt_parts.append("- Comprehensive in coverage")
         prompt_parts.append("- Practical for real-world codebases")
         prompt_parts.append("- Security and compliance-focused")
+        prompt_parts.append("- Contextually aware of the project structure and organization")
         prompt_parts.append("")
         prompt_parts.append("For each gate, provide:")
-        prompt_parts.append("- **patterns**: Array of regex patterns tailored to the codebase")
-        prompt_parts.append("- **description**: 1-2 sentence description of reasoning of why the specific patterns detect and how did the system arrive the suggested pattern")
-        prompt_parts.append("- **significance**: 2-3 sentence reasoning of why this matters for the specific technology stack and project type by looking at the technologies and libraries used.")
+        prompt_parts.append("- **patterns**: Array of regex patterns as many as possible for the technology. Consider the libraries used for coming up with the relevant implementation as well. Usage like import should also be considered. Consider all known keywords and patterns as applicable.")
+        prompt_parts.append("- **description**: 1-2 sentence explanation of reason of why the patterns suggested")
+        prompt_parts.append("- **significance**: 2-3 sentence explanation of why the patterns matters for the specific technology stack and libraries used and project type")
         
         prompt = "\n".join(prompt_parts)
         return prompt
     
+    def _convert_structure_to_yaml(self, structure: Dict[str, Any], indent: int = 0) -> str:
+        """Convert directory structure to YAML format with only file names"""
+        yaml_lines = []
+        indent_str = "  " * indent
+        
+        for name, content in structure.items():
+            if isinstance(content, dict):
+                if content.get('type') == 'file':
+                    # It's a file - just add the filename
+                    yaml_lines.append(f"{indent_str}- {name}")
+                else:
+                    # It's a directory - add directory name and recurse
+                    yaml_lines.append(f"{indent_str}{name}:")
+                    yaml_lines.append(self._convert_structure_to_yaml(content, indent + 1))
+            else:
+                # Fallback for other types
+                yaml_lines.append(f"{indent_str}- {name}")
+        
+        return "\n".join(yaml_lines)
+    
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: str) -> str:
         """Store prompt in shared store"""
         shared["llm"]["prompt"] = exec_res
+        
+        # Log the final prompt
         print(f"✅ Generated LLM prompt ({len(exec_res)} characters)")
+        
+        # Save prompt to log file for debugging
+        try:
+            import os
+            from datetime import datetime
+            
+            # Create logs directory if it doesn't exist
+            logs_dir = "logs"
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            # Generate timestamp for log file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            scan_id = shared["request"].get("scan_id", "unknown")
+            
+            # Save prompt to file
+            prompt_log_file = os.path.join(logs_dir, f"prompt_{scan_id}_{timestamp}.txt")
+            with open(prompt_log_file, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("CODEGATES LLM PROMPT LOG\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Scan ID: {scan_id}\n")
+                f.write(f"Repository: {shared['request'].get('repository_url', 'unknown')}\n")
+                f.write(f"Branch: {shared['request'].get('branch', 'unknown')}\n")
+                f.write(f"Prompt Length: {len(exec_res)} characters\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(exec_res)
+                f.write("\n\n" + "=" * 80 + "\n")
+                f.write("END OF PROMPT\n")
+                f.write("=" * 80 + "\n")
+            
+            print(f"📝 Prompt logged to: {prompt_log_file}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to log prompt: {e}")
+        
         return "default"
 
 
@@ -405,6 +512,53 @@ class CallLLMNode(Node):
         pattern_count = sum(len(gate_data.get("patterns", [])) for gate_data in exec_res["pattern_data"].values())
         print(f"✅ Generated {pattern_count} patterns for {len(exec_res['pattern_data'])} gates")
         print(f"   Source: {exec_res['source']} ({exec_res['model']})")
+        
+        # Log the LLM response
+        try:
+            import os
+            from datetime import datetime
+            
+            # Create logs directory if it doesn't exist
+            logs_dir = "logs"
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            # Generate timestamp for log file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            scan_id = shared["request"].get("scan_id", "unknown")
+            
+            # Save LLM response to file
+            response_log_file = os.path.join(logs_dir, f"llm_response_{scan_id}_{timestamp}.txt")
+            with open(response_log_file, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("CODEGATES LLM RESPONSE LOG\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Scan ID: {scan_id}\n")
+                f.write(f"Repository: {shared['request'].get('repository_url', 'unknown')}\n")
+                f.write(f"Branch: {shared['request'].get('branch', 'unknown')}\n")
+                f.write(f"LLM Source: {exec_res['source']}\n")
+                f.write(f"LLM Model: {exec_res['model']}\n")
+                f.write(f"Response Length: {len(exec_res['response'])} characters\n")
+                f.write(f"Patterns Generated: {pattern_count}\n")
+                f.write(f"Gates Processed: {len(exec_res['pattern_data'])}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write("RAW LLM RESPONSE:\n")
+                f.write("-" * 40 + "\n")
+                f.write(exec_res["response"])
+                f.write("\n\n" + "-" * 40 + "\n")
+                f.write("PARSED PATTERN DATA:\n")
+                f.write("-" * 40 + "\n")
+                import json
+                f.write(json.dumps(exec_res["pattern_data"], indent=2))
+                f.write("\n\n" + "=" * 80 + "\n")
+                f.write("END OF RESPONSE\n")
+                f.write("=" * 80 + "\n")
+            
+            print(f"📝 LLM response logged to: {response_log_file}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to log LLM response: {e}")
+        
         return "default"
     
     def _parse_enhanced_llm_response(self, response: str) -> Dict[str, Dict[str, Any]]:
@@ -572,28 +726,53 @@ class ValidateGatesNode(Node):
             
             print(f"   Validating {gate_name}...")
             
-            # Count matches for this gate
-            matches = self._find_pattern_matches(repo_path, gate_patterns, metadata, gate)
+            # Check if gate is not applicable
+            is_not_applicable = (
+                gate_pattern_info.get("description", "").strip() == "Not Applicable" or
+                (len(gate_patterns) == 0 and gate_pattern_info.get("significance", "").find("not applicable") != -1)
+            )
             
-            # Calculate score based on gate type and matches
-            score = self._calculate_gate_score(gate, matches, metadata)
-            
-            gate_result = {
-                "gate": gate_name,
-                "display_name": gate["display_name"],
-                "description": gate["description"],
-                "category": gate["category"],
-                "priority": gate["priority"],
-                "patterns_used": len(gate_patterns),
-                "matches_found": len(matches),
-                "score": score,
-                "status": self._determine_status(score, gate),
-                "details": self._generate_gate_details(gate, matches),
-                "recommendations": self._generate_gate_recommendations(gate, matches, score),
-                # Add LLM-generated pattern information
-                "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
-                "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance")
-            }
+            if is_not_applicable:
+                # Handle Not Applicable gate
+                gate_result = {
+                    "gate": gate_name,
+                    "display_name": gate["display_name"],
+                    "description": gate["description"],
+                    "category": gate["category"],
+                    "priority": gate["priority"],
+                    "patterns_used": 0,
+                    "matches_found": 0,
+                    "score": 0.0,
+                    "status": "NOT_APPLICABLE",
+                    "details": ["This gate is not applicable to the current technology stack and project type"],
+                    "recommendations": ["Not applicable to this project type"],
+                    "pattern_description": gate_pattern_info.get("description", "Not Applicable"),
+                    "pattern_significance": gate_pattern_info.get("significance", "This gate is not applicable to the current technology stack and project type")
+                }
+                print(f"   {gate_name} marked as NOT_APPLICABLE")
+            else:
+                # Count matches for this gate
+                matches = self._find_pattern_matches(repo_path, gate_patterns, metadata, gate)
+                
+                # Calculate score based on gate type and matches
+                score = self._calculate_gate_score(gate, matches, metadata)
+                
+                gate_result = {
+                    "gate": gate_name,
+                    "display_name": gate["display_name"],
+                    "description": gate["description"],
+                    "category": gate["category"],
+                    "priority": gate["priority"],
+                    "patterns_used": len(gate_patterns),
+                    "matches_found": len(matches),
+                    "score": score,
+                    "status": self._determine_status(score, gate),
+                    "details": self._generate_gate_details(gate, matches),
+                    "recommendations": self._generate_gate_recommendations(gate, matches, score),
+                    # Add LLM-generated pattern information
+                    "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
+                    "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance")
+                }
             
             gate_results.append(gate_result)
         
@@ -603,10 +782,12 @@ class ValidateGatesNode(Node):
         """Store validation results and calculate overall score"""
         shared["validation"]["gate_results"] = exec_res
         
-        # Calculate overall score (Reduce phase)
-        if exec_res:
-            total_score = sum(result["score"] for result in exec_res)
-            overall_score = total_score / len(exec_res)
+        # Calculate overall score (Reduce phase) - exclude NOT_APPLICABLE gates
+        applicable_gates = [result for result in exec_res if result["status"] != "NOT_APPLICABLE"]
+        
+        if applicable_gates:
+            total_score = sum(result["score"] for result in applicable_gates)
+            overall_score = total_score / len(applicable_gates)
         else:
             overall_score = 0.0
         
@@ -616,9 +797,10 @@ class ValidateGatesNode(Node):
         passed = len([r for r in exec_res if r["status"] == "PASS"])
         failed = len([r for r in exec_res if r["status"] == "FAIL"])
         warnings = len([r for r in exec_res if r["status"] == "WARNING"])
+        not_applicable = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
         
-        print(f"✅ Validation complete: {overall_score:.1f}% overall")
-        print(f"   Passed: {passed}, Failed: {failed}, Warnings: {warnings}")
+        print(f"✅ Validation complete: {overall_score:.1f}% overall (based on {len(applicable_gates)} applicable gates)")
+        print(f"   Passed: {passed}, Failed: {failed}, Warnings: {warnings}, Not Applicable: {not_applicable}")
         
         return "default"
     
@@ -869,6 +1051,9 @@ class GenerateReportNode(Node):
             "passed_gates": len([g for g in gate_results if g["status"] == "PASS"]),
             "warning_gates": len([g for g in gate_results if g["status"] == "WARNING"]),
             "failed_gates": len([g for g in gate_results if g["status"] == "FAIL"]),
+            "not_applicable_gates": len([g for g in gate_results if g["status"] == "NOT_APPLICABLE"]),
+            "total_applicable_gates": len([g for g in gate_results if g["status"] != "NOT_APPLICABLE"]),
+            "total_all_gates": len(gate_results),
             "critical_issues": [],
             "recommendations": [rec for gate in gate_results for rec in gate.get("recommendations", [])]
         }
@@ -954,6 +1139,10 @@ class GenerateReportNode(Node):
                 <div class="stat-number">{stats['not_implemented_gates']}</div>
                 <div class="stat-label">Not Met</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-number">{stats['not_applicable_gates']}</div>
+                <div class="stat-label">Not Applicable</div>
+            </div>
         </div>
         
         <h3>Overall Compliance</h3>
@@ -961,6 +1150,9 @@ class GenerateReportNode(Node):
             <div class="compliance-fill" style="width: {validation['overall_score']:.1f}%"></div>
         </div>
         <p><strong>{validation['overall_score']:.1f}% Hard Gates Compliance</strong></p>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
+            <em>Percentage calculated based on {stats['total_gates']} applicable gates (excluding {stats['not_applicable_gates']} N/A gates)</em>
+        </p>
         
         <h2>Hard Gates Analysis</h2>
         {self._generate_gates_table_html_from_new_data(gate_results)}
@@ -1032,6 +1224,7 @@ class GenerateReportNode(Node):
         .status-implemented { color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         .status-partial { color: #d97706; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         .status-not-implemented { color: #dc2626; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not-applicable { color: #6b7280; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         
         /* Expandable Details Styling */
         .details-toggle {
@@ -1140,12 +1333,18 @@ class GenerateReportNode(Node):
         implemented_gates = len([g for g in gate_results if g.get("status") == "PASS"])
         partial_gates = len([g for g in gate_results if g.get("status") == "WARNING"])
         not_implemented_gates = len([g for g in gate_results if g.get("status") == "FAIL"])
+        not_applicable_gates = len([g for g in gate_results if g.get("status") == "NOT_APPLICABLE"])
+        
+        # Total applicable gates (excluding NOT_APPLICABLE)
+        total_applicable_gates = len(gate_results) - not_applicable_gates
         
         return {
-            "total_gates": len(gate_results),
+            "total_gates": total_applicable_gates,  # Only count applicable gates
             "implemented_gates": implemented_gates,
             "partial_gates": partial_gates,
-            "not_implemented_gates": not_implemented_gates
+            "not_implemented_gates": not_implemented_gates,
+            "not_applicable_gates": not_applicable_gates,
+            "total_all_gates": len(gate_results)  # Total including N/A for reference
         }
 
     def _extract_project_name(self, repository_url: str) -> str:
@@ -1179,9 +1378,9 @@ class GenerateReportNode(Node):
     def _get_new_gate_categories(self) -> Dict[str, List[str]]:
         """Get gate categories matching the new data structure"""
         return {
-            'Auditability': ['STRUCTURED_LOGS', 'AVOID_LOGGING_SECRETS', 'AUDIT_TRAIL', 'CORRELATION_ID', 'API_LOGGING', 'APPLICATION_MESSAGES', 'UI_ERRORS'],
+            'Auditability': ['STRUCTURED_LOGS', 'AVOID_LOGGING_SECRETS', 'AUDIT_TRAIL', 'CORRELATION_ID', 'LOG_API_CALLS', 'LOG_APPLICATION_MESSAGES', 'UI_ERRORS'],
             'Availability': ['RETRY_LOGIC', 'TIMEOUTS', 'THROTTLING', 'CIRCUIT_BREAKERS'],
-            'Error Handling': ['ERROR_LOGS', 'HTTP_CODES', 'CLIENT_ERROR_TRACKING'],
+            'Error Handling': ['ERROR_LOGS', 'HTTP_CODES', 'UI_ERROR_TOOLS'],
             'Testing': ['AUTOMATED_TESTS']
         }
 
@@ -1200,14 +1399,14 @@ class GenerateReportNode(Node):
         elif status == 'WARNING':
             return {'class': 'partial', 'text': '⚬ Partial'}
         elif status == 'NOT_APPLICABLE':
-            return {'class': 'partial', 'text': 'N/A'}
+            return {'class': 'not-applicable', 'text': 'N/A'}
         else:
             return {'class': 'not-implemented', 'text': '✗ Missing'}
 
     def _format_evidence_from_new_data(self, gate: Dict[str, Any]) -> str:
         """Format evidence for display from new data structure"""
         if gate.get("status") == 'NOT_APPLICABLE':
-            return 'Not applicable to this project type'
+            return 'Not applicable to this technology stack'
         
         matches_found = gate.get("matches_found", 0)
         score = gate.get("score", 0)
@@ -1228,6 +1427,10 @@ class GenerateReportNode(Node):
         if recommendations:
             return recommendations[0]  # Use first recommendation
         
+        # Special handling for NOT_APPLICABLE
+        if status == 'NOT_APPLICABLE':
+            return 'Not applicable to this technology stack'
+        
         # Special handling for avoid_logging_secrets
         if matches_found > 0:
             if gate.get("gate") == 'AVOID_LOGGING_SECRETS':
@@ -1240,17 +1443,15 @@ class GenerateReportNode(Node):
             return 'Continue maintaining good practices'
         elif status == 'WARNING':
             return f"Expand implementation of {display_name.lower()}"
-        elif status == 'NOT_APPLICABLE':
-            return 'Not applicable to this project type'
         else:
             return f"Implement {display_name.lower()}"
     
     def _get_gate_categories(self) -> Dict[str, List[str]]:
         """Get gate categories matching original format"""
         return {
-            'Auditability': ['STRUCTURED_LOGS', 'AVOID_LOGGING_SECRETS', 'AUDIT_TRAIL', 'CORRELATION_ID', 'API_LOGGING', 'APPLICATION_MESSAGES', 'UI_ERRORS'],
+            'Auditability': ['STRUCTURED_LOGS', 'AVOID_LOGGING_SECRETS', 'AUDIT_TRAIL', 'CORRELATION_ID', 'LOG_API_CALLS', 'LOG_APPLICATION_MESSAGES', 'UI_ERRORS'],
             'Availability': ['RETRY_LOGIC', 'TIMEOUTS', 'THROTTLING', 'CIRCUIT_BREAKERS'],
-            'Error Handling': ['ERROR_LOGS', 'HTTP_CODES', 'CLIENT_ERROR_TRACKING'],
+            'Error Handling': ['ERROR_LOGS', 'HTTP_CODES', 'UI_ERROR_TOOLS'],
             'Testing': ['AUTOMATED_TESTS']
         }
     
@@ -1261,8 +1462,8 @@ class GenerateReportNode(Node):
             'AVOID_LOGGING_SECRETS': 'Avoid Logging Confidential Data',
             'AUDIT_TRAIL': 'Create Audit Trail Logs',
             'CORRELATION_ID': 'Tracking ID For Log Messages',
-            'API_LOGGING': 'Log Rest API Calls',
-            'APPLICATION_MESSAGES': 'Log Application Messages',
+            'LOG_API_CALLS': 'Log Rest API Calls',
+            'LOG_APPLICATION_MESSAGES': 'Log Application Messages',
             'UI_ERRORS': 'Client UI Errors Logged',
             'RETRY_LOGIC': 'Retry Logic',
             'TIMEOUTS': 'Set Timeouts IO Operations',
@@ -1270,7 +1471,7 @@ class GenerateReportNode(Node):
             'CIRCUIT_BREAKERS': 'Circuit Breakers Outgoing Requests',
             'ERROR_LOGS': 'Log System Errors',
             'HTTP_CODES': 'Use HTTP Standard Error Codes',
-            'CLIENT_ERROR_TRACKING': 'Include Client Error Tracking',
+            'UI_ERROR_TOOLS': 'Include Client Error Tracking',
             'AUTOMATED_TESTS': 'Automated Regression Testing'
         }
     
