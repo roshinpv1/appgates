@@ -48,11 +48,15 @@ class BaseGateValidator(ABC):
             except Exception as e:
                 print(f"⚠️ Failed to initialize PatternLoader: {e}")
         
-        # Load patterns with fallback to hardcoded patterns
-        self.patterns = self._load_patterns()
-        self.config_patterns = self._get_config_patterns()
-        self.technology_patterns = self._get_technology_patterns()
-    
+        # Initialize LLM Pattern Manager if available (import here to avoid circular import)
+        self.llm_pattern_manager = None
+        try:
+            from ..llm_pattern_manager import LLMPatternManager
+            self.llm_pattern_manager = LLMPatternManager()
+            print(f"🤖 LLM Pattern Manager initialized for {gate_type.value if gate_type else 'unknown'} ({language.value})")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize LLM Pattern Manager: {e}")
+        
     @property
     def gate_type(self) -> Optional[GateType]:
         """Get the gate type"""
@@ -138,9 +142,25 @@ class BaseGateValidator(ABC):
         ]
 
     def _load_patterns(self) -> Dict[str, List[str]]:
-        """Load patterns from gate_config.yml with fallback to hardcoded patterns"""
+        """Load patterns from LLM or gate_config.yml with fallback to hardcoded patterns"""
         
-        # First, try to load from gate_config.yml
+        # First, try to load from LLM Pattern Manager
+        if self.llm_pattern_manager and self.gate_type:
+            try:
+                print(f"🤖 Attempting to generate LLM patterns for {self.gate_type.value} ({self.language.value})")
+                
+                # Get the target path from the validation context
+                # This is a bit tricky since we don't have target_path in __init__
+                # We'll need to defer LLM pattern generation until validation time
+                print(f"📋 LLM pattern generation will be deferred to validation time")
+                
+                # For now, return empty patterns - they'll be loaded during validation
+                return {}
+                
+            except Exception as e:
+                print(f"⚠️ Failed to load patterns from LLM: {e}")
+        
+        # Fallback to gate_config.yml patterns
         if self.pattern_loader and self.gate_type:
             try:
                 yaml_patterns = self.pattern_loader.get_patterns_for_gate_type(
@@ -164,10 +184,124 @@ class BaseGateValidator(ABC):
         print(f"❌ No patterns available for {self.gate_type.value if self.gate_type else 'unknown'} ({self.language.value})")
         return {}
     
-    @abstractmethod
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate gate implementation"""
+        return self._perform_validation(target_path, file_analyses)
+
+    def _get_patterns(self, target_path: Path) -> Dict[str, List[str]]:
+        """Get patterns for this gate and language, preferring LLM, then config, then hardcoded."""
+        print(f"🔍 [DEBUG] _get_patterns called for {self.gate_type.value if self.gate_type else 'unknown'} ({self.language.value})")
+        print(f"🔍 [DEBUG] LLM Pattern Manager available: {self.llm_pattern_manager is not None}")
+        print(f"🔍 [DEBUG] Gate type: {self.gate_type}")
+        
+        # Check if we have LLM-generated patterns from analysis phase
+        if hasattr(self, '_analysis_result') and self._analysis_result:
+            llm_patterns = self._analysis_result.get('llm_patterns', {})
+            gate_name = self.gate_type.value if self.gate_type else 'unknown'
+            
+            if gate_name in llm_patterns:
+                patterns = llm_patterns[gate_name]
+                if isinstance(patterns, list) and patterns:
+                    print(f"✅ [Analysis] Using LLM-generated patterns for {gate_name} ({len(patterns)} patterns)")
+                    return {'llm_generated': patterns}
+                else:
+                    print(f"⚠️ [Analysis] LLM patterns for {gate_name} are empty or invalid")
+            else:
+                print(f"⚠️ [Analysis] No LLM patterns found for {gate_name}")
+        
+        # Check if we already have cached LLM patterns for this codebase
+        cache_key = f"{target_path}_{self.gate_type.value if self.gate_type else 'unknown'}"
+        if hasattr(self, '_llm_pattern_cache') and cache_key in self._llm_pattern_cache:
+            cached_patterns = self._llm_pattern_cache[cache_key]
+            print(f"✅ [LLM] Using cached patterns for {self.gate_type.value} ({self.language.value})")
+            return cached_patterns
+        
+        # Try LLM
+        if self.llm_pattern_manager and self.gate_type:
+            try:
+                print(f"🤖 [LLM] Attempting to generate patterns for {self.gate_type.value} ({self.language.value})")
+                print(f"🔍 [DEBUG] Calling generate_patterns_for_codebase with target_path: {target_path}")
+                result = self.llm_pattern_manager.generate_patterns_for_codebase(target_path, [self.language])
+                print(f"🔍 [DEBUG] LLM result: {result.get('success', False)}")
+                
+                if result.get('success', False):
+                    llm_response = result.get('llm_response', {})
+                    hard_gates_analysis = llm_response.get('hard_gates_analysis_short', {})
+                    gate_name = self.gate_type.value
+                    print(f"🔍 [DEBUG] Looking for gate: {gate_name}")
+                    print(f"🔍 [DEBUG] Available gates: {list(hard_gates_analysis.keys())}")
+                    
+                    if gate_name in hard_gates_analysis:
+                        gate_data = hard_gates_analysis[gate_name]
+                        
+                        # Handle different response formats
+                        if isinstance(gate_data, dict):
+                            patterns = gate_data.get('patterns', [])
+                        elif isinstance(gate_data, list):
+                            patterns = gate_data
+                        else:
+                            print(f"⚠️ Unexpected gate_data format for {gate_name}: {type(gate_data)}")
+                            patterns = []
+                        
+                        if patterns:
+                            # Convert to the expected format
+                            if isinstance(patterns[0], dict):
+                                # Extract pattern strings from dict format
+                                pattern_strings = []
+                                for pattern_dict in patterns:
+                                    if isinstance(pattern_dict, dict):
+                                        pattern_str = pattern_dict.get('pattern', '')
+                                        if pattern_str:
+                                            pattern_strings.append(pattern_str)
+                                patterns = pattern_strings
+                            
+                            # Cache the patterns for reuse
+                            if not hasattr(self, '_llm_pattern_cache'):
+                                self._llm_pattern_cache = {}
+                            self._llm_pattern_cache[cache_key] = {'llm_generated': patterns}
+                            
+                            print(f"✅ [LLM] Loaded {len(patterns)} LLM-generated patterns for {gate_name}")
+                            return {'llm_generated': patterns}
+                        else:
+                            print(f"⚠️ [LLM] No patterns found for {gate_name}")
+                    else:
+                        print(f"⚠️ [LLM] Gate {gate_name} not found in LLM response")
+                else:
+                    error_msg = result.get('error', 'LLM pattern generation failed')
+                    print(f"⚠️ [LLM] {error_msg}")
+            except Exception as e:
+                print(f"⚠️ [LLM] Error loading LLM patterns: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"🔍 [DEBUG] LLM not available - llm_pattern_manager: {self.llm_pattern_manager}, gate_type: {self.gate_type}")
+        
+        # Fallback to config
+        print(f"🔍 [DEBUG] Trying config fallback...")
+        if self.pattern_loader and self.gate_type:
+            try:
+                yaml_patterns = self.pattern_loader.get_patterns_for_gate_type(self.gate_type, self.language)
+                if yaml_patterns:
+                    print(f"✅ [Config] Loaded static patterns from gate_config.yml for {self.gate_type.value} ({self.language.value})")
+                    return yaml_patterns
+            except Exception as e:
+                print(f"⚠️ [Config] Failed to load static patterns from gate_config.yml: {e}")
+        
+        # Fallback to hardcoded
+        print(f"🔍 [DEBUG] Trying hardcoded fallback...")
+        hardcoded_patterns = self._get_hardcoded_patterns()
+        if hardcoded_patterns:
+            print(f"📋 [Hardcoded] Using {len(hardcoded_patterns.get('logging_patterns', []))} hardcoded patterns for {self.gate_type.value if self.gate_type else 'unknown'} ({self.language.value})")
+            return hardcoded_patterns
+        
+        print(f"❌ [Patterns] No patterns available for {self.gate_type.value if self.gate_type else 'unknown'} ({self.language.value})")
+        return {}
+
+    @abstractmethod
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic - to be implemented by subclasses"""
         pass
     
     @abstractmethod
@@ -317,7 +451,7 @@ class BaseGateValidator(ABC):
         # Get relevant files for this language
         relevant_files = [f for f in file_analyses if f.language == self.language]
         
-        for category, tech_patterns in self.technology_patterns.items():
+        for category, tech_patterns in self._get_technology_patterns().items():
             detected_technologies[category] = []
             
             for tech_name, patterns in tech_patterns.items():
@@ -420,9 +554,23 @@ class BaseGateValidator(ABC):
         # Skip empty patterns
         if not patterns:
             return matches
-            
-        # Compile patterns for performance - using re.IGNORECASE flag for case-insensitive matching
-        compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
+        
+        # Validate and compile patterns for performance
+        valid_patterns = []
+        for pattern in patterns:
+            try:
+                # Test compile the pattern
+                compiled_pattern = re.compile(pattern, re.IGNORECASE)
+                valid_patterns.append(compiled_pattern)
+            except re.error as e:
+                print(f"⚠️ Invalid regex pattern skipped: {pattern[:50]}... (error: {e})")
+                continue
+        
+        if not valid_patterns:
+            print("⚠️ No valid regex patterns found after validation")
+            return matches
+        
+        print(f"🔍 [DEBUG] Using {len(valid_patterns)} valid patterns out of {len(patterns)} total patterns")
         
         # Get all matching files
         files = []
@@ -433,7 +581,7 @@ class BaseGateValidator(ABC):
         # Process files in parallel
         with ThreadPoolExecutor(max_workers=4) as executor:
             future_to_file = {
-                executor.submit(self._process_file, file_path, compiled_patterns): file_path
+                executor.submit(self._process_file, file_path, valid_patterns): file_path
                 for file_path in files
             }
             

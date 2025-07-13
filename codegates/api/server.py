@@ -164,7 +164,7 @@ except ImportError:
         'git_ls_remote_timeout': int(os.getenv('CODEGATES_GIT_LS_REMOTE_TIMEOUT', '300')),
         'api_download_timeout': int(os.getenv('CODEGATES_API_DOWNLOAD_TIMEOUT', '1200')),
         'analysis_timeout': int(os.getenv('CODEGATES_ANALYSIS_TIMEOUT', '1800')),
-        'llm_request_timeout': int(os.getenv('CODEGATES_LLM_REQUEST_TIMEOUT', '300')),
+        'llm_request_timeout': int(os.getenv('CODEGATES_LLM_REQUEST_TIMEOUT', '3000')),
         'http_request_timeout': int(os.getenv('CODEGATES_HTTP_REQUEST_TIMEOUT', '100')),
         'health_check_timeout': int(os.getenv('CODEGATES_HEALTH_CHECK_TIMEOUT', '5')),
         'jira_request_timeout': int(os.getenv('CODEGATES_JIRA_REQUEST_TIMEOUT', '300')),

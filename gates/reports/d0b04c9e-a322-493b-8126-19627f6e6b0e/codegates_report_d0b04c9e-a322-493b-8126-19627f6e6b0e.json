@@ -1,0 +1,325 @@
+{
+  "report_metadata": {
+    "scan_id": "d0b04c9e-a322-493b-8126-19627f6e6b0e",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic",
+    "branch": "main",
+    "generated_at": "2024-01-01T00:00:00Z",
+    "version": "2.0.0",
+    "llm_source": "local",
+    "llm_model": "meta-llama-3.1-8b-instruct"
+  },
+  "summary": {
+    "overall_score": 25.952380952380953,
+    "total_files": 112,
+    "total_lines": 14402,
+    "languages": [
+      "Docker",
+      "JSON",
+      "YAML",
+      "Batch",
+      "XML",
+      "Gradle",
+      "Java",
+      "SQL",
+      "CSS",
+      "HTML",
+      "SCSS"
+    ],
+    "total_gates": 15,
+    "passed_gates": 4,
+    "failed_gates": 11,
+    "warning_gates": 0
+  },
+  "gates": [
+    {
+      "gate": "STRUCTURED_LOGS",
+      "display_name": "Logs Searchable/Available",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "category": "Logging",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Logs Searchable/Available"
+      ],
+      "recommendations": [
+        "Implement Logs Searchable/Available throughout your codebase",
+        "Focus on ensure logs are structured and searchable for operational monitoring"
+      ]
+    },
+    {
+      "gate": "AVOID_LOGGING_SECRETS",
+      "display_name": "Avoid Logging Confidential Data",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "category": "Security",
+      "priority": "critical",
+      "patterns_used": 2,
+      "matches_found": 111,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "Found 111 matches across 42 files",
+        "  src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:67 - Key",
+        "  src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:68 - Key",
+        "  src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:69 - Key",
+        "  ... and 108 more matches"
+      ],
+      "recommendations": [
+        "Implement Avoid Logging Confidential Data throughout your codebase",
+        "Focus on prevent sensitive data from being logged accidentally"
+      ]
+    },
+    {
+      "gate": "AUDIT_TRAIL",
+      "display_name": "Create Audit Trail Logs",
+      "description": "Log critical business operations for audit compliance",
+      "category": "Compliance",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 77,
+      "score": 89.28571428571428,
+      "status": "PASS",
+      "details": [
+        "Found 77 matches across 10 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:49 - CREATE",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:49 - UPDATE",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:49 - create",
+        "  ... and 74 more matches"
+      ],
+      "recommendations": [
+        "Good implementation of Create Audit Trail Logs",
+        "Consider optimizing existing patterns"
+      ]
+    },
+    {
+      "gate": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "description": "Include correlation IDs for distributed tracing",
+      "category": "Observability",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Tracking ID for Logs"
+      ],
+      "recommendations": [
+        "Implement Tracking ID for Logs throughout your codebase",
+        "Focus on include correlation ids for distributed tracing"
+      ]
+    },
+    {
+      "gate": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "description": "Log all API requests and responses for monitoring",
+      "category": "API",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Log REST API Calls"
+      ],
+      "recommendations": [
+        "Implement Log REST API Calls throughout your codebase",
+        "Focus on log all api requests and responses for monitoring"
+      ]
+    },
+    {
+      "gate": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "description": "Log important application state changes and events",
+      "category": "Logging",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 104,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Found 104 matches across 20 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:66 - Exception",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error",
+        "  ... and 101 more matches"
+      ],
+      "recommendations": [
+        "Good implementation of Log Application Messages",
+        "Consider optimizing existing patterns"
+      ]
+    },
+    {
+      "gate": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "description": "Capture and log client-side UI errors",
+      "category": "Frontend",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Client UI Errors Logged"
+      ],
+      "recommendations": [
+        "Implement Client UI Errors Logged throughout your codebase",
+        "Focus on capture and log client-side ui errors"
+      ]
+    },
+    {
+      "gate": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "description": "Implement retry mechanisms for resilient operations",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Retry Logic"
+      ],
+      "recommendations": [
+        "Implement Retry Logic throughout your codebase",
+        "Focus on implement retry mechanisms for resilient operations"
+      ]
+    },
+    {
+      "gate": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "description": "Set appropriate timeouts for I/O operations",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Timeouts in IO Ops"
+      ],
+      "recommendations": [
+        "Implement Timeouts in IO Ops throughout your codebase",
+        "Focus on set appropriate timeouts for i/o operations"
+      ]
+    },
+    {
+      "gate": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "description": "Implement rate limiting and request throttling",
+      "category": "Performance",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Throttling & Drop Request"
+      ],
+      "recommendations": [
+        "Implement Throttling & Drop Request throughout your codebase",
+        "Focus on implement rate limiting and request throttling"
+      ]
+    },
+    {
+      "gate": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Circuit Breakers"
+      ],
+      "recommendations": [
+        "Implement Circuit Breakers throughout your codebase",
+        "Focus on implement circuit breaker pattern for fault tolerance"
+      ]
+    },
+    {
+      "gate": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "description": "Comprehensive error logging and exception handling",
+      "category": "Error Handling",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Log System Errors"
+      ],
+      "recommendations": [
+        "Implement Log System Errors throughout your codebase",
+        "Focus on comprehensive error logging and exception handling"
+      ]
+    },
+    {
+      "gate": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "category": "API",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 29,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Found 29 matches across 12 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/VisitController.java:96 - ok",
+        "  src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java:21 - ok",
+        "  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:71 - OK",
+        "  ... and 26 more matches"
+      ],
+      "recommendations": [
+        "Good implementation of HTTP Error Codes",
+        "Consider optimizing existing patterns"
+      ]
+    },
+    {
+      "gate": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "description": "Integrate client-side error tracking tools",
+      "category": "Frontend",
+      "priority": "medium",
+      "patterns_used": 2,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Client Error Tracking"
+      ],
+      "recommendations": [
+        "Implement Client Error Tracking throughout your codebase",
+        "Focus on integrate client-side error tracking tools"
+      ]
+    },
+    {
+      "gate": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "description": "Comprehensive automated test coverage",
+      "category": "Testing",
+      "priority": "high",
+      "patterns_used": 2,
+      "matches_found": 229,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Found 229 matches across 17 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/Owner.java:23 - Assert",
+        "  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:19 - assert",
+        "  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:19 - Assert",
+        "  ... and 226 more matches"
+      ],
+      "recommendations": [
+        "Good implementation of Automated Tests",
+        "Consider optimizing existing patterns"
+      ]
+    }
+  ]
+}

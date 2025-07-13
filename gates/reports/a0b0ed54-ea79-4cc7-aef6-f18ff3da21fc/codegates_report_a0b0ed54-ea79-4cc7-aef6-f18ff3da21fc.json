@@ -1,0 +1,237 @@
+{
+  "report_metadata": {
+    "scan_id": "a0b0ed54-ea79-4cc7-aef6-f18ff3da21fc",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic",
+    "branch": "main",
+    "generated_at": "2025-07-13T12:09:43.187093",
+    "version": "2.0.0",
+    "llm_source": "local",
+    "llm_model": "meta-llama-3.1-8b-instruct"
+  },
+  "scan_metadata": {
+    "scan_duration": 0,
+    "total_files": 112,
+    "total_lines": 14402,
+    "timestamp": "2025-07-13T12:09:43.187119",
+    "project_name": "spring-projects/spring-petclinic",
+    "project_path": "https://github.com/spring-projects/spring-petclinic",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic"
+  },
+  "languages_detected": [
+    "Docker",
+    "JSON",
+    "YAML",
+    "Batch",
+    "XML",
+    "Gradle",
+    "Java",
+    "SQL",
+    "CSS",
+    "HTML",
+    "SCSS"
+  ],
+  "gates": [
+    {
+      "name": "STRUCTURED_LOGS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Logs Searchable/Available"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AVOID_LOGGING_SECRETS",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "No matches found for Avoid Logging Confidential Data"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0,
+      "matches": []
+    },
+    {
+      "name": "AUDIT_TRAIL",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Create Audit Trail Logs"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CORRELATION_ID",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Tracking ID for Logs"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_API_CALLS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Log REST API Calls"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_APPLICATION_MESSAGES",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Log Application Messages"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERRORS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Client UI Errors Logged"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "RETRY_LOGIC",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Retry Logic"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "TIMEOUTS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Timeouts in IO Ops"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "THROTTLING",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Throttling & Drop Request"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CIRCUIT_BREAKERS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Circuit Breakers"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "ERROR_LOGS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Log System Errors"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "HTTP_CODES",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for HTTP Error Codes"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERROR_TOOLS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Client Error Tracking"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUTOMATED_TESTS",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "No matches found for Automated Tests"
+      ],
+      "expected": 2,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    }
+  ],
+  "score": 6.666666666666667,
+  "overall_score": 6.666666666666667,
+  "passed_gates": 1,
+  "warning_gates": 0,
+  "failed_gates": 14,
+  "critical_issues": [],
+  "recommendations": []
+}

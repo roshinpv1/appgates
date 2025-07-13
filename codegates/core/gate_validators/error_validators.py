@@ -17,19 +17,34 @@ class ErrorLogsValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate error logging implementation"""
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self._get_hardcoded_patterns().get('error_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('error_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(
@@ -283,11 +298,16 @@ class ErrorLogsValidator(BaseGateValidator):
 
 
 class UiErrorsValidator(BaseGateValidator):
-    """Validates UI error handling"""
+    """Validates UI error handling and user-friendly error messages"""
     
     def __init__(self, language: Language, gate_type: GateType = GateType.UI_ERRORS):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
+    
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
     
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate UI error handling implementation"""
@@ -300,7 +320,25 @@ class UiErrorsValidator(BaseGateValidator):
         
         # Search for UI error patterns
         extensions = self._get_file_extensions()
-        patterns = self.patterns.get('ui_error_patterns', [])
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
+        patterns = []
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
+            if isinstance(category_patterns, list):
+                patterns.extend(category_patterns)
+        
+        # Fallback to hardcoded patterns if no patterns available
+        if not patterns:
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            patterns = hardcoded_patterns.get('ui_error_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
         found = len(matches)
@@ -497,6 +535,11 @@ class HttpCodesValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate HTTP status code implementation"""
         
@@ -508,7 +551,25 @@ class HttpCodesValidator(BaseGateValidator):
         
         # Search for HTTP status code patterns
         extensions = self._get_file_extensions()
-        patterns = self.patterns.get('http_patterns', [])
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
+        patterns = []
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
+            if isinstance(category_patterns, list):
+                patterns.extend(category_patterns)
+        
+        # Fallback to hardcoded patterns if no patterns available
+        if not patterns:
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            patterns = hardcoded_patterns.get('http_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
         found = len(matches)
@@ -700,11 +761,16 @@ class HttpCodesValidator(BaseGateValidator):
 
 
 class UiErrorToolsValidator(BaseGateValidator):
-    """Validates UI error tracking tools integration"""
+    """Validates UI error tracking and monitoring tools integration"""
     
     def __init__(self, language: Language, gate_type: GateType = GateType.UI_ERROR_TOOLS):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
+    
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
     
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate UI error tracking tools implementation"""
@@ -717,7 +783,25 @@ class UiErrorToolsValidator(BaseGateValidator):
         
         # Search for error tracking patterns
         extensions = self._get_file_extensions()
-        patterns = self.patterns.get('error_tool_patterns', [])
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
+        patterns = []
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
+            if isinstance(category_patterns, list):
+                patterns.extend(category_patterns)
+        
+        # Fallback to hardcoded patterns if no patterns available
+        if not patterns:
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            patterns = hardcoded_patterns.get('error_tool_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
         found = len(matches)

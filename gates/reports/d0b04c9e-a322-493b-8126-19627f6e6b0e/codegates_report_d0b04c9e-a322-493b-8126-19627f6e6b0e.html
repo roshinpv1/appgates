@@ -1,0 +1,299 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CodeGates Report - d0b04c9e-a322-493b-8126-19627f6e6b0e</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background: #2c3e50; color: white; padding: 20px; border-radius: 5px; }
+        .summary { background: #ecf0f1; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .gate { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .pass { border-left: 5px solid #27ae60; }
+        .fail { border-left: 5px solid #e74c3c; }
+        .warning { border-left: 5px solid #f39c12; }
+        .score { font-size: 24px; font-weight: bold; }
+        .llm-info { background: #d5dbdb; padding: 10px; margin: 10px 0; border-radius: 3px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 CodeGates Validation Report</h1>
+        <p>Repository: https://github.com/spring-projects/spring-petclinic</p>
+        <p>Branch: main</p>
+        <p>Scan ID: d0b04c9e-a322-493b-8126-19627f6e6b0e</p>
+    </div>
+    
+    <div class="llm-info">
+        <strong>LLM Integration:</strong> local (meta-llama-3.1-8b-instruct)
+    </div>
+    
+    <div class="summary">
+        <h2>Summary</h2>
+        <div class="score">Overall Score: 26.0%</div>
+        <p>Total Files: 112</p>
+        <p>Total Lines: 14402</p>
+        <p>Languages: Docker, JSON, YAML, Batch, XML, Gradle, Java, SQL, CSS, HTML, SCSS</p>
+        <p>Gates: 4 passed, 
+                  11 failed, 
+                  0 warnings</p>
+    </div>
+    
+    <h2>Gate Results</h2>
+
+    <div class="gate fail">
+        <h3>Logs Searchable/Available - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Logging | <strong>Priority:</strong> high</p>
+        <p>Ensure logs are structured and searchable for operational monitoring</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Logs Searchable/Available</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Logs Searchable/Available throughout your codebase</li><li>Focus on ensure logs are structured and searchable for operational monitoring</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Avoid Logging Confidential Data - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Security | <strong>Priority:</strong> critical</p>
+        <p>Prevent sensitive data from being logged accidentally</p>
+        <p><strong>Matches Found:</strong> 111 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>Found 111 matches across 42 files</li><li>  src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:67 - Key</li><li>  src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:68 - Key</li><li>  src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:69 - Key</li><li>  ... and 108 more matches</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Avoid Logging Confidential Data throughout your codebase</li><li>Focus on prevent sensitive data from being logged accidentally</li>
+        </ul>
+    </div>
+
+    <div class="gate pass">
+        <h3>Create Audit Trail Logs - PASS (89.3%)</h3>
+        <p><strong>Category:</strong> Compliance | <strong>Priority:</strong> high</p>
+        <p>Log critical business operations for audit compliance</p>
+        <p><strong>Matches Found:</strong> 77 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>Found 77 matches across 10 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:49 - CREATE</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:49 - UPDATE</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:49 - create</li><li>  ... and 74 more matches</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Good implementation of Create Audit Trail Logs</li><li>Consider optimizing existing patterns</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Tracking ID for Logs - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Observability | <strong>Priority:</strong> medium</p>
+        <p>Include correlation IDs for distributed tracing</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Tracking ID for Logs</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Tracking ID for Logs throughout your codebase</li><li>Focus on include correlation ids for distributed tracing</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Log REST API Calls - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> API | <strong>Priority:</strong> medium</p>
+        <p>Log all API requests and responses for monitoring</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Log REST API Calls</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Log REST API Calls throughout your codebase</li><li>Focus on log all api requests and responses for monitoring</li>
+        </ul>
+    </div>
+
+    <div class="gate pass">
+        <h3>Log Application Messages - PASS (100.0%)</h3>
+        <p><strong>Category:</strong> Logging | <strong>Priority:</strong> medium</p>
+        <p>Log important application state changes and events</p>
+        <p><strong>Matches Found:</strong> 104 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>Found 104 matches across 20 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:66 - Exception</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 101 more matches</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Good implementation of Log Application Messages</li><li>Consider optimizing existing patterns</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Client UI Errors Logged - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Frontend | <strong>Priority:</strong> medium</p>
+        <p>Capture and log client-side UI errors</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Client UI Errors Logged</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Client UI Errors Logged throughout your codebase</li><li>Focus on capture and log client-side ui errors</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Retry Logic - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Reliability | <strong>Priority:</strong> high</p>
+        <p>Implement retry mechanisms for resilient operations</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Retry Logic</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Retry Logic throughout your codebase</li><li>Focus on implement retry mechanisms for resilient operations</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Timeouts in IO Ops - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Reliability | <strong>Priority:</strong> high</p>
+        <p>Set appropriate timeouts for I/O operations</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Timeouts in IO Ops</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Timeouts in IO Ops throughout your codebase</li><li>Focus on set appropriate timeouts for i/o operations</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Throttling & Drop Request - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Performance | <strong>Priority:</strong> medium</p>
+        <p>Implement rate limiting and request throttling</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Throttling & Drop Request</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Throttling & Drop Request throughout your codebase</li><li>Focus on implement rate limiting and request throttling</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Circuit Breakers - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Reliability | <strong>Priority:</strong> high</p>
+        <p>Implement circuit breaker pattern for fault tolerance</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Circuit Breakers</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Circuit Breakers throughout your codebase</li><li>Focus on implement circuit breaker pattern for fault tolerance</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Log System Errors - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Error Handling | <strong>Priority:</strong> high</p>
+        <p>Comprehensive error logging and exception handling</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Log System Errors</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Log System Errors throughout your codebase</li><li>Focus on comprehensive error logging and exception handling</li>
+        </ul>
+    </div>
+
+    <div class="gate pass">
+        <h3>HTTP Error Codes - PASS (100.0%)</h3>
+        <p><strong>Category:</strong> API | <strong>Priority:</strong> medium</p>
+        <p>Use appropriate HTTP status codes for API responses</p>
+        <p><strong>Matches Found:</strong> 29 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>Found 29 matches across 12 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/VisitController.java:96 - ok</li><li>  src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java:21 - ok</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:71 - OK</li><li>  ... and 26 more matches</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Good implementation of HTTP Error Codes</li><li>Consider optimizing existing patterns</li>
+        </ul>
+    </div>
+
+    <div class="gate fail">
+        <h3>Client Error Tracking - FAIL (0.0%)</h3>
+        <p><strong>Category:</strong> Frontend | <strong>Priority:</strong> medium</p>
+        <p>Integrate client-side error tracking tools</p>
+        <p><strong>Matches Found:</strong> 0 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>No matches found for Client Error Tracking</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Implement Client Error Tracking throughout your codebase</li><li>Focus on integrate client-side error tracking tools</li>
+        </ul>
+    </div>
+
+    <div class="gate pass">
+        <h3>Automated Tests - PASS (100.0%)</h3>
+        <p><strong>Category:</strong> Testing | <strong>Priority:</strong> high</p>
+        <p>Comprehensive automated test coverage</p>
+        <p><strong>Matches Found:</strong> 229 (using 2 patterns)</p>
+        
+        <h4>Details:</h4>
+        <ul>
+<li>Found 229 matches across 17 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/Owner.java:23 - Assert</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:19 - assert</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:19 - Assert</li><li>  ... and 226 more matches</li>
+        </ul>
+        
+        <h4>Recommendations:</h4>
+        <ul>
+<li>Good implementation of Automated Tests</li><li>Consider optimizing existing patterns</li>
+        </ul>
+    </div>
+
+</body>
+</html>

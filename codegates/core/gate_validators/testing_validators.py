@@ -17,19 +17,34 @@ class AutomatedTestsValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate automated test implementation"""
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self._get_hardcoded_patterns().get('test_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('test_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(

@@ -17,19 +17,34 @@ class RetryLogicValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate retry logic implementation"""
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self._get_hardcoded_patterns().get('retry_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('retry_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(
@@ -307,24 +322,39 @@ class RetryLogicValidator(BaseGateValidator):
 
 
 class TimeoutsValidator(BaseGateValidator):
-    """Validates timeout configuration"""
+    """Validates timeout implementation for I/O operations"""
     
     def __init__(self, language: Language, gate_type: GateType = GateType.TIMEOUTS):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate timeout implementation"""
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self._get_hardcoded_patterns().get('timeout_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('timeout_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(
@@ -569,24 +599,39 @@ class TimeoutsValidator(BaseGateValidator):
 
 
 class ThrottlingValidator(BaseGateValidator):
-    """Validates throttling/rate limiting"""
+    """Validates throttling and rate limiting implementation"""
     
     def __init__(self, language: Language, gate_type: GateType = GateType.THROTTLING):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate throttling implementation"""
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self._get_hardcoded_patterns().get('throttling_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('throttling_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(
@@ -831,24 +876,39 @@ class ThrottlingValidator(BaseGateValidator):
 
 
 class CircuitBreakerValidator(BaseGateValidator):
-    """Validates circuit breaker pattern"""
+    """Validates circuit breaker pattern implementation"""
     
     def __init__(self, language: Language, gate_type: GateType = GateType.CIRCUIT_BREAKERS):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate circuit breaker implementation"""
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self._get_hardcoded_patterns().get('circuit_breaker_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('circuit_breaker_patterns', [])
         
         # Search for patterns
         matches = self._search_files_for_patterns(

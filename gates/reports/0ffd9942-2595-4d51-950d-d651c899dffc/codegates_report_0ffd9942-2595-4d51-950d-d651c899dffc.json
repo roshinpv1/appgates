@@ -1,0 +1,317 @@
+{
+  "report_metadata": {
+    "scan_id": "0ffd9942-2595-4d51-950d-d651c899dffc",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic",
+    "branch": "main",
+    "generated_at": "2024-01-01T00:00:00Z",
+    "version": "2.0.0",
+    "llm_source": "local",
+    "llm_model": "meta-llama-3.1-8b-instruct"
+  },
+  "summary": {
+    "overall_score": 21.785714285714285,
+    "total_files": 112,
+    "total_lines": 14402,
+    "languages": [
+      "Docker",
+      "JSON",
+      "YAML",
+      "Batch",
+      "XML",
+      "Gradle",
+      "Java",
+      "SQL",
+      "CSS",
+      "HTML",
+      "SCSS"
+    ],
+    "total_gates": 15,
+    "passed_gates": 3,
+    "failed_gates": 12,
+    "warning_gates": 0
+  },
+  "gates": [
+    {
+      "gate": "STRUCTURED_LOGS",
+      "display_name": "Logs Searchable/Available",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "category": "Logging",
+      "priority": "high",
+      "patterns_used": 3,
+      "matches_found": 82,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Found 82 matches across 12 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error",
+        "  ... and 79 more matches"
+      ],
+      "recommendations": [
+        "Good implementation of Logs Searchable/Available",
+        "Consider optimizing existing patterns"
+      ]
+    },
+    {
+      "gate": "AVOID_LOGGING_SECRETS",
+      "display_name": "Avoid Logging Confidential Data",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "category": "Security",
+      "priority": "critical",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "No matches found for Avoid Logging Confidential Data"
+      ],
+      "recommendations": [
+        "Good implementation of Avoid Logging Confidential Data",
+        "Consider optimizing existing patterns"
+      ]
+    },
+    {
+      "gate": "AUDIT_TRAIL",
+      "display_name": "Create Audit Trail Logs",
+      "description": "Log critical business operations for audit compliance",
+      "category": "Compliance",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Create Audit Trail Logs"
+      ],
+      "recommendations": [
+        "Implement Create Audit Trail Logs throughout your codebase",
+        "Focus on log critical business operations for audit compliance"
+      ]
+    },
+    {
+      "gate": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "description": "Include correlation IDs for distributed tracing",
+      "category": "Observability",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Tracking ID for Logs"
+      ],
+      "recommendations": [
+        "Implement Tracking ID for Logs throughout your codebase",
+        "Focus on include correlation ids for distributed tracing"
+      ]
+    },
+    {
+      "gate": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "description": "Log all API requests and responses for monitoring",
+      "category": "API",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Log REST API Calls"
+      ],
+      "recommendations": [
+        "Implement Log REST API Calls throughout your codebase",
+        "Focus on log all api requests and responses for monitoring"
+      ]
+    },
+    {
+      "gate": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "description": "Log important application state changes and events",
+      "category": "Logging",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Log Application Messages"
+      ],
+      "recommendations": [
+        "Implement Log Application Messages throughout your codebase",
+        "Focus on log important application state changes and events"
+      ]
+    },
+    {
+      "gate": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "description": "Capture and log client-side UI errors",
+      "category": "Frontend",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Client UI Errors Logged"
+      ],
+      "recommendations": [
+        "Implement Client UI Errors Logged throughout your codebase",
+        "Focus on capture and log client-side ui errors"
+      ]
+    },
+    {
+      "gate": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "description": "Implement retry mechanisms for resilient operations",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Retry Logic"
+      ],
+      "recommendations": [
+        "Implement Retry Logic throughout your codebase",
+        "Focus on implement retry mechanisms for resilient operations"
+      ]
+    },
+    {
+      "gate": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "description": "Set appropriate timeouts for I/O operations",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Timeouts in IO Ops"
+      ],
+      "recommendations": [
+        "Implement Timeouts in IO Ops throughout your codebase",
+        "Focus on set appropriate timeouts for i/o operations"
+      ]
+    },
+    {
+      "gate": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "description": "Implement rate limiting and request throttling",
+      "category": "Performance",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Throttling & Drop Request"
+      ],
+      "recommendations": [
+        "Implement Throttling & Drop Request throughout your codebase",
+        "Focus on implement rate limiting and request throttling"
+      ]
+    },
+    {
+      "gate": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Circuit Breakers"
+      ],
+      "recommendations": [
+        "Implement Circuit Breakers throughout your codebase",
+        "Focus on implement circuit breaker pattern for fault tolerance"
+      ]
+    },
+    {
+      "gate": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "description": "Comprehensive error logging and exception handling",
+      "category": "Error Handling",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 68,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Found 68 matches across 17 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:66 - Exception",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:167 - Exception",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java:60 - Exception",
+        "  ... and 65 more matches"
+      ],
+      "recommendations": [
+        "Good implementation of Log System Errors",
+        "Consider optimizing existing patterns"
+      ]
+    },
+    {
+      "gate": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "category": "API",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for HTTP Error Codes"
+      ],
+      "recommendations": [
+        "Implement HTTP Error Codes throughout your codebase",
+        "Focus on use appropriate http status codes for api responses"
+      ]
+    },
+    {
+      "gate": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "description": "Integrate client-side error tracking tools",
+      "category": "Frontend",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "No matches found for Client Error Tracking"
+      ],
+      "recommendations": [
+        "Implement Client Error Tracking throughout your codebase",
+        "Focus on integrate client-side error tracking tools"
+      ]
+    },
+    {
+      "gate": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "description": "Comprehensive automated test coverage",
+      "category": "Testing",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 38,
+      "score": 26.785714285714285,
+      "status": "FAIL",
+      "details": [
+        "Found 38 matches across 3 files",
+        "  src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:63 - TEST_",
+        "  src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:73 - TEST_",
+        "  src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:97 - TEST_",
+        "  ... and 35 more matches"
+      ],
+      "recommendations": [
+        "Implement Automated Tests throughout your codebase",
+        "Focus on comprehensive automated test coverage"
+      ]
+    }
+  ]
+}

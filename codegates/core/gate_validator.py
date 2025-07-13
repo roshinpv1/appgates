@@ -6,7 +6,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..models import (
@@ -43,12 +43,18 @@ class GateValidator:
         )
         
         try:
-            # Scan files first
+            # PHASE 1: Comprehensive Repository Analysis
+            print("🔍 Phase 1: Analyzing repository structure and generating LLM patterns...")
+            analysis_result = self._analyze_repository_and_generate_patterns(target_path, llm_manager)
+            
+            # PHASE 2: File Scanning
+            print("📁 Phase 2: Scanning files...")
             file_analyses = self._scan_files(target_path)
             result.file_analyses = file_analyses
             
-            # Validate all gates
-            gate_scores = self._validate_all_gates(target_path, file_analyses, llm_manager)
+            # PHASE 3: Gate Validation with LLM-generated patterns
+            print("🎯 Phase 3: Validating gates with LLM-generated patterns...")
+            gate_scores = self._validate_all_gates(target_path, file_analyses, llm_manager, analysis_result)
             result.gate_scores = gate_scores
             
             # Calculate summary metrics
@@ -71,6 +77,84 @@ class GateValidator:
             import traceback
             traceback.print_exc()
             raise
+    
+    def _analyze_repository_and_generate_patterns(self, target_path: Path, llm_manager=None) -> Dict[str, Any]:
+        """Comprehensive repository analysis and LLM pattern generation"""
+        
+        print("📊 Starting comprehensive repository analysis...")
+        
+        # Step 1: Analyze repository structure
+        file_structure = self._analyze_repository_structure(target_path)
+        print(f"📁 Analyzed {len(file_structure)} files in repository structure")
+        
+        # Step 2: Extract config and build files
+        config_files = self._extract_config_files(target_path)
+        build_files = self._extract_build_files(target_path)
+        dependencies = self._extract_dependencies(target_path)
+        print(f"🔧 Found {len(config_files)} config files, {len(build_files)} build files, {len(dependencies)} dependencies")
+        
+        # Step 3: Detect technologies and custom libraries
+        tech_context = self._detect_technologies_comprehensive(target_path, file_structure)
+        custom_libraries = self._detect_custom_libraries_comprehensive(target_path, file_structure, dependencies)
+        print(f"🏗️ Detected {len(tech_context.get('frameworks', []))} frameworks, {len(custom_libraries)} custom libraries")
+        
+        # Step 4: Generate comprehensive LLM prompt
+        print("📋 Generating comprehensive LLM prompt...")
+        llm_prompt = self._generate_comprehensive_llm_prompt(
+            target_path=target_path,
+            file_structure=file_structure,
+            tech_context=tech_context,
+            custom_libraries=custom_libraries,
+            config_files=config_files,
+            build_files=build_files,
+            dependencies=dependencies
+        )
+        
+        # Step 5: Call LLM for pattern generation
+        llm_patterns = {}
+        if llm_manager:
+            print("🤖 Calling LLM for dynamic pattern generation...")
+            try:
+                # Use the correct LLM method - analyze code with context
+                llm_response = llm_manager.analyze_code_with_context(
+                    prompt=llm_prompt,
+                    context={
+                        'target_path': str(target_path),
+                        'languages': [lang.value for lang in self.config.languages],
+                        'file_structure': file_structure,
+                        'tech_context': tech_context,
+                        'custom_libraries': custom_libraries
+                    },
+                    analysis_type="pattern_generation"
+                )
+                if llm_response.get('success', False):
+                    llm_patterns = llm_response.get('patterns', {})
+                    print(f"✅ LLM generated patterns for {len(llm_patterns)} gates")
+                else:
+                    print("⚠️ LLM pattern generation failed, using fallback patterns")
+                    llm_patterns = self._generate_fallback_patterns(tech_context)
+            except Exception as e:
+                print(f"⚠️ LLM call failed: {e}, using fallback patterns")
+                llm_patterns = self._generate_fallback_patterns(tech_context)
+        else:
+            print("📋 No LLM available, using fallback patterns")
+            llm_patterns = self._generate_fallback_patterns(tech_context)
+        
+        # Step 6: Return comprehensive analysis result
+        analysis_result = {
+            'file_structure': file_structure,
+            'tech_context': tech_context,
+            'custom_libraries': custom_libraries,
+            'config_files': config_files,
+            'build_files': build_files,
+            'dependencies': dependencies,
+            'llm_patterns': llm_patterns,
+            'llm_prompt': llm_prompt,
+            'llm_used': llm_manager is not None
+        }
+        
+        print("✅ Repository analysis and pattern generation completed")
+        return analysis_result
     
     def _scan_files(self, target_path: Path) -> List[FileAnalysis]:
         """Scan all files in the target directory"""
@@ -165,7 +249,7 @@ class GateValidator:
     
     def _validate_all_gates(self, target_path: Path, 
                           file_analyses: List[FileAnalysis], 
-                          llm_manager=None) -> List[GateScore]:
+                          llm_manager=None, analysis_result: Dict[str, Any] = None) -> List[GateScore]:
         """Validate all 15 hard gates"""
         
         gate_scores = []
@@ -196,12 +280,13 @@ class GateValidator:
                     continue
                 
                 gate_score = self._validate_single_gate(
-                    gate_type, target_path, file_analyses, llm_manager
+                    gate_type, target_path, file_analyses, llm_manager, analysis_result
                 )
                 gate_scores.append(gate_score)
                 
             except Exception as e:
-                # Create failed gate score
+                print(f"❌ Gate validation failed for {gate_type.value}: {str(e)}")
+                # Create error gate score
                 gate_score = GateScore(
                     gate=gate_type,
                     expected=0,
@@ -209,9 +294,9 @@ class GateValidator:
                     coverage=0.0,
                     quality_score=0.0,
                     final_score=0.0,
-                    status="FAILED",
-                    details=[f"Validation error: {str(e)}"],
-                    recommendations=[f"Fix validation error for {gate_type.value}"]
+                    status="ERROR",
+                    details=[f"Gate validation failed: {str(e)}"],
+                    recommendations=["Check system configuration and try again"]
                 )
                 gate_scores.append(gate_score)
         
@@ -220,7 +305,7 @@ class GateValidator:
     def _validate_single_gate(self, gate_type: GateType, 
                             target_path: Path, 
                             file_analyses: List[FileAnalysis],
-                            llm_manager=None) -> GateScore:
+                            llm_manager=None, analysis_result: Dict[str, Any] = None) -> GateScore:
         """Validate a single gate type"""
         
         # Get appropriate validator for the gate
@@ -228,6 +313,9 @@ class GateValidator:
         for lang in self.config.languages:
             validator = self.validator_factory.get_validator(gate_type, lang)
             if validator:
+                # Pass analysis result to validator for LLM pattern access
+                if analysis_result:
+                    validator._analysis_result = analysis_result
                 validators.append(validator)
         
         if not validators:
@@ -313,6 +401,391 @@ class GateValidator:
             recommendations=all_recommendations,
             matches=all_matches
         )
+    
+    def _analyze_repository_structure(self, target_path: Path) -> Dict[str, Any]:
+        """Analyze repository structure and file organization"""
+        file_structure = {}
+        
+        # Get all files in the repository
+        all_files = []
+        for ext in ['*.java', '*.py', '*.js', '*.ts', '*.go', '*.rb', '*.php', '*.cs', '*.xml', '*.yml', '*.yaml', '*.json', '*.properties', '*.gradle', '*.pom']:
+            all_files.extend(target_path.rglob(ext))
+        
+        # Organize by directory structure
+        for file_path in all_files:
+            try:
+                relative_path = file_path.relative_to(target_path)
+                path_parts = relative_path.parts
+                
+                current = file_structure
+                for part in path_parts[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                
+                # Add file info
+                current[path_parts[-1]] = {
+                    'path': str(relative_path),
+                    'size': file_path.stat().st_size,
+                    'extension': file_path.suffix,
+                    'language': self._detect_language_from_extension(file_path.suffix)
+                }
+                
+            except Exception:
+                continue
+        
+        return file_structure
+    
+    def _extract_config_files(self, target_path: Path) -> Dict[str, Any]:
+        """Extract configuration files and their content"""
+        config_files = {}
+        
+        config_patterns = {
+            'Maven': ['pom.xml'],
+            'Gradle': ['build.gradle', 'build.gradle.kts'],
+            'npm': ['package.json'],
+            'pip': ['requirements.txt', 'setup.py'],
+            'poetry': ['pyproject.toml'],
+            'application': ['application.properties', 'application.yml', 'application.yaml'],
+            'logging': ['logback.xml', 'log4j.properties', 'log4j2.xml']
+        }
+        
+        for tool, files in config_patterns.items():
+            for file_name in files:
+                file_path = target_path / file_name
+                if file_path.exists():
+                    try:
+                        content = file_path.read_text(encoding='utf-8', errors='ignore')
+                        config_files[tool] = {
+                            'name': tool,
+                            'file': file_name,
+                            'content': content[:2000] if len(content) > 2000 else content,  # Limit content size
+                            'size': len(content)
+                        }
+                        break
+                    except Exception:
+                        continue
+        
+        return config_files
+    
+    def _extract_build_files(self, target_path: Path) -> Dict[str, Any]:
+        """Extract build files and their content"""
+        build_files = {}
+        
+        build_patterns = {
+            'Maven': ['pom.xml'],
+            'Gradle': ['build.gradle', 'build.gradle.kts'],
+            'npm': ['package.json'],
+            'pip': ['requirements.txt', 'setup.py'],
+            'poetry': ['pyproject.toml'],
+            'cargo': ['Cargo.toml'],
+            'go.mod': ['go.mod']
+        }
+        
+        for tool, files in build_patterns.items():
+            for file_name in files:
+                file_path = target_path / file_name
+                if file_path.exists():
+                    try:
+                        content = file_path.read_text(encoding='utf-8', errors='ignore')
+                        build_files[tool] = {
+                            'name': tool,
+                            'file': file_name,
+                            'content': content[:2000] if len(content) > 2000 else content,
+                            'size': len(content)
+                        }
+                        break
+                    except Exception:
+                        continue
+        
+        return build_files
+    
+    def _extract_dependencies(self, target_path: Path) -> List[str]:
+        """Extract dependencies from various dependency files"""
+        dependencies = []
+        
+        # Check package.json
+        package_json = target_path / 'package.json'
+        if package_json.exists():
+            try:
+                import json
+                content = package_json.read_text(encoding='utf-8', errors='ignore')
+                data = json.loads(content)
+                if 'dependencies' in data:
+                    dependencies.extend(list(data['dependencies'].keys()))
+                if 'devDependencies' in data:
+                    dependencies.extend(list(data['devDependencies'].keys()))
+            except Exception:
+                pass
+        
+        # Check requirements.txt
+        requirements_txt = target_path / 'requirements.txt'
+        if requirements_txt.exists():
+            try:
+                content = requirements_txt.read_text(encoding='utf-8', errors='ignore')
+                for line in content.split('\n'):
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        # Extract package name (before version specifiers)
+                        package = line.split('==')[0].split('>=')[0].split('<=')[0].split('~=')[0].strip()
+                        if package:
+                            dependencies.append(package)
+            except Exception:
+                pass
+        
+        return list(set(dependencies))  # Remove duplicates
+    
+    def _detect_technologies_comprehensive(self, target_path: Path, file_structure: Dict[str, Any]) -> Dict[str, Any]:
+        """Detect technologies used in the codebase"""
+        tech_context = {
+            'languages': [],
+            'frameworks': [],
+            'build_tools': [],
+            'databases': [],
+            'containerization': [],
+            'frontend': [],
+            'testing': []
+        }
+        
+        # Detect languages
+        language_files = {}
+        for ext in ['.java', '.py', '.js', '.ts', '.cs', '.go', '.rb', '.php']:
+            language_files[ext] = list(target_path.rglob(f"*{ext}"))
+        
+        for ext, files in language_files.items():
+            if files:
+                lang = self._detect_language_from_extension(ext)
+                if lang:
+                    tech_context['languages'].append(lang)
+        
+        # Detect frameworks based on file patterns
+        framework_patterns = {
+            'Spring': ['@SpringBootApplication', '@Controller', '@Service'],
+            'Django': ['from django', 'Django'],
+            'Flask': ['from flask', 'Flask'],
+            'Express': ['express', 'app.get', 'app.post'],
+            'React': ['import React', 'React.', 'useState'],
+            'Angular': ['@angular', '@Component', '@Injectable']
+        }
+        
+        # Check for framework indicators in files
+        for framework, patterns in framework_patterns.items():
+            for ext, files in language_files.items():
+                for file_path in files[:10]:  # Check first 10 files
+                    try:
+                        content = file_path.read_text(encoding='utf-8', errors='ignore')
+                        if any(pattern.lower() in content.lower() for pattern in patterns):
+                            tech_context['frameworks'].append(framework)
+                            break
+                    except Exception:
+                        continue
+        
+        return tech_context
+    
+    def _detect_custom_libraries_comprehensive(self, target_path: Path, file_structure: Dict[str, Any], dependencies: List[str]) -> Dict[str, Any]:
+        """Detect custom libraries and frameworks"""
+        custom_libraries = {}
+        
+        # ESER detection
+        eser_patterns = ['ESER', 'EnterpriseSecurityEvent', 'SecurityEventReporting']
+        # EBSSH detection
+        ebssh_patterns = ['EBSSH', 'EnterpriseBusinessSecurity', 'BusinessSecurityService']
+        
+        # Check all files for custom library patterns
+        for ext in ['.java', '.py', '.js', '.ts', '.cs']:
+            files = list(target_path.rglob(f"*{ext}"))
+            for file_path in files[:20]:  # Check first 20 files
+                try:
+                    content = file_path.read_text(encoding='utf-8', errors='ignore')
+                    
+                    # Check for ESER
+                    if any(pattern.lower() in content.lower() for pattern in eser_patterns):
+                        custom_libraries['ESER'] = {
+                            'name': 'ESER',
+                            'description': 'Enterprise Security Event Reporting',
+                            'files': custom_libraries.get('ESER', {}).get('files', []) + [str(file_path.relative_to(target_path))]
+                        }
+                    
+                    # Check for EBSSH
+                    if any(pattern.lower() in content.lower() for pattern in ebssh_patterns):
+                        custom_libraries['EBSSH'] = {
+                            'name': 'EBSSH',
+                            'description': 'Enterprise Business Security Service Hub',
+                            'files': custom_libraries.get('EBSSH', {}).get('files', []) + [str(file_path.relative_to(target_path))]
+                        }
+                        
+                except Exception:
+                    continue
+        
+        return custom_libraries
+    
+    def _generate_comprehensive_llm_prompt(self, target_path: Path, file_structure: Dict[str, Any], 
+                                         tech_context: Dict[str, Any], custom_libraries: Dict[str, Any],
+                                         config_files: Dict[str, Any], build_files: Dict[str, Any], 
+                                         dependencies: List[str]) -> str:
+        """Generate comprehensive LLM prompt for pattern generation"""
+        
+        prompt = f"""You are an expert code analyzer specializing in hard gate validation patterns for enterprise security and compliance.
+
+## CODEBASE ANALYSIS
+
+### Technology Stack
+- Languages: {', '.join(tech_context.get('languages', []))}
+- Frameworks: {', '.join(tech_context.get('frameworks', []))}
+- Build Tools: {', '.join(tech_context.get('build_tools', []))}
+- Dependencies: {', '.join(dependencies[:20])}...
+
+### File Structure Summary
+"""
+        
+        # Add file structure information
+        file_count = 0
+        for root, files in self._walk_file_structure(file_structure):
+            if file_count < 50:  # Limit to first 50 files
+                prompt += f"- {root}: {len(files)} files\n"
+                file_count += 1
+        
+        prompt += f"""
+### Config Files Detected
+"""
+        if config_files:
+            for tool_name, tool_info in config_files.items():
+                prompt += f"""
+**{tool_name}** ({tool_info.get('description', 'No description')})
+- File: {tool_info.get('file', 'unknown')}
+- Size: {tool_info.get('size', 0)} characters
+- Content: {tool_info.get('content', '')[:500]}...
+"""
+        else:
+            prompt += "No config files detected.\n"
+
+        prompt += f"""
+### Build Files Detected
+"""
+        if build_files:
+            for tool_name, tool_info in build_files.items():
+                prompt += f"""
+**{tool_name}** ({tool_info.get('description', 'No description')})
+- File: {tool_info.get('file', 'unknown')}
+- Size: {tool_info.get('size', 0)} characters
+- Content: {tool_info.get('content', '')[:500]}...
+"""
+        else:
+            prompt += "No build files detected.\n"
+
+        prompt += f"""
+### Custom Libraries Detected
+"""
+        if custom_libraries:
+            for lib_name, lib_info in custom_libraries.items():
+                prompt += f"""
+**{lib_name}** ({lib_info.get('description', 'No description')})
+- Files: {', '.join(lib_info.get('files', [])[:5])}...
+"""
+        else:
+            prompt += "No custom libraries detected.\n"
+        
+        prompt += f"""
+## HARD GATES TO ANALYZE
+{', '.join([gate.value for gate in GateType])}
+
+## TASK
+Generate comprehensive regex patterns for each hard gate that would be effective for this specific codebase. Consider:
+
+1. **Technology-specific patterns**: Adapt patterns to the detected languages and frameworks
+2. **Custom library integration**: If custom libraries are detected, include patterns that work with their specific APIs
+3. **Framework-specific patterns**: Include patterns for detected frameworks (Spring, Django, Express, etc.)
+4. **Security context**: Consider the security patterns already present in the codebase
+5. **Logging patterns**: Consider existing logging patterns and adapt accordingly
+6. **Configuration patterns**: Look at the config files provided and generate patterns for their specific formats
+7. **Build tool patterns**: Consider the build tools detected and their specific patterns
+
+## OUTPUT FORMAT
+For each hard gate, provide:
+1. **Pattern Name**: Descriptive name for the pattern
+2. **Regex Pattern**: The actual regex pattern for matching
+3. **Description**: What this pattern detects
+4. **Technology Context**: Which languages/frameworks this pattern is designed for
+5. **Custom Library Integration**: How this pattern works with detected custom libraries (if any)
+6. **Reasoning**: Why this pattern is relevant for this specific codebase
+
+Generate patterns that are:
+- **Specific** to the detected technology stack
+- **Comprehensive** in coverage
+- **Practical** for real-world codebases
+- **Customizable** for different contexts
+- **Secure** and compliance-focused
+- **Based on actual files** and configurations found in this codebase
+
+Focus on patterns that would catch actual violations in this type of codebase."""
+
+        return prompt
+    
+    def _walk_file_structure(self, file_structure: Dict[str, Any]) -> List[tuple]:
+        """Walk through file structure and return (path, files) tuples"""
+        result = []
+        
+        def walk_recursive(structure, current_path=""):
+            files = []
+            for key, value in structure.items():
+                if isinstance(value, dict):
+                    walk_recursive(value, f"{current_path}/{key}" if current_path else key)
+                else:
+                    files.append(key)
+            
+            if files:
+                result.append((current_path, files))
+        
+        walk_recursive(file_structure)
+        return result
+    
+    def _detect_language_from_extension(self, extension: str) -> str:
+        """Detect programming language from file extension"""
+        ext_map = {
+            '.java': 'java',
+            '.py': 'python',
+            '.js': 'javascript',
+            '.ts': 'typescript',
+            '.cs': 'csharp',
+            '.go': 'go',
+            '.rb': 'ruby',
+            '.php': 'php'
+        }
+        return ext_map.get(extension.lower(), 'unknown')
+    
+    def _generate_fallback_patterns(self, tech_context: Dict[str, Any]) -> Dict[str, List[str]]:
+        """Generate fallback patterns when LLM is not available"""
+        fallback_patterns = {}
+        
+        languages = tech_context.get('languages', [])
+        frameworks = tech_context.get('frameworks', [])
+        
+        # Basic fallback patterns for each gate
+        for gate in GateType:
+            patterns = []
+            
+            # Add language-specific patterns
+            for lang in languages:
+                if lang == 'java':
+                    patterns.extend([
+                        f"(?i)({gate.value.lower().replace(' ', '|')})",
+                        f"(?i)({gate.value.lower().replace(' ', '_')})"
+                    ])
+                elif lang == 'python':
+                    patterns.extend([
+                        f"(?i)({gate.value.lower().replace(' ', '|')})",
+                        f"(?i)({gate.value.lower().replace(' ', '_')})"
+                    ])
+                elif lang == 'javascript':
+                    patterns.extend([
+                        f"(?i)({gate.value.lower().replace(' ', '|')})",
+                        f"(?i)({gate.value.lower().replace(' ', '_')})"
+                    ])
+            
+            if patterns:
+                fallback_patterns[gate.value] = patterns[:5]  # Limit to 5 patterns
+        
+        return fallback_patterns
     
     def _determine_gate_status(self, score: float, gate_type: GateType = None, found: int = 0) -> str:
         """Determine gate status based on score with special handling for security gates"""

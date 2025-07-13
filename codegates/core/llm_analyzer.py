@@ -522,7 +522,7 @@ Format your response as JSON:
                     enterprise_url,
                     headers=headers,
                     json=data,
-                    timeout=30
+                    timeout=300
                 )
                 
                 if response.status_code != 200:
@@ -569,7 +569,7 @@ Format your response as JSON:
                     f"{base_url}/chat/completions",
                     headers=headers,
                     json=data,
-                    timeout=30
+                    timeout=self._get_llm_timeout()
                 )
                 
                 if response.status_code != 200:
@@ -588,6 +588,16 @@ Format your response as JSON:
         except Exception as e:
             print(f"⚠️ LLM call failed: {str(e)}")
             raise Exception(f"LLM call failed: {str(e)}")
+    
+    def _get_llm_timeout(self) -> int:
+        """Get LLM timeout from configuration or use default"""
+        try:
+            from ..utils.config_loader import get_config
+            config = get_config()
+            timeout_config = config.get_timeout_config()
+            return timeout_config.get('llm_request_timeout', 300)  # Default to 5 minutes
+        except Exception:
+            return 300  # Fallback to 5 minutes if config fails
     
     def _parse_llm_response(self, response: str) -> Dict[str, Any]:
         """Parse LLM response into structured format"""

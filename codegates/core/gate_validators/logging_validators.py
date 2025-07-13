@@ -17,18 +17,39 @@ class StructuredLogsValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
-    def validate(self, target_path: Path, 
+    def _perform_validation(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
-        """Validate logging implementation"""
+        """Perform the actual validation logic"""
         
-        # Get all patterns for this gate
+        print(f"🔍 [DEBUG] _perform_validation called for {self.gate_type.value} ({self.language.value})")
+        
+        # Always get patterns at validation time
+        print(f"🔍 [DEBUG] Calling _get_patterns...")
+        patterns_dict = self._get_patterns(target_path)
+        print(f"🔍 [DEBUG] Received patterns_dict: {list(patterns_dict.keys()) if patterns_dict else 'empty'}")
+        
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+            print(f"🎯 [LLM] Using {len(patterns_dict['llm_generated'])} LLM-generated patterns")
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
+                print(f"🔍 [DEBUG] Added {len(category_patterns)} patterns from category: {category}")
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            all_patterns = self._get_hardcoded_patterns().get('logging_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('logging_patterns', [])
+            print(f"📋 [Hardcoded] Using {len(all_patterns)} hardcoded patterns as fallback")
+        
+        print(f"🔍 [DEBUG] Total patterns to search: {len(all_patterns)}")
         
         # Search for patterns
         matches = self._search_files_for_patterns(
@@ -331,7 +352,7 @@ class StructuredLogsValidator(BaseGateValidator):
             self._details_set.update(detailed_matches)
         
         return list(self._details_set)
-
+    
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on logging findings"""
@@ -342,7 +363,7 @@ class StructuredLogsValidator(BaseGateValidator):
             recommendations = self._get_partial_implementation_recommendations()
         else:
             recommendations = self._get_quality_improvement_recommendations()
-            
+    
         # Add recommendations to set for uniqueness
         self._recommendations_set.update(recommendations)
         return list(self._recommendations_set)
@@ -355,6 +376,11 @@ class SecretLogsValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate that secrets are not logged"""
@@ -365,15 +391,25 @@ class SecretLogsValidator(BaseGateValidator):
         # Search for secret logging patterns
         extensions = self._get_file_extensions()
         
-        # Get all patterns from loaded configuration
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
         all_patterns = []
-        for category_patterns in self.patterns.values():
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            all_patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
             if isinstance(category_patterns, list):
                 all_patterns.extend(category_patterns)
         
+        # Fallback to hardcoded patterns if no patterns available
         if not all_patterns:
-            # Fallback to hardcoded patterns
-            all_patterns = self.patterns.get('secret_patterns', [])
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            all_patterns = hardcoded_patterns.get('secret_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, all_patterns)
         
@@ -676,7 +712,7 @@ class SecretLogsValidator(BaseGateValidator):
         
         # Add to details set for uniqueness
         self._details_set.add(f"Found {len(matches)} potential secret logging instances")
-        
+            
         # Group by file
         files_with_secrets = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
         self._details_set.add(f"Potential secrets found in {files_with_secrets} files")
@@ -718,7 +754,7 @@ class SecretLogsValidator(BaseGateValidator):
             self._details_set.update(detailed_matches)
         
         return list(self._details_set)
-
+    
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on secret findings"""
@@ -742,6 +778,11 @@ class AuditTrailValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate audit trail implementation"""
@@ -751,7 +792,25 @@ class AuditTrailValidator(BaseGateValidator):
         
         # Search for audit logging patterns
         extensions = self._get_file_extensions()
-        patterns = self.patterns.get('audit_patterns', [])
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
+        patterns = []
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
+            if isinstance(category_patterns, list):
+                patterns.extend(category_patterns)
+        
+        # Fallback to hardcoded patterns if no patterns available
+        if not patterns:
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            patterns = hardcoded_patterns.get('audit_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
         
@@ -978,7 +1037,7 @@ class AuditTrailValidator(BaseGateValidator):
             self._details_set.update(detailed_matches)
         
         return list(self._details_set)
-
+    
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on audit findings"""
@@ -1002,6 +1061,11 @@ class CorrelationIdValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate correlation ID implementation"""
@@ -1011,7 +1075,25 @@ class CorrelationIdValidator(BaseGateValidator):
         
         # Search for correlation ID patterns
         extensions = self._get_file_extensions()
-        patterns = self.patterns.get('correlation_patterns', [])
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
+        patterns = []
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
+            if isinstance(category_patterns, list):
+                patterns.extend(category_patterns)
+        
+        # Fallback to hardcoded patterns if no patterns available
+        if not patterns:
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            patterns = hardcoded_patterns.get('correlation_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
         
@@ -1199,7 +1281,7 @@ class CorrelationIdValidator(BaseGateValidator):
         
         # Add to details set for uniqueness
         self._details_set.add(f"Found {len(matches)} correlation ID implementations")
-        
+            
         # Group by file
         files_with_correlation = len(set(match.get('file_path', match.get('file', 'unknown')) for match in matches))
         self._details_set.add(f"Correlation ID handling present in {files_with_correlation} files")
@@ -1238,7 +1320,7 @@ class CorrelationIdValidator(BaseGateValidator):
             self._details_set.update(detailed_matches)
         
         return list(self._details_set)
-
+    
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on correlation ID findings"""
@@ -1262,6 +1344,11 @@ class ApiLogsValidator(BaseGateValidator):
         """Initialize with gate type for pattern loading"""
         super().__init__(language, gate_type)
     
+    def _perform_validation(self, target_path: Path, 
+                          file_analyses: List[FileAnalysis]) -> GateValidationResult:
+        """Perform the actual validation logic"""
+        return self.validate(target_path, file_analyses)
+    
     def validate(self, target_path: Path, 
                 file_analyses: List[FileAnalysis]) -> GateValidationResult:
         """Validate API logging implementation"""
@@ -1271,7 +1358,25 @@ class ApiLogsValidator(BaseGateValidator):
         
         # Search for API logging patterns
         extensions = self._get_file_extensions()
-        patterns = self.patterns.get('api_log_patterns', [])
+        # Get patterns dynamically
+        patterns_dict = self._get_patterns(target_path)
+        patterns = []
+        
+        # Handle LLM-generated patterns
+        if 'llm_generated' in patterns_dict:
+            patterns.extend(patterns_dict['llm_generated'])
+        
+        # Handle traditional pattern structure
+        for category, category_patterns in patterns_dict.items():
+            if category == 'llm_generated':
+                continue
+            if isinstance(category_patterns, list):
+                patterns.extend(category_patterns)
+        
+        # Fallback to hardcoded patterns if no patterns available
+        if not patterns:
+            hardcoded_patterns = self._get_hardcoded_patterns()
+            patterns = hardcoded_patterns.get('api_log_patterns', [])
         
         matches = self._search_files_for_patterns(target_path, extensions, patterns)
         
@@ -1504,7 +1609,7 @@ class ApiLogsValidator(BaseGateValidator):
             self._details_set.update(detailed_matches)
         
         return list(self._details_set)
-
+    
     def _generate_recommendations_from_matches(self, matches: List[Dict[str, Any]], 
                                              expected: int) -> List[str]:
         """Generate recommendations based on API logging findings"""
@@ -1515,7 +1620,7 @@ class ApiLogsValidator(BaseGateValidator):
             recommendations = self._get_partial_implementation_recommendations()
         else:
             recommendations = self._get_quality_improvement_recommendations()
-            
+
         # Add recommendations to set for uniqueness
         self._recommendations_set.update(recommendations)
         return list(self._recommendations_set)
