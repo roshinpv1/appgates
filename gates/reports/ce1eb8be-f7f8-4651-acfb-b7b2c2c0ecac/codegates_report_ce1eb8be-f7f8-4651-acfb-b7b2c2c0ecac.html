@@ -61,6 +61,7 @@
         .status-implemented { color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         .status-partial { color: #d97706; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         .status-not-implemented { color: #dc2626; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not-applicable { color: #6b7280; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         
         /* Expandable Details Styling */
         .details-toggle {
@@ -168,20 +169,27 @@
                 <div class="stat-label">Gates Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">0</div>
+                <div class="stat-number">3</div>
                 <div class="stat-label">Partially Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">13</div>
+                <div class="stat-number">10</div>
                 <div class="stat-label">Not Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Not Applicable</div>
             </div>
         </div>
         
         <h3>Overall Compliance</h3>
         <div class="compliance-bar">
-            <div class="compliance-fill" style="width: 13.3%"></div>
+            <div class="compliance-fill" style="width: 31.2%"></div>
         </div>
-        <p><strong>13.3% Hard Gates Compliance</strong></p>
+        <p><strong>31.2% Hard Gates Compliance</strong></p>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
+            <em>Percentage calculated based on 15 applicable gates (excluding 0 N/A gates)</em>
+        </p>
         
         <h2>Hard Gates Analysis</h2>
         <div class="gates-analysis">
@@ -205,7 +213,7 @@
                                     </td>
                                     <td><strong>Logs Searchable/Available</strong></td>
                                     <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
+                                    <td>Found 18 implementations with 44.6% coverage</td>
                                     <td>Implement Logs Searchable/Available throughout your codebase</td>
                                 </tr>
                                 <tr id="details-auditability-STRUCTURED_LOGS-0" class="gate-details" aria-hidden="true">
@@ -213,20 +221,20 @@
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">5</div>
+                    <div class="metric-value">4</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Logging</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Ensure logs are structured and searchable for operational monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Logs Searchable/Available validation</p><p><strong>Significance:</strong> This gate ensures ensure logs are structured and searchable for operational monitoring which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Logs Searchable/Available</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Logs Searchable/Available throughout your codebase</li><li>Focus on ensure logs are structured and searchable for operational monitoring</li></ul></div>
+                    <div class="metric-value">18</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Logging</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Ensure logs are structured and searchable for operational monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Ensure logs are structured and searchable for operational monitoring by including a timestamp, log level, and structured data in JSON format.</p><p><strong>Significance:</strong> This gate is significant because it ensures that logs can be easily searched and analyzed for operational issues.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 18 matches across 5 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 15 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Logs Searchable/Available throughout your codebase</li><li>Focus on ensure logs are structured and searchable for operational monitoring</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -251,12 +259,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">6</div>
+                    <div class="metric-value">3</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Security</p><p><strong>Priority:</strong> critical</p><p><strong>Description:</strong> Prevent sensitive data from being logged accidentally</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Avoid Logging Confidential Data validation</p><p><strong>Significance:</strong> This gate ensures prevent sensitive data from being logged accidentally which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Avoid Logging Confidential Data</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Good implementation of Avoid Logging Confidential Data</li><li>Consider optimizing existing patterns</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Security</p><p><strong>Priority:</strong> critical</p><p><strong>Description:</strong> Prevent sensitive data from being logged accidentally</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Prevent sensitive data from being logged accidentally by excluding passwords, secret keys, and API keys.</p><p><strong>Significance:</strong> This gate is significant because it prevents sensitive information from being exposed in logs.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Avoid Logging Confidential Data</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Good implementation of Avoid Logging Confidential Data</li><li>Consider optimizing existing patterns</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -265,7 +273,7 @@
                                     </td>
                                     <td><strong>Create Audit Trail Logs</strong></td>
                                     <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
+                                    <td>Found 18 implementations with 44.6% coverage</td>
                                     <td>Implement Create Audit Trail Logs throughout your codebase</td>
                                 </tr>
                                 <tr id="details-auditability-AUDIT_TRAIL-2" class="gate-details" aria-hidden="true">
@@ -273,11 +281,11 @@
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
@@ -285,8 +293,8 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Compliance</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Log critical business operations for audit compliance</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Create Audit Trail Logs validation</p><p><strong>Significance:</strong> This gate ensures log critical business operations for audit compliance which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Create Audit Trail Logs</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Create Audit Trail Logs throughout your codebase</li><li>Focus on log critical business operations for audit compliance</li></ul></div>
+                    <div class="metric-value">18</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Compliance</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Log critical business operations for audit compliance</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Log critical business operations for audit compliance by including a timestamp, log level, and structured data in JSON format.</p><p><strong>Significance:</strong> This gate is significant because it ensures that critical business operations are logged and can be audited.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 18 matches across 5 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 15 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Create Audit Trail Logs throughout your codebase</li><li>Focus on log critical business operations for audit compliance</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -311,33 +319,33 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Observability</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Include correlation IDs for distributed tracing</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Tracking ID for Logs validation</p><p><strong>Significance:</strong> This gate ensures include correlation ids for distributed tracing which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Tracking ID for Logs</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Tracking ID for Logs throughout your codebase</li><li>Focus on include correlation ids for distributed tracing</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Observability</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Include correlation IDs for distributed tracing</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Include correlation IDs for distributed tracing by logging them in a standardized format.</p><p><strong>Significance:</strong> This gate is significant because it enables distributed tracing and debugging.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Tracking ID for Logs</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Tracking ID for Logs throughout your codebase</li><li>Focus on include correlation ids for distributed tracing</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="text-align: center">
-                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-UI_ERRORS-4')" aria-expanded="false" aria-label="Show details for Client UI Errors Logged">+</button>
+                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-LOG_API_CALLS-4')" aria-expanded="false" aria-label="Show details for Log REST API Calls">+</button>
                                     </td>
-                                    <td><strong>Client UI Errors Logged</strong></td>
-                                    <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
-                                    <td>Implement Client UI Errors Logged throughout your codebase</td>
+                                    <td><strong>Log REST API Calls</strong></td>
+                                    <td><span class="status-partial">⚬ Partial</span></td>
+                                    <td>Found 18 implementations with 44.6% coverage</td>
+                                    <td>Implement Log REST API Calls throughout your codebase</td>
                                 </tr>
-                                <tr id="details-auditability-UI_ERRORS-4" class="gate-details" aria-hidden="true">
+                                <tr id="details-auditability-LOG_API_CALLS-4" class="gate-details" aria-hidden="true">
                                     <td colspan="5" class="details-content">
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
@@ -345,8 +353,68 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Frontend</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Capture and log client-side UI errors</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Client UI Errors Logged validation</p><p><strong>Significance:</strong> This gate ensures capture and log client-side ui errors which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Client UI Errors Logged</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Client UI Errors Logged throughout your codebase</li><li>Focus on capture and log client-side ui errors</li></ul></div>
+                    <div class="metric-value">18</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> API</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Log all API requests and responses for monitoring</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Log all API requests and responses for monitoring by including a timestamp, log level, and structured data in JSON format.</p><p><strong>Significance:</strong> This gate is significant because it enables monitoring of API activity.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 18 matches across 5 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 15 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Log REST API Calls throughout your codebase</li><li>Focus on log all api requests and responses for monitoring</li></ul></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center">
+                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-LOG_APPLICATION_MESSAGES-5')" aria-expanded="false" aria-label="Show details for Log Application Messages">+</button>
+                                    </td>
+                                    <td><strong>Log Application Messages</strong></td>
+                                    <td><span class="status-partial">⚬ Partial</span></td>
+                                    <td>Found 18 implementations with 44.6% coverage</td>
+                                    <td>Implement Log Application Messages throughout your codebase</td>
+                                </tr>
+                                <tr id="details-auditability-LOG_APPLICATION_MESSAGES-5" class="gate-details" aria-hidden="true">
+                                    <td colspan="5" class="details-content">
+                                        <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Score</div>
+                    <div class="metric-value">44.6%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Coverage</div>
+                    <div class="metric-value">44.6%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Patterns Used</div>
+                    <div class="metric-value">4</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Matches Found</div>
+                    <div class="metric-value">18</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Logging</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Log important application state changes and events</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Log important application state changes and events by including a timestamp, log level, and structured data in JSON format.</p><p><strong>Significance:</strong> This gate is significant because it enables monitoring of application state.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 18 matches across 5 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 15 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Log Application Messages throughout your codebase</li><li>Focus on log important application state changes and events</li></ul></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center">
+                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-UI_ERRORS-6')" aria-expanded="false" aria-label="Show details for Client UI Errors Logged">+</button>
+                                    </td>
+                                    <td><strong>Client UI Errors Logged</strong></td>
+                                    <td><span class="status-partial">⚬ Partial</span></td>
+                                    <td>Found 18 implementations with 44.6% coverage</td>
+                                    <td>Implement Client UI Errors Logged throughout your codebase</td>
+                                </tr>
+                                <tr id="details-auditability-UI_ERRORS-6" class="gate-details" aria-hidden="true">
+                                    <td colspan="5" class="details-content">
+                                        <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Score</div>
+                    <div class="metric-value">44.6%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Coverage</div>
+                    <div class="metric-value">44.6%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Patterns Used</div>
+                    <div class="metric-value">4</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Matches Found</div>
+                    <div class="metric-value">18</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Frontend</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Capture and log client-side UI errors</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Capture and log client-side UI errors by including a timestamp, log level, and structured data in JSON format.</p><p><strong>Significance:</strong> This gate is significant because it enables monitoring of client-side UI issues.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 18 matches across 5 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 15 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Client UI Errors Logged throughout your codebase</li><li>Focus on capture and log client-side ui errors</li></ul></div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -389,12 +457,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">5</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Reliability</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Implement retry mechanisms for resilient operations</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Retry Logic validation</p><p><strong>Significance:</strong> This gate ensures implement retry mechanisms for resilient operations which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Retry Logic</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Retry Logic throughout your codebase</li><li>Focus on implement retry mechanisms for resilient operations</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Reliability</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Implement retry mechanisms for resilient operations</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Implement retry mechanisms for resilient operations by including keywords like 'retry' and 'retry-policy'.</p><p><strong>Significance:</strong> This gate is significant because it enables resilient operation of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Retry Logic</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Retry Logic throughout your codebase</li><li>Focus on implement retry mechanisms for resilient operations</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -419,12 +487,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Reliability</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Set appropriate timeouts for I/O operations</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Timeouts in IO Ops validation</p><p><strong>Significance:</strong> This gate ensures set appropriate timeouts for i/o operations which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Timeouts in IO Ops</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Timeouts in IO Ops throughout your codebase</li><li>Focus on set appropriate timeouts for i/o operations</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Reliability</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Set appropriate timeouts for I/O operations</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Set appropriate timeouts for I/O operations by including keywords like 'timeout' and 'connection-timeout'.</p><p><strong>Significance:</strong> This gate is significant because it enables efficient operation of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Timeouts in IO Ops</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Timeouts in IO Ops throughout your codebase</li><li>Focus on set appropriate timeouts for i/o operations</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -449,12 +517,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">4</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Performance</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Implement rate limiting and request throttling</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Throttling & Drop Request validation</p><p><strong>Significance:</strong> This gate ensures implement rate limiting and request throttling which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Throttling & Drop Request</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Throttling & Drop Request throughout your codebase</li><li>Focus on implement rate limiting and request throttling</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Performance</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Implement rate limiting and request throttling</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Implement rate limiting and request throttling by including keywords like 'rate-limiting' and 'throttling'.</p><p><strong>Significance:</strong> This gate is significant because it enables efficient operation of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Throttling & Drop Request</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Throttling & Drop Request throughout your codebase</li><li>Focus on implement rate limiting and request throttling</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -479,12 +547,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">5</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Reliability</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Implement circuit breaker pattern for fault tolerance</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Circuit Breakers validation</p><p><strong>Significance:</strong> This gate ensures implement circuit breaker pattern for fault tolerance which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Circuit Breakers</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Circuit Breakers throughout your codebase</li><li>Focus on implement circuit breaker pattern for fault tolerance</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Reliability</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Implement circuit breaker pattern for fault tolerance</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Implement circuit breaker pattern for fault tolerance by including keywords like 'circuit-breaker' and 'circuitbreaker'.</p><p><strong>Significance:</strong> This gate is significant because it enables fault-tolerant operation of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Circuit Breakers</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Circuit Breakers throughout your codebase</li><li>Focus on implement circuit breaker pattern for fault tolerance</li></ul></div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -511,7 +579,7 @@
                                     </td>
                                     <td><strong>Log System Errors</strong></td>
                                     <td><span class="status-not-implemented">✗ Missing</span></td>
-                                    <td>No relevant patterns found in codebase</td>
+                                    <td>Found 18 implementations with 44.6% coverage</td>
                                     <td>Implement Log System Errors throughout your codebase</td>
                                 </tr>
                                 <tr id="details-error handling-ERROR_LOGS-0" class="gate-details" aria-hidden="true">
@@ -519,11 +587,11 @@
                                         <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-label">Score</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Coverage</div>
-                    <div class="metric-value">0.0%</div>
+                    <div class="metric-value">44.6%</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
@@ -531,8 +599,8 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Error Handling</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive error logging and exception handling</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Log System Errors validation</p><p><strong>Significance:</strong> This gate ensures comprehensive error logging and exception handling which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Log System Errors</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Log System Errors throughout your codebase</li><li>Focus on comprehensive error logging and exception handling</li></ul></div>
+                    <div class="metric-value">18</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Error Handling</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive error logging and exception handling</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Comprehensive error logging and exception handling by including a timestamp, log level, and structured data in JSON format.</p><p><strong>Significance:</strong> This gate is significant because it enables comprehensive error tracking of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 18 matches across 5 files</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:78 - error</li><li>  ... and 15 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Log System Errors throughout your codebase</li><li>Focus on comprehensive error logging and exception handling</li></ul></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -557,12 +625,42 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">7</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
                     <div class="metric-value">0</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> API</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Use appropriate HTTP status codes for API responses</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for HTTP Error Codes validation</p><p><strong>Significance:</strong> This gate ensures use appropriate http status codes for api responses which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for HTTP Error Codes</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement HTTP Error Codes throughout your codebase</li><li>Focus on use appropriate http status codes for api responses</li></ul></div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> API</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Use appropriate HTTP status codes for API responses</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Use appropriate HTTP status codes for API responses by including keywords like '404' and '500'.</p><p><strong>Significance:</strong> This gate is significant because it enables proper communication of errors to clients.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for HTTP Error Codes</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement HTTP Error Codes throughout your codebase</li><li>Focus on use appropriate http status codes for api responses</li></ul></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center">
+                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-error handling-UI_ERROR_TOOLS-2')" aria-expanded="false" aria-label="Show details for Client Error Tracking">+</button>
+                                    </td>
+                                    <td><strong>Client Error Tracking</strong></td>
+                                    <td><span class="status-not-implemented">✗ Missing</span></td>
+                                    <td>No relevant patterns found in codebase</td>
+                                    <td>Implement Client Error Tracking throughout your codebase</td>
+                                </tr>
+                                <tr id="details-error handling-UI_ERROR_TOOLS-2" class="gate-details" aria-hidden="true">
+                                    <td colspan="5" class="details-content">
+                                        <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Score</div>
+                    <div class="metric-value">0.0%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Coverage</div>
+                    <div class="metric-value">0.0%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Patterns Used</div>
+                    <div class="metric-value">2</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Matches Found</div>
+                    <div class="metric-value">0</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Frontend</p><p><strong>Priority:</strong> medium</p><p><strong>Description:</strong> Integrate client-side error tracking tools</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Integrate client-side error tracking tools by including keywords like 'error-tracking' and 'exception-handling'.</p><p><strong>Significance:</strong> This gate is significant because it enables comprehensive error tracking of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>No matches found for Client Error Tracking</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Implement Client Error Tracking throughout your codebase</li><li>Focus on integrate client-side error tracking tools</li></ul></div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -589,7 +687,7 @@
                                     </td>
                                     <td><strong>Automated Tests</strong></td>
                                     <td><span class="status-implemented">✓ Implemented</span></td>
-                                    <td>Found 490 implementations with 100.0% coverage</td>
+                                    <td>Found 44 implementations with 100.0% coverage</td>
                                     <td>Good implementation of Automated Tests</td>
                                 </tr>
                                 <tr id="details-testing-AUTOMATED_TESTS-0" class="gate-details" aria-hidden="true">
@@ -605,12 +703,12 @@
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Patterns Used</div>
-                    <div class="metric-value">7</div>
+                    <div class="metric-value">2</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Matches Found</div>
-                    <div class="metric-value">490</div>
-                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Testing</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive automated test coverage</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Built-in patterns for Automated Tests validation</p><p><strong>Significance:</strong> This gate ensures comprehensive automated test coverage which is essential for enterprise-grade applications</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 490 matches across 16 files</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:21 - Test</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:24 - test</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:24 - Test</li><li>  ... and 487 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Good implementation of Automated Tests</li><li>Consider optimizing existing patterns</li></ul></div>
+                    <div class="metric-value">44</div>
+                </div></div><div class="details-section"><div class="details-section-title">Gate Information:</div><p><strong>Category:</strong> Testing</p><p><strong>Priority:</strong> high</p><p><strong>Description:</strong> Comprehensive automated test coverage</p></div><div class="details-section"><div class="details-section-title">Pattern Analysis:</div><p><strong>Pattern Description:</strong> Comprehensive automated test coverage by including keywords like 'Junit' and 'TestNG'.</p><p><strong>Significance:</strong> This gate is significant because it enables comprehensive testing of the application.</p></div><div class="details-section"><div class="details-section-title">Analysis Details:</div><ul><li>Found 44 matches across 15 files</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:21 - junit</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:22 - junit</li><li>  src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java:37 - junit</li><li>  ... and 41 more matches</li></ul></div><div class="details-section"><div class="details-section-title">Recommendations:</div><ul><li>Good implementation of Automated Tests</li><li>Consider optimizing existing patterns</li></ul></div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -619,7 +717,7 @@
                 </div></div>
         
         <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-            <p>Hard Gate Assessment Summary Report generated on 2025-07-13 12:53:08</p>
+            <p>Hard Gate Assessment Summary Report generated on 2025-07-13 16:07:38</p>
         </footer>
     </div>
 </body>

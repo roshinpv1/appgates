@@ -18,7 +18,7 @@ def clone_repository(repo_url: str, branch: str = "main",
                     github_token: Optional[str] = None,
                     target_dir: Optional[str] = None) -> str:
     """
-    Clone a repository using Git or GitHub API
+    Clone a repository using Git or GitHub API with enterprise-aware preferences
     
     Args:
         repo_url: Repository URL
@@ -33,21 +33,44 @@ def clone_repository(repo_url: str, branch: str = "main",
     if target_dir is None:
         target_dir = tempfile.mkdtemp(prefix="codegates_repo_")
     
-    # Try Git clone first
-    try:
-        return _clone_with_git(repo_url, branch, github_token, target_dir)
-    except Exception as git_error:
-        print(f"⚠️ Git clone failed: {git_error}")
-        
-        # Fallback to GitHub API if it's a GitHub repo
-        if "github.com" in repo_url:
+    # Determine if this is GitHub Enterprise
+    parsed_url = urlparse(repo_url)
+    hostname = parsed_url.netloc.lower()
+    is_github_enterprise = 'github' in hostname and hostname != 'github.com'
+    
+    if is_github_enterprise:
+        # For GitHub Enterprise: Try API first (better for enterprise networks, SSL, VPN)
+        print(f"🏢 GitHub Enterprise detected ({hostname}), trying API first")
+        try:
+            return _download_with_github_api(repo_url, branch, github_token, target_dir)
+        except Exception as api_error:
+            print(f"⚠️ GitHub API download failed: {api_error}")
+            print(f"🔄 Falling back to Git clone...")
+            
+            # Fallback to Git clone
             try:
-                return _download_with_github_api(repo_url, branch, github_token, target_dir)
-            except Exception as api_error:
-                print(f"⚠️ GitHub API download failed: {api_error}")
-                raise Exception(f"Both Git clone and API download failed. Git: {git_error}, API: {api_error}")
-        else:
-            raise git_error
+                return _clone_with_git(repo_url, branch, github_token, target_dir)
+            except Exception as git_error:
+                print(f"⚠️ Git clone also failed: {git_error}")
+                raise Exception(f"Both API and Git clone failed. API: {api_error}, Git: {git_error}")
+    else:
+        # For GitHub.com or other Git servers: Try Git clone first (unlimited, no rate limits)
+        print(f"🌐 GitHub.com or other Git server detected, trying Git clone first")
+        try:
+            return _clone_with_git(repo_url, branch, github_token, target_dir)
+        except Exception as git_error:
+            print(f"⚠️ Git clone failed: {git_error}")
+            
+            # Fallback to GitHub API if it's a GitHub repo
+            if "github.com" in repo_url:
+                print(f"🔄 Falling back to GitHub API...")
+                try:
+                    return _download_with_github_api(repo_url, branch, github_token, target_dir)
+                except Exception as api_error:
+                    print(f"⚠️ GitHub API download failed: {api_error}")
+                    raise Exception(f"Both Git clone and API download failed. Git: {git_error}, API: {api_error}")
+            else:
+                raise git_error
 
 
 def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], target_dir: str) -> str:
