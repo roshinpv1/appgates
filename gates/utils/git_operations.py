@@ -100,17 +100,23 @@ def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], tar
     env = os.environ.copy()
     
     if is_github_enterprise:
+        print(f"🏢 Configuring Git SSL settings for GitHub Enterprise: {hostname}")
+        
         # Enterprise-specific Git configurations
-        disable_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() == 'true'
+        disable_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() == 'true'
+        ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE')
+        
         if disable_ssl:
             env['GIT_SSL_NO_VERIFY'] = 'true'
-            print("⚠️ SSL verification disabled for Git clone")
-        
-        # Set custom CA bundle if provided
-        ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE')
-        if ca_bundle and os.path.exists(ca_bundle):
+            print("⚠️ SSL verification disabled for Git clone (via GITHUB_ENTERPRISE_DISABLE_SSL)")
+        elif ca_bundle and os.path.exists(ca_bundle):
             env['GIT_SSL_CAINFO'] = ca_bundle
             print(f"🔐 Using custom CA bundle for Git: {ca_bundle}")
+        else:
+            print("🔐 Using default SSL verification for Git (set GITHUB_ENTERPRISE_DISABLE_SSL=true if you have certificate issues)")
+    
+    # First attempt with current SSL settings
+    ssl_retry_attempted = False
     
     try:
         # Clone repository with timeout and proper error handling
@@ -129,12 +135,34 @@ def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], tar
         # Handle specific Git errors with helpful messages
         error_msg = str(e)
         
-        if "authentication failed" in error_msg.lower():
+        # Handle SSL certificate errors with auto-retry
+        if "ssl certificate problem" in error_msg.lower() or "certificate verify failed" in error_msg.lower():
+            if is_github_enterprise and not ssl_retry_attempted:
+                print(f"⚠️ Git SSL certificate verification failed: {e}")
+                print("🔄 Retrying Git clone with SSL verification disabled...")
+                
+                # Retry with SSL disabled
+                env['GIT_SSL_NO_VERIFY'] = 'true'
+                ssl_retry_attempted = True
+                
+                try:
+                    repo = git.Repo.clone_from(
+                        auth_url, 
+                        target_dir, 
+                        branch=branch, 
+                        depth=1,
+                        env=env
+                    )
+                    print(f"✅ Repository cloned successfully to: {target_dir} (SSL verification disabled)")
+                    return target_dir
+                except Exception as retry_error:
+                    raise Exception(f"Git clone failed even with SSL disabled: {retry_error}")
+            else:
+                raise Exception(f"SSL certificate issue. For enterprise GitHub, try setting GITHUB_ENTERPRISE_DISABLE_SSL=true or provide a CA bundle.")
+        elif "authentication failed" in error_msg.lower():
             raise Exception(f"Git authentication failed. Check your GitHub token and permissions.")
         elif "repository not found" in error_msg.lower():
             raise Exception(f"Repository not found or access denied: {repo_url}")
-        elif "ssl certificate problem" in error_msg.lower():
-            raise Exception(f"SSL certificate issue. For enterprise GitHub, try setting GITHUB_ENTERPRISE_DISABLE_SSL=true or provide a CA bundle.")
         elif "connection refused" in error_msg.lower():
             raise Exception(f"Connection refused. Check network connectivity and repository URL.")
         elif "timeout" in error_msg.lower():
@@ -191,20 +219,24 @@ def _download_with_github_api(repo_url: str, branch: str, github_token: Optional
     
     # Handle SSL verification for enterprise environments
     if is_github_enterprise:
+        print(f"🏢 Configuring SSL settings for GitHub Enterprise: {hostname}")
+        
         # Check if SSL verification should be disabled (common in enterprise)
-        disable_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() == 'true'
+        disable_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() == 'true'
+        ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE')
+        
         if disable_ssl:
             request_kwargs["verify"] = False
-            print("⚠️ SSL verification disabled for GitHub Enterprise")
-            # Suppress SSL warnings
-            import urllib3
+            print("⚠️ SSL verification disabled for GitHub Enterprise (via GITHUB_ENTERPRISE_DISABLE_SSL)")
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        elif ca_bundle and os.path.exists(ca_bundle):
+            request_kwargs["verify"] = ca_bundle
+            print(f"🔐 Using custom CA bundle: {ca_bundle}")
         else:
-            # Use custom CA bundle if provided
-            ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE')
-            if ca_bundle and os.path.exists(ca_bundle):
-                request_kwargs["verify"] = ca_bundle
-                print(f"🔐 Using custom CA bundle: {ca_bundle}")
+            print("🔐 Using default SSL verification (set GITHUB_ENTERPRISE_DISABLE_SSL=true if you have certificate issues)")
+    
+    # First attempt with current SSL settings
+    ssl_retry_attempted = False
     
     try:
         # Download zip file with retry logic
@@ -214,6 +246,22 @@ def _download_with_github_api(repo_url: str, branch: str, github_token: Optional
                 response = session.get(api_url, **request_kwargs)
                 response.raise_for_status()
                 break
+            except requests.exceptions.SSLError as e:
+                # Handle SSL certificate errors specifically
+                if "certificate verify failed" in str(e) or "self-signed certificate" in str(e):
+                    if is_github_enterprise and not ssl_retry_attempted:
+                        print(f"⚠️ SSL certificate verification failed: {e}")
+                        print("🔄 Retrying with SSL verification disabled...")
+                        
+                        # Retry with SSL disabled
+                        request_kwargs["verify"] = False
+                        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                        ssl_retry_attempted = True
+                        continue
+                    else:
+                        raise Exception(f"SSL certificate verification failed. For enterprise GitHub with self-signed certificates, set GITHUB_ENTERPRISE_DISABLE_SSL=true or provide GITHUB_ENTERPRISE_CA_BUNDLE")
+                else:
+                    raise
             except requests.exceptions.ConnectionError as e:
                 if "Connection reset by peer" in str(e) and attempt < max_retries - 1:
                     print(f"⚠️ Connection reset, retrying... (attempt {attempt + 1}/{max_retries})")
