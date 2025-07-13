@@ -6,57 +6,98 @@ Comprehensive technology-specific patterns as secondary validation
 STATIC_PATTERN_LIBRARY = {
     "STRUCTURED_LOGS": {
         "java": [
-            r'\blogger\.(info|debug|error|warn|trace)',
+            # More flexible logger patterns to catch real-world variations
+            r'\b\w*logger\w*\.(info|debug|error|warn|trace|fatal)',
+            r'\b\w*log\w*\.(info|debug|error|warn|trace|fatal)', 
+            r'\bLogger\.(getLogger|info|debug|error|warn|trace)',
+            r'\bLoggerFactory\.getLogger',
+            r'\.getLogger\(',
+            r'getLogger\(',
+            # Configuration patterns
             r'<encoder.*class=.*JsonEncoder.*>',
             r'<appender.*class=.*ConsoleAppender.*>',
             r'<appender.*class=.*FileAppender.*>',
             r'logback\.xml',
             r'log4j2\.xml',
-            r'log4j\.properties'
+            r'log4j\.properties',
+            # Framework-specific patterns
+            r'@Slf4j',
+            r'slf4j',
+            r'logback'
         ],
         "csharp": [
-            r'\bLog\.(Information|Debug|Error|Warning|Critical)',
+            # More flexible .NET logging patterns
+            r'\b\w*[Ll]og\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
+            r'\b\w*[Ll]ogger\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
             r'Log\.Logger\s*=\s*new\s+LoggerConfiguration\(\)',
             r'WriteTo\.Console\(\)',
             r'WriteTo\.File\(\)',
             r'AddSerilog\(\)',
             r'AddConsole\(\)',
-            r'appsettings\.json.*Logging'
+            r'AddLogging\(\)',
+            r'appsettings\.json.*Logging',
+            r'ILogger<',
+            r'ILoggerFactory',
+            r'CreateLogger\('
         ],
         "python": [
-            r'logging\.(info|debug|error|warning|critical)',
-            r'logger\.(info|debug|error|warning|critical)',
+            # More flexible Python logging patterns
+            r'\b\w*log\w*\.(info|debug|error|warning|critical|exception)',
+            r'\b\w*logger\w*\.(info|debug|error|warning|critical|exception)',
+            r'logging\.(getLogger|info|debug|error|warning|critical)',
+            r'getLogger\(',
             r'structlog\.',
             r'loguru\.',
-            r'python-json-logger'
+            r'python-json-logger',
+            r'\.log\(',
+            r'logging\.basicConfig',
+            r'logging\.config'
         ],
         "javascript": [
-            r'console\.(log|info|debug|error|warn)',
-            r'logger\.(info|debug|error|warn)',
+            # More flexible JavaScript logging patterns
+            r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
+            r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
+            r'console\.(log|info|debug|error|warn|trace)',
             r'winston\.',
             r'bunyan\.',
-            r'pino',
-            r'log4js\.'
+            r'pino\.',
+            r'log4js\.',
+            r'debug\(',
+            r'createLogger\(',
+            r'getLogger\('
         ],
         "typescript": [
-            r'console\.(log|info|debug|error|warn)',
-            r'logger\.(info|debug|error|warn)',
+            # More flexible TypeScript logging patterns
+            r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
+            r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
+            r'console\.(log|info|debug|error|warn|trace)',
             r'winston\.',
             r'bunyan\.',
-            r'pino',
-            r'log4js\.'
+            r'pino\.',
+            r'log4js\.',
+            r'debug\(',
+            r'createLogger\(',
+            r'getLogger\('
         ],
         "standard_logging": [
-            r'log\.(info|debug|error|warning|critical)',
-            r'logger\.(info|debug|error|warning|critical)',
-            r'console\.(log|info|debug|error|warn)'
+            # Generic flexible patterns for any language
+            r'\b\w*log\w*\.(info|debug|error|warning|critical|warn|trace|fatal)',
+            r'\b\w*logger\w*\.(info|debug|error|warning|critical|warn|trace|fatal)',
+            r'console\.(log|info|debug|error|warn)',
+            r'getLogger\(',
+            r'createLogger\(',
+            r'\.log\('
         ],
         "structured_logging": [
-            r'logger\.\w+\s*\([^)]*\{[^}]*\}',
+            # Structured logging patterns
+            r'\b\w*logger\w*\.\w+\s*\([^)]*\{[^}]*\}',
             r'JSON\.stringify',
-            r'structlog\.get_logger'
+            r'structlog\.get_logger',
+            r'structured.*log',
+            r'json.*log'
         ],
         "framework_logging": [
+            # Framework-specific logging patterns
             r'app\.logger',
             r'flask\.current_app\.logger',
             r'django\.core\.logging',
@@ -65,7 +106,9 @@ STATIC_PATTERN_LIBRARY = {
             r'pino',
             r'log4js',
             r'Serilog',
-            r'NLog'
+            r'NLog',
+            r'logback',
+            r'slf4j'
         ]
     },
     
@@ -107,45 +150,79 @@ STATIC_PATTERN_LIBRARY = {
     
     "AUDIT_TRAIL": {
         "java": [
-            r'\blogger\.(info|debug|error|warn|trace)',
+            # More flexible logger patterns to catch real-world variations
+            r'\b\w*logger\w*\.(info|debug|error|warn|trace|fatal)',
+            r'\b\w*log\w*\.(info|debug|error|warn|trace|fatal)', 
+            r'\bLogger\.(getLogger|info|debug|error|warn|trace)',
+            r'\bLoggerFactory\.getLogger',
+            r'\.getLogger\(',
+            r'getLogger\(',
+            # Configuration patterns
             r'<encoder.*class=.*JsonEncoder.*>',
             r'<appender.*class=.*ConsoleAppender.*>',
             r'<appender.*class=.*FileAppender.*>',
             r'logback\.xml',
             r'log4j2\.xml',
-            r'log4j\.properties'
+            r'log4j\.properties',
+            # Audit-specific patterns
+            r'audit.*log',
+            r'audit.*trail',
+            r'business.*log',
+            r'transaction.*log'
         ],
         "csharp": [
-            r'\bLog\.(Information|Debug|Error|Warning|Critical)',
+            # More flexible .NET logging patterns
+            r'\b\w*[Ll]og\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
+            r'\b\w*[Ll]ogger\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
             r'Log\.Logger\s*=\s*new\s+LoggerConfiguration\(\)',
             r'WriteTo\.Console\(\)',
             r'WriteTo\.File\(\)',
             r'AddSerilog\(\)',
             r'AddConsole\(\)',
-            r'appsettings\.json.*Logging'
+            r'AddLogging\(\)',
+            r'appsettings\.json.*Logging',
+            r'ILogger<',
+            r'ILoggerFactory',
+            r'CreateLogger\('
         ],
         "python": [
-            r'logging\.(info|debug|error|warning|critical)',
-            r'logger\.(info|debug|error|warning|critical)',
+            # More flexible Python logging patterns
+            r'\b\w*log\w*\.(info|debug|error|warning|critical|exception)',
+            r'\b\w*logger\w*\.(info|debug|error|warning|critical|exception)',
+            r'logging\.(getLogger|info|debug|error|warning|critical)',
+            r'getLogger\(',
             r'structlog\.',
             r'loguru\.',
-            r'python-json-logger'
+            r'python-json-logger',
+            r'\.log\(',
+            r'logging\.basicConfig',
+            r'logging\.config'
         ],
         "javascript": [
-            r'console\.(log|info|debug|error|warn)',
-            r'logger\.(info|debug|error|warn)',
+            # More flexible JavaScript logging patterns
+            r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
+            r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
+            r'console\.(log|info|debug|error|warn|trace)',
             r'winston\.',
             r'bunyan\.',
-            r'pino',
-            r'log4js\.'
+            r'pino\.',
+            r'log4js\.',
+            r'debug\(',
+            r'createLogger\(',
+            r'getLogger\('
         ],
         "typescript": [
-            r'console\.(log|info|debug|error|warn)',
-            r'logger\.(info|debug|error|warn)',
+            # More flexible TypeScript logging patterns
+            r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
+            r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
+            r'console\.(log|info|debug|error|warn|trace)',
             r'winston\.',
             r'bunyan\.',
-            r'pino',
-            r'log4js\.'
+            r'pino\.',
+            r'log4js\.',
+            r'debug\(',
+            r'createLogger\(',
+            r'getLogger\('
         ]
     },
     
@@ -272,45 +349,79 @@ STATIC_PATTERN_LIBRARY = {
     
     "LOG_APPLICATION_MESSAGES": {
         "java": [
-            r'\blogger\.(info|debug|error|warn|trace)',
+            # More flexible logger patterns to catch real-world variations
+            r'\b\w*logger\w*\.(info|debug|error|warn|trace|fatal)',
+            r'\b\w*log\w*\.(info|debug|error|warn|trace|fatal)', 
+            r'\bLogger\.(getLogger|info|debug|error|warn|trace)',
+            r'\bLoggerFactory\.getLogger',
+            r'\.getLogger\(',
+            r'getLogger\(',
+            # Configuration patterns
             r'<encoder.*class=.*JsonEncoder.*>',
             r'<appender.*class=.*ConsoleAppender.*>',
             r'<appender.*class=.*FileAppender.*>',
             r'logback\.xml',
             r'log4j2\.xml',
-            r'log4j\.properties'
+            r'log4j\.properties',
+            # Application-specific patterns
+            r'application.*log',
+            r'app.*log',
+            r'business.*event',
+            r'state.*change'
         ],
         "csharp": [
-            r'\bLog\.(Information|Debug|Error|Warning|Critical)',
+            # More flexible .NET logging patterns
+            r'\b\w*[Ll]og\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
+            r'\b\w*[Ll]ogger\w*\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)',
             r'Log\.Logger\s*=\s*new\s+LoggerConfiguration\(\)',
             r'WriteTo\.Console\(\)',
             r'WriteTo\.File\(\)',
             r'AddSerilog\(\)',
             r'AddConsole\(\)',
-            r'appsettings\.json.*Logging'
+            r'AddLogging\(\)',
+            r'appsettings\.json.*Logging',
+            r'ILogger<',
+            r'ILoggerFactory',
+            r'CreateLogger\('
         ],
         "python": [
-            r'logging\.(info|debug|error|warning|critical)',
-            r'logger\.(info|debug|error|warning|critical)',
+            # More flexible Python logging patterns
+            r'\b\w*log\w*\.(info|debug|error|warning|critical|exception)',
+            r'\b\w*logger\w*\.(info|debug|error|warning|critical|exception)',
+            r'logging\.(getLogger|info|debug|error|warning|critical)',
+            r'getLogger\(',
             r'structlog\.',
             r'loguru\.',
-            r'python-json-logger'
+            r'python-json-logger',
+            r'\.log\(',
+            r'logging\.basicConfig',
+            r'logging\.config'
         ],
         "javascript": [
-            r'console\.(log|info|debug|error|warn)',
-            r'logger\.(info|debug|error|warn)',
+            # More flexible JavaScript logging patterns
+            r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
+            r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
+            r'console\.(log|info|debug|error|warn|trace)',
             r'winston\.',
             r'bunyan\.',
-            r'pino',
-            r'log4js\.'
+            r'pino\.',
+            r'log4js\.',
+            r'debug\(',
+            r'createLogger\(',
+            r'getLogger\('
         ],
         "typescript": [
-            r'console\.(log|info|debug|error|warn)',
-            r'logger\.(info|debug|error|warn)',
+            # More flexible TypeScript logging patterns
+            r'\b\w*log\w*\.(log|info|debug|error|warn|trace)',
+            r'\b\w*logger\w*\.(log|info|debug|error|warn|trace)',
+            r'console\.(log|info|debug|error|warn|trace)',
             r'winston\.',
             r'bunyan\.',
-            r'pino',
-            r'log4js\.'
+            r'pino\.',
+            r'log4js\.',
+            r'debug\(',
+            r'createLogger\(',
+            r'getLogger\('
         ]
     },
     
@@ -657,4 +768,4 @@ def get_pattern_statistics() -> dict:
         
         stats['patterns_by_gate'][gate_name] = gate_pattern_count
     
-    return stats 
+    return stats  
