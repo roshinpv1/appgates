@@ -616,7 +616,7 @@ class CallLLMNode(Node):
         import threading
         
         # Timeout configuration
-        LLM_TIMEOUT = int(os.getenv("CODEGATES_LLM_TIMEOUT", "120"))  # 2 minutes default
+        LLM_TIMEOUT = int(os.getenv("CODEGATES_LLM_TIMEOUT", "500"))  # 2 minutes default
         print(f"   ⏱️ LLM timeout set to {LLM_TIMEOUT} seconds")
         
         # Try to create LLM client from environment first
