@@ -474,6 +474,59 @@ class GeneratePromptNode(Node):
         prompt_parts.append("")
         prompt_parts.append("**REMEMBER**: Generate patterns that will actually find real code in this specific project!")
         
+        prompt_parts.append("## CRITICAL INFRASTRUCTURE PATTERN DETECTION")
+        prompt_parts.append("**SPECIAL ANALYSIS REQUIRED:**")
+        prompt_parts.append("")
+        prompt_parts.append("### CENTRALIZED LOGGING FRAMEWORKS")
+        prompt_parts.append("If you detect ANY of these centralized logging frameworks, set coverage to 100% for STRUCTURED_LOGS:")
+        prompt_parts.append("- **Java**: Logback, Log4j2, SLF4J with structured output")
+        prompt_parts.append("- **Python**: structlog, python-json-logger, loguru")
+        prompt_parts.append("- **JavaScript**: Winston, Pino, Bunyan with JSON format")
+        prompt_parts.append("- **C#**: Serilog, NLog with structured logging")
+        prompt_parts.append("- **Enterprise**: ELK Stack, Splunk, DataDog, New Relic")
+        prompt_parts.append("")
+        prompt_parts.append("### RESILIENCE PATTERNS")
+        prompt_parts.append("If you detect ANY of these resilience patterns, set coverage to 100% for the corresponding gates:")
+        prompt_parts.append("- **Circuit Breakers**: Hystrix, Resilience4j, Polly, pybreaker → CIRCUIT_BREAKERS = 100%")
+        prompt_parts.append("- **Retry Logic**: Spring Retry, Polly Retry, tenacity, retrying → RETRY_LOGIC = 100%")
+        prompt_parts.append("- **Timeouts**: HttpClient.Timeout, RestTemplate timeout, aiohttp timeout → TIMEOUTS = 100%")
+        prompt_parts.append("- **Throttling**: RateLimiter, Bucket4j, express-rate-limit → THROTTLING = 100%")
+        prompt_parts.append("")
+        prompt_parts.append("### DETECTION CRITERIA")
+        prompt_parts.append("Look for these specific indicators:")
+        prompt_parts.append("- **Dependencies**: Check package.json, pom.xml, requirements.txt, .csproj")
+        prompt_parts.append("- **Configuration**: Check logging config files, application.properties, appsettings.json")
+        prompt_parts.append("- **Imports**: Look for framework-specific import statements")
+        prompt_parts.append("- **Usage**: Check for actual usage patterns in code")
+        prompt_parts.append("")
+        prompt_parts.append("### COVERAGE RULES")
+        prompt_parts.append("**When infrastructure patterns are detected:**")
+        prompt_parts.append("- Set expected_coverage.percentage = 100")
+        prompt_parts.append("- Set expected_coverage.confidence = 'high'")
+        prompt_parts.append("- Set expected_coverage.reasoning = 'Infrastructure framework detected'")
+        prompt_parts.append("- Include comprehensive patterns for the detected framework")
+        prompt_parts.append("")
+        prompt_parts.append("**Example for detected centralized logging:**")
+        prompt_parts.append("```json")
+        prompt_parts.append('  "STRUCTURED_LOGS": {')
+        prompt_parts.append('    "patterns": [')
+        prompt_parts.append('      "r\'import\\\\s+org\\\\\\.slf4j\\\\\\.Logger\'",')
+        prompt_parts.append('      "r\'@Slf4j\'",')
+        prompt_parts.append('      "r\'logback\\.xml\'",')
+        prompt_parts.append('      "r\'logback-spring\\.xml\'"')
+        prompt_parts.append('    ],')
+        prompt_parts.append('    "description": "Centralized logging framework (Logback/SLF4J) detected",')
+        prompt_parts.append('    "significance": "Enterprise-grade structured logging infrastructure in place",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 100,')
+        prompt_parts.append('      "reasoning": "Centralized logging framework (Logback/SLF4J) detected in dependencies and configuration",')
+        prompt_parts.append('      "confidence": "high"')
+        prompt_parts.append('    }')
+        prompt_parts.append('  }')
+        prompt_parts.append("```")
+        prompt_parts.append("")
+        prompt_parts.append("## CRITICAL PATTERN REQUIREMENTS")
+        
         prompt = "\n".join(prompt_parts)
         return prompt
     
@@ -741,6 +794,12 @@ class CallLLMNode(Node):
                             "reasoning": expected_coverage.get("reasoning", "Standard expectation for this gate type"),
                             "confidence": expected_coverage.get("confidence", "medium")
                         }
+                        
+                        # Special handling for infrastructure patterns with 100% coverage
+                        if coverage_data["percentage"] == 100:
+                            coverage_data["reasoning"] = expected_coverage.get("reasoning", "Infrastructure framework detected")
+                            coverage_data["confidence"] = "high"
+                            print(f"🎯 Infrastructure pattern detected for {gate_name}: {coverage_data['reasoning']}")
                     else:
                         # Fallback if expected_coverage is not a dict
                         coverage_data = {
@@ -1431,6 +1490,25 @@ class ValidateGatesNode(Node):
         expected_coverage_data = gate.get("expected_coverage", {})
         expected_percentage = expected_coverage_data.get("percentage", 10)  # Default 10%
         confidence = expected_coverage_data.get("confidence", "medium")
+        reasoning = expected_coverage_data.get("reasoning", "Standard expectation")
+        
+        # Special handling for infrastructure patterns with 100% expected coverage
+        if expected_percentage == 100:
+            print(f"🎯 Infrastructure pattern detected for {gate_name}: {reasoning}")
+            
+            # For infrastructure patterns, we need to verify the framework is actually used
+            files_with_matches = len(set(m["file"] for m in matches)) if matches else 0
+            
+            if files_with_matches > 0:
+                # Infrastructure framework detected and being used - score based on usage
+                usage_ratio = min(files_with_matches / relevant_file_count, 1.0)
+                score = usage_ratio * 100.0
+                print(f"   Infrastructure framework in use: {files_with_matches}/{relevant_file_count} files ({score:.1f}%)")
+                return score
+            else:
+                # Infrastructure framework detected but not being used - low score
+                print(f"   Infrastructure framework detected but not implemented: 0/{relevant_file_count} files")
+                return 10.0  # Low score for detected but unused framework
         
         # Convert percentage to decimal
         expected_coverage_ratio = expected_percentage / 100.0
@@ -1515,9 +1593,22 @@ class ValidateGatesNode(Node):
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
-        # Coverage analysis with technology-specific information
-        details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
-        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+        # Special analysis for infrastructure patterns
+        if expected_percentage == 100:
+            details.append(f"🎯 Infrastructure Framework Analysis:")
+            details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
+            
+            if files_with_matches > 0:
+                details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{relevant_files} files ({actual_percentage:.1f}%)")
+                details.append(f"Framework: {coverage_reasoning}")
+            else:
+                details.append(f"⚠️ Framework Detected but Not Implemented: 0/{relevant_files} files")
+                details.append(f"Framework: {coverage_reasoning}")
+                details.append(f"Recommendation: Implement the detected framework throughout your codebase")
+        else:
+            # Standard coverage analysis
+            details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+            details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
         
         # Show technology filtering information if different from total
         if relevant_files != total_files:
@@ -1555,27 +1646,29 @@ class ValidateGatesNode(Node):
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
-        # Generate recommendations based on coverage gap
-        coverage_gap = expected_percentage - actual_percentage
-        
-        if score < 50.0:
-            recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
-            recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
-            recommendations.append(f"Focus on {gate['description'].lower()}")
-            if coverage_reasoning:
-                recommendations.append(f"Rationale: {coverage_reasoning}")
-        elif score < 80.0:
-            recommendations.append(f"Improve {gate['display_name']} coverage")
-            if coverage_gap > 5:
-                recommendations.append(f"Gap: Expected {expected_percentage}%, current {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
-            recommendations.append("Consider adding more comprehensive implementation")
-        else:
-            if actual_percentage >= expected_percentage:
-                recommendations.append(f"Excellent implementation of {gate['display_name']}")
-                recommendations.append(f"Coverage exceeds expectations ({actual_percentage:.1f}% vs {expected_percentage}%)")
+        # Special recommendations for infrastructure patterns
+        if expected_percentage == 100:
+            if files_with_matches > 0:
+                recommendations.append(f"✅ Infrastructure Framework Implemented: {coverage_reasoning}")
+                recommendations.append(f"Current Usage: {files_with_matches}/{relevant_files} files ({actual_percentage:.1f}%)")
+                if actual_percentage < 50:
+                    recommendations.append(f"Recommendation: Extend {gate['display_name']} implementation to more files")
+                else:
+                    recommendations.append(f"Recommendation: {gate['display_name']} is well implemented")
             else:
-                recommendations.append(f"Good implementation of {gate['display_name']}")
-                recommendations.append("Consider optimizing existing patterns")
+                recommendations.append(f"🎯 Infrastructure Framework Detected: {coverage_reasoning}")
+                recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+                recommendations.append(f"Framework: {coverage_reasoning}")
+        else:
+            # Generate recommendations based on coverage gap
+            coverage_gap = expected_percentage - actual_percentage
+            
+            if score < 50.0:
+                recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+                recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
+                recommendations.append(f"Focus on {gate['description'].lower()}")
+                if coverage_reasoning:
+                    recommendations.append(f"Rationale: {coverage_reasoning}")
         
         # Add confidence-based recommendations
         if confidence == "low":
@@ -2553,9 +2646,22 @@ class GenerateReportNode(Node):
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
-        # Coverage analysis with technology-specific information
-        details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
-        details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+        # Special analysis for infrastructure patterns
+        if expected_percentage == 100:
+            details.append(f"🎯 Infrastructure Framework Analysis:")
+            details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
+            
+            if files_with_matches > 0:
+                details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{relevant_files} files ({actual_percentage:.1f}%)")
+                details.append(f"Framework: {coverage_reasoning}")
+            else:
+                details.append(f"⚠️ Framework Detected but Not Implemented: 0/{relevant_files} files")
+                details.append(f"Framework: {coverage_reasoning}")
+                details.append(f"Recommendation: Implement the detected framework throughout your codebase")
+        else:
+            # Standard coverage analysis
+            details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+            details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
         
         # Show technology filtering information if different from total
         if relevant_files != total_files:
