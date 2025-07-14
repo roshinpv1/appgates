@@ -1252,6 +1252,14 @@ class ValidateGatesNode(Node):
             
             print(f"   Validating {gate_name} with hybrid patterns...")
             
+            # Show file analysis summary
+            if gate_name == "AUTOMATED_TESTS":
+                relevant_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
+            else:
+                relevant_files = self._get_improved_relevant_files(metadata, file_type="Source Code", gate_name=gate_name, config=config)
+            
+            print(f"   📁 Analyzing {len(relevant_files)} relevant files for {gate_name} (from {metadata.get('total_files', 0)} total files in repository)")
+            
             # Check if gate is not applicable
             is_not_applicable = (
                 gate_pattern_info.get("description", "").strip() == "Not Applicable" or
@@ -1505,7 +1513,8 @@ class ValidateGatesNode(Node):
                 for i, file_info in enumerate(target_files[:max_files]):
                     # Add progress logging every 10 files
                     if i % 10 == 0 and i > 0:
-                        print(f"   📊 Processing file {i}/{max_files} for {gate_name}...")
+                        actual_files_to_process = min(len(target_files), max_files)
+                        print(f"   📊 Processing file {i}/{actual_files_to_process} for {gate_name}...")
                     file_path = repo_path / file_info["relative_path"]
                     if not file_path.exists():
                         local_files_skipped += 1
@@ -1561,7 +1570,8 @@ class ValidateGatesNode(Node):
             return []
         # Report processing statistics
         if config.get("enable_detailed_logging", True):
-            print(f"   📊 File processing stats for {gate_name}: {processing_result['files_processed']} processed, {processing_result['files_skipped']} skipped, {processing_result['files_too_large']} too large, {processing_result['files_read_errors']} read errors")
+            actual_files_to_process = min(len(target_files), max_files)
+            print(f"   📊 File processing stats for {gate_name}: {processing_result['files_processed']} processed, {processing_result['files_skipped']} skipped, {processing_result['files_too_large']} too large, {processing_result['files_read_errors']} read errors (out of {actual_files_to_process} eligible files)")
         if len(target_files) > max_files:
             print(f"   ⚠️ File limit reached: processed {max_files} out of {len(target_files)} eligible files for {gate_name}")
         return processing_result["matches"]
@@ -1818,6 +1828,9 @@ class ValidateGatesNode(Node):
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
+        # Calculate coverage gap for all cases
+        coverage_gap = expected_percentage - actual_percentage
+        
         # Special recommendations for infrastructure patterns
         if expected_percentage == 100:
             if files_with_matches > 0:
@@ -1833,8 +1846,6 @@ class ValidateGatesNode(Node):
                 recommendations.append(f"Framework: {coverage_reasoning}")
         else:
             # Generate recommendations based on coverage gap
-            coverage_gap = expected_percentage - actual_percentage
-            
             if score < 50.0:
                 recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
                 recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
