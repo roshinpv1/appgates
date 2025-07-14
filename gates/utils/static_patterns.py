@@ -1011,7 +1011,7 @@ def get_supported_technologies() -> list:
     for gate_patterns in STATIC_PATTERN_LIBRARY.values():
         for tech in gate_patterns.keys():
             if tech not in ['standard_logging', 'structured_logging', 'framework_logging', 'all_languages']:
-            technologies.add(tech)
+                technologies.add(tech)
     
     return sorted(list(technologies))
 

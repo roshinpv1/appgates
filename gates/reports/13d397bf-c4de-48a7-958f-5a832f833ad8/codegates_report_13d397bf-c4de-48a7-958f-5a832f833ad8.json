@@ -1,0 +1,1129 @@
+{
+  "report_metadata": {
+    "scan_id": "13d397bf-c4de-48a7-958f-5a832f833ad8",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic",
+    "branch": "main",
+    "generated_at": "2025-07-14T21:02:19.235438",
+    "version": "2.0.0",
+    "llm_source": "fallback",
+    "llm_model": "built-in",
+    "validation_type": "hybrid"
+  },
+  "scan_metadata": {
+    "scan_duration": 0,
+    "total_files": 112,
+    "total_lines": 14402,
+    "timestamp": "2025-07-14T21:02:19.235444",
+    "project_name": "spring-projects/spring-petclinic",
+    "project_path": "https://github.com/spring-projects/spring-petclinic",
+    "repository_url": "https://github.com/spring-projects/spring-petclinic"
+  },
+  "languages_detected": [
+    "Docker",
+    "JSON",
+    "YAML",
+    "Batch",
+    "XML",
+    "Gradle",
+    "Java",
+    "SQL",
+    "CSS",
+    "HTML",
+    "SCSS"
+  ],
+  "gates": [
+    {
+      "name": "STRUCTURED_LOGS",
+      "display_name": "Logs Searchable/Available",
+      "status": "PASS",
+      "score": 81.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 16.0% (4/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "Found 6 matches across 4 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:58 - Fields(",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:59 - Fields(",
+        "  src/main/java/org/springframework/samples/petclinic/owner/PetController.java:87 - Fields(",
+        "  ... and 3 more matches"
+      ],
+      "category": "Logging",
+      "priority": "high",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "patterns_used": 83,
+      "matches_found": 6,
+      "recommendations": [
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for STRUCTURED_LOGS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 78,
+          "matches": 6,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 6,
+        "overlap_matches": 0
+      },
+      "expected": 83,
+      "found": 6,
+      "coverage": 81.0,
+      "quality_score": 81.0,
+      "matches": []
+    },
+    {
+      "name": "AVOID_LOGGING_SECRETS",
+      "display_name": "Avoid Logging Confidential Data",
+      "status": "PASS",
+      "score": 100.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Avoid Logging Confidential Data"
+      ],
+      "category": "Security",
+      "priority": "critical",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "patterns_used": 11,
+      "matches_found": 0,
+      "recommendations": [
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for AVOID_LOGGING_SECRETS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 6,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 11,
+      "found": 0,
+      "coverage": 100.0,
+      "quality_score": 100.0,
+      "matches": []
+    },
+    {
+      "name": "AUDIT_TRAIL",
+      "display_name": "Create Audit Trail Logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Create Audit Trail Logs"
+      ],
+      "category": "Compliance",
+      "priority": "high",
+      "description": "Log critical business operations for audit compliance",
+      "patterns_used": 20,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Create Audit Trail Logs throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on log critical business operations for audit compliance",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for AUDIT_TRAIL - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 16,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 20,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Tracking ID for Logs"
+      ],
+      "category": "Observability",
+      "priority": "medium",
+      "description": "Include correlation IDs for distributed tracing",
+      "patterns_used": 17,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Tracking ID for Logs throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on include correlation ids for distributed tracing",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for CORRELATION_ID - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 13,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 17,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "status": "PASS",
+      "score": 81.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 24.0% (6/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "Found 35 matches across 6 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:70 - @GetMapping",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:87 - @GetMapping",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:92 - @GetMapping",
+        "  ... and 32 more matches"
+      ],
+      "category": "API",
+      "priority": "medium",
+      "description": "Log all API requests and responses for monitoring",
+      "patterns_used": 32,
+      "matches_found": 35,
+      "recommendations": [
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for LOG_API_CALLS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 28,
+          "matches": 53,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 35,
+        "overlap_matches": 18
+      },
+      "expected": 32,
+      "found": 35,
+      "coverage": 81.0,
+      "quality_score": 81.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Log Application Messages"
+      ],
+      "category": "Logging",
+      "priority": "medium",
+      "description": "Log important application state changes and events",
+      "patterns_used": 20,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Log Application Messages throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on log important application state changes and events",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for LOG_APPLICATION_MESSAGES - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 16,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 20,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Client UI Errors Logged"
+      ],
+      "category": "Frontend",
+      "priority": "medium",
+      "description": "Capture and log client-side UI errors",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Client UI Errors Logged throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on capture and log client-side ui errors",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for UI_ERRORS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 4,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Retry Logic"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Implement retry mechanisms for resilient operations",
+      "patterns_used": 8,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Retry Logic throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on implement retry mechanisms for resilient operations",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for RETRY_LOGIC - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 8,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Timeouts in IO Ops"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Set appropriate timeouts for I/O operations",
+      "patterns_used": 9,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Timeouts in IO Ops throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on set appropriate timeouts for i/o operations",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for TIMEOUTS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 9,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Throttling & Drop Request"
+      ],
+      "category": "Performance",
+      "priority": "medium",
+      "description": "Implement rate limiting and request throttling",
+      "patterns_used": 8,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Throttling & Drop Request throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on implement rate limiting and request throttling",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for THROTTLING - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 8,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Circuit Breakers"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "patterns_used": 8,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Circuit Breakers throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on implement circuit breaker pattern for fault tolerance",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for CIRCUIT_BREAKERS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 8,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "status": "PASS",
+      "score": 81.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 32.0% (8/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "Found 31 matches across 8 files",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:66 - Exception",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:167 - Exception",
+        "  src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:77 - Error",
+        "  ... and 28 more matches"
+      ],
+      "category": "Error Handling",
+      "priority": "high",
+      "description": "Comprehensive error logging and exception handling",
+      "patterns_used": 26,
+      "matches_found": 31,
+      "recommendations": [
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for ERROR_LOGS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 22,
+          "matches": 72,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 31,
+        "overlap_matches": 41
+      },
+      "expected": 26,
+      "found": 31,
+      "coverage": 81.0,
+      "quality_score": 81.0,
+      "matches": []
+    },
+    {
+      "name": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for HTTP Error Codes"
+      ],
+      "category": "API",
+      "priority": "medium",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "patterns_used": 10,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement HTTP Error Codes throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on use appropriate http status codes for api responses",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for HTTP_CODES - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 7,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 10,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 0.0% (0/25 relevant files)",
+        "Technology Filter: Using 25 relevant files (from 112 total files)",
+        "Confidence: low",
+        "No matches found for Client Error Tracking"
+      ],
+      "category": "Frontend",
+      "priority": "medium",
+      "description": "Integrate client-side error tracking tools",
+      "patterns_used": 5,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Client Error Tracking throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+        "Focus on integrate client-side error tracking tools",
+        "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for UI_ERROR_TOOLS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 25,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 25 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 5,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "status": "PASS",
+      "score": 81.0,
+      "details": [
+        "Expected Coverage: 10% (Fallback expectation - LLM analysis unavailable for technology-specific estimation)",
+        "Actual Coverage: 88.9% (16/18 relevant files)",
+        "Technology Filter: Using 18 relevant files (from 112 total files)",
+        "Confidence: low",
+        "Found 500 matches across 16 files",
+        "  src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:20 - Test",
+        "  src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:23 - test",
+        "  src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:27 - test",
+        "  ... and 497 more matches"
+      ],
+      "category": "Testing",
+      "priority": "high",
+      "description": "Comprehensive automated test coverage",
+      "patterns_used": 31,
+      "matches_found": 500,
+      "recommendations": [
+        "Note: Coverage estimate has low confidence - manual review recommended",
+        "Note: Analysis focused on 18 technology-relevant files (filtered from 112 total)"
+      ],
+      "pattern_description": "Fallback patterns for AUTOMATED_TESTS - basic implementation patterns",
+      "pattern_significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+        "confidence": "low"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 18,
+        "total_files": 112,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "low",
+        "analysis_basis": "Based on 18 relevant files (filtered from 112 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 7,
+          "matches": 490,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 24,
+          "matches": 476,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 500,
+        "overlap_matches": 466
+      },
+      "expected": 31,
+      "found": 500,
+      "coverage": 81.0,
+      "quality_score": 81.0,
+      "matches": []
+    }
+  ],
+  "score": 28.266666666666666,
+  "overall_score": 28.266666666666666,
+  "passed_gates": 5,
+  "warning_gates": 0,
+  "failed_gates": 10,
+  "not_applicable_gates": 0,
+  "total_applicable_gates": 15,
+  "total_all_gates": 15,
+  "critical_issues": [],
+  "recommendations": [
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Create Audit Trail Logs throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on log critical business operations for audit compliance",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Tracking ID for Logs throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on include correlation ids for distributed tracing",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Log Application Messages throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on log important application state changes and events",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Client UI Errors Logged throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on capture and log client-side ui errors",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Retry Logic throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on implement retry mechanisms for resilient operations",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Timeouts in IO Ops throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on set appropriate timeouts for i/o operations",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Throttling & Drop Request throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on implement rate limiting and request throttling",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Circuit Breakers throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on implement circuit breaker pattern for fault tolerance",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement HTTP Error Codes throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on use appropriate http status codes for api responses",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Critical: Implement Client Error Tracking throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 25 relevant files)",
+    "Focus on integrate client-side error tracking tools",
+    "Rationale: Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 25 technology-relevant files (filtered from 112 total)",
+    "Note: Coverage estimate has low confidence - manual review recommended",
+    "Note: Analysis focused on 18 technology-relevant files (filtered from 112 total)"
+  ],
+  "hybrid_validation": {
+    "enabled": true,
+    "statistics": {
+      "total_llm_patterns": 72,
+      "total_static_patterns": 220,
+      "total_llm_matches": 490,
+      "total_static_matches": 607,
+      "total_unique_matches": 572,
+      "total_overlap_matches": 525,
+      "coverage_improvement": 16.73469387755102,
+      "confidence_distribution": {
+        "high": 1,
+        "medium": 3,
+        "low": 11
+      }
+    },
+    "pattern_library_version": "1.0.0",
+    "static_patterns_used": 220,
+    "llm_patterns_used": 72,
+    "coverage_improvement": 16.73469387755102,
+    "confidence_distribution": {
+      "high": 1,
+      "medium": 3,
+      "low": 11
+    }
+  }
+}

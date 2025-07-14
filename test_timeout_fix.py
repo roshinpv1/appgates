@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify timeout handling in CodeGates LLM calls
+Test script to verify timeout handling in CodeGates LLM calls and file processing
 """
 
 import os
@@ -11,7 +11,7 @@ from pathlib import Path
 # Add gates directory to path
 sys.path.append(str(Path(__file__).parent / "gates"))
 
-from nodes import CallLLMNode
+from nodes import CallLLMNode, ValidateGatesNode
 from utils.hard_gates import HARD_GATES
 
 def test_llm_timeout():
@@ -129,6 +129,79 @@ def test_fallback_patterns():
         print(f"❌ Test failed: {e}")
         return False
 
+def test_file_processing_timeout():
+    """Test file processing timeout handling"""
+    print("\n🧪 Testing file processing timeout handling...")
+    
+    # Create a mock shared context
+    shared = {
+        "request": {
+            "repository_url": "https://github.com/test/repo",
+            "branch": "main",
+            "threshold": 70
+        },
+        "repository": {
+            "local_path": "/tmp/test-repo",
+            "metadata": {
+                "file_list": [
+                    {
+                        "relative_path": "test.java",
+                        "type": "Source Code",
+                        "language": "Java",
+                        "is_binary": False,
+                        "size": 1024
+                    }
+                ],
+                "language_stats": {
+                    "Java": {"files": 1, "lines": 100}
+                }
+            }
+        },
+        "llm": {
+            "patterns": {
+                "STRUCTURED_LOGS": ["logger.info", "log.debug"]
+            }
+        },
+        "hard_gates": [
+            {
+                "name": "STRUCTURED_LOGS",
+                "display_name": "Structured Logs",
+                "description": "Test gate",
+                "category": "Logging",
+                "priority": "high"
+            }
+        ]
+    }
+    
+    # Set a short timeout for testing
+    os.environ["CODEGATES_FILE_PROCESSING_TIMEOUT"] = "5"  # 5 seconds
+    
+    # Create the node
+    node = ValidateGatesNode()
+    
+    try:
+        # Prepare the node
+        prep_result = node.prep(shared)
+        print(f"✅ Prep successful: {len(prep_result)} parameters")
+        
+        # Execute with timeout
+        start_time = time.time()
+        exec_result = node.exec(prep_result)
+        end_time = time.time()
+        
+        print(f"✅ Execution completed in {end_time - start_time:.2f} seconds")
+        print(f"   Gates processed: {len(exec_result)}")
+        
+        # Post process
+        post_result = node.post(shared, prep_result, exec_result)
+        print(f"✅ Post processing successful: {post_result}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        return False
+
 if __name__ == "__main__":
     print("🚀 Starting CodeGates timeout handling tests...")
     
@@ -138,12 +211,16 @@ if __name__ == "__main__":
     # Test 2: Fallback pattern generation
     test2_success = test_fallback_patterns()
     
+    # Test 3: File processing timeout
+    test3_success = test_file_processing_timeout()
+    
     # Summary
     print("\n📊 Test Results:")
     print(f"   LLM Timeout Test: {'✅ PASSED' if test1_success else '❌ FAILED'}")
     print(f"   Fallback Test: {'✅ PASSED' if test2_success else '❌ FAILED'}")
+    print(f"   File Processing Timeout Test: {'✅ PASSED' if test3_success else '❌ FAILED'}")
     
-    if test1_success and test2_success:
+    if test1_success and test2_success and test3_success:
         print("\n🎉 All tests passed! Timeout handling is working correctly.")
         sys.exit(0)
     else:
