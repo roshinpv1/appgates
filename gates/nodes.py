@@ -610,6 +610,14 @@ class CallLLMNode(Node):
         """Call LLM to generate patterns using the comprehensive LLM client"""
         print("🤖 Calling LLM for pattern generation...")
         
+        # Set a timeout for the entire LLM operation
+        import signal
+        import threading
+        
+        # Timeout configuration
+        LLM_TIMEOUT = int(os.getenv("CODEGATES_LLM_TIMEOUT", "120"))  # 2 minutes default
+        print(f"   ⏱️ LLM timeout set to {LLM_TIMEOUT} seconds")
+        
         # Try to create LLM client from environment first
         llm_client = create_llm_client_from_env()
         
@@ -634,7 +642,8 @@ class CallLLMNode(Node):
                         api_key=llm_config.get("api_key"),
                         base_url=llm_config.get("url"),
                         temperature=llm_config.get("temperature", 0.1),
-                        max_tokens=llm_config.get("max_tokens", 4000)
+                        max_tokens=llm_config.get("max_tokens", 4000),
+                        timeout=LLM_TIMEOUT
                     )
                     
                     llm_client = LLMClient(config)
@@ -643,24 +652,50 @@ class CallLLMNode(Node):
                     print(f"⚠️ Failed to create LLM client from config: {e}")
                     llm_client = None
         
-        # If we have a working LLM client, use it
+        # If we have a working LLM client, use it with timeout protection
         if llm_client and llm_client.is_available():
             try:
                 print(f"🔗 Using {llm_client.config.provider.value} LLM provider")
                 print(f"   Model: {llm_client.config.model}")
                 
-                response = llm_client.call_llm(params["prompt"])
+                # Use threading with timeout to prevent hanging
+                result = {"success": False, "response": "", "error": ""}
                 
-                # Try to parse JSON response with enhanced format
-                pattern_data = self._parse_enhanced_llm_response(response)
+                def llm_call_with_timeout():
+                    try:
+                        response = llm_client.call_llm(params["prompt"])
+                        result["success"] = True
+                        result["response"] = response
+                    except Exception as e:
+                        result["error"] = str(e)
                 
-                return {
-                    "success": True,
-                    "pattern_data": pattern_data,
-                    "source": llm_client.config.provider.value,
-                    "model": llm_client.config.model,
-                    "response": response[:10000] + "..." if len(response) > 10000 else response
-                }
+                # Start LLM call in a separate thread
+                llm_thread = threading.Thread(target=llm_call_with_timeout)
+                llm_thread.daemon = True
+                llm_thread.start()
+                
+                # Wait for completion with timeout
+                llm_thread.join(timeout=LLM_TIMEOUT)
+                
+                if llm_thread.is_alive():
+                    print(f"⚠️ LLM call timed out after {LLM_TIMEOUT} seconds, using fallback")
+                    result["error"] = f"LLM call timed out after {LLM_TIMEOUT} seconds"
+                
+                if result["success"]:
+                    # Try to parse JSON response with enhanced format
+                    pattern_data = self._parse_enhanced_llm_response(result["response"])
+                    
+                    return {
+                        "success": True,
+                        "pattern_data": pattern_data,
+                        "source": llm_client.config.provider.value,
+                        "model": llm_client.config.model,
+                        "response": result["response"][:10000] + "..." if len(result["response"]) > 10000 else result["response"]
+                    }
+                else:
+                    print(f"⚠️ LLM call failed: {result['error']}")
+                    # Fall back to pattern generation
+                    pass
                 
             except Exception as e:
                 print(f"⚠️ LLM call failed: {e}")
@@ -668,7 +703,7 @@ class CallLLMNode(Node):
                 pass
         
         # Fallback to pattern generation
-        print("🔄 LLM not available, using fallback pattern generation")
+        print("🔄 LLM not available or failed, using fallback pattern generation")
         pattern_data = self._generate_fallback_pattern_data()
         
         return {

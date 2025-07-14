@@ -260,7 +260,7 @@ class LLMClient:
             self.enterprise_token_manager = EnterpriseTokenManager()
     
     def call_llm(self, prompt: str) -> str:
-        """Call LLM with the given prompt"""
+        """Call LLM with the configured provider"""
         try:
             if self.config.provider == LLMProvider.OPENAI:
                 return self._call_openai(prompt)
@@ -278,30 +278,35 @@ class LLMClient:
                 return self._call_apigee(prompt)
             else:
                 raise ValueError(f"Unsupported LLM provider: {self.config.provider}")
-        
         except Exception as e:
-            self.logger.error(f"LLM call failed: {str(e)}")
-            raise Exception(f"LLM call failed: {str(e)}")
+            print(f"⚠️ LLM call failed for provider {self.config.provider}: {e}")
+            raise
     
     def _call_openai(self, prompt: str) -> str:
         """Call OpenAI API"""
         if not OPENAI_AVAILABLE:
-            raise ImportError("OpenAI library not available. Install with: pip install openai")
+            raise ImportError("OpenAI library not available")
         
-        client = openai.OpenAI(
-            api_key=self.config.api_key,
-            base_url=self.config.base_url
-        )
-        
-        response = client.chat.completions.create(
-            model=self.config.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens,
-            timeout=self.config.timeout
-        )
-        
-        return response.choices[0].message.content
+        try:
+            client = openai.OpenAI(
+                api_key=self.config.api_key,
+                base_url=self.config.base_url,
+                timeout=self.config.timeout
+            )
+            
+            response = client.chat.completions.create(
+                model=self.config.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                timeout=self.config.timeout
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            print(f"⚠️ OpenAI API call failed: {e}")
+            raise
     
     def _call_anthropic(self, prompt: str) -> str:
         """Call Anthropic API"""
@@ -354,35 +359,38 @@ class LLMClient:
         return response.message.content
     
     def _call_local(self, prompt: str) -> str:
-        """Call local LLM API (OpenAI-compatible)"""
-        if not self.config.base_url:
-            raise ValueError("Local LLM URL not configured")
-        
-        headers = {"Content-Type": "application/json"}
-        if self.config.api_key and self.config.api_key != "not-needed":
-            headers["Authorization"] = f"Bearer {self.config.api_key}"
-        
-        data = {
-            "model": self.config.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens
-        }
-        
-        response = requests.post(
-            f"{self.config.base_url}/chat/completions",
-            headers=headers,
-            json=data,
-            timeout=self.config.timeout
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"Local LLM request failed: {response.status_code} - {response.text}")
+        """Call local LLM API"""
+        if not HTTPX_AVAILABLE:
+            raise ImportError("HTTPX library not available")
         
         try:
-            return response.json()["choices"][0]["message"]["content"]
-        except (KeyError, json.JSONDecodeError) as e:
-            raise Exception(f"Failed to parse local LLM response: {e}")
+            import httpx
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.config.api_key}" if self.config.api_key else ""
+            }
+            
+            payload = {
+                "model": self.config.model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens
+            }
+            
+            with httpx.Client(timeout=self.config.timeout) as client:
+                response = client.post(
+                    f"{self.config.base_url}/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+                
+        except Exception as e:
+            print(f"⚠️ Local LLM API call failed: {e}")
+            raise
     
     def _call_enterprise(self, prompt: str) -> str:
         """Call enterprise LLM API"""
