@@ -778,112 +778,104 @@ class CallLLMNode(Node):
         return "default"
     
     def _parse_enhanced_llm_response(self, response: str) -> Dict[str, Dict[str, Any]]:
-        """Parse LLM response to extract patterns with descriptions, significance, and expected coverage"""
+        """Parse enhanced LLM response with expected coverage and maximum files analysis"""
         try:
-            # Try to find JSON in the response with multiple strategies
-            json_str = None
-            
-            # Strategy 1: Look for JSON in code blocks
-            json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-            else:
-                # Strategy 2: Look for JSON without code blocks
-                json_match = re.search(r'(\{.*?\})', response, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(1)
-                else:
-                    # Strategy 3: Try to extract patterns from structured text
-                    return self._extract_patterns_from_text(response)
-            
-            if not json_str:
-                print("⚠️ No JSON found in LLM response, using fallback parsing")
-                return self._extract_patterns_from_text(response)
-            
-            # Parse JSON with error handling
-            try:
-                raw_data = json.loads(json_str)
-            except json.JSONDecodeError as e:
-                print(f"⚠️ JSON parsing failed: {e}")
-                # Try to fix common JSON issues
-                json_str = self._fix_common_json_issues(json_str)
+            # Try to parse as JSON first
+            if response.strip().startswith('{'):
                 try:
-                    raw_data = json.loads(json_str)
+                    data = json.loads(response)
+                    return self._validate_and_enhance_json_data(data)
                 except json.JSONDecodeError:
-                    print("⚠️ JSON repair failed, using text extraction")
-                    return self._extract_patterns_from_text(response)
+                    pass
             
-            # Validate and structure the data
-            pattern_data = {}
-            for gate_name, gate_info in raw_data.items():
-                if isinstance(gate_info, dict):
-                    # Enhanced format with expected coverage
-                    patterns = gate_info.get("patterns", [])
-                    
-                    # Clean and validate patterns
-                    cleaned_patterns = self._clean_and_validate_patterns(patterns)
-                    
-                    expected_coverage = gate_info.get("expected_coverage", {})
-                    if isinstance(expected_coverage, dict):
-                        coverage_data = {
-                            "percentage": expected_coverage.get("percentage", 10),  # Default 10%
-                            "reasoning": expected_coverage.get("reasoning", "Standard expectation for this gate type"),
-                            "confidence": expected_coverage.get("confidence", "medium")
-                        }
-                        
-                        # Special handling for infrastructure patterns with 100% coverage
-                        if coverage_data["percentage"] == 100:
-                            coverage_data["reasoning"] = expected_coverage.get("reasoning", "Infrastructure framework detected")
-                            coverage_data["confidence"] = "high"
-                            print(f"🎯 Infrastructure pattern detected for {gate_name}: {coverage_data['reasoning']}")
-                    else:
-                        # Fallback if expected_coverage is not a dict
-                        coverage_data = {
-                            "percentage": 10,
-                            "reasoning": "Standard expectation for this gate type",
-                            "confidence": "medium"
-                        }
-                    
-                    pattern_data[gate_name] = {
-                        "patterns": cleaned_patterns,
-                        "description": gate_info.get("description", "Pattern analysis for this gate"),
-                        "significance": gate_info.get("significance", "Important for code quality and compliance"),
-                        "expected_coverage": coverage_data
-                    }
-                elif isinstance(gate_info, list):
-                    # Old format - just patterns
-                    cleaned_patterns = self._clean_and_validate_patterns(gate_info)
-                    pattern_data[gate_name] = {
-                        "patterns": cleaned_patterns,
-                        "description": "Pattern analysis for this gate",
-                        "significance": "Important for code quality and compliance",
-                        "expected_coverage": {
-                            "percentage": 10,
-                            "reasoning": "Standard expectation for this gate type",
-                            "confidence": "medium"
-                        }
-                    }
-                else:
-                    # Single pattern
-                    cleaned_patterns = self._clean_and_validate_patterns([str(gate_info)] if gate_info else [])
-                    pattern_data[gate_name] = {
-                        "patterns": cleaned_patterns,
-                        "description": "Pattern analysis for this gate",
-                        "significance": "Important for code quality and compliance",
-                        "expected_coverage": {
-                            "percentage": 10,
-                            "reasoning": "Standard expectation for this gate type",
-                            "confidence": "medium"
-                        }
-                    }
-            
-            return pattern_data
+            # Fallback to text parsing
+            return self._extract_patterns_from_text(response)
             
         except Exception as e:
-            print(f"⚠️ Failed to parse enhanced LLM response: {e}")
-            print(f"Response preview: {response[:200]}...")
-            # Return fallback patterns
+            print(f"   ⚠️ Error parsing LLM response: {e}")
             return self._generate_fallback_pattern_data()
+    
+    def _validate_and_enhance_json_data(self, data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Validate and enhance JSON data with maximum files analysis"""
+        enhanced_data = {}
+        
+        for gate_name, gate_data in data.items():
+            if isinstance(gate_data, dict):
+                # Extract patterns
+                patterns = gate_data.get("patterns", [])
+                if isinstance(patterns, list):
+                    patterns = self._clean_and_validate_patterns(patterns)
+                
+                # Extract expected coverage with enhanced analysis
+                expected_coverage = gate_data.get("expected_coverage", {})
+                if isinstance(expected_coverage, dict):
+                    # Add maximum files analysis
+                    max_files_expected = self._calculate_max_files_expected(gate_name, expected_coverage)
+                    expected_coverage["max_files_expected"] = max_files_expected
+                
+                # Extract other fields
+                description = gate_data.get("description", "")
+                significance = gate_data.get("significance", "")
+                confidence = gate_data.get("confidence", "medium")
+                
+                enhanced_data[gate_name] = {
+                    "patterns": patterns,
+                    "description": description,
+                    "significance": significance,
+                    "expected_coverage": expected_coverage,
+                    "confidence": confidence
+                }
+        
+        return enhanced_data
+    
+    def _calculate_max_files_expected(self, gate_name: str, expected_coverage: Dict[str, Any]) -> int:
+        """Calculate maximum number of files expected for validation based on gate type and coverage"""
+        percentage = expected_coverage.get("percentage", 10)
+        reasoning = expected_coverage.get("reasoning", "")
+        
+        # Gate-specific maximum file expectations
+        gate_max_files = {
+            "STRUCTURED_LOGS": 200,
+            "AVOID_LOGGING_SECRETS": 150,
+            "AUDIT_TRAIL": 100,
+            "LOG_API_CALLS": 120,
+            "LOG_APPLICATION_MESSAGES": 180,
+            "ERROR_LOGS": 160,
+            "UI_ERRORS": 80,
+            "UI_ERROR_TOOLS": 60,
+            "AUTOMATED_TESTS": 100,
+            "INPUT_VALIDATION": 200,
+            "OUTPUT_SANITIZATION": 150,
+            "SQL_INJECTION_PREVENTION": 120,
+            "XSS_PREVENTION": 140,
+            "CSRF_PROTECTION": 80,
+            "AUTHENTICATION": 100,
+            "AUTHORIZATION": 120,
+            "SECURE_COMMUNICATION": 60,
+            "SECURE_STORAGE": 80,
+            "SECURE_CONFIGURATION": 100,
+            "SECURE_DEPLOYMENT": 60
+        }
+        
+        # Get base maximum files for this gate
+        base_max_files = gate_max_files.get(gate_name, 100)
+        
+        # Adjust based on expected coverage percentage
+        if percentage == 100:
+            # Infrastructure patterns - expect high coverage
+            max_files = int(base_max_files * 0.8)  # 80% of base
+        elif percentage >= 50:
+            # High coverage expectations
+            max_files = int(base_max_files * 0.6)  # 60% of base
+        elif percentage >= 25:
+            # Medium coverage expectations
+            max_files = int(base_max_files * 0.4)  # 40% of base
+        else:
+            # Low coverage expectations
+            max_files = int(base_max_files * 0.2)  # 20% of base
+        
+        # Ensure minimum of 1 file
+        return max(1, max_files)
     
     def _fix_common_json_issues(self, json_str: str) -> str:
         """Fix common JSON formatting issues in LLM responses"""
@@ -1661,7 +1653,7 @@ class ValidateGatesNode(Node):
         return primary_technologies
     
     def _calculate_gate_score(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], metadata: Dict[str, Any]) -> float:
-        """Calculate score for a gate based on matches and LLM-provided expected coverage"""
+        """Calculate score for a gate based on matches and LLM-provided expected coverage with maximum files analysis"""
         
         gate_name = gate["name"]
         
@@ -1673,6 +1665,7 @@ class ValidateGatesNode(Node):
         expected_percentage = expected_coverage_data.get("percentage", 10)  # Default 10%
         confidence = expected_coverage_data.get("confidence", "medium")
         reasoning = expected_coverage_data.get("reasoning", "Standard expectation")
+        max_files_expected = expected_coverage_data.get("max_files_expected", relevant_file_count)
         
         # Special handling for infrastructure patterns with 100% expected coverage
         if expected_percentage == 100:
@@ -1683,13 +1676,13 @@ class ValidateGatesNode(Node):
             
             if files_with_matches > 0:
                 # Infrastructure framework detected and being used - score based on usage
-                usage_ratio = min(files_with_matches / relevant_file_count, 1.0)
+                usage_ratio = min(files_with_matches / max_files_expected, 1.0)
                 score = usage_ratio * 100.0
-                print(f"   Infrastructure framework in use: {files_with_matches}/{relevant_file_count} files ({score:.1f}%)")
+                print(f"   Infrastructure framework in use: {files_with_matches}/{max_files_expected} expected files ({score:.1f}%)")
                 return score
             else:
                 # Infrastructure framework detected but not being used - low score
-                print(f"   Infrastructure framework detected but not implemented: 0/{relevant_file_count} files")
+                print(f"   Infrastructure framework detected but not implemented: 0/{max_files_expected} expected files")
                 return 10.0  # Low score for detected but unused framework
         
         # Convert percentage to decimal
@@ -1715,12 +1708,14 @@ class ValidateGatesNode(Node):
             if len(matches) == 0:
                 return 0.0
             else:
-                # Score based on coverage vs expected coverage (using relevant files)
+                # Score based on coverage vs expected coverage (using max files expected)
                 files_with_matches = len(set(m["file"] for m in matches))
-                actual_coverage = files_with_matches / relevant_file_count
                 
-                # Calculate expected files based on LLM analysis (using relevant files)
-                expected_files = max(relevant_file_count * expected_coverage_ratio, 1)
+                # Use maximum files expected for more accurate coverage calculation
+                actual_coverage = files_with_matches / max_files_expected
+                
+                # Calculate expected files based on LLM analysis (using max files expected)
+                expected_files = max(max_files_expected * expected_coverage_ratio, 1)
                 
                 # Calculate coverage ratio (actual vs expected)
                 coverage_ratio = min(files_with_matches / expected_files, 1.0)
@@ -1760,7 +1755,7 @@ class ValidateGatesNode(Node):
             return "FAIL"
     
     def _generate_gate_details(self, gate: Dict[str, Any], matches: List[Dict[str, Any]]) -> List[str]:
-        """Generate details for gate result including expected coverage analysis"""
+        """Generate details for gate result including expected coverage analysis with maximum files analysis"""
         details = []
         
         # Get expected coverage information
@@ -1768,29 +1763,38 @@ class ValidateGatesNode(Node):
         expected_percentage = expected_coverage.get("percentage", 10)
         coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
         confidence = expected_coverage.get("confidence", "medium")
+        max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
         
-        # Calculate actual coverage using relevant files
+        # Calculate actual coverage using maximum files expected
         total_files = gate.get("total_files", 1)
         relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
-        actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
+        
+        # Calculate coverage using maximum files expected for more accurate assessment
+        actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
         
         # Special analysis for infrastructure patterns
         if expected_percentage == 100:
             details.append(f"🎯 Infrastructure Framework Analysis:")
             details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
+            details.append(f"Maximum Files Expected: {max_files_expected} files")
             
             if files_with_matches > 0:
-                details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{relevant_files} files ({actual_percentage:.1f}%)")
+                details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
                 details.append(f"Framework: {coverage_reasoning}")
             else:
-                details.append(f"⚠️ Framework Detected but Not Implemented: 0/{relevant_files} files")
+                details.append(f"⚠️ Framework Detected but Not Implemented: 0/{max_files_expected} expected files")
                 details.append(f"Framework: {coverage_reasoning}")
                 details.append(f"Recommendation: Implement the detected framework throughout your codebase")
         else:
-            # Standard coverage analysis
+            # Standard coverage analysis with maximum files context
             details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
-            details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+            details.append(f"Maximum Files Expected: {max_files_expected} files")
+            details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{max_files_expected} expected files)")
+            
+            # Show traditional coverage for comparison
+            traditional_coverage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
+            details.append(f"Traditional Coverage: {traditional_coverage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
         
         # Show technology filtering information if different from total
         if relevant_files != total_files:
@@ -1813,7 +1817,7 @@ class ValidateGatesNode(Node):
         return details
     
     def _generate_gate_recommendations(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], score: float) -> List[str]:
-        """Generate recommendations for gate based on expected coverage analysis"""
+        """Generate recommendations for gate based on expected coverage analysis with maximum files context"""
         recommendations = []
         
         # Get expected coverage information
@@ -1821,12 +1825,15 @@ class ValidateGatesNode(Node):
         expected_percentage = expected_coverage.get("percentage", 10)
         coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
         confidence = expected_coverage.get("confidence", "medium")
+        max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
         
-        # Calculate actual coverage using relevant files
+        # Calculate actual coverage using maximum files expected
         total_files = gate.get("total_files", 1)
         relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
-        actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
+        
+        # Calculate coverage using maximum files expected for more accurate assessment
+        actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
         
         # Calculate coverage gap for all cases
         coverage_gap = expected_percentage - actual_percentage
@@ -1835,7 +1842,7 @@ class ValidateGatesNode(Node):
         if expected_percentage == 100:
             if files_with_matches > 0:
                 recommendations.append(f"✅ Infrastructure Framework Implemented: {coverage_reasoning}")
-                recommendations.append(f"Current Usage: {files_with_matches}/{relevant_files} files ({actual_percentage:.1f}%)")
+                recommendations.append(f"Current Usage: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
                 if actual_percentage < 50:
                     recommendations.append(f"Recommendation: Extend {gate['display_name']} implementation to more files")
                 else:
@@ -1844,24 +1851,35 @@ class ValidateGatesNode(Node):
                 recommendations.append(f"🎯 Infrastructure Framework Detected: {coverage_reasoning}")
                 recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
                 recommendations.append(f"Framework: {coverage_reasoning}")
+                recommendations.append(f"Expected Implementation: {max_files_expected} files")
         else:
-            # Generate recommendations based on coverage gap
+            # Generate recommendations based on coverage gap with maximum files context
             if score < 50.0:
                 recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
-                recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {relevant_files} relevant files)")
+                recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {max_files_expected} expected files)")
                 recommendations.append(f"Focus on {gate['description'].lower()}")
-                if coverage_reasoning:
-                    recommendations.append(f"Rationale: {coverage_reasoning}")
+                
+                # Provide specific guidance based on coverage gap
+                if coverage_gap > 50:
+                    recommendations.append(f"Major Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                elif coverage_gap > 25:
+                    recommendations.append(f"Significant Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                else:
+                    recommendations.append(f"Moderate Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+            elif score < 70.0:
+                recommendations.append(f"Improve: Enhance {gate['display_name']} implementation")
+                recommendations.append(f"Current: {actual_percentage:.1f}% coverage, Target: {expected_percentage}% coverage")
+                recommendations.append(f"Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+            else:
+                recommendations.append(f"Good: {gate['display_name']} is well implemented")
+                recommendations.append(f"Achieved: {actual_percentage:.1f}% coverage (Target: {expected_percentage}%)")
+                
+                if actual_percentage > expected_percentage:
+                    recommendations.append(f"Exceeds expectations by {actual_percentage - expected_percentage:.1f}%")
         
-        # Add confidence-based recommendations
-        if confidence == "low":
-            recommendations.append("Note: Coverage estimate has low confidence - manual review recommended")
-        elif confidence == "high" and coverage_gap > 10:
-            recommendations.append("High confidence in coverage gap - prioritize implementation")
-        
-        # Add technology-specific note if filtering was applied
-        if relevant_files != total_files:
-            recommendations.append(f"Note: Analysis focused on {relevant_files} technology-relevant files (filtered from {total_files} total)")
+        # Add context about maximum files expected
+        if max_files_expected != relevant_files:
+            recommendations.append(f"Note: Analysis based on {max_files_expected} expected files (from {relevant_files} relevant files)")
         
         return recommendations
     
