@@ -964,12 +964,40 @@ class CallLLMNode(Node):
         """Extract patterns from unstructured text response"""
         pattern_data = {}
         
-        # Look for gate sections in the response
-        gate_sections = re.findall(r'\*\*([A-Z_]+)\*\*.*?(?=\*\*[A-Z_]+\*\*|\Z)', response, re.DOTALL)
+        # Look for gate sections in the response - improved pattern to handle various formats
+        # This handles both **GATE_NAME** and ** GATE_NAME ** formats
+        gate_sections = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*.*?(?=\*\*\s*[A-Z_]+\s*\*\*|\Z)', response, re.DOTALL)
         
+        # If no sections found with the above pattern, try alternative patterns
+        if not gate_sections:
+            # Try pattern for sections that start with **GATE_NAME** followed by content
+            gate_sections = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*.*?(?=\*\*\s*[A-Z_]+\s*\*\*|\Z)', response, re.DOTALL)
+        
+        # If still no sections, try to extract from the entire response
+        if not gate_sections:
+            # Look for any **GATE_NAME** patterns in the response
+            gate_names = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*', response)
+            for gate_name in gate_names:
+                # Extract content after this gate name until the next gate or end
+                pattern = rf'\*\*\s*{re.escape(gate_name)}\s*\*\*.*?(?=\*\*\s*[A-Z_]+\s*\*\*|\Z)'
+                match = re.search(pattern, response, re.DOTALL)
+                if match:
+                    gate_sections.append(match.group(0))
+        
+        # Process each gate section
         for section in gate_sections:
             lines = section.split('\n')
-            gate_name = lines[0].strip('*').strip()
+            gate_name = None
+            
+            # Extract gate name from the first line
+            for line in lines:
+                gate_match = re.search(r'\*\*\s*([A-Z_]+)\s*\*\*', line)
+                if gate_match:
+                    gate_name = gate_match.group(1)
+                    break
+            
+            if not gate_name:
+                continue
             
             # Extract patterns from the section
             patterns = []
@@ -978,22 +1006,43 @@ class CallLLMNode(Node):
             percentage = 10
             confidence = "medium"
             
+            # Process each line in the section
             for line in lines[1:]:
                 line = line.strip()
+                
+                # Look for patterns in various formats
                 if line.startswith('- **patterns**:') or line.startswith('* **patterns**:'):
                     # Extract patterns from this line and following lines
                     pattern_text = line.split(':', 1)[1].strip() if ':' in line else ""
                     patterns.extend(self._extract_patterns_from_line(pattern_text))
+                elif line.startswith('*   **Patterns**') or line.startswith('-   **Patterns**'):
+                    # Handle the format used by the local LLM
+                    pattern_text = line.split('**Patterns**', 1)[1].strip() if '**Patterns**' in line else ""
+                    patterns.extend(self._extract_patterns_from_line(pattern_text))
+                elif line.startswith('*   `') or line.startswith('-   `'):
+                    # Handle individual pattern lines
+                    pattern_text = line.strip('* - `').strip('`')
+                    patterns.extend(self._extract_patterns_from_line(pattern_text))
                 elif line.startswith('- **description**:') or line.startswith('* **description**:'):
                     description = line.split(':', 1)[1].strip() if ':' in line else description
+                elif line.startswith('*   **Description**') or line.startswith('-   **Description**'):
+                    description = line.split('**Description**', 1)[1].strip() if '**Description**' in line else description
                 elif line.startswith('- **significance**:') or line.startswith('* **significance**:'):
                     significance = line.split(':', 1)[1].strip() if ':' in line else significance
+                elif line.startswith('*   **Significance**') or line.startswith('-   **Significance**'):
+                    significance = line.split('**Significance**', 1)[1].strip() if '**Significance**' in line else significance
                 elif line.startswith('- **expected_coverage**:') or line.startswith('* **expected_coverage**:'):
                     # Try to extract percentage
                     percentage_match = re.search(r'(\d+)%', line)
                     if percentage_match:
                         percentage = int(percentage_match.group(1))
+                elif '**Percentage**' in line:
+                    # Try to extract percentage from the format used by local LLM
+                    percentage_match = re.search(r'(\d+)', line)
+                    if percentage_match:
+                        percentage = int(percentage_match.group(1))
             
+            # Only add if we found patterns for this specific gate
             if patterns:
                 pattern_data[gate_name] = {
                     "patterns": patterns,
@@ -1006,7 +1055,26 @@ class CallLLMNode(Node):
                     }
                 }
         
-        # If no patterns found, return fallback
+        # If no patterns found, try a more aggressive extraction
+        if not pattern_data:
+            # Look for any patterns in the entire response
+            all_patterns = self._extract_patterns_from_line(response)
+            if all_patterns:
+                # Try to associate patterns with gate names
+                gate_names = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*', response)
+                for gate_name in gate_names:
+                    pattern_data[gate_name] = {
+                        "patterns": all_patterns[:3],  # Take first 3 patterns
+                        "description": "Pattern analysis for this gate",
+                        "significance": "Important for code quality and compliance",
+                        "expected_coverage": {
+                            "percentage": 10,
+                            "reasoning": "Extracted from text analysis",
+                            "confidence": "medium"
+                        }
+                    }
+        
+        # If still no patterns found, return fallback
         if not pattern_data:
             return self._generate_fallback_pattern_data()
         
@@ -1017,16 +1085,56 @@ class CallLLMNode(Node):
         patterns = []
         
         # Look for patterns in various formats
+        # Pattern 1: r'pattern' format
         pattern_matches = re.findall(r'r[\'"]([^\'\"]+)[\'"]', line)
         patterns.extend(pattern_matches)
         
-        # Look for patterns without r prefix
+        # Pattern 2: `pattern` format (backticks)
+        pattern_matches = re.findall(r'`([^`]+)`', line)
+        for match in pattern_matches:
+            # Clean up the pattern - remove r' prefix if present
+            if match.startswith("r'") and match.endswith("'"):
+                match = match[2:-1]
+            elif match.startswith('r"') and match.endswith('"'):
+                match = match[2:-1]
+            patterns.append(match)
+        
+        # Pattern 3: Look for patterns without r prefix but with quotes
         pattern_matches = re.findall(r'[\'"]([^\'\"]+)[\'"]', line)
         for match in pattern_matches:
             if match not in patterns and len(match) > 3:  # Avoid short strings
+                # Skip if it looks like a description rather than a pattern
+                if not any(keyword in match.lower() for keyword in ['description', 'significance', 'reasoning', 'confidence']):
+                    patterns.append(match)
+        
+        # Pattern 4: Look for patterns that start with common regex patterns
+        # This handles cases where the pattern is not properly quoted
+        regex_patterns = re.findall(r'([a-zA-Z_][a-zA-Z0-9_]*\s*[=:]\s*[^\s,;]+)', line)
+        for match in regex_patterns:
+            if len(match) > 5 and match not in patterns:  # Avoid very short matches
                 patterns.append(match)
         
-        return patterns
+        # Clean up patterns - remove duplicates and empty patterns
+        cleaned_patterns = []
+        for pattern in patterns:
+            pattern = pattern.strip()
+            if pattern and len(pattern) > 2 and pattern not in cleaned_patterns:
+                # Basic validation - try to compile the regex
+                try:
+                    re.compile(pattern)
+                    cleaned_patterns.append(pattern)
+                except re.error:
+                    # If it's not a valid regex, it might be a simple pattern
+                    # Convert it to a simple word boundary pattern
+                    simple_pattern = r'\b' + re.escape(pattern) + r'\b'
+                    try:
+                        re.compile(simple_pattern)
+                        cleaned_patterns.append(simple_pattern)
+                    except re.error:
+                        # Skip invalid patterns
+                        continue
+        
+        return cleaned_patterns
     
     def _parse_llm_response(self, response: str) -> Dict[str, List[str]]:
         """Parse LLM response to extract patterns (legacy method)"""
