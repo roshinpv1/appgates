@@ -54,6 +54,9 @@ window.addEventListener('message', event => {
         case 'assessmentCompleted':
             hideStatus();
             showResults(message.data);
+            // Re-enable the Start Assessment button
+            const scanBtn = document.getElementById('scanButton');
+            if (scanBtn) scanBtn.disabled = false;
             break;
             
         case 'showResults':  // Handle the actual command sent by the extension
@@ -64,6 +67,9 @@ window.addEventListener('message', event => {
         case 'assessmentError':
             showStatus(message.data.error, 'error');
             hideResults();
+            // Re-enable the Start Assessment button
+            const scanBtnErr = document.getElementById('scanButton');
+            if (scanBtnErr) scanBtnErr.disabled = false;
             break;
             
         case 'assessmentProgress':
@@ -1066,6 +1072,10 @@ function startAssessment() {
         showStatus('Please enter a valid repository URL', 'error');
         return;
     }
+
+    // Disable the Start Assessment button
+    const scanBtn = document.getElementById('scanButton');
+    if (scanBtn) scanBtn.disabled = true;
 
     vscode.postMessage({
         command: 'assess',
