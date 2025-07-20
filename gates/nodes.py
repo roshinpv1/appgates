@@ -19,6 +19,7 @@ try:
     from .utils.hard_gates import HARD_GATES
     from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from .utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
+    from .utils.gate_applicability import gate_applicability_analyzer
 except ImportError:
     # Fall back to absolute imports (when run directly)
     from utils.git_operations import clone_repository, cleanup_repository
@@ -26,6 +27,7 @@ except ImportError:
     from utils.hard_gates import HARD_GATES
     from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
+    from utils.gate_applicability import gate_applicability_analyzer
 
 
 class FetchRepositoryNode(Node):
@@ -1207,7 +1209,7 @@ class ValidateGatesNode(Node):
     """Node to validate all gates using generated patterns (Map-Reduce)"""
     
     def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare validation parameters"""
+        """Prepare validation parameters with gate applicability analysis"""
         # Get LLM patterns if available, otherwise use empty dict
         llm_patterns = shared["llm"].get("patterns", {})
         pattern_data = shared["llm"].get("pattern_data", {})
@@ -1233,14 +1235,34 @@ class ValidateGatesNode(Node):
             llm_patterns = fallback_patterns
             pattern_data = fallback_data
         
+        # Analyze gate applicability based on codebase type
+        from utils.gate_applicability import gate_applicability_analyzer
+        
+        metadata = shared["repository"]["metadata"]
+        applicability_summary = gate_applicability_analyzer.get_applicability_summary(metadata)
+        applicable_gates = gate_applicability_analyzer.determine_applicable_gates(metadata)
+        
+        print(f"🔍 Gate Applicability Analysis:")
+        print(f"   📊 Codebase Type: {applicability_summary['codebase_characteristics']['primary_technology']}")
+        print(f"   📋 Languages: {', '.join(applicability_summary['codebase_characteristics']['languages'][:5])}")
+        print(f"   ✅ Applicable Gates: {applicability_summary['applicable_gates']}/{applicability_summary['total_gates']}")
+        print(f"   ❌ Non-Applicable Gates: {applicability_summary['non_applicable_gates']}")
+        
+        if applicability_summary['non_applicable_details']:
+            print(f"   📝 Non-Applicable Details:")
+            for gate in applicability_summary['non_applicable_details']:
+                print(f"      - {gate['name']} ({gate['category']}): {gate['reason']}")
+        
         return {
             "repo_path": shared["repository"]["local_path"],
             "metadata": shared["repository"]["metadata"],
             "patterns": llm_patterns,
             "pattern_data": pattern_data,
-            "hard_gates": shared["hard_gates"],
+            "hard_gates": shared["hard_gates"],  # Include all gates for validation
+            "all_hard_gates": shared["hard_gates"],  # Keep original for reference
             "threshold": shared["request"]["threshold"],
-            "shared": shared  # Pass shared context for configuration
+            "shared": shared,  # Pass shared context for configuration
+            "applicability_summary": applicability_summary
         }
     
     def exec(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1272,6 +1294,31 @@ class ValidateGatesNode(Node):
             
             print(f"   Validating {gate_name} with weighted patterns...")
             
+            # Check gate applicability using the applicability analyzer
+            from utils.gate_applicability import gate_applicability_analyzer
+            characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
+            applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
+            
+            # Debug output for applicability
+            # if gate_name == "STRUCTURED_LOGS":  # Only for first gate to avoid spam
+            #     print(f"   🔍 Debug - Codebase characteristics:")
+            #     print(f"      Languages: {characteristics['languages']}")
+            #     print(f"      Is Frontend: {characteristics['is_frontend']}")
+            #     print(f"      Is Backend: {characteristics['is_backend']}")
+            #     print(f"      Is API: {characteristics['is_api']}")
+            #     print(f"      Is Backend Only: {characteristics['is_backend_only']}")
+            #     print(f"      Primary Technology: {characteristics['primary_technology']}")
+            
+            # print(f"   🔍 {gate_name} applicability check:")
+            # print(f"      Is Applicable: {applicability['is_applicable']}")
+            # print(f"      Reason: {applicability['reason']}")
+            # if 'required_technologies' in applicability:
+            #     print(f"      Required Technologies: {applicability['required_technologies']}")
+            #     print(f"      Has Required: {applicability['has_required']}")
+            #     print(f"      Is Excluded: {applicability['is_excluded']}")
+            # else:
+            #     print(f"      (No specific applicability rules)")
+            
             # Show file analysis summary
             if gate_name == "AUTOMATED_TESTS":
                 relevant_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
@@ -1280,11 +1327,8 @@ class ValidateGatesNode(Node):
             
             print(f"   📁 Analyzing {len(relevant_files)} relevant files for {gate_name} (from {metadata.get('total_files', 0)} total files in repository)")
             
-            # Check if gate is not applicable
-            is_not_applicable = (
-                gate_pattern_info.get("description", "").strip() == "Not Applicable" or
-                (len(llm_gate_patterns) == 0 and gate_pattern_info.get("significance", "").find("not applicable") != -1)
-            )
+            # Check if gate is not applicable based on applicability analyzer
+            is_not_applicable = not applicability["is_applicable"]
             
             if is_not_applicable:
                 # Handle Not Applicable gate
@@ -1298,15 +1342,15 @@ class ValidateGatesNode(Node):
                     "matches_found": 0,
                     "score": 0.0,
                     "status": "NOT_APPLICABLE",
-                    "details": ["This gate is not applicable to the current technology stack and project type"],
-                    "recommendations": ["Not applicable to this project type"],
-                    "pattern_description": gate_pattern_info.get("description", "Not Applicable"),
-                    "pattern_significance": gate_pattern_info.get("significance", "This gate is not applicable to the current technology stack and project type"),
-                    "expected_coverage": gate_pattern_info.get("expected_coverage", {
+                    "details": [f"This gate is not applicable: {applicability['reason']}"],
+                    "recommendations": [f"Not applicable to this technology stack: {applicability['reason']}"],
+                    "pattern_description": f"Not applicable: {applicability['reason']}",
+                    "pattern_significance": applicability["reason"],
+                    "expected_coverage": {
                         "percentage": 0,
-                        "reasoning": "Not applicable to this technology stack",
+                        "reasoning": applicability["reason"],
                         "confidence": "high"
-                    }),
+                    },
                     "total_files": metadata.get("total_files", 1),
                     "validation_sources": {
                         "llm_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
@@ -1314,7 +1358,7 @@ class ValidateGatesNode(Node):
                         "combined_confidence": "high"
                     }
                 }
-                print(f"   {gate_name} marked as NOT_APPLICABLE")
+                print(f"   {gate_name} marked as NOT_APPLICABLE: {applicability['reason']}")
             else:
                 # Get weighted patterns for this gate and technology stack
                 weighted_patterns = pattern_loader.get_gate_patterns(gate_name, primary_technologies)
@@ -1398,6 +1442,40 @@ class ValidateGatesNode(Node):
         """Store validation results and calculate overall weighted score with enhanced statistics"""
         shared["validation"]["gate_results"] = exec_res
         
+        # Store applicability information
+        applicability_summary = prep_res.get("applicability_summary", {})
+        shared["validation"]["applicability_summary"] = applicability_summary
+        
+        # Recalculate applicability summary from actual gate results for consistency
+        total_gates = len(exec_res)
+        applicable_gates = len([r for r in exec_res if r["status"] != "NOT_APPLICABLE"])
+        non_applicable_gates = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
+        
+        # Get codebase characteristics from metadata
+        metadata = shared["repository"]["metadata"]
+        from utils.gate_applicability import gate_applicability_analyzer
+        characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
+        
+        # Create consistent applicability summary
+        applicability_summary = {
+            "codebase_characteristics": characteristics,
+            "total_gates": total_gates,
+            "applicable_gates": applicable_gates,
+            "non_applicable_gates": non_applicable_gates,
+            "applicable_gate_names": [r["gate"] for r in exec_res if r["status"] != "NOT_APPLICABLE"],
+            "non_applicable_details": [
+                {
+                    "name": r["gate"],
+                    "display_name": r["display_name"],
+                    "category": r["category"],
+                    "reason": "Not applicable to this technology stack"
+                }
+                for r in exec_res if r["status"] == "NOT_APPLICABLE"
+            ]
+        }
+        
+        shared["validation"]["applicability_summary"] = applicability_summary
+        
         # Calculate overall weighted score (Reduce phase) - exclude NOT_APPLICABLE gates
         applicable_gates = [result for result in exec_res if result["status"] != "NOT_APPLICABLE"]
         
@@ -1431,6 +1509,12 @@ class ValidateGatesNode(Node):
         print(f"   Pattern Sources: LLM({hybrid_stats['total_llm_patterns']} patterns, {hybrid_stats['total_llm_matches']} matches) + Weighted({hybrid_stats['total_static_patterns']} patterns, {hybrid_stats['total_static_matches']} matches)")
         print(f"   Coverage Enhancement: {hybrid_stats['coverage_improvement']:.1f}% improvement from weighted validation")
         print(f"   Total Gate Weight: {scoring_summary.get('total_weight', 0):.1f}")
+        
+        # Print applicability summary
+        print(f"🔍 Applicability Summary:")
+        print(f"   📊 Codebase Type: {characteristics['primary_technology']}")
+        print(f"   ✅ Applicable Gates: {applicable_gates}/{total_gates}")
+        print(f"   ❌ Not Applicable Gates: {non_applicable_gates}")
         
         return "default"
     
@@ -1791,7 +1875,6 @@ class ValidateGatesNode(Node):
         if expected_percentage == 100:
             details.append(f"🎯 Infrastructure Framework Analysis:")
             details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
-            details.append(f"Maximum Files Expected: {max_files_expected} files")
             
             if files_with_matches > 0:
                 details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
@@ -2234,6 +2317,18 @@ class GenerateReportNode(Node):
                     "supported_technologies": pattern_stats.get("supported_technologies", []),
                     "technology_coverage": pattern_stats.get("technology_coverage", {})
                 }
+            },
+            
+            # Gate applicability information
+            "applicability": {
+                "enabled": True,
+                "codebase_characteristics": validation.get("applicability_summary", {}).get("codebase_characteristics", {}),
+                "total_gates": validation.get("applicability_summary", {}).get("total_gates", 0),
+                "applicable_gates": validation.get("applicability_summary", {}).get("applicable_gates", 0),
+                "non_applicable_gates": validation.get("applicability_summary", {}).get("non_applicable_gates", 0),
+                "applicable_by_category": validation.get("applicability_summary", {}).get("applicable_by_category", {}),
+                "non_applicable_details": validation.get("applicability_summary", {}).get("non_applicable_details", []),
+                "applicable_gate_names": validation.get("applicability_summary", {}).get("applicable_gate_names", [])
             }
         }
     
@@ -2340,6 +2435,8 @@ class GenerateReportNode(Node):
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
             <em>Percentage calculated based on {stats['total_gates']} applicable gates (excluding {stats['not_applicable_gates']} N/A gates)</em>
         </p>
+        
+        {self._generate_applicability_summary_html(validation.get("applicability_summary", {}))}
         
         <h2>Hard Gates Analysis</h2>
         {self._generate_gates_table_html_from_new_data(gate_results)}
@@ -2834,6 +2931,7 @@ class GenerateReportNode(Node):
         expected_percentage = expected_coverage.get("percentage", 10)
         coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
         confidence = expected_coverage.get("confidence", "medium")
+        max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
         
         # Calculate actual coverage using relevant files
         total_files = gate.get("total_files", 1)
@@ -3064,6 +3162,33 @@ class GenerateReportNode(Node):
                 primary_technologies.append(dominant_primary)
         
         return primary_technologies
+
+    def _generate_applicability_summary_html(self, applicability_summary: Dict[str, Any]) -> str:
+        """Generate HTML for applicability summary"""
+        if not applicability_summary:
+            return ""
+        
+        applicable_gates = applicability_summary.get('applicable_gates', 0)
+        non_applicable_gates = applicability_summary.get('non_applicable_gates', 0)
+        total_gates = applicability_summary.get('total_gates', 0)
+        
+        html = f"""
+        <h3>Applicability Summary</h3>
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-number">{applicable_gates}</div>
+                <div class="stat-label">Applicable Gates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{non_applicable_gates}</div>
+                <div class="stat-label">Non-Applicable Gates</div>
+            </div>
+        </div>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
+            <em>Gates automatically filtered based on codebase type and technology stack</em>
+        </p>
+        """
+        return html
 
 
 class CleanupNode(Node):
