@@ -167,16 +167,17 @@ class CodeGatesAssessmentPanel {
                     // Extract just the body content (remove html/head tags for embedding)
                     const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
                     const reportContent = bodyMatch ? bodyMatch[1] : htmlContent;
-                    // Send server-generated content to webview
+                    // Send server-generated content to webview with enhanced features
                     this.panel.webview.postMessage({
                         command: 'showResults',
                         data: {
                             ...result,
                             htmlContent: reportContent,
-                            canGenerateReport: true
+                            canGenerateReport: true,
+                            hasEnhancedFeatures: true // Flag to indicate enhanced report features
                         }
                     });
-                    console.log('Successfully loaded server-generated HTML content');
+                    console.log('Successfully loaded server-generated HTML content with enhanced features');
                 }
                 catch (error) {
                     console.warn('Failed to fetch server-generated HTML content, using fallback:', error.message);
@@ -185,39 +186,40 @@ class CodeGatesAssessmentPanel {
                         command: 'showResults',
                         data: {
                             ...result,
-                            canGenerateReport: true
+                            canGenerateReport: false,
+                            hasEnhancedFeatures: false
                         }
                     });
                 }
             }
-            return result;
         }
         catch (error) {
             console.error('Assessment error:', error);
+            // Enhanced error handling for different types of errors
             let errorMessage = error.message || 'Unknown error occurred';
-            // Provide helpful error messages
-            if (errorMessage.includes('Repository is private')) {
-                errorMessage = 'This repository is private. Please provide a GitHub token with "repo" scope access.';
+            // Provide more specific error messages
+            if (error.message?.includes('Repository is private')) {
+                errorMessage = 'Repository is private. Please provide a GitHub token with repo scope.';
             }
-            else if (errorMessage.includes('Invalid GitHub token')) {
-                errorMessage = 'The GitHub token is invalid or expired. Please generate a new token with "repo" scope.';
+            else if (error.message?.includes('Invalid GitHub token')) {
+                errorMessage = 'Invalid GitHub token. Please check if the token has the required repo scope.';
             }
-            else if (errorMessage.includes('Cannot access repository')) {
-                errorMessage = 'Cannot access this repository. Check if the URL is correct and the token has proper permissions.';
+            else if (error.message?.includes('Cannot access repository')) {
+                errorMessage = 'Cannot access repository. Please check if the token has access to this repository.';
             }
-            else if (errorMessage.includes('ECONNREFUSED')) {
-                errorMessage = 'Cannot connect to API server. Please start the server first.';
+            else if (error.message?.includes('timeout')) {
+                errorMessage = 'Repository scan timed out. Large repositories may take longer to analyze. Please try again.';
+            }
+            else if (error.message?.includes('ECONNREFUSED')) {
+                errorMessage = 'Cannot connect to API server. Please start the API server first.';
             }
             this.panel.webview.postMessage({
                 command: 'assessmentError',
                 data: { error: errorMessage }
             });
-            // Show notification for critical errors
-            if (errorMessage.includes('API server')) {
-                vscode.window.showErrorMessage(`CodeGates: ${errorMessage}`);
-            }
-            return;
         }
+        // Return void to satisfy TypeScript
+        return;
     }
     async pollForCompletion(scanId) {
         const startTime = Date.now();

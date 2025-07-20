@@ -1,8 +1,8 @@
 {
   "name": "codegates",
   "displayName": "CodeGates - Hard Gate Validator",
-  "description": "API-driven code quality analysis for production-ready development",
-  "version": "2.0.5",
+  "description": "API-driven code quality analysis with enhanced pattern details, coverage analysis, and gate applicability",
+  "version": "2.1.0",
   "publisher": "codegates",
   "repository": {
     "type": "git",
@@ -23,7 +23,10 @@
     "validation",
     "security",
     "api",
-    "remote analysis"
+    "remote analysis",
+    "pattern matching",
+    "coverage analysis",
+    "gate applicability"
   ],
   "activationEvents": [
     "onCommand:codegates.assess"
@@ -80,6 +83,11 @@
           "description": "Number of API request retries",
           "minimum": 0,
           "maximum": 10
+        },
+        "codegates.enableEnhancedFeatures": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable enhanced report features including pattern details, coverage analysis, and gate applicability"
         }
       }
     }

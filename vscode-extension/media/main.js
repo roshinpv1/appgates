@@ -150,8 +150,50 @@ function showResults(result) {
                         }, 100);
                     }
                 }
+                
+                // Enhanced function to handle pattern details expansion
+                function togglePatternDetails(button, patternId) {
+                    const patternDetails = document.getElementById(patternId);
+                    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+                    
+                    button.setAttribute('aria-expanded', !isExpanded);
+                    patternDetails.setAttribute('aria-hidden', isExpanded);
+                    
+                    // Update button text
+                    const buttonText = button.querySelector('.toggle-text');
+                    if (buttonText) {
+                        buttonText.textContent = isExpanded ? 'Show Pattern Details' : 'Hide Pattern Details';
+                    }
+                    
+                    // Smooth scroll to expanded content
+                    if (!isExpanded) {
+                        setTimeout(() => {
+                            patternDetails.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }, 100);
+                    }
+                }
+                
+                // Function to handle coverage analysis expansion
+                function toggleCoverageAnalysis(button, coverageId) {
+                    const coverageDetails = document.getElementById(coverageId);
+                    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+                    
+                    button.setAttribute('aria-expanded', !isExpanded);
+                    coverageDetails.setAttribute('aria-hidden', isExpanded);
+                    
+                    // Update button text
+                    const buttonText = button.querySelector('.toggle-text');
+                    if (buttonText) {
+                        buttonText.textContent = isExpanded ? 'Show Coverage Analysis' : 'Hide Coverage Analysis';
+                    }
+                }
             `;
             document.head.appendChild(toggleScript);
+        }
+        
+        // Add interactive UI enhancements for enhanced report features
+        if (result.hasEnhancedFeatures) {
+            addEnhancedReportFeatures(result.scan_id);
         }
         
         // Add interactive UI enhancements for comment functionality
@@ -1093,4 +1135,173 @@ function formatGateName(name) {
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
+} 
+
+// New function to handle enhanced report features
+function addEnhancedReportFeatures(scanId) {
+    // Add enhanced styling for pattern details sections
+    const patternDetailsSections = document.querySelectorAll('.pattern-details-section');
+    patternDetailsSections.forEach((section, index) => {
+        section.style.cssText = `
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        `;
+        
+        // Add collapsible functionality
+        const toggleButton = document.createElement('button');
+        toggleButton.className = 'pattern-toggle-btn';
+        toggleButton.style.cssText = `
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-bottom: 10px;
+        `;
+        toggleButton.innerHTML = '<span class="toggle-text">Show Pattern Details</span>';
+        toggleButton.setAttribute('aria-expanded', 'false');
+        toggleButton.onclick = () => togglePatternDetails(toggleButton, `pattern-details-${index}`);
+        
+        section.insertBefore(toggleButton, section.firstChild);
+        
+        // Create collapsible content
+        const detailsContent = document.createElement('div');
+        detailsContent.id = `pattern-details-${index}`;
+        detailsContent.setAttribute('aria-hidden', 'true');
+        detailsContent.style.cssText = `
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        `;
+        
+        // Move the pattern details content into the collapsible section
+        const detailsContentNodes = Array.from(section.childNodes).slice(1); // Skip the button
+        detailsContentNodes.forEach(node => {
+            if (node !== toggleButton) {
+                detailsContent.appendChild(node.cloneNode(true));
+                node.remove();
+            }
+        });
+        
+        section.appendChild(detailsContent);
+    });
+    
+    // Add enhanced styling for coverage analysis sections
+    const coverageSections = document.querySelectorAll('.coverage-analysis-section');
+    coverageSections.forEach((section, index) => {
+        section.style.cssText = `
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        `;
+        
+        // Add collapsible functionality
+        const toggleButton = document.createElement('button');
+        toggleButton.className = 'coverage-toggle-btn';
+        toggleButton.style.cssText = `
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-bottom: 10px;
+        `;
+        toggleButton.innerHTML = '<span class="toggle-text">Show Coverage Analysis</span>';
+        toggleButton.setAttribute('aria-expanded', 'false');
+        toggleButton.onclick = () => toggleCoverageAnalysis(toggleButton, `coverage-analysis-${index}`);
+        
+        section.insertBefore(toggleButton, section.firstChild);
+        
+        // Create collapsible content
+        const analysisContent = document.createElement('div');
+        analysisContent.id = `coverage-analysis-${index}`;
+        analysisContent.setAttribute('aria-hidden', 'true');
+        analysisContent.style.cssText = `
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #c3e6cb;
+        `;
+        
+        // Move the coverage analysis content into the collapsible section
+        const analysisContentNodes = Array.from(section.childNodes).slice(1); // Skip the button
+        analysisContentNodes.forEach(node => {
+            if (node !== toggleButton) {
+                analysisContent.appendChild(node.cloneNode(true));
+                node.remove();
+            }
+        });
+        
+        section.appendChild(analysisContent);
+    });
+    
+    // Add enhanced styling for NOT_APPLICABLE gates
+    const notApplicableGates = document.querySelectorAll('[data-status="NOT_APPLICABLE"]');
+    notApplicableGates.forEach(gate => {
+        gate.style.cssText = `
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            opacity: 0.8;
+        `;
+        
+        // Add a badge to clearly indicate NOT_APPLICABLE status
+        const statusBadge = document.createElement('span');
+        statusBadge.style.cssText = `
+            background: #6c757d;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-left: 10px;
+        `;
+        statusBadge.textContent = 'Not Applicable';
+        
+        const gateHeader = gate.querySelector('.gate-header, .gate-title, h3, h4');
+        if (gateHeader) {
+            gateHeader.appendChild(statusBadge);
+        }
+    });
+    
+    // Add enhanced styling for pattern matches
+    const patternMatches = document.querySelectorAll('.pattern-match, .match-item');
+    patternMatches.forEach(match => {
+        match.style.cssText = `
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 4px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        `;
+    });
+    
+    // Add tooltips for pattern details
+    const patternInfoElements = document.querySelectorAll('[data-pattern-info]');
+    patternInfoElements.forEach(element => {
+        const patternInfo = element.getAttribute('data-pattern-info');
+        if (patternInfo) {
+            element.title = patternInfo;
+            element.style.cssText = `
+                cursor: help;
+                text-decoration: underline dotted;
+            `;
+        }
+    });
 } 

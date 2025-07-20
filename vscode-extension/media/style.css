@@ -641,3 +641,413 @@ tr:hover {
         border-left-color: #f59e0b;
     }
 } 
+
+/* Enhanced Report Features */
+.pattern-details-section {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+}
+
+.pattern-details-section:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pattern-toggle-btn {
+    background: #007acc;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-bottom: 10px;
+    transition: background-color 0.2s;
+}
+
+.pattern-toggle-btn:hover {
+    background: #005a9e;
+}
+
+.coverage-analysis-section {
+    background: #e8f4fd;
+    border: 1px solid #bee5eb;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+}
+
+.coverage-analysis-section:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.coverage-toggle-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-bottom: 10px;
+    transition: background-color 0.2s;
+}
+
+.coverage-toggle-btn:hover {
+    background: #218838;
+}
+
+/* NOT_APPLICABLE Gate Styling */
+[data-status="NOT_APPLICABLE"] {
+    background: #f8f9fa;
+    border-left: 4px solid #6c757d;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+[data-status="NOT_APPLICABLE"]:hover {
+    opacity: 1;
+}
+
+.not-applicable-badge {
+    background: #6c757d;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-left: 10px;
+    display: inline-block;
+}
+
+/* Pattern Match Styling */
+.pattern-match,
+.match-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 4px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.pattern-match:hover,
+.match-item:hover {
+    background: #e9ecef;
+}
+
+/* Pattern Info Tooltips */
+[data-pattern-info] {
+    cursor: help;
+    text-decoration: underline dotted;
+    color: #007acc;
+}
+
+[data-pattern-info]:hover {
+    color: #005a9e;
+}
+
+/* Enhanced Metrics Display */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.metric-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+    transition: box-shadow 0.2s;
+}
+
+.metric-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1f2937;
+}
+
+/* Pattern Details Content */
+.pattern-details-content {
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.pattern-details-content h4 {
+    color: #1f2937;
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pattern-details-content ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.pattern-details-content li {
+    margin: 5px 0;
+    font-size: 12px;
+    color: #374151;
+}
+
+/* Coverage Analysis Content */
+.coverage-analysis-content {
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #c3e6cb;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.coverage-analysis-content h4 {
+    color: #1f2937;
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.coverage-analysis-content p {
+    margin: 5px 0;
+    font-size: 12px;
+    color: #374151;
+}
+
+/* Enhanced Status Indicators */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-indicator.passed {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-indicator.failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-indicator.warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-indicator.not-applicable {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+/* Collapsible Content Animation */
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.collapsible-content.expanded {
+    max-height: 1000px;
+}
+
+/* Enhanced Report Sections */
+.report-section {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin: 20px 0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.report-section-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.report-section-content {
+    padding: 20px;
+}
+
+/* Pattern Source Indicators */
+.pattern-source {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-left: 8px;
+}
+
+.pattern-source.static {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.pattern-source.llm {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.pattern-source.combined {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+/* Enhanced File Path Display */
+.file-path {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #6b7280;
+    background: #f9fafb;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #e5e7eb;
+    display: inline-block;
+    margin: 2px 0;
+}
+
+/* Line Number Display */
+.line-number {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #059669;
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+/* Confidence Level Indicators */
+.confidence-level {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-left: 8px;
+}
+
+.confidence-level.high {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.confidence-level.medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.confidence-level.low {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Responsive Design for Enhanced Features */
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+    
+    .metric-card {
+        padding: 8px;
+    }
+    
+    .metric-value {
+        font-size: 16px;
+    }
+    
+    .pattern-details-section,
+    .coverage-analysis-section {
+        padding: 10px;
+        margin: 8px 0;
+    }
+    
+    .pattern-toggle-btn,
+    .coverage-toggle-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+}
+
+/* Dark Theme Support for Enhanced Features */
+@media (prefers-color-scheme: dark) {
+    .pattern-details-section {
+        background: #1f2937;
+        border-color: #374151;
+    }
+    
+    .coverage-analysis-section {
+        background: #1e3a8a;
+        border-color: #3b82f6;
+    }
+    
+    .pattern-match,
+    .match-item {
+        background: #1f2937;
+        border-color: #374151;
+        color: #d1d5db;
+    }
+    
+    .pattern-match:hover,
+    .match-item:hover {
+        background: #374151;
+    }
+    
+    [data-status="NOT_APPLICABLE"] {
+        background: #1f2937;
+        border-left-color: #6b7280;
+    }
+    
+    .metric-card {
+        background: #1f2937;
+        border-color: #374151;
+    }
+    
+    .metric-value {
+        color: #f9fafb;
+    }
+    
+    .pattern-details-content,
+    .coverage-analysis-content {
+        background: #1f2937;
+        border-color: #374151;
+        color: #d1d5db;
+    }
+} 
