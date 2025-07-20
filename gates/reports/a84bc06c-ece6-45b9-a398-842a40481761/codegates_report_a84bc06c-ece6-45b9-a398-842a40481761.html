@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeGates Report - apache/fineract</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f3f4f6; }
+        h1 { font-size: 2em; color: #1f2937; border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 30px; }
+        h2 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 40px; }
+        h3 { color: #374151; margin-top: 30px; }
+        
+        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+        .stat-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #6b7280; margin-top: 5px; }
+        
+        .compliance-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .compliance-fill { height: 100%; background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); transition: width 0.3s ease; }
+        
+        table { width: 100%; border-collapse: collapse; margin: 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #2563eb; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        tr:hover { background: #f9fafb; }
+        
+        .status-implemented { color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-partial { color: #d97706; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not-implemented { color: #dc2626; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not-applicable { color: #6b7280; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <h1>🚀 CodeGates Validation Report</h1>
+    
+    <div class="project-info">
+        <h2>apache/fineract</h2>
+        <p><strong>Repository:</strong> https://github.com/apache/fineract</p>
+        <p><strong>Branch:</strong> develop</p>
+        <p><strong>Generated:</strong> 2025-07-20 19:08:31</p>
+    </div>
+    
+    <h2>📊 Overall Results</h2>
+    <div class="compliance-bar">
+        <div class="compliance-fill" style="width: 0.0%"></div>
+    </div>
+    <p><strong>0.0% Overall Score</strong></p>
+    
+    <div class="summary-stats">
+        <div class="stat-card">
+            <span class="stat-number">5000</span>
+            <span class="stat-label">Total Files</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">502652</span>
+            <span class="stat-label">Total Lines</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">1</span>
+            <span class="stat-label">Passed Gates</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">10</span>
+            <span class="stat-label">Failed Gates</span>
+        </div>
+    </div>
+    
+    <h2>🎯 Gate Results</h2>
+    <table><thead><tr><th>Gate</th><th>Status</th><th>Score</th><th>Evidence</th></tr></thead><tbody>
+                <tr>
+                    <td><strong>Tracking ID for Logs</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Log REST API Calls</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>24.2%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Log Application Messages</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>27.6%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Client UI Errors Logged</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Client Error Tracking</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Retry Logic</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Timeouts in IO Ops</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Throttling & Drop Request</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Circuit Breakers</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Log System Errors</strong></td>
+                    <td><span class="status-partial">WARNING</span></td>
+                    <td>69.3%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>HTTP Error Codes</strong></td>
+                    <td><span class="status-not-implemented">FAIL</span></td>
+                    <td>0.0%</td>
+                    <td>## Library Analysis</td>
+                </tr>
+                <tr>
+                    <td><strong>Automated Tests</strong></td>
+                    <td><span class="status-implemented">PASS</span></td>
+                    <td>91.0%</td>
+                    <td>## Library Analysis</td>
+                </tr></tbody></table>
+    
+    <footer>
+        <p>Generated by CodeGates v3.0.0 - LLM-Enhanced Hybrid Analysis</p>
+        <p>LLM Source: local | Model: llama-3.2-3b-instruct</p>
+    </footer>
+</body>
+</html>
+        

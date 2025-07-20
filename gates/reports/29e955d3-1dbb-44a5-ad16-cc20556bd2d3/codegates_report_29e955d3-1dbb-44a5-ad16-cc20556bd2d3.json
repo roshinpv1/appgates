@@ -1,0 +1,1398 @@
+{
+  "report_metadata": {
+    "scan_id": "29e955d3-1dbb-44a5-ad16-cc20556bd2d3",
+    "repository_url": "https://github.com/apache/fineract",
+    "branch": "develop",
+    "generated_at": "2025-07-20T19:22:32.224419",
+    "version": "3.0.0",
+    "llm_source": "local",
+    "llm_model": "llama-3.2-3b-instruct",
+    "validation_type": "llm_enhanced_hybrid"
+  },
+  "scan_metadata": {
+    "scan_duration": 0,
+    "total_files": 5000,
+    "total_lines": 502652,
+    "timestamp": "2025-07-20T19:22:32.224461",
+    "project_name": "apache/fineract",
+    "project_path": "https://github.com/apache/fineract",
+    "repository_url": "https://github.com/apache/fineract"
+  },
+  "languages_detected": [
+    "YAML",
+    "JSON",
+    "XML",
+    "SQL",
+    "Shell",
+    "Gradle",
+    "Java"
+  ],
+  "gates": [
+    {
+      "name": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The audit trail and logging configuration has some gaps, but overall it is fair. There are partial compliance with audit trail requirements and medium risk of non-compliance.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Tracking ID for Logs (CORRELATION_ID) - No correlation IDs found in logs",
+        "  \u2022 Log REST API Calls (LOG_API_CALLS) - Only 24.2% of API calls logged",
+        "  \u2022 Log Application Messages (LOG_APPLICATION_MESSAGES) - Only 27.6% of application messages logged"
+      ],
+      "category": "auditability",
+      "priority": "medium",
+      "description": "Include correlation IDs for distributed tracing",
+      "patterns_used": 13,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement correlation IDs for all log entries",
+        "  \u2022 Ensure at least 75% of API calls are logged",
+        "  \u2022 Enforce logging of all application messages",
+        "**Short-term Improvements:**",
+        "  \u2022 Review and refine the logging configuration to ensure compliance with audit trail requirements",
+        "  \u2022 Investigate why only a small percentage of API calls are being logged",
+        "  \u2022 Analyze log patterns to identify potential security risks",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a comprehensive logging strategy that meets all audit trail requirements",
+        "  \u2022 Implement additional logging mechanisms for high-risk areas",
+        "  \u2022 Regularly review and update the logging configuration to ensure ongoing compliance"
+      ],
+      "pattern_description": "Static pattern analysis for Tracking ID for Logs",
+      "pattern_significance": "Important for Tracking ID for Logs compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 13,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Tracking ID for Logs (CORRELATION_ID) - No correlation IDs found in logs",
+          "Log REST API Calls (LOG_API_CALLS) - Only 24.2% of API calls logged",
+          "Log Application Messages (LOG_APPLICATION_MESSAGES) - Only 27.6% of application messages logged"
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement correlation IDs for all log entries",
+            "Ensure at least 75% of API calls are logged",
+            "Enforce logging of all application messages"
+          ],
+          "short_term": [
+            "Review and refine the logging configuration to ensure compliance with audit trail requirements",
+            "Investigate why only a small percentage of API calls are being logged",
+            "Analyze log patterns to identify potential security risks"
+          ],
+          "long_term": [
+            "Develop a comprehensive logging strategy that meets all audit trail requirements",
+            "Implement additional logging mechanisms for high-risk areas",
+            "Regularly review and update the logging configuration to ensure ongoing compliance"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 13,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "status": "FAIL",
+      "score": 24.156769596199528,
+      "details": [
+        "**LLM Category Assessment:** The audit trail and logging configuration has some gaps, but overall it is fair. There are partial compliance with audit trail requirements and medium risk of non-compliance.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Tracking ID for Logs (CORRELATION_ID) - No correlation IDs found in logs",
+        "  \u2022 Log REST API Calls (LOG_API_CALLS) - Only 24.2% of API calls logged",
+        "  \u2022 Log Application Messages (LOG_APPLICATION_MESSAGES) - Only 27.6% of application messages logged"
+      ],
+      "category": "auditability",
+      "priority": "medium",
+      "description": "Log all API requests and responses for monitoring",
+      "patterns_used": 28,
+      "matches_found": 886,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement correlation IDs for all log entries",
+        "  \u2022 Ensure at least 75% of API calls are logged",
+        "  \u2022 Enforce logging of all application messages",
+        "**Short-term Improvements:**",
+        "  \u2022 Review and refine the logging configuration to ensure compliance with audit trail requirements",
+        "  \u2022 Investigate why only a small percentage of API calls are being logged",
+        "  \u2022 Analyze log patterns to identify potential security risks",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a comprehensive logging strategy that meets all audit trail requirements",
+        "  \u2022 Implement additional logging mechanisms for high-risk areas",
+        "  \u2022 Regularly review and update the logging configuration to ensure ongoing compliance"
+      ],
+      "pattern_description": "Static pattern analysis for Log REST API Calls",
+      "pattern_significance": "Important for Log REST API Calls compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 28,
+          "matches": 886,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 886,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Tracking ID for Logs (CORRELATION_ID) - No correlation IDs found in logs",
+          "Log REST API Calls (LOG_API_CALLS) - Only 24.2% of API calls logged",
+          "Log Application Messages (LOG_APPLICATION_MESSAGES) - Only 27.6% of application messages logged"
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement correlation IDs for all log entries",
+            "Ensure at least 75% of API calls are logged",
+            "Enforce logging of all application messages"
+          ],
+          "short_term": [
+            "Review and refine the logging configuration to ensure compliance with audit trail requirements",
+            "Investigate why only a small percentage of API calls are being logged",
+            "Analyze log patterns to identify potential security risks"
+          ],
+          "long_term": [
+            "Develop a comprehensive logging strategy that meets all audit trail requirements",
+            "Implement additional logging mechanisms for high-risk areas",
+            "Regularly review and update the logging configuration to ensure ongoing compliance"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 24.156769596199528,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 24.156769596199528
+      },
+      "expected": 28,
+      "found": 886,
+      "coverage": 24.156769596199528,
+      "quality_score": 24.156769596199528,
+      "matches": []
+    },
+    {
+      "name": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "status": "FAIL",
+      "score": 27.57719714964371,
+      "details": [
+        "**LLM Category Assessment:** The audit trail and logging configuration has some gaps, but overall it is fair. There are partial compliance with audit trail requirements and medium risk of non-compliance.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Tracking ID for Logs (CORRELATION_ID) - No correlation IDs found in logs",
+        "  \u2022 Log REST API Calls (LOG_API_CALLS) - Only 24.2% of API calls logged",
+        "  \u2022 Log Application Messages (LOG_APPLICATION_MESSAGES) - Only 27.6% of application messages logged"
+      ],
+      "category": "auditability",
+      "priority": "medium",
+      "description": "Log important application state changes and events",
+      "patterns_used": 16,
+      "matches_found": 1219,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement correlation IDs for all log entries",
+        "  \u2022 Ensure at least 75% of API calls are logged",
+        "  \u2022 Enforce logging of all application messages",
+        "**Short-term Improvements:**",
+        "  \u2022 Review and refine the logging configuration to ensure compliance with audit trail requirements",
+        "  \u2022 Investigate why only a small percentage of API calls are being logged",
+        "  \u2022 Analyze log patterns to identify potential security risks",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a comprehensive logging strategy that meets all audit trail requirements",
+        "  \u2022 Implement additional logging mechanisms for high-risk areas",
+        "  \u2022 Regularly review and update the logging configuration to ensure ongoing compliance"
+      ],
+      "pattern_description": "Static pattern analysis for Log Application Messages",
+      "pattern_significance": "Important for Log Application Messages compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 16,
+          "matches": 1219,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 1219,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Tracking ID for Logs (CORRELATION_ID) - No correlation IDs found in logs",
+          "Log REST API Calls (LOG_API_CALLS) - Only 24.2% of API calls logged",
+          "Log Application Messages (LOG_APPLICATION_MESSAGES) - Only 27.6% of application messages logged"
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement correlation IDs for all log entries",
+            "Ensure at least 75% of API calls are logged",
+            "Enforce logging of all application messages"
+          ],
+          "short_term": [
+            "Review and refine the logging configuration to ensure compliance with audit trail requirements",
+            "Investigate why only a small percentage of API calls are being logged",
+            "Analyze log patterns to identify potential security risks"
+          ],
+          "long_term": [
+            "Develop a comprehensive logging strategy that meets all audit trail requirements",
+            "Implement additional logging mechanisms for high-risk areas",
+            "Regularly review and update the logging configuration to ensure ongoing compliance"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 27.57719714964371,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 27.57719714964371
+      },
+      "expected": 16,
+      "found": 1219,
+      "coverage": 27.57719714964371,
+      "quality_score": 27.57719714964371,
+      "matches": []
+    },
+    {
+      "name": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has a good overall health, but there are non-compliance issues with UI error handling and user feedback mechanisms.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 {'issue_id': 1, 'description': 'Inconsistent error messages across different UI components'}",
+        "  \u2022 {'issue_id': 2, 'description': 'Insufficient logging for critical errors'}"
+      ],
+      "category": "accountability",
+      "priority": "medium",
+      "description": "Capture and log client-side UI errors",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement consistent error message formatting across all UI components",
+        "  \u2022 Configure log levels to capture critical errors",
+        "**Short-term Improvements:**",
+        "  \u2022 Develop a comprehensive error tracking system",
+        "  \u2022 Integrate with existing logging mechanisms",
+        "**Long-term Strategy:**",
+        "  \u2022 Conduct regular user experience testing for error handling",
+        "  \u2022 Establish a feedback loop for users to report errors and suggestions"
+      ],
+      "pattern_description": "Static pattern analysis for Client UI Errors Logged",
+      "pattern_significance": "Important for Client UI Errors Logged compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          {
+            "issue_id": 1,
+            "description": "Inconsistent error messages across different UI components"
+          },
+          {
+            "issue_id": 2,
+            "description": "Insufficient logging for critical errors"
+          }
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement consistent error message formatting across all UI components",
+            "Configure log levels to capture critical errors"
+          ],
+          "short_term": [
+            "Develop a comprehensive error tracking system",
+            "Integrate with existing logging mechanisms"
+          ],
+          "long_term": [
+            "Conduct regular user experience testing for error handling",
+            "Establish a feedback loop for users to report errors and suggestions"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has a good overall health, but there are non-compliance issues with UI error handling and user feedback mechanisms.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 {'issue_id': 1, 'description': 'Inconsistent error messages across different UI components'}",
+        "  \u2022 {'issue_id': 2, 'description': 'Insufficient logging for critical errors'}"
+      ],
+      "category": "accountability",
+      "priority": "medium",
+      "description": "Integrate client-side error tracking tools",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement consistent error message formatting across all UI components",
+        "  \u2022 Configure log levels to capture critical errors",
+        "**Short-term Improvements:**",
+        "  \u2022 Develop a comprehensive error tracking system",
+        "  \u2022 Integrate with existing logging mechanisms",
+        "**Long-term Strategy:**",
+        "  \u2022 Conduct regular user experience testing for error handling",
+        "  \u2022 Establish a feedback loop for users to report errors and suggestions"
+      ],
+      "pattern_description": "Static pattern analysis for Client Error Tracking",
+      "pattern_significance": "Important for Client Error Tracking compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          {
+            "issue_id": 1,
+            "description": "Inconsistent error messages across different UI components"
+          },
+          {
+            "issue_id": 2,
+            "description": "Insufficient logging for critical errors"
+          }
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement consistent error message formatting across all UI components",
+            "Configure log levels to capture critical errors"
+          ],
+          "short_term": [
+            "Develop a comprehensive error tracking system",
+            "Integrate with existing logging mechanisms"
+          ],
+          "long_term": [
+            "Conduct regular user experience testing for error handling",
+            "Establish a feedback loop for users to report errors and suggestions"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The repository has good overall health, but there are some compliance and security risks that need to be addressed.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+        "  \u2022 There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+        "  \u2022 Throttling and dropping requests are not properly implemented, leading to potential security risks."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Implement retry mechanisms for resilient operations",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+        "  \u2022 Add timeouts to IO operations",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies"
+      ],
+      "pattern_description": "Static pattern analysis for Retry Logic",
+      "pattern_significance": "Important for Retry Logic compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+          "There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+          "Throttling and dropping requests are not properly implemented, leading to potential security risks."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic using a library such as Apache Commons Retry",
+            "Add timeouts to IO operations"
+          ],
+          "short_term": [
+            "Implement throttling and dropping of requests using a library such as Hystrix"
+          ],
+          "long_term": [
+            "Develop a circuit breaker pattern for detecting failures in dependencies"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The repository has good overall health, but there are some compliance and security risks that need to be addressed.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+        "  \u2022 There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+        "  \u2022 Throttling and dropping requests are not properly implemented, leading to potential security risks."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Set appropriate timeouts for I/O operations",
+      "patterns_used": 5,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+        "  \u2022 Add timeouts to IO operations",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies"
+      ],
+      "pattern_description": "Static pattern analysis for Timeouts in IO Ops",
+      "pattern_significance": "Important for Timeouts in IO Ops compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+          "There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+          "Throttling and dropping requests are not properly implemented, leading to potential security risks."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic using a library such as Apache Commons Retry",
+            "Add timeouts to IO operations"
+          ],
+          "short_term": [
+            "Implement throttling and dropping of requests using a library such as Hystrix"
+          ],
+          "long_term": [
+            "Develop a circuit breaker pattern for detecting failures in dependencies"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 5,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The repository has good overall health, but there are some compliance and security risks that need to be addressed.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+        "  \u2022 There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+        "  \u2022 Throttling and dropping requests are not properly implemented, leading to potential security risks."
+      ],
+      "category": "error_handling",
+      "priority": "medium",
+      "description": "Implement rate limiting and request throttling",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+        "  \u2022 Add timeouts to IO operations",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies"
+      ],
+      "pattern_description": "Static pattern analysis for Throttling & Drop Request",
+      "pattern_significance": "Important for Throttling & Drop Request compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+          "There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+          "Throttling and dropping requests are not properly implemented, leading to potential security risks."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic using a library such as Apache Commons Retry",
+            "Add timeouts to IO operations"
+          ],
+          "short_term": [
+            "Implement throttling and dropping of requests using a library such as Hystrix"
+          ],
+          "long_term": [
+            "Develop a circuit breaker pattern for detecting failures in dependencies"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 4,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The repository has good overall health, but there are some compliance and security risks that need to be addressed.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+        "  \u2022 There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+        "  \u2022 Throttling and dropping requests are not properly implemented, leading to potential security risks."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+        "  \u2022 Add timeouts to IO operations",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies"
+      ],
+      "pattern_description": "Static pattern analysis for Circuit Breakers",
+      "pattern_significance": "Important for Circuit Breakers compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+          "There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+          "Throttling and dropping requests are not properly implemented, leading to potential security risks."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic using a library such as Apache Commons Retry",
+            "Add timeouts to IO operations"
+          ],
+          "short_term": [
+            "Implement throttling and dropping of requests using a library such as Hystrix"
+          ],
+          "long_term": [
+            "Develop a circuit breaker pattern for detecting failures in dependencies"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "status": "WARNING",
+      "score": 69.26365795724466,
+      "details": [
+        "**LLM Category Assessment:** The repository has good overall health, but there are some compliance and security risks that need to be addressed.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+        "  \u2022 There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+        "  \u2022 Throttling and dropping requests are not properly implemented, leading to potential security risks."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Comprehensive error logging and exception handling",
+      "patterns_used": 22,
+      "matches_found": 20912,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+        "  \u2022 Add timeouts to IO operations",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies"
+      ],
+      "pattern_description": "Static pattern analysis for Log System Errors",
+      "pattern_significance": "Important for Log System Errors compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 22,
+          "matches": 20912,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 20912,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+          "There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+          "Throttling and dropping requests are not properly implemented, leading to potential security risks."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic using a library such as Apache Commons Retry",
+            "Add timeouts to IO operations"
+          ],
+          "short_term": [
+            "Implement throttling and dropping of requests using a library such as Hystrix"
+          ],
+          "long_term": [
+            "Develop a circuit breaker pattern for detecting failures in dependencies"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 69.26365795724466,
+        "static_status": "WARNING",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "WARNING",
+        "llm_final_score": 69.26365795724466
+      },
+      "expected": 22,
+      "found": 20912,
+      "coverage": 69.26365795724466,
+      "quality_score": 69.26365795724466,
+      "matches": []
+    },
+    {
+      "name": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The repository has good overall health, but there are some compliance and security risks that need to be addressed.",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+        "  \u2022 There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+        "  \u2022 Throttling and dropping requests are not properly implemented, leading to potential security risks."
+      ],
+      "category": "error_handling",
+      "priority": "medium",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+        "  \u2022 Add timeouts to IO operations",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies"
+      ],
+      "pattern_description": "Static pattern analysis for HTTP Error Codes",
+      "pattern_significance": "Important for HTTP Error Codes compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The retry logic is not implemented correctly, which can lead to errors and retries being handled incorrectly.",
+          "There are no timeouts in IO operations, which can cause the application to hang indefinitely.",
+          "Throttling and dropping requests are not properly implemented, leading to potential security risks."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic using a library such as Apache Commons Retry",
+            "Add timeouts to IO operations"
+          ],
+          "short_term": [
+            "Implement throttling and dropping of requests using a library such as Hystrix"
+          ],
+          "long_term": [
+            "Develop a circuit breaker pattern for detecting failures in dependencies"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "status": "PASS",
+      "score": 91.0,
+      "details": [
+        "**LLM Category Assessment:** The repository has a good overall health, meets compliance requirements, and presents low risk.",
+        "**Category Health:** good",
+        "**Risk Level:** low",
+        "**Compliance Status:** compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 Inconsistent logging configuration across different environments. This inconsistency may lead to issues with log aggregation and analysis.",
+        "  \u2022 Missing automated tests for critical business logic. This omission increases the likelihood of undetected bugs and errors."
+      ],
+      "category": "testing",
+      "priority": "high",
+      "description": "Comprehensive automated test coverage",
+      "patterns_used": 24,
+      "matches_found": 3965,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement consistent logging configuration across all environments.",
+        "  \u2022 Run comprehensive automated tests for critical business logic.",
+        "**Short-term Improvements:**",
+        "  \u2022 Develop a centralized logging framework to simplify log aggregation and analysis.",
+        "  \u2022 Create a set of automated tests that cover critical business logic.",
+        "**Long-term Strategy:**",
+        "  \u2022 Designate a team lead for code quality and testing, ensuring regular review and maintenance of test coverage.",
+        "  \u2022 Establish a continuous integration/continuous deployment (CI/CD) pipeline to automate testing and deployment."
+      ],
+      "pattern_description": "Static pattern analysis for Automated Tests",
+      "pattern_significance": "Important for Automated Tests compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 308,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 308 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 24,
+          "matches": 3965,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 3965,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "low",
+        "category_compliance": "compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Inconsistent logging configuration across different environments. This inconsistency may lead to issues with log aggregation and analysis.",
+          "Missing automated tests for critical business logic. This omission increases the likelihood of undetected bugs and errors."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement consistent logging configuration across all environments.",
+            "Run comprehensive automated tests for critical business logic."
+          ],
+          "short_term": [
+            "Develop a centralized logging framework to simplify log aggregation and analysis.",
+            "Create a set of automated tests that cover critical business logic."
+          ],
+          "long_term": [
+            "Designate a team lead for code quality and testing, ensuring regular review and maintenance of test coverage.",
+            "Establish a continuous integration/continuous deployment (CI/CD) pipeline to automate testing and deployment."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 91.0,
+        "static_status": "PASS",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "low",
+        "llm_final_status": "PASS",
+        "llm_final_score": 91.0
+      },
+      "expected": 24,
+      "found": 3965,
+      "coverage": 91.0,
+      "quality_score": 91.0,
+      "matches": []
+    }
+  ],
+  "score": 0.0,
+  "overall_score": 0.0,
+  "passed_gates": 1,
+  "warning_gates": 1,
+  "failed_gates": 10,
+  "not_applicable_gates": 0,
+  "total_applicable_gates": 12,
+  "total_all_gates": 12,
+  "critical_issues": [],
+  "recommendations": [
+    "**Immediate Actions:**",
+    "  \u2022 Implement correlation IDs for all log entries",
+    "  \u2022 Ensure at least 75% of API calls are logged",
+    "  \u2022 Enforce logging of all application messages",
+    "**Short-term Improvements:**",
+    "  \u2022 Review and refine the logging configuration to ensure compliance with audit trail requirements",
+    "  \u2022 Investigate why only a small percentage of API calls are being logged",
+    "  \u2022 Analyze log patterns to identify potential security risks",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a comprehensive logging strategy that meets all audit trail requirements",
+    "  \u2022 Implement additional logging mechanisms for high-risk areas",
+    "  \u2022 Regularly review and update the logging configuration to ensure ongoing compliance",
+    "**Immediate Actions:**",
+    "  \u2022 Implement correlation IDs for all log entries",
+    "  \u2022 Ensure at least 75% of API calls are logged",
+    "  \u2022 Enforce logging of all application messages",
+    "**Short-term Improvements:**",
+    "  \u2022 Review and refine the logging configuration to ensure compliance with audit trail requirements",
+    "  \u2022 Investigate why only a small percentage of API calls are being logged",
+    "  \u2022 Analyze log patterns to identify potential security risks",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a comprehensive logging strategy that meets all audit trail requirements",
+    "  \u2022 Implement additional logging mechanisms for high-risk areas",
+    "  \u2022 Regularly review and update the logging configuration to ensure ongoing compliance",
+    "**Immediate Actions:**",
+    "  \u2022 Implement correlation IDs for all log entries",
+    "  \u2022 Ensure at least 75% of API calls are logged",
+    "  \u2022 Enforce logging of all application messages",
+    "**Short-term Improvements:**",
+    "  \u2022 Review and refine the logging configuration to ensure compliance with audit trail requirements",
+    "  \u2022 Investigate why only a small percentage of API calls are being logged",
+    "  \u2022 Analyze log patterns to identify potential security risks",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a comprehensive logging strategy that meets all audit trail requirements",
+    "  \u2022 Implement additional logging mechanisms for high-risk areas",
+    "  \u2022 Regularly review and update the logging configuration to ensure ongoing compliance",
+    "**Immediate Actions:**",
+    "  \u2022 Implement consistent error message formatting across all UI components",
+    "  \u2022 Configure log levels to capture critical errors",
+    "**Short-term Improvements:**",
+    "  \u2022 Develop a comprehensive error tracking system",
+    "  \u2022 Integrate with existing logging mechanisms",
+    "**Long-term Strategy:**",
+    "  \u2022 Conduct regular user experience testing for error handling",
+    "  \u2022 Establish a feedback loop for users to report errors and suggestions",
+    "**Immediate Actions:**",
+    "  \u2022 Implement consistent error message formatting across all UI components",
+    "  \u2022 Configure log levels to capture critical errors",
+    "**Short-term Improvements:**",
+    "  \u2022 Develop a comprehensive error tracking system",
+    "  \u2022 Integrate with existing logging mechanisms",
+    "**Long-term Strategy:**",
+    "  \u2022 Conduct regular user experience testing for error handling",
+    "  \u2022 Establish a feedback loop for users to report errors and suggestions",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+    "  \u2022 Add timeouts to IO operations",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+    "  \u2022 Add timeouts to IO operations",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+    "  \u2022 Add timeouts to IO operations",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+    "  \u2022 Add timeouts to IO operations",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+    "  \u2022 Add timeouts to IO operations",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic using a library such as Apache Commons Retry",
+    "  \u2022 Add timeouts to IO operations",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement throttling and dropping of requests using a library such as Hystrix",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a circuit breaker pattern for detecting failures in dependencies",
+    "**Immediate Actions:**",
+    "  \u2022 Implement consistent logging configuration across all environments.",
+    "  \u2022 Run comprehensive automated tests for critical business logic.",
+    "**Short-term Improvements:**",
+    "  \u2022 Develop a centralized logging framework to simplify log aggregation and analysis.",
+    "  \u2022 Create a set of automated tests that cover critical business logic.",
+    "**Long-term Strategy:**",
+    "  \u2022 Designate a team lead for code quality and testing, ensuring regular review and maintenance of test coverage.",
+    "  \u2022 Establish a continuous integration/continuous deployment (CI/CD) pipeline to automate testing and deployment."
+  ],
+  "hybrid_validation": {
+    "enabled": true,
+    "statistics": {},
+    "pattern_library_version": "1.0.0",
+    "static_patterns_used": 0,
+    "llm_patterns_used": 0,
+    "coverage_improvement": 0.0,
+    "confidence_distribution": {}
+  },
+  "llm_analysis": {
+    "categories_analyzed": 0,
+    "analysis_timestamp": "2025-07-20T19:22:32.224482",
+    "enhancement_applied": true
+  }
+}

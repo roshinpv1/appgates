@@ -1,0 +1,1424 @@
+{
+  "report_metadata": {
+    "scan_id": "db27cd85-9d43-45dc-a5bd-32b34779a050",
+    "repository_url": "https://github.com/apache/fineract",
+    "branch": "develop",
+    "generated_at": "2025-07-20T19:20:57.384831",
+    "version": "3.0.0",
+    "llm_source": "local",
+    "llm_model": "llama-3.2-3b-instruct",
+    "validation_type": "llm_enhanced_hybrid"
+  },
+  "scan_metadata": {
+    "scan_duration": 0,
+    "total_files": 5000,
+    "total_lines": 502652,
+    "timestamp": "2025-07-20T19:20:57.384838",
+    "project_name": "apache/fineract",
+    "project_path": "https://github.com/apache/fineract",
+    "repository_url": "https://github.com/apache/fineract"
+  },
+  "languages_detected": [
+    "YAML",
+    "JSON",
+    "XML",
+    "SQL",
+    "Shell",
+    "Gradle",
+    "Java"
+  ],
+  "gates": [
+    {
+      "name": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The audit trail and logging configuration has some gaps, but overall it is good",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 The correlation ID for logs (CORRELATION_ID) is not tracked, which may lead to log loss or misinterpretation.",
+        "  \u2022 The log REST API calls (LOG_API_CALLS) are not properly logged, which may lead to audit trail incompleteness."
+      ],
+      "category": "auditability",
+      "priority": "medium",
+      "description": "Include correlation IDs for distributed tracing",
+      "patterns_used": 13,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement a correlation ID tracking mechanism for logs",
+        "**Short-term Improvements:**",
+        "  \u2022 Enhance logging of REST API calls to ensure all relevant information is captured",
+        "  \u2022 Review and update log application messages to ensure they comply with audit trail requirements",
+        "**Long-term Strategy:**",
+        "  \u2022 Consider implementing additional logging mechanisms, such as IP addresses and user agent information"
+      ],
+      "pattern_description": "Static pattern analysis for Tracking ID for Logs",
+      "pattern_significance": "Important for Tracking ID for Logs compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 13,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The correlation ID for logs (CORRELATION_ID) is not tracked, which may lead to log loss or misinterpretation.",
+          "The log REST API calls (LOG_API_CALLS) are not properly logged, which may lead to audit trail incompleteness."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement a correlation ID tracking mechanism for logs"
+          ],
+          "short_term": [
+            "Enhance logging of REST API calls to ensure all relevant information is captured",
+            "Review and update log application messages to ensure they comply with audit trail requirements"
+          ],
+          "long_term": [
+            "Consider implementing additional logging mechanisms, such as IP addresses and user agent information"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 13,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "status": "FAIL",
+      "score": 24.156769596199528,
+      "details": [
+        "**LLM Category Assessment:** The audit trail and logging configuration has some gaps, but overall it is good",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 The correlation ID for logs (CORRELATION_ID) is not tracked, which may lead to log loss or misinterpretation.",
+        "  \u2022 The log REST API calls (LOG_API_CALLS) are not properly logged, which may lead to audit trail incompleteness."
+      ],
+      "category": "auditability",
+      "priority": "medium",
+      "description": "Log all API requests and responses for monitoring",
+      "patterns_used": 28,
+      "matches_found": 886,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement a correlation ID tracking mechanism for logs",
+        "**Short-term Improvements:**",
+        "  \u2022 Enhance logging of REST API calls to ensure all relevant information is captured",
+        "  \u2022 Review and update log application messages to ensure they comply with audit trail requirements",
+        "**Long-term Strategy:**",
+        "  \u2022 Consider implementing additional logging mechanisms, such as IP addresses and user agent information"
+      ],
+      "pattern_description": "Static pattern analysis for Log REST API Calls",
+      "pattern_significance": "Important for Log REST API Calls compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 28,
+          "matches": 886,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 886,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The correlation ID for logs (CORRELATION_ID) is not tracked, which may lead to log loss or misinterpretation.",
+          "The log REST API calls (LOG_API_CALLS) are not properly logged, which may lead to audit trail incompleteness."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement a correlation ID tracking mechanism for logs"
+          ],
+          "short_term": [
+            "Enhance logging of REST API calls to ensure all relevant information is captured",
+            "Review and update log application messages to ensure they comply with audit trail requirements"
+          ],
+          "long_term": [
+            "Consider implementing additional logging mechanisms, such as IP addresses and user agent information"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 24.156769596199528,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 24.156769596199528
+      },
+      "expected": 28,
+      "found": 886,
+      "coverage": 24.156769596199528,
+      "quality_score": 24.156769596199528,
+      "matches": []
+    },
+    {
+      "name": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "status": "FAIL",
+      "score": 27.57719714964371,
+      "details": [
+        "**LLM Category Assessment:** The audit trail and logging configuration has some gaps, but overall it is good",
+        "**Category Health:** good",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 The correlation ID for logs (CORRELATION_ID) is not tracked, which may lead to log loss or misinterpretation.",
+        "  \u2022 The log REST API calls (LOG_API_CALLS) are not properly logged, which may lead to audit trail incompleteness."
+      ],
+      "category": "auditability",
+      "priority": "medium",
+      "description": "Log important application state changes and events",
+      "patterns_used": 16,
+      "matches_found": 1219,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement a correlation ID tracking mechanism for logs",
+        "**Short-term Improvements:**",
+        "  \u2022 Enhance logging of REST API calls to ensure all relevant information is captured",
+        "  \u2022 Review and update log application messages to ensure they comply with audit trail requirements",
+        "**Long-term Strategy:**",
+        "  \u2022 Consider implementing additional logging mechanisms, such as IP addresses and user agent information"
+      ],
+      "pattern_description": "Static pattern analysis for Log Application Messages",
+      "pattern_significance": "Important for Log Application Messages compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 16,
+          "matches": 1219,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 1219,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "The correlation ID for logs (CORRELATION_ID) is not tracked, which may lead to log loss or misinterpretation.",
+          "The log REST API calls (LOG_API_CALLS) are not properly logged, which may lead to audit trail incompleteness."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement a correlation ID tracking mechanism for logs"
+          ],
+          "short_term": [
+            "Enhance logging of REST API calls to ensure all relevant information is captured",
+            "Review and update log application messages to ensure they comply with audit trail requirements"
+          ],
+          "long_term": [
+            "Consider implementing additional logging mechanisms, such as IP addresses and user agent information"
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 27.57719714964371,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "good",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 27.57719714964371
+      },
+      "expected": 16,
+      "found": 1219,
+      "coverage": 27.57719714964371,
+      "quality_score": 27.57719714964371,
+      "matches": []
+    },
+    {
+      "name": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some areas of concern, particularly with regards to user interface error handling and accountability measures.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 Inconsistent error messages across different UI components, leading to confusion for users.",
+        "  \u2022 Insufficient logging mechanisms in place for critical errors, making it difficult to track issues and provide meaningful feedback to users.",
+        "  \u2022 Lack of clear accountability measures for developers and maintainers, potentially leading to a lack of ownership and motivation to improve the codebase."
+      ],
+      "category": "accountability",
+      "priority": "medium",
+      "description": "Capture and log client-side UI errors",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement consistent error messages across all UI components using a standardized error message framework.",
+        "  \u2022 Introduce logging mechanisms for critical errors, including support for user-friendly error messages and customizable logging levels.",
+        "  \u2022 Establish clear accountability measures for developers and maintainers, such as regular code reviews and public commit tracking.",
+        "**Short-term Improvements:**",
+        "  \u2022 Develop a comprehensive error handling strategy that covers all possible error scenarios and provides actionable feedback to users.",
+        "  \u2022 Implement automated testing for critical error paths to ensure the codebase is robust and resilient in the face of errors.",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a continuous integration/continuous deployment (CI/CD) pipeline that integrates with logging and error tracking mechanisms, enabling real-time monitoring and feedback to users.",
+        "  \u2022 Establish a community-driven review process for all code changes, ensuring that maintainers are held accountable for the quality of their contributions."
+      ],
+      "pattern_description": "Static pattern analysis for Client UI Errors Logged",
+      "pattern_significance": "Important for Client UI Errors Logged compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Inconsistent error messages across different UI components, leading to confusion for users.",
+          "Insufficient logging mechanisms in place for critical errors, making it difficult to track issues and provide meaningful feedback to users.",
+          "Lack of clear accountability measures for developers and maintainers, potentially leading to a lack of ownership and motivation to improve the codebase."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement consistent error messages across all UI components using a standardized error message framework.",
+            "Introduce logging mechanisms for critical errors, including support for user-friendly error messages and customizable logging levels.",
+            "Establish clear accountability measures for developers and maintainers, such as regular code reviews and public commit tracking."
+          ],
+          "short_term": [
+            "Develop a comprehensive error handling strategy that covers all possible error scenarios and provides actionable feedback to users.",
+            "Implement automated testing for critical error paths to ensure the codebase is robust and resilient in the face of errors."
+          ],
+          "long_term": [
+            "Develop a continuous integration/continuous deployment (CI/CD) pipeline that integrates with logging and error tracking mechanisms, enabling real-time monitoring and feedback to users.",
+            "Establish a community-driven review process for all code changes, ensuring that maintainers are held accountable for the quality of their contributions."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some areas of concern, particularly with regards to user interface error handling and accountability measures.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** non_compliant",
+        "**Critical Category Issues:**",
+        "  \u2022 Inconsistent error messages across different UI components, leading to confusion for users.",
+        "  \u2022 Insufficient logging mechanisms in place for critical errors, making it difficult to track issues and provide meaningful feedback to users.",
+        "  \u2022 Lack of clear accountability measures for developers and maintainers, potentially leading to a lack of ownership and motivation to improve the codebase."
+      ],
+      "category": "accountability",
+      "priority": "medium",
+      "description": "Integrate client-side error tracking tools",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement consistent error messages across all UI components using a standardized error message framework.",
+        "  \u2022 Introduce logging mechanisms for critical errors, including support for user-friendly error messages and customizable logging levels.",
+        "  \u2022 Establish clear accountability measures for developers and maintainers, such as regular code reviews and public commit tracking.",
+        "**Short-term Improvements:**",
+        "  \u2022 Develop a comprehensive error handling strategy that covers all possible error scenarios and provides actionable feedback to users.",
+        "  \u2022 Implement automated testing for critical error paths to ensure the codebase is robust and resilient in the face of errors.",
+        "**Long-term Strategy:**",
+        "  \u2022 Develop a continuous integration/continuous deployment (CI/CD) pipeline that integrates with logging and error tracking mechanisms, enabling real-time monitoring and feedback to users.",
+        "  \u2022 Establish a community-driven review process for all code changes, ensuring that maintainers are held accountable for the quality of their contributions."
+      ],
+      "pattern_description": "Static pattern analysis for Client Error Tracking",
+      "pattern_significance": "Important for Client Error Tracking compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "non_compliant",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Inconsistent error messages across different UI components, leading to confusion for users.",
+          "Insufficient logging mechanisms in place for critical errors, making it difficult to track issues and provide meaningful feedback to users.",
+          "Lack of clear accountability measures for developers and maintainers, potentially leading to a lack of ownership and motivation to improve the codebase."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement consistent error messages across all UI components using a standardized error message framework.",
+            "Introduce logging mechanisms for critical errors, including support for user-friendly error messages and customizable logging levels.",
+            "Establish clear accountability measures for developers and maintainers, such as regular code reviews and public commit tracking."
+          ],
+          "short_term": [
+            "Develop a comprehensive error handling strategy that covers all possible error scenarios and provides actionable feedback to users.",
+            "Implement automated testing for critical error paths to ensure the codebase is robust and resilient in the face of errors."
+          ],
+          "long_term": [
+            "Develop a continuous integration/continuous deployment (CI/CD) pipeline that integrates with logging and error tracking mechanisms, enabling real-time monitoring and feedback to users.",
+            "Establish a community-driven review process for all code changes, ensuring that maintainers are held accountable for the quality of their contributions."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some errors and warnings, but overall it's fair. Compliance is partial, and the risk level is medium.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+        "  \u2022 Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+        "  \u2022 Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+        "  \u2022 Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Implement retry mechanisms for resilient operations",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic in all places where it's missing.",
+        "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+        "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+        "**Short-term Improvements:**",
+        "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+        "  \u2022 Improve logging to capture more detailed error information.",
+        "**Long-term Strategy:**",
+        "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+        "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors."
+      ],
+      "pattern_description": "Static pattern analysis for Retry Logic",
+      "pattern_significance": "Important for Retry Logic compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+          "Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+          "Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+          "Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic in all places where it's missing.",
+            "Configure timeouts for IO operations and ensure they're properly handled.",
+            "Implement throttling and dropping requests correctly to prevent denial-of-service attacks."
+          ],
+          "short_term": [
+            "Use circuit breakers to detect and prevent cascading failures.",
+            "Improve logging to capture more detailed error information."
+          ],
+          "long_term": [
+            "Refactor the system to make it more resilient to failures and errors.",
+            "Implement a more robust error handling mechanism that can handle unexpected errors."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some errors and warnings, but overall it's fair. Compliance is partial, and the risk level is medium.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+        "  \u2022 Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+        "  \u2022 Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+        "  \u2022 Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Set appropriate timeouts for I/O operations",
+      "patterns_used": 5,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic in all places where it's missing.",
+        "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+        "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+        "**Short-term Improvements:**",
+        "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+        "  \u2022 Improve logging to capture more detailed error information.",
+        "**Long-term Strategy:**",
+        "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+        "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors."
+      ],
+      "pattern_description": "Static pattern analysis for Timeouts in IO Ops",
+      "pattern_significance": "Important for Timeouts in IO Ops compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+          "Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+          "Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+          "Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic in all places where it's missing.",
+            "Configure timeouts for IO operations and ensure they're properly handled.",
+            "Implement throttling and dropping requests correctly to prevent denial-of-service attacks."
+          ],
+          "short_term": [
+            "Use circuit breakers to detect and prevent cascading failures.",
+            "Improve logging to capture more detailed error information."
+          ],
+          "long_term": [
+            "Refactor the system to make it more resilient to failures and errors.",
+            "Implement a more robust error handling mechanism that can handle unexpected errors."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 5,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some errors and warnings, but overall it's fair. Compliance is partial, and the risk level is medium.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+        "  \u2022 Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+        "  \u2022 Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+        "  \u2022 Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+      ],
+      "category": "error_handling",
+      "priority": "medium",
+      "description": "Implement rate limiting and request throttling",
+      "patterns_used": 4,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic in all places where it's missing.",
+        "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+        "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+        "**Short-term Improvements:**",
+        "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+        "  \u2022 Improve logging to capture more detailed error information.",
+        "**Long-term Strategy:**",
+        "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+        "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors."
+      ],
+      "pattern_description": "Static pattern analysis for Throttling & Drop Request",
+      "pattern_significance": "Important for Throttling & Drop Request compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+          "Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+          "Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+          "Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic in all places where it's missing.",
+            "Configure timeouts for IO operations and ensure they're properly handled.",
+            "Implement throttling and dropping requests correctly to prevent denial-of-service attacks."
+          ],
+          "short_term": [
+            "Use circuit breakers to detect and prevent cascading failures.",
+            "Improve logging to capture more detailed error information."
+          ],
+          "long_term": [
+            "Refactor the system to make it more resilient to failures and errors.",
+            "Implement a more robust error handling mechanism that can handle unexpected errors."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 4,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some errors and warnings, but overall it's fair. Compliance is partial, and the risk level is medium.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+        "  \u2022 Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+        "  \u2022 Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+        "  \u2022 Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic in all places where it's missing.",
+        "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+        "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+        "**Short-term Improvements:**",
+        "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+        "  \u2022 Improve logging to capture more detailed error information.",
+        "**Long-term Strategy:**",
+        "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+        "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors."
+      ],
+      "pattern_description": "Static pattern analysis for Circuit Breakers",
+      "pattern_significance": "Important for Circuit Breakers compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+          "Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+          "Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+          "Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic in all places where it's missing.",
+            "Configure timeouts for IO operations and ensure they're properly handled.",
+            "Implement throttling and dropping requests correctly to prevent denial-of-service attacks."
+          ],
+          "short_term": [
+            "Use circuit breakers to detect and prevent cascading failures.",
+            "Improve logging to capture more detailed error information."
+          ],
+          "long_term": [
+            "Refactor the system to make it more resilient to failures and errors.",
+            "Implement a more robust error handling mechanism that can handle unexpected errors."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "status": "WARNING",
+      "score": 69.26365795724466,
+      "details": [
+        "**LLM Category Assessment:** The category has some errors and warnings, but overall it's fair. Compliance is partial, and the risk level is medium.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+        "  \u2022 Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+        "  \u2022 Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+        "  \u2022 Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+      ],
+      "category": "error_handling",
+      "priority": "high",
+      "description": "Comprehensive error logging and exception handling",
+      "patterns_used": 22,
+      "matches_found": 20912,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic in all places where it's missing.",
+        "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+        "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+        "**Short-term Improvements:**",
+        "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+        "  \u2022 Improve logging to capture more detailed error information.",
+        "**Long-term Strategy:**",
+        "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+        "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors."
+      ],
+      "pattern_description": "Static pattern analysis for Log System Errors",
+      "pattern_significance": "Important for Log System Errors compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 22,
+          "matches": 20912,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 20912,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+          "Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+          "Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+          "Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic in all places where it's missing.",
+            "Configure timeouts for IO operations and ensure they're properly handled.",
+            "Implement throttling and dropping requests correctly to prevent denial-of-service attacks."
+          ],
+          "short_term": [
+            "Use circuit breakers to detect and prevent cascading failures.",
+            "Improve logging to capture more detailed error information."
+          ],
+          "long_term": [
+            "Refactor the system to make it more resilient to failures and errors.",
+            "Implement a more robust error handling mechanism that can handle unexpected errors."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 69.26365795724466,
+        "static_status": "WARNING",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "WARNING",
+        "llm_final_score": 69.26365795724466
+      },
+      "expected": 22,
+      "found": 20912,
+      "coverage": 69.26365795724466,
+      "quality_score": 69.26365795724466,
+      "matches": []
+    },
+    {
+      "name": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "**LLM Category Assessment:** The category has some errors and warnings, but overall it's fair. Compliance is partial, and the risk level is medium.",
+        "**Category Health:** fair",
+        "**Risk Level:** medium",
+        "**Compliance Status:** partial",
+        "**Critical Category Issues:**",
+        "  \u2022 Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+        "  \u2022 Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+        "  \u2022 Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+        "  \u2022 Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+      ],
+      "category": "error_handling",
+      "priority": "medium",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "**Immediate Actions:**",
+        "  \u2022 Implement retry logic in all places where it's missing.",
+        "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+        "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+        "**Short-term Improvements:**",
+        "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+        "  \u2022 Improve logging to capture more detailed error information.",
+        "**Long-term Strategy:**",
+        "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+        "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors."
+      ],
+      "pattern_description": "Static pattern analysis for HTTP Error Codes",
+      "pattern_significance": "Important for HTTP Error Codes compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 0,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "fair",
+        "category_risk": "medium",
+        "category_compliance": "partial",
+        "gate_assessment": "No LLM assessment available",
+        "gate_issues": [],
+        "gate_recommendations": [],
+        "critical_issues": [
+          "Retry logic is missing in several places, which can lead to retries being missed for critical operations.",
+          "Timeouts are not properly configured for IO operations, leading to potential performance issues.",
+          "Throttling and dropping requests are not implemented correctly, potentially causing denial-of-service attacks.",
+          "Circuit breakers are not used at all, making the system vulnerable to cascading failures."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Implement retry logic in all places where it's missing.",
+            "Configure timeouts for IO operations and ensure they're properly handled.",
+            "Implement throttling and dropping requests correctly to prevent denial-of-service attacks."
+          ],
+          "short_term": [
+            "Use circuit breakers to detect and prevent cascading failures.",
+            "Improve logging to capture more detailed error information."
+          ],
+          "long_term": [
+            "Refactor the system to make it more resilient to failures and errors.",
+            "Implement a more robust error handling mechanism that can handle unexpected errors."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 0.0,
+        "static_status": "FAIL",
+        "llm_assessment": "No LLM assessment available",
+        "category_health": "fair",
+        "category_risk": "medium",
+        "llm_final_status": "FAIL",
+        "llm_final_score": 0.0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "status": "PASS",
+      "score": 91.0,
+      "details": [
+        "**LLM Category Assessment:** The overall health of the testing practices is good, with a high level of compliance and low risk.",
+        "**Category Health:** good",
+        "**Risk Level:** low",
+        "**Compliance Status:** compliant",
+        "**LLM Gate Assessment:** Good assessment of automated testing practices.",
+        "**LLM Identified Issues:**",
+        "  \u2022 Inconsistent naming conventions in test files (e.g., `testLoanControllerTest.java` vs. `LoanControllerTest.java`).",
+        "**Critical Category Issues:**",
+        "  \u2022 Inconsistent naming conventions in test files (e.g., `testLoanControllerTest.java` vs. `LoanControllerTest.java`).",
+        "  \u2022 Insufficient use of mock objects in tests to isolate dependencies.",
+        "  \u2022 Missing test coverage for critical business logic paths.",
+        "  \u2022 Unclear or missing test scenarios for edge cases and error handling."
+      ],
+      "category": "testing",
+      "priority": "high",
+      "description": "Comprehensive automated test coverage",
+      "patterns_used": 24,
+      "matches_found": 3965,
+      "recommendations": [
+        "Establish a consistent naming convention for test files across the project.",
+        "**Immediate Actions:**",
+        "  \u2022 Establish a consistent naming convention for test files across the project.",
+        "  \u2022 Use mock objects in tests to isolate dependencies and improve test isolation.",
+        "**Short-term Improvements:**",
+        "  \u2022 Implement test coverage for critical business logic paths using techniques such as equivalence partitioning or boundary value analysis.",
+        "  \u2022 Develop clear and comprehensive test scenarios for edge cases and error handling.",
+        "**Long-term Strategy:**",
+        "  \u2022 Continuously monitor and improve test coverage to ensure 100% coverage of critical code paths.",
+        "  \u2022 Refactor tests to use more descriptive names and follow standard test naming conventions."
+      ],
+      "pattern_description": "Static pattern analysis for Automated Tests",
+      "pattern_significance": "Important for Automated Tests compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 308,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 308 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "static_patterns": {
+          "count": 24,
+          "matches": 3965,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 3965,
+        "validation_mode": "static_only"
+      },
+      "category_analysis": {
+        "category_health": "good",
+        "category_risk": "low",
+        "category_compliance": "compliant",
+        "gate_assessment": "Good assessment of automated testing practices.",
+        "gate_issues": [
+          "Inconsistent naming conventions in test files (e.g., `testLoanControllerTest.java` vs. `LoanControllerTest.java`)."
+        ],
+        "gate_recommendations": [
+          "Establish a consistent naming convention for test files across the project."
+        ],
+        "critical_issues": [
+          "Inconsistent naming conventions in test files (e.g., `testLoanControllerTest.java` vs. `LoanControllerTest.java`).",
+          "Insufficient use of mock objects in tests to isolate dependencies.",
+          "Missing test coverage for critical business logic paths.",
+          "Unclear or missing test scenarios for edge cases and error handling."
+        ],
+        "category_recommendations": {
+          "immediate": [
+            "Establish a consistent naming convention for test files across the project.",
+            "Use mock objects in tests to isolate dependencies and improve test isolation."
+          ],
+          "short_term": [
+            "Implement test coverage for critical business logic paths using techniques such as equivalence partitioning or boundary value analysis.",
+            "Develop clear and comprehensive test scenarios for edge cases and error handling."
+          ],
+          "long_term": [
+            "Continuously monitor and improve test coverage to ensure 100% coverage of critical code paths.",
+            "Refactor tests to use more descriptive names and follow standard test naming conventions."
+          ]
+        }
+      },
+      "decision_factors": {
+        "static_score": 91.0,
+        "static_status": "PASS",
+        "llm_assessment": "Good assessment of automated testing practices.",
+        "category_health": "good",
+        "category_risk": "low",
+        "llm_final_status": "PASS",
+        "llm_final_score": 91.0
+      },
+      "expected": 24,
+      "found": 3965,
+      "coverage": 91.0,
+      "quality_score": 91.0,
+      "matches": []
+    }
+  ],
+  "score": 0.0,
+  "overall_score": 0.0,
+  "passed_gates": 1,
+  "warning_gates": 1,
+  "failed_gates": 10,
+  "not_applicable_gates": 0,
+  "total_applicable_gates": 12,
+  "total_all_gates": 12,
+  "critical_issues": [],
+  "recommendations": [
+    "**Immediate Actions:**",
+    "  \u2022 Implement a correlation ID tracking mechanism for logs",
+    "**Short-term Improvements:**",
+    "  \u2022 Enhance logging of REST API calls to ensure all relevant information is captured",
+    "  \u2022 Review and update log application messages to ensure they comply with audit trail requirements",
+    "**Long-term Strategy:**",
+    "  \u2022 Consider implementing additional logging mechanisms, such as IP addresses and user agent information",
+    "**Immediate Actions:**",
+    "  \u2022 Implement a correlation ID tracking mechanism for logs",
+    "**Short-term Improvements:**",
+    "  \u2022 Enhance logging of REST API calls to ensure all relevant information is captured",
+    "  \u2022 Review and update log application messages to ensure they comply with audit trail requirements",
+    "**Long-term Strategy:**",
+    "  \u2022 Consider implementing additional logging mechanisms, such as IP addresses and user agent information",
+    "**Immediate Actions:**",
+    "  \u2022 Implement a correlation ID tracking mechanism for logs",
+    "**Short-term Improvements:**",
+    "  \u2022 Enhance logging of REST API calls to ensure all relevant information is captured",
+    "  \u2022 Review and update log application messages to ensure they comply with audit trail requirements",
+    "**Long-term Strategy:**",
+    "  \u2022 Consider implementing additional logging mechanisms, such as IP addresses and user agent information",
+    "**Immediate Actions:**",
+    "  \u2022 Implement consistent error messages across all UI components using a standardized error message framework.",
+    "  \u2022 Introduce logging mechanisms for critical errors, including support for user-friendly error messages and customizable logging levels.",
+    "  \u2022 Establish clear accountability measures for developers and maintainers, such as regular code reviews and public commit tracking.",
+    "**Short-term Improvements:**",
+    "  \u2022 Develop a comprehensive error handling strategy that covers all possible error scenarios and provides actionable feedback to users.",
+    "  \u2022 Implement automated testing for critical error paths to ensure the codebase is robust and resilient in the face of errors.",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a continuous integration/continuous deployment (CI/CD) pipeline that integrates with logging and error tracking mechanisms, enabling real-time monitoring and feedback to users.",
+    "  \u2022 Establish a community-driven review process for all code changes, ensuring that maintainers are held accountable for the quality of their contributions.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement consistent error messages across all UI components using a standardized error message framework.",
+    "  \u2022 Introduce logging mechanisms for critical errors, including support for user-friendly error messages and customizable logging levels.",
+    "  \u2022 Establish clear accountability measures for developers and maintainers, such as regular code reviews and public commit tracking.",
+    "**Short-term Improvements:**",
+    "  \u2022 Develop a comprehensive error handling strategy that covers all possible error scenarios and provides actionable feedback to users.",
+    "  \u2022 Implement automated testing for critical error paths to ensure the codebase is robust and resilient in the face of errors.",
+    "**Long-term Strategy:**",
+    "  \u2022 Develop a continuous integration/continuous deployment (CI/CD) pipeline that integrates with logging and error tracking mechanisms, enabling real-time monitoring and feedback to users.",
+    "  \u2022 Establish a community-driven review process for all code changes, ensuring that maintainers are held accountable for the quality of their contributions.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic in all places where it's missing.",
+    "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+    "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+    "**Short-term Improvements:**",
+    "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+    "  \u2022 Improve logging to capture more detailed error information.",
+    "**Long-term Strategy:**",
+    "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+    "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic in all places where it's missing.",
+    "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+    "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+    "**Short-term Improvements:**",
+    "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+    "  \u2022 Improve logging to capture more detailed error information.",
+    "**Long-term Strategy:**",
+    "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+    "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic in all places where it's missing.",
+    "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+    "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+    "**Short-term Improvements:**",
+    "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+    "  \u2022 Improve logging to capture more detailed error information.",
+    "**Long-term Strategy:**",
+    "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+    "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic in all places where it's missing.",
+    "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+    "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+    "**Short-term Improvements:**",
+    "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+    "  \u2022 Improve logging to capture more detailed error information.",
+    "**Long-term Strategy:**",
+    "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+    "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic in all places where it's missing.",
+    "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+    "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+    "**Short-term Improvements:**",
+    "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+    "  \u2022 Improve logging to capture more detailed error information.",
+    "**Long-term Strategy:**",
+    "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+    "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors.",
+    "**Immediate Actions:**",
+    "  \u2022 Implement retry logic in all places where it's missing.",
+    "  \u2022 Configure timeouts for IO operations and ensure they're properly handled.",
+    "  \u2022 Implement throttling and dropping requests correctly to prevent denial-of-service attacks.",
+    "**Short-term Improvements:**",
+    "  \u2022 Use circuit breakers to detect and prevent cascading failures.",
+    "  \u2022 Improve logging to capture more detailed error information.",
+    "**Long-term Strategy:**",
+    "  \u2022 Refactor the system to make it more resilient to failures and errors.",
+    "  \u2022 Implement a more robust error handling mechanism that can handle unexpected errors.",
+    "Establish a consistent naming convention for test files across the project.",
+    "**Immediate Actions:**",
+    "  \u2022 Establish a consistent naming convention for test files across the project.",
+    "  \u2022 Use mock objects in tests to isolate dependencies and improve test isolation.",
+    "**Short-term Improvements:**",
+    "  \u2022 Implement test coverage for critical business logic paths using techniques such as equivalence partitioning or boundary value analysis.",
+    "  \u2022 Develop clear and comprehensive test scenarios for edge cases and error handling.",
+    "**Long-term Strategy:**",
+    "  \u2022 Continuously monitor and improve test coverage to ensure 100% coverage of critical code paths.",
+    "  \u2022 Refactor tests to use more descriptive names and follow standard test naming conventions."
+  ],
+  "hybrid_validation": {
+    "enabled": true,
+    "statistics": {},
+    "pattern_library_version": "1.0.0",
+    "static_patterns_used": 0,
+    "llm_patterns_used": 0,
+    "coverage_improvement": 0.0,
+    "confidence_distribution": {}
+  },
+  "llm_analysis": {
+    "categories_analyzed": 0,
+    "analysis_timestamp": "2025-07-20T19:20:57.384867",
+    "enhancement_applied": true
+  }
+}

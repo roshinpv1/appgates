@@ -2145,6 +2145,11 @@ class GenerateReportNode(Node):
         gate_results = validation["gate_results"]
         hybrid_stats = validation.get("hybrid_stats", {})
         
+        # Extract project name and branch for consistency
+        project_name = self._extract_project_name(params["request"]["repository_url"])
+        branch_name = params["request"]["branch"]
+        project_display_name = f"{project_name} ({branch_name})"
+        
         # Transform to match expected JSON format while preserving new data
         gates = []
         for gate_result in gate_results:
@@ -2214,7 +2219,7 @@ class GenerateReportNode(Node):
                 "total_files": metadata.get("total_files", 0),
                 "total_lines": metadata.get("total_lines", 0),
                 "timestamp": self._get_timestamp(),
-                "project_name": self._extract_project_name(params["request"]["repository_url"]),
+                "project_name": project_display_name,
                 "project_path": params["request"]["repository_url"],
                 "repository_url": params["request"]["repository_url"]
             },
@@ -2256,8 +2261,12 @@ class GenerateReportNode(Node):
         # Calculate summary statistics from new data
         stats = self._calculate_summary_stats_from_new_data(gate_results)
         
-        # Extract project name
+        # Extract project name and branch
         project_name = self._extract_project_name(params["request"]["repository_url"])
+        branch_name = params["request"]["branch"]
+        
+        # Create display name with branch
+        project_display_name = f"{project_name} ({branch_name})"
         
         # Get current timestamp
         timestamp = self._get_timestamp_formatted()
@@ -2293,7 +2302,7 @@ class GenerateReportNode(Node):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hard Gate Assessment ({report_type_display}) - {project_name}</title>
+    <title>Hard Gate Assessment ({report_type_display}) - {project_display_name}</title>
     <style>
         {self._get_extension_css_styles()}
     </style>
@@ -2302,7 +2311,7 @@ class GenerateReportNode(Node):
 <body>
     <div class="report-container">
         <div class="report-header">
-            <h1>{project_name}</h1>
+            <h1>{project_display_name}</h1>
             <div class="report-badge summary-badge">{report_type_display} Report</div>
             <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
             <p style="color: #6b7280; margin-bottom: 20px;">Generated with {llm_info['source']} ({llm_info['model']}) + Static Pattern Library</p>

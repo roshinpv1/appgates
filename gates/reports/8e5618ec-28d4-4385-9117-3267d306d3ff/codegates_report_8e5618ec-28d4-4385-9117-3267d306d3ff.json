@@ -1,0 +1,1167 @@
+{
+  "report_metadata": {
+    "scan_id": "8e5618ec-28d4-4385-9117-3267d306d3ff",
+    "repository_url": "https://github.com/apache/fineract",
+    "branch": "develop",
+    "generated_at": "2025-07-20T21:23:21.239639",
+    "version": "2.0.0",
+    "llm_source": "local",
+    "llm_model": "llama-3.2-3b-instruct",
+    "validation_type": "hybrid"
+  },
+  "scan_metadata": {
+    "scan_duration": 0,
+    "total_files": 5000,
+    "total_lines": 502652,
+    "timestamp": "2025-07-20T21:23:21.239646",
+    "project_name": "apache/fineract",
+    "project_path": "https://github.com/apache/fineract",
+    "repository_url": "https://github.com/apache/fineract"
+  },
+  "languages_detected": [
+    "YAML",
+    "JSON",
+    "XML",
+    "SQL",
+    "Shell",
+    "Gradle",
+    "Java"
+  ],
+  "gates": [
+    {
+      "name": "STRUCTURED_LOGS",
+      "display_name": "Logs Searchable/Available",
+      "status": "FAIL",
+      "score": 31.211401425178146,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 3.5% (146/4210 expected files)",
+        "Traditional Coverage: 3.5% (146/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 635 matches across 146 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 632 more matches"
+      ],
+      "category": "Logging",
+      "priority": "high",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "patterns_used": 81,
+      "matches_found": 635,
+      "recommendations": [
+        "Critical: Implement Logs Searchable/Available throughout your codebase",
+        "Expected 10% coverage, currently at 3.5% (based on 4210 expected files)",
+        "Focus on ensure logs are structured and searchable for operational monitoring",
+        "Moderate Gap: Need to implement in 275 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 78,
+          "matches": 1718,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 635,
+        "overlap_matches": 1185
+      },
+      "expected": 81,
+      "found": 635,
+      "coverage": 31.211401425178146,
+      "quality_score": 31.211401425178146,
+      "matches": []
+    },
+    {
+      "name": "AVOID_LOGGING_SECRETS",
+      "display_name": "Avoid Logging Confidential Data",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (35/4210 expected files)",
+        "Traditional Coverage: 0.8% (35/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 69 matches across 35 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 66 more matches"
+      ],
+      "category": "Security",
+      "priority": "critical",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "patterns_used": 8,
+      "matches_found": 69,
+      "recommendations": [
+        "Critical: Implement Avoid Logging Confidential Data throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on prevent sensitive data from being logged accidentally",
+        "Moderate Gap: Need to implement in 386 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 2,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 69,
+        "overlap_matches": 35
+      },
+      "expected": 8,
+      "found": 69,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUDIT_TRAIL",
+      "display_name": "Create Audit Trail Logs",
+      "status": "FAIL",
+      "score": 21.163895486935868,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 2.4% (99/4210 expected files)",
+        "Traditional Coverage: 2.4% (99/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 343 matches across 99 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 340 more matches"
+      ],
+      "category": "Compliance",
+      "priority": "high",
+      "description": "Log critical business operations for audit compliance",
+      "patterns_used": 19,
+      "matches_found": 343,
+      "recommendations": [
+        "Critical: Implement Create Audit Trail Logs throughout your codebase",
+        "Expected 10% coverage, currently at 2.4% (based on 4210 expected files)",
+        "Focus on log critical business operations for audit compliance",
+        "Moderate Gap: Need to implement in 322 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 16,
+          "matches": 343,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 343,
+        "overlap_matches": 102
+      },
+      "expected": 19,
+      "found": 343,
+      "coverage": 21.163895486935868,
+      "quality_score": 21.163895486935868,
+      "matches": []
+    },
+    {
+      "name": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "status": "FAIL",
+      "score": 7.268408551068884,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (34/4210 expected files)",
+        "Traditional Coverage: 0.8% (34/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 68 matches across 34 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 65 more matches"
+      ],
+      "category": "Observability",
+      "priority": "medium",
+      "description": "Include correlation IDs for distributed tracing",
+      "patterns_used": 16,
+      "matches_found": 68,
+      "recommendations": [
+        "Critical: Implement Tracking ID for Logs throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on include correlation ids for distributed tracing",
+        "Moderate Gap: Need to implement in 387 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 13,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 68,
+        "overlap_matches": 34
+      },
+      "expected": 16,
+      "found": 68,
+      "coverage": 7.268408551068884,
+      "quality_score": 7.268408551068884,
+      "matches": []
+    },
+    {
+      "name": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "status": "WARNING",
+      "score": 31.42517814726841,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 3.5% (147/4210 expected files)",
+        "Traditional Coverage: 3.5% (147/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 954 matches across 147 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 951 more matches"
+      ],
+      "category": "API",
+      "priority": "medium",
+      "description": "Log all API requests and responses for monitoring",
+      "patterns_used": 31,
+      "matches_found": 954,
+      "recommendations": [
+        "Critical: Implement Log REST API Calls throughout your codebase",
+        "Expected 10% coverage, currently at 3.5% (based on 4210 expected files)",
+        "Focus on log all api requests and responses for monitoring",
+        "Moderate Gap: Need to implement in 273 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 28,
+          "matches": 886,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 954,
+        "overlap_matches": 34
+      },
+      "expected": 31,
+      "found": 954,
+      "coverage": 31.42517814726841,
+      "quality_score": 31.42517814726841,
+      "matches": []
+    },
+    {
+      "name": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "status": "FAIL",
+      "score": 27.57719714964371,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 3.1% (129/4210 expected files)",
+        "Traditional Coverage: 3.1% (129/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 1212 matches across 129 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 1209 more matches"
+      ],
+      "category": "Logging",
+      "priority": "medium",
+      "description": "Log important application state changes and events",
+      "patterns_used": 19,
+      "matches_found": 1212,
+      "recommendations": [
+        "Critical: Implement Log Application Messages throughout your codebase",
+        "Expected 10% coverage, currently at 3.1% (based on 4210 expected files)",
+        "Focus on log important application state changes and events",
+        "Moderate Gap: Need to implement in 292 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 16,
+          "matches": 1219,
+          "source": "static_library"
+        },
+        "combined_confidence": "high",
+        "unique_matches": 1212,
+        "overlap_matches": 109
+      },
+      "expected": 19,
+      "found": 1212,
+      "coverage": 27.57719714964371,
+      "quality_score": 27.57719714964371,
+      "matches": []
+    },
+    {
+      "name": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "status": "FAIL",
+      "score": 7.268408551068884,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (34/4210 expected files)",
+        "Traditional Coverage: 0.8% (34/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 68 matches across 34 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 65 more matches"
+      ],
+      "category": "Frontend",
+      "priority": "medium",
+      "description": "Capture and log client-side UI errors",
+      "patterns_used": 3,
+      "matches_found": 68,
+      "recommendations": [
+        "Critical: Implement Client UI Errors Logged throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on capture and log client-side ui errors",
+        "Moderate Gap: Need to implement in 387 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 68,
+        "overlap_matches": 34
+      },
+      "expected": 3,
+      "found": 68,
+      "coverage": 7.268408551068884,
+      "quality_score": 7.268408551068884,
+      "matches": []
+    },
+    {
+      "name": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "status": "FAIL",
+      "score": 7.268408551068884,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (34/4210 expected files)",
+        "Traditional Coverage: 0.8% (34/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 68 matches across 34 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 65 more matches"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Implement retry mechanisms for resilient operations",
+      "patterns_used": 6,
+      "matches_found": 68,
+      "recommendations": [
+        "Critical: Implement Retry Logic throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on implement retry mechanisms for resilient operations",
+        "Moderate Gap: Need to implement in 387 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 68,
+        "overlap_matches": 34
+      },
+      "expected": 6,
+      "found": 68,
+      "coverage": 7.268408551068884,
+      "quality_score": 7.268408551068884,
+      "matches": []
+    },
+    {
+      "name": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "status": "FAIL",
+      "score": 7.268408551068884,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (34/4210 expected files)",
+        "Traditional Coverage: 0.8% (34/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 68 matches across 34 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 65 more matches"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Set appropriate timeouts for I/O operations",
+      "patterns_used": 8,
+      "matches_found": 68,
+      "recommendations": [
+        "Critical: Implement Timeouts in IO Ops throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on set appropriate timeouts for i/o operations",
+        "Moderate Gap: Need to implement in 387 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 68,
+        "overlap_matches": 34
+      },
+      "expected": 8,
+      "found": 68,
+      "coverage": 7.268408551068884,
+      "quality_score": 7.268408551068884,
+      "matches": []
+    },
+    {
+      "name": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "status": "FAIL",
+      "score": 7.268408551068884,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (34/4210 expected files)",
+        "Traditional Coverage: 0.8% (34/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 68 matches across 34 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 65 more matches"
+      ],
+      "category": "Performance",
+      "priority": "medium",
+      "description": "Implement rate limiting and request throttling",
+      "patterns_used": 7,
+      "matches_found": 68,
+      "recommendations": [
+        "Critical: Implement Throttling & Drop Request throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on implement rate limiting and request throttling",
+        "Moderate Gap: Need to implement in 387 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 4,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 68,
+        "overlap_matches": 34
+      },
+      "expected": 7,
+      "found": 68,
+      "coverage": 7.268408551068884,
+      "quality_score": 7.268408551068884,
+      "matches": []
+    },
+    {
+      "name": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "status": "FAIL",
+      "score": 7.268408551068884,
+      "details": [
+        "Expected Coverage: 10% (Extracted from text analysis)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.8% (34/4210 expected files)",
+        "Traditional Coverage: 0.8% (34/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 68 matches across 34 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:71 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/shareaccounts/serialization/ShareAccountDataSerializer.java:72 - import org.slf4j.Logger",
+        "  fineract-provider/src/main/java/org/apache/fineract/infrastructure/bulkimport/service/BulkImportWorkbookPopulatorServiceImpl.java:111 - import org.slf4j.Logger",
+        "  ... and 65 more matches"
+      ],
+      "category": "Reliability",
+      "priority": "high",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "patterns_used": 6,
+      "matches_found": 68,
+      "recommendations": [
+        "Critical: Implement Circuit Breakers throughout your codebase",
+        "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+        "Focus on implement circuit breaker pattern for fault tolerance",
+        "Moderate Gap: Need to implement in 387 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Extracted from text analysis",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 3,
+          "matches": 102,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 68,
+        "overlap_matches": 34
+      },
+      "expected": 6,
+      "found": 68,
+      "coverage": 7.268408551068884,
+      "quality_score": 7.268408551068884,
+      "matches": []
+    },
+    {
+      "name": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "status": "WARNING",
+      "score": 69.26365795724466,
+      "details": [
+        "Expected Coverage: 10% (Standard expectation for this gate type)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 7.7% (324/4210 expected files)",
+        "Traditional Coverage: 7.7% (324/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 6545 matches across 324 files",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/loanaccount/service/LoanWritePlatformServiceJpaRepositoryImpl.java:685 - try {",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/loanaccount/service/LoanWritePlatformServiceJpaRepositoryImpl.java:704 - try {",
+        "  fineract-provider/src/main/java/org/apache/fineract/portfolio/loanaccount/service/LoanWritePlatformServiceJpaRepositoryImpl.java:688 - catch (",
+        "  ... and 6542 more matches"
+      ],
+      "category": "Error Handling",
+      "priority": "high",
+      "description": "Comprehensive error logging and exception handling",
+      "patterns_used": 22,
+      "matches_found": 6545,
+      "recommendations": [
+        "Improve: Enhance Log System Errors implementation",
+        "Current: 7.7% coverage, Target: 10% coverage",
+        "Need to implement in 97 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 22,
+          "matches": 20912,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 6545,
+        "overlap_matches": 14367
+      },
+      "expected": 22,
+      "found": 6545,
+      "coverage": 69.26365795724466,
+      "quality_score": 69.26365795724466,
+      "matches": []
+    },
+    {
+      "name": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Standard expectation for this gate type)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.0% (0/4210 expected files)",
+        "Traditional Coverage: 0.0% (0/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "No matches found for HTTP Error Codes"
+      ],
+      "category": "API",
+      "priority": "medium",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "patterns_used": 3,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement HTTP Error Codes throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 4210 expected files)",
+        "Focus on use appropriate http status codes for api responses",
+        "Moderate Gap: Need to implement in 421 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 3,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 3,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "status": "FAIL",
+      "score": 0.0,
+      "details": [
+        "Expected Coverage: 10% (Standard expectation for this gate type)",
+        "Maximum Files Expected: 4210 files",
+        "Actual Coverage: 0.0% (0/4210 expected files)",
+        "Traditional Coverage: 0.0% (0/4210 relevant files)",
+        "Technology Filter: Using 4210 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "No matches found for Client Error Tracking"
+      ],
+      "category": "Frontend",
+      "priority": "medium",
+      "description": "Integrate client-side error tracking tools",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "recommendations": [
+        "Critical: Implement Client Error Tracking throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 4210 expected files)",
+        "Focus on integrate client-side error tracking tools",
+        "Moderate Gap: Need to implement in 421 more files"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 4210,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 4210 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "static_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0
+      },
+      "expected": 0,
+      "found": 0,
+      "coverage": 0.0,
+      "quality_score": 0.0,
+      "matches": []
+    },
+    {
+      "name": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "status": "PASS",
+      "score": 91.0,
+      "details": [
+        "Expected Coverage: 10% (Standard expectation for this gate type)",
+        "Maximum Files Expected: 308 files",
+        "Actual Coverage: 35.7% (110/308 expected files)",
+        "Traditional Coverage: 35.7% (110/308 relevant files)",
+        "Technology Filter: Using 308 relevant files (from 5000 total files)",
+        "Confidence: medium",
+        "Found 2833 matches across 110 files",
+        "  fineract-e2e-tests-core/src/test/java/org/apache/fineract/test/stepdef/loan/LoanStepDef.java:29 - junit",
+        "  fineract-e2e-tests-core/src/test/java/org/apache/fineract/test/stepdef/loan/LoanStepDef.java:30 - junit",
+        "  fineract-e2e-tests-core/src/test/java/org/apache/fineract/test/stepdef/loan/LoanStepDef.java:31 - junit",
+        "  ... and 2830 more matches"
+      ],
+      "category": "Testing",
+      "priority": "high",
+      "description": "Comprehensive automated test coverage",
+      "patterns_used": 24,
+      "matches_found": 2833,
+      "recommendations": [
+        "Good: Automated Tests is well implemented",
+        "Achieved: 35.7% coverage (Target: 10%)",
+        "Exceeds expectations by 25.7%"
+      ],
+      "pattern_description": "Pattern analysis for this gate",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "actual_coverage": {
+        "percentage": 0.0,
+        "files_with_matches": 0,
+        "relevant_files": 308,
+        "total_files": 5000,
+        "technology_filtered": true
+      },
+      "coverage_analysis": {
+        "gap": 10.0,
+        "meets_expectation": false,
+        "confidence_level": "medium",
+        "analysis_basis": "Based on 308 relevant files (filtered from 5000 total)"
+      },
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 24,
+          "matches": 3965,
+          "source": "static_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 2833,
+        "overlap_matches": 1132
+      },
+      "expected": 24,
+      "found": 2833,
+      "coverage": 91.0,
+      "quality_score": 91.0,
+      "matches": []
+    }
+  ],
+  "score": 21.016785431512275,
+  "overall_score": 21.016785431512275,
+  "passed_gates": 1,
+  "warning_gates": 2,
+  "failed_gates": 12,
+  "not_applicable_gates": 0,
+  "total_applicable_gates": 15,
+  "total_all_gates": 15,
+  "critical_issues": [],
+  "recommendations": [
+    "Critical: Implement Logs Searchable/Available throughout your codebase",
+    "Expected 10% coverage, currently at 3.5% (based on 4210 expected files)",
+    "Focus on ensure logs are structured and searchable for operational monitoring",
+    "Moderate Gap: Need to implement in 275 more files",
+    "Critical: Implement Avoid Logging Confidential Data throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on prevent sensitive data from being logged accidentally",
+    "Moderate Gap: Need to implement in 386 more files",
+    "Critical: Implement Create Audit Trail Logs throughout your codebase",
+    "Expected 10% coverage, currently at 2.4% (based on 4210 expected files)",
+    "Focus on log critical business operations for audit compliance",
+    "Moderate Gap: Need to implement in 322 more files",
+    "Critical: Implement Tracking ID for Logs throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on include correlation ids for distributed tracing",
+    "Moderate Gap: Need to implement in 387 more files",
+    "Critical: Implement Log REST API Calls throughout your codebase",
+    "Expected 10% coverage, currently at 3.5% (based on 4210 expected files)",
+    "Focus on log all api requests and responses for monitoring",
+    "Moderate Gap: Need to implement in 273 more files",
+    "Critical: Implement Log Application Messages throughout your codebase",
+    "Expected 10% coverage, currently at 3.1% (based on 4210 expected files)",
+    "Focus on log important application state changes and events",
+    "Moderate Gap: Need to implement in 292 more files",
+    "Critical: Implement Client UI Errors Logged throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on capture and log client-side ui errors",
+    "Moderate Gap: Need to implement in 387 more files",
+    "Critical: Implement Retry Logic throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on implement retry mechanisms for resilient operations",
+    "Moderate Gap: Need to implement in 387 more files",
+    "Critical: Implement Timeouts in IO Ops throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on set appropriate timeouts for i/o operations",
+    "Moderate Gap: Need to implement in 387 more files",
+    "Critical: Implement Throttling & Drop Request throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on implement rate limiting and request throttling",
+    "Moderate Gap: Need to implement in 387 more files",
+    "Critical: Implement Circuit Breakers throughout your codebase",
+    "Expected 10% coverage, currently at 0.8% (based on 4210 expected files)",
+    "Focus on implement circuit breaker pattern for fault tolerance",
+    "Moderate Gap: Need to implement in 387 more files",
+    "Improve: Enhance Log System Errors implementation",
+    "Current: 7.7% coverage, Target: 10% coverage",
+    "Need to implement in 97 more files",
+    "Critical: Implement HTTP Error Codes throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 4210 expected files)",
+    "Focus on use appropriate http status codes for api responses",
+    "Moderate Gap: Need to implement in 421 more files",
+    "Critical: Implement Client Error Tracking throughout your codebase",
+    "Expected 10% coverage, currently at 0.0% (based on 4210 expected files)",
+    "Focus on integrate client-side error tracking tools",
+    "Moderate Gap: Need to implement in 421 more files",
+    "Good: Automated Tests is well implemented",
+    "Achieved: 35.7% coverage (Target: 10%)",
+    "Exceeds expectations by 25.7%"
+  ],
+  "hybrid_validation": {
+    "enabled": true,
+    "statistics": {
+      "total_llm_patterns": 33,
+      "total_static_patterns": 220,
+      "total_llm_matches": 1122,
+      "total_static_matches": 29045,
+      "total_unique_matches": 12999,
+      "total_overlap_matches": 17168,
+      "coverage_improvement": 1058.5561497326203,
+      "confidence_distribution": {
+        "high": 5,
+        "medium": 8,
+        "low": 2
+      }
+    },
+    "pattern_library_version": "1.0.0",
+    "static_patterns_used": 220,
+    "llm_patterns_used": 33,
+    "coverage_improvement": 1058.5561497326203,
+    "confidence_distribution": {
+      "high": 5,
+      "medium": 8,
+      "low": 2
+    }
+  }
+}
