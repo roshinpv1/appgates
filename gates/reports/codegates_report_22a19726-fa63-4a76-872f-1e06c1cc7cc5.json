@@ -1,0 +1,1270 @@
+{
+  "scan_id": "22a19726-fa63-4a76-872f-1e06c1cc7cc5",
+  "project_name": "spring-projects/spring-boot (main)",
+  "repository_url": "https://github.com/spring-projects/spring-boot",
+  "branch": "main",
+  "scan_timestamp": "2025-07-20T23:33:39.770762",
+  "scan_timestamp_formatted": "2025-07-20 23:33:39",
+  "overall_score": 67.47374656230167,
+  "threshold": 70,
+  "status": "FAIL",
+  "summary": {
+    "total_gates": 15,
+    "passed_gates": 8,
+    "failed_gates": 5,
+    "warning_gates": 0,
+    "not_applicable_gates": 2,
+    "total_files": 5000,
+    "total_lines": 394768
+  },
+  "gates": [
+    {
+      "gate": "STRUCTURED_LOGS",
+      "display_name": "Logs Searchable/Available",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "category": "Logging",
+      "priority": "high",
+      "patterns_used": 8,
+      "matches_found": 151,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 6900.0% (69/1 expected files)",
+        "Traditional Coverage: 6900.0% (69/1 relevant files)",
+        "Confidence: medium",
+        "Found 151 matches across 69 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:670 - logger.debug",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:805 - logger.warn",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:842 - logger.error",
+        "  ... and 148 more matches"
+      ],
+      "recommendations": [
+        "Good: Logs Searchable/Available is well implemented",
+        "Achieved: 6900.0% coverage (Target: 10%)",
+        "Exceeds expectations by 6890.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Logs Searchable/Available",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 8,
+          "matches": 152,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 151,
+        "overlap_matches": 1,
+        "weighted_scoring": {
+          "gate_weight": 15.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 151,
+          "expected_coverage": {
+            "percentage": 25,
+            "reasoning": "Structured logging should be implemented across core application files",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.8,
+            "bonus_multiplier": 1.1,
+            "penalty_threshold": 0.3,
+            "penalty_multiplier": 0.7
+          }
+        }
+      }
+    },
+    {
+      "gate": "AVOID_LOGGING_SECRETS",
+      "display_name": "Avoid Logging Confidential Data",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "category": "Security",
+      "priority": "critical",
+      "patterns_used": 5,
+      "matches_found": 3,
+      "score": 40,
+      "status": "FAIL",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 300.0% (3/1 expected files)",
+        "Traditional Coverage: 300.0% (3/1 relevant files)",
+        "Confidence: medium",
+        "Found 3 matches across 3 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/cloud/CloudFoundryVcapEnvironmentPostProcessor.java:58 - \"password\":\"pxLsGVpsC9A5S\"",
+        "  cli/spring-boot-cli/src/main/java/org/springframework/boot/cli/command/encodepassword/EncodePasswordCommand.java:97 - Log.error(\"A single password option must be provid",
+        "  module/spring-boot-artemis/src/main/java/org/springframework/boot/artemis/autoconfigure/ArtemisEmbeddedConfigurationFactory.java:67 - logger.debug(\"Using default Artemis cluster passwo"
+      ],
+      "recommendations": [
+        "Critical: Implement Avoid Logging Confidential Data throughout your codebase",
+        "Expected 10% coverage, currently at 300.0% (based on 1 expected files)",
+        "Focus on prevent sensitive data from being logged accidentally",
+        "Moderate Gap: Need to implement in -2 more files"
+      ],
+      "pattern_description": "Static pattern analysis for Avoid Logging Confidential Data",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 3,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 3,
+        "overlap_matches": 0,
+        "weighted_scoring": {
+          "gate_weight": 0.0,
+          "weighted_score": 40,
+          "final_score": 40,
+          "matches_count": 3,
+          "expected_coverage": {
+            "percentage": 0,
+            "reasoning": "No secrets should be logged",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "violation_penalty": 20,
+            "max_penalty": 100,
+            "bonus_for_clean": 10
+          },
+          "security_violations": 3,
+          "penalty_applied": 60
+        }
+      }
+    },
+    {
+      "gate": "AUDIT_TRAIL",
+      "display_name": "Create Audit Trail Logs",
+      "description": "Log critical business operations for audit compliance",
+      "category": "Compliance",
+      "priority": "high",
+      "patterns_used": 6,
+      "matches_found": 1,
+      "score": 12.0,
+      "status": "FAIL",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 100.0% (1/1 expected files)",
+        "Traditional Coverage: 100.0% (1/1 relevant files)",
+        "Confidence: medium",
+        "Found 1 matches across 1 files",
+        "  module/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/security/AuthenticationAuditListener.java:112 - AuditEvent(event.getAuthentication().getName(), LO"
+      ],
+      "recommendations": [
+        "Critical: Implement Create Audit Trail Logs throughout your codebase",
+        "Expected 10% coverage, currently at 100.0% (based on 1 expected files)",
+        "Focus on log critical business operations for audit compliance",
+        "Moderate Gap: Need to implement in 0 more files"
+      ],
+      "pattern_description": "Static pattern analysis for Create Audit Trail Logs",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 6,
+          "matches": 2,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 1,
+        "overlap_matches": 1,
+        "weighted_scoring": {
+          "gate_weight": 12.0,
+          "weighted_score": 15.0,
+          "final_score": 12.0,
+          "matches_count": 1,
+          "expected_coverage": {
+            "percentage": 15,
+            "reasoning": "Audit trails should be present in business logic files",
+            "confidence": "medium"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.7,
+            "bonus_multiplier": 1.05,
+            "penalty_threshold": 0.2,
+            "penalty_multiplier": 0.8
+          }
+        }
+      }
+    },
+    {
+      "gate": "CORRELATION_ID",
+      "display_name": "Tracking ID for Logs",
+      "description": "Include correlation IDs for distributed tracing",
+      "category": "Observability",
+      "priority": "medium",
+      "patterns_used": 16,
+      "matches_found": 3,
+      "score": 24.82758620689655,
+      "status": "FAIL",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 300.0% (3/1 expected files)",
+        "Traditional Coverage: 300.0% (3/1 relevant files)",
+        "Confidence: medium",
+        "Found 3 matches across 3 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/logging/AbstractLoggingSystem.java:192 - CORRELATION_ID",
+        "  core/spring-boot/src/main/java/org/springframework/boot/logging/LoggingSystem.java:67 - CORRELATION_ID",
+        "  core/spring-boot/src/main/java/org/springframework/boot/logging/CorrelationIdFormatter.java:38 - traceparent"
+      ],
+      "recommendations": [
+        "Critical: Implement Tracking ID for Logs throughout your codebase",
+        "Expected 10% coverage, currently at 300.0% (based on 1 expected files)",
+        "Focus on include correlation ids for distributed tracing",
+        "Moderate Gap: Need to implement in -2 more files"
+      ],
+      "pattern_description": "Static pattern analysis for Tracking ID for Logs",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 16,
+          "matches": 3,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 3,
+        "overlap_matches": 0,
+        "weighted_scoring": {
+          "gate_weight": 8.0,
+          "weighted_score": 24.82758620689655,
+          "final_score": 24.82758620689655,
+          "matches_count": 3,
+          "expected_coverage": {
+            "percentage": 20,
+            "reasoning": "Correlation IDs should be present in API and service files",
+            "confidence": "medium"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.6,
+            "bonus_multiplier": 1.05,
+            "penalty_threshold": 0.1,
+            "penalty_multiplier": 0.9
+          }
+        }
+      }
+    },
+    {
+      "gate": "LOG_API_CALLS",
+      "display_name": "Log REST API Calls",
+      "description": "Log all API requests and responses for monitoring",
+      "category": "API",
+      "priority": "medium",
+      "patterns_used": 6,
+      "matches_found": 1,
+      "score": 15.0,
+      "status": "FAIL",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 100.0% (1/1 expected files)",
+        "Traditional Coverage: 100.0% (1/1 relevant files)",
+        "Confidence: medium",
+        "Found 1 matches across 1 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/logging/structured/StructuredLogFormatterFactory.java:135 - requested (either a {@link CommonStructuredLog"
+      ],
+      "recommendations": [
+        "Critical: Implement Log REST API Calls throughout your codebase",
+        "Expected 10% coverage, currently at 100.0% (based on 1 expected files)",
+        "Focus on log all api requests and responses for monitoring",
+        "Moderate Gap: Need to implement in 0 more files"
+      ],
+      "pattern_description": "Static pattern analysis for Log REST API Calls",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 6,
+          "matches": 1,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 1,
+        "overlap_matches": 0,
+        "weighted_scoring": {
+          "gate_weight": 10.0,
+          "weighted_score": 18.75,
+          "final_score": 15.0,
+          "matches_count": 1,
+          "expected_coverage": {
+            "percentage": 30,
+            "reasoning": "API logging should be present in controller/route files",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.7,
+            "bonus_multiplier": 1.1,
+            "penalty_threshold": 0.2,
+            "penalty_multiplier": 0.8
+          }
+        }
+      }
+    },
+    {
+      "gate": "LOG_APPLICATION_MESSAGES",
+      "display_name": "Log Application Messages",
+      "description": "Log important application state changes and events",
+      "category": "Logging",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 60,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 1800.0% (18/1 expected files)",
+        "Traditional Coverage: 1800.0% (18/1 relevant files)",
+        "Confidence: medium",
+        "Found 60 matches across 18 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:319 - ApplicationClass, environment).logStarted(getAppli",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:454 - ApplicationRunListeners(log",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:557 - ApplicationClass, log",
+        "  ... and 57 more matches"
+      ],
+      "recommendations": [
+        "Good: Log Application Messages is well implemented",
+        "Achieved: 1800.0% coverage (Target: 10%)",
+        "Exceeds expectations by 1790.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Log Application Messages",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 4,
+          "matches": 87,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 60,
+        "overlap_matches": 27,
+        "weighted_scoring": {
+          "gate_weight": 8.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 60,
+          "expected_coverage": {
+            "percentage": 20,
+            "reasoning": "Application messages should be logged in business logic",
+            "confidence": "medium"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.6,
+            "bonus_multiplier": 1.05,
+            "penalty_threshold": 0.1,
+            "penalty_multiplier": 0.9
+          }
+        }
+      }
+    },
+    {
+      "gate": "UI_ERRORS",
+      "display_name": "Client UI Errors Logged",
+      "description": "Capture and log client-side UI errors",
+      "category": "Frontend",
+      "priority": "medium",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "NOT_APPLICABLE",
+      "details": [
+        "This gate is not applicable: Only applicable for frontend/client-side applications"
+      ],
+      "recommendations": [
+        "Not applicable to this technology stack: Only applicable for frontend/client-side applications"
+      ],
+      "pattern_description": "Not applicable: Only applicable for frontend/client-side applications",
+      "pattern_significance": "Only applicable for frontend/client-side applications",
+      "expected_coverage": {
+        "percentage": 0,
+        "reasoning": "Only applicable for frontend/client-side applications",
+        "confidence": "high"
+      },
+      "total_files": 5000,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "not_applicable"
+        },
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "not_applicable"
+        },
+        "combined_confidence": "high"
+      }
+    },
+    {
+      "gate": "RETRY_LOGIC",
+      "display_name": "Retry Logic",
+      "description": "Implement retry mechanisms for resilient operations",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 5,
+      "matches_found": 50,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 700.0% (7/1 expected files)",
+        "Traditional Coverage: 700.0% (7/1 relevant files)",
+        "Confidence: medium",
+        "Found 50 matches across 7 files",
+        "  module/spring-boot-amqp/src/main/java/org/springframework/boot/amqp/autoconfigure/RabbitProperties.java:778 - retry",
+        "  module/spring-boot-amqp/src/main/java/org/springframework/boot/amqp/autoconfigure/RabbitProperties.java:780 - Retry",
+        "  module/spring-boot-amqp/src/main/java/org/springframework/boot/amqp/autoconfigure/RabbitProperties.java:840 - Retry",
+        "  ... and 47 more matches"
+      ],
+      "recommendations": [
+        "Good: Retry Logic is well implemented",
+        "Achieved: 700.0% coverage (Target: 10%)",
+        "Exceeds expectations by 690.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Retry Logic",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 93,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 50,
+        "overlap_matches": 43,
+        "weighted_scoring": {
+          "gate_weight": 12.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 50,
+          "expected_coverage": {
+            "percentage": 25,
+            "reasoning": "Retry logic should be present in external service calls",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.7,
+            "bonus_multiplier": 1.1,
+            "penalty_threshold": 0.2,
+            "penalty_multiplier": 0.8
+          }
+        }
+      }
+    },
+    {
+      "gate": "TIMEOUTS",
+      "display_name": "Timeouts in IO Ops",
+      "description": "Set appropriate timeouts for I/O operations",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 4,
+      "matches_found": 322,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 3500.0% (35/1 expected files)",
+        "Traditional Coverage: 3500.0% (35/1 relevant files)",
+        "Confidence: medium",
+        "Found 322 matches across 35 files",
+        "  module/spring-boot-amqp/src/main/java/org/springframework/boot/amqp/autoconfigure/RabbitProperties.java:105 - timeout",
+        "  module/spring-boot-amqp/src/main/java/org/springframework/boot/amqp/autoconfigure/RabbitProperties.java:127 - timeout",
+        "  module/spring-boot-amqp/src/main/java/org/springframework/boot/amqp/autoconfigure/RabbitProperties.java:129 - Timeout",
+        "  ... and 319 more matches"
+      ],
+      "recommendations": [
+        "Good: Timeouts in IO Ops is well implemented",
+        "Achieved: 3500.0% coverage (Target: 10%)",
+        "Exceeds expectations by 3490.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Timeouts in IO Ops",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 4,
+          "matches": 512,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 322,
+        "overlap_matches": 190,
+        "weighted_scoring": {
+          "gate_weight": 12.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 322,
+          "expected_coverage": {
+            "percentage": 20,
+            "reasoning": "Timeouts should be present in I/O operations",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.7,
+            "bonus_multiplier": 1.1,
+            "penalty_threshold": 0.2,
+            "penalty_multiplier": 0.8
+          }
+        }
+      }
+    },
+    {
+      "gate": "THROTTLING",
+      "display_name": "Throttling & Drop Request",
+      "description": "Implement rate limiting and request throttling",
+      "category": "Performance",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 28,
+      "score": 88.2,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 300.0% (3/1 expected files)",
+        "Traditional Coverage: 300.0% (3/1 relevant files)",
+        "Confidence: medium",
+        "Found 28 matches across 3 files",
+        "  module/spring-boot-cassandra/src/main/java/org/springframework/boot/cassandra/autoconfigure/CassandraAutoConfiguration.java:48 - Throttle",
+        "  module/spring-boot-cassandra/src/main/java/org/springframework/boot/cassandra/autoconfigure/CassandraAutoConfiguration.java:49 - Throttle",
+        "  module/spring-boot-cassandra/src/main/java/org/springframework/boot/cassandra/autoconfigure/CassandraAutoConfiguration.java:230 - Throttle",
+        "  ... and 25 more matches"
+      ],
+      "recommendations": [
+        "Good: Throttling & Drop Request is well implemented",
+        "Achieved: 300.0% coverage (Target: 10%)",
+        "Exceeds expectations by 290.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Throttling & Drop Request",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 4,
+          "matches": 35,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 28,
+        "overlap_matches": 7,
+        "weighted_scoring": {
+          "gate_weight": 8.0,
+          "weighted_score": 84.0,
+          "final_score": 88.2,
+          "matches_count": 28,
+          "expected_coverage": {
+            "percentage": 15,
+            "reasoning": "Throttling should be present in API endpoints",
+            "confidence": "medium"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.6,
+            "bonus_multiplier": 1.05,
+            "penalty_threshold": 0.1,
+            "penalty_multiplier": 0.9
+          }
+        }
+      }
+    },
+    {
+      "gate": "CIRCUIT_BREAKERS",
+      "display_name": "Circuit Breakers",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "category": "Reliability",
+      "priority": "high",
+      "patterns_used": 5,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "FAIL",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 0.0% (0/1 expected files)",
+        "Traditional Coverage: 0.0% (0/1 relevant files)",
+        "Confidence: medium",
+        "No matches found for Circuit Breakers"
+      ],
+      "recommendations": [
+        "Critical: Implement Circuit Breakers throughout your codebase",
+        "Expected 10% coverage, currently at 0.0% (based on 1 expected files)",
+        "Focus on implement circuit breaker pattern for fault tolerance",
+        "Moderate Gap: Need to implement in 0 more files"
+      ],
+      "pattern_description": "Static pattern analysis for Circuit Breakers",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 5,
+          "matches": 0,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "low",
+        "unique_matches": 0,
+        "overlap_matches": 0,
+        "weighted_scoring": {
+          "gate_weight": 12.0,
+          "weighted_score": 0.0,
+          "final_score": 0.0,
+          "matches_count": 0,
+          "expected_coverage": {
+            "percentage": 15,
+            "reasoning": "Circuit breakers should be present in external service calls",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.6,
+            "bonus_multiplier": 1.1,
+            "penalty_threshold": 0.1,
+            "penalty_multiplier": 0.8
+          }
+        }
+      }
+    },
+    {
+      "gate": "ERROR_LOGS",
+      "display_name": "Log System Errors",
+      "description": "Comprehensive error logging and exception handling",
+      "category": "Error Handling",
+      "priority": "high",
+      "patterns_used": 7,
+      "matches_found": 3778,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 34700.0% (347/1 expected files)",
+        "Traditional Coverage: 34700.0% (347/1 relevant files)",
+        "Confidence: medium",
+        "Found 3778 matches across 347 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:849 - exception has been log",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:851 - exception the exception that was log",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:308 - try {",
+        "  ... and 3775 more matches"
+      ],
+      "recommendations": [
+        "Good: Log System Errors is well implemented",
+        "Achieved: 34700.0% coverage (Target: 10%)",
+        "Exceeds expectations by 34690.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Log System Errors",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 7,
+          "matches": 5168,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 3778,
+        "overlap_matches": 1390,
+        "weighted_scoring": {
+          "gate_weight": 15.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 3778,
+          "expected_coverage": {
+            "percentage": 30,
+            "reasoning": "Error logging should be present in most application files",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.7,
+            "bonus_multiplier": 1.1,
+            "penalty_threshold": 0.2,
+            "penalty_multiplier": 0.8
+          }
+        }
+      }
+    },
+    {
+      "gate": "HTTP_CODES",
+      "display_name": "HTTP Error Codes",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "category": "API",
+      "priority": "medium",
+      "patterns_used": 4,
+      "matches_found": 614,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 50000.0% (500/1 expected files)",
+        "Traditional Coverage: 50000.0% (500/1 relevant files)",
+        "Confidence: medium",
+        "Found 614 matches across 500 files",
+        "  core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java:2 - 201",
+        "  core/spring-boot/src/main/java/org/springframework/boot/context/properties/source/ConfigurationPropertyName.java:2 - 201",
+        "  core/spring-boot/src/main/java/org/springframework/boot/json/JsonWriter.java:2 - 201",
+        "  ... and 611 more matches"
+      ],
+      "recommendations": [
+        "Good: HTTP Error Codes is well implemented",
+        "Achieved: 50000.0% coverage (Target: 10%)",
+        "Exceeds expectations by 49990.0%"
+      ],
+      "pattern_description": "Static pattern analysis for HTTP Error Codes",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 2088,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 4,
+          "matches": 635,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 614,
+        "overlap_matches": 21,
+        "weighted_scoring": {
+          "gate_weight": 8.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 614,
+          "expected_coverage": {
+            "percentage": 25,
+            "reasoning": "HTTP status codes should be present in API endpoints",
+            "confidence": "medium"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.6,
+            "bonus_multiplier": 1.05,
+            "penalty_threshold": 0.1,
+            "penalty_multiplier": 0.9
+          }
+        }
+      }
+    },
+    {
+      "gate": "UI_ERROR_TOOLS",
+      "display_name": "Client Error Tracking",
+      "description": "Integrate client-side error tracking tools",
+      "category": "Frontend",
+      "priority": "medium",
+      "patterns_used": 0,
+      "matches_found": 0,
+      "score": 0.0,
+      "status": "NOT_APPLICABLE",
+      "details": [
+        "This gate is not applicable: Only applicable for frontend applications with client-side error tracking"
+      ],
+      "recommendations": [
+        "Not applicable to this technology stack: Only applicable for frontend applications with client-side error tracking"
+      ],
+      "pattern_description": "Not applicable: Only applicable for frontend applications with client-side error tracking",
+      "pattern_significance": "Only applicable for frontend applications with client-side error tracking",
+      "expected_coverage": {
+        "percentage": 0,
+        "reasoning": "Only applicable for frontend applications with client-side error tracking",
+        "confidence": "high"
+      },
+      "total_files": 5000,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "not_applicable"
+        },
+        "static_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "not_applicable"
+        },
+        "combined_confidence": "high"
+      }
+    },
+    {
+      "gate": "AUTOMATED_TESTS",
+      "display_name": "Automated Tests",
+      "description": "Comprehensive automated test coverage",
+      "category": "Testing",
+      "priority": "high",
+      "patterns_used": 7,
+      "matches_found": 24072,
+      "score": 100.0,
+      "status": "PASS",
+      "details": [
+        "Expected Coverage: 10% (Standard expectation)",
+        "Maximum Files Expected: 1 files",
+        "Actual Coverage: 48900.0% (489/1 expected files)",
+        "Traditional Coverage: 48900.0% (489/1 relevant files)",
+        "Confidence: medium",
+        "Found 24072 matches across 489 files",
+        "  core/spring-boot/src/test/java/org/springframework/boot/context/properties/ConfigurationPropertiesTests.java:147 - @Test",
+        "  core/spring-boot/src/test/java/org/springframework/boot/context/properties/ConfigurationPropertiesTests.java:155 - @Test",
+        "  core/spring-boot/src/test/java/org/springframework/boot/context/properties/ConfigurationPropertiesTests.java:163 - @Test",
+        "  ... and 24069 more matches"
+      ],
+      "recommendations": [
+        "Good: Automated Tests is well implemented",
+        "Achieved: 48900.0% coverage (Target: 10%)",
+        "Exceeds expectations by 48890.0%"
+      ],
+      "pattern_description": "Static pattern analysis for Automated Tests",
+      "pattern_significance": "Important for code quality and compliance",
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Standard expectation for this gate type",
+        "confidence": "medium"
+      },
+      "total_files": 5000,
+      "relevant_files": 1826,
+      "validation_sources": {
+        "llm_patterns": {
+          "count": 0,
+          "matches": 0,
+          "source": "llm_generated"
+        },
+        "static_patterns": {
+          "count": 7,
+          "matches": 26024,
+          "source": "weighted_library"
+        },
+        "combined_confidence": "medium",
+        "unique_matches": 24072,
+        "overlap_matches": 1952,
+        "weighted_scoring": {
+          "gate_weight": 18.0,
+          "weighted_score": 100.0,
+          "final_score": 100.0,
+          "matches_count": 24072,
+          "expected_coverage": {
+            "percentage": 40,
+            "reasoning": "Tests should cover significant portion of application logic",
+            "confidence": "high"
+          },
+          "scoring_config": {
+            "base_score": 100,
+            "bonus_threshold": 0.8,
+            "bonus_multiplier": 1.15,
+            "penalty_threshold": 0.3,
+            "penalty_multiplier": 0.7
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "file_count": 5000,
+    "line_count": 394768,
+    "language_distribution": {
+      "JSON": {
+        "files": 81,
+        "percentage": 2.0
+      },
+      "Java": {
+        "files": 3914,
+        "percentage": 94.8
+      },
+      "XML": {
+        "files": 44,
+        "percentage": 1.1
+      },
+      "Batch": {
+        "files": 2,
+        "percentage": 0.0
+      },
+      "Ruby": {
+        "files": 1,
+        "percentage": 0.0
+      },
+      "SQL": {
+        "files": 3,
+        "percentage": 0.1
+      },
+      "CSS": {
+        "files": 1,
+        "percentage": 0.0
+      },
+      "HTML": {
+        "files": 1,
+        "percentage": 0.0
+      },
+      "YAML": {
+        "files": 26,
+        "percentage": 0.6
+      },
+      "Docker": {
+        "files": 6,
+        "percentage": 0.1
+      },
+      "Gradle": {
+        "files": 9,
+        "percentage": 0.2
+      },
+      "Shell": {
+        "files": 39,
+        "percentage": 0.9
+      },
+      "JavaScript": {
+        "files": 1,
+        "percentage": 0.0
+      }
+    },
+    "primary_technologies": [
+      "Java"
+    ],
+    "scan_duration": 0,
+    "pattern_library_version": "2.0.0"
+  },
+  "llm_info": {
+    "provider": "none",
+    "model": "unknown",
+    "patterns_generated": 0,
+    "patterns_matched": 0,
+    "confidence": "low"
+  },
+  "weighted_validation": {
+    "enabled": true,
+    "statistics": {
+      "total_llm_patterns": 0,
+      "total_static_patterns": 81,
+      "total_llm_matches": 0,
+      "total_static_matches": 32715,
+      "total_unique_matches": 29083,
+      "total_overlap_matches": 3632,
+      "coverage_improvement": 0.0,
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 12,
+        "low": 1
+      }
+    },
+    "pattern_library_version": "2.0.0",
+    "static_patterns_used": 81,
+    "llm_patterns_used": 0,
+    "coverage_improvement": 0.0,
+    "confidence_distribution": {
+      "high": 0,
+      "medium": 12,
+      "low": 1
+    },
+    "weighted_scoring": {
+      "total_weight": 163.0,
+      "applicable_gates": 13,
+      "gate_scores": {
+        "STRUCTURED_LOGS": {
+          "score": 100.0,
+          "weight": 15.0,
+          "weighted_score": 1500.0
+        },
+        "AVOID_LOGGING_SECRETS": {
+          "score": 40,
+          "weight": 25.0,
+          "weighted_score": 1000.0
+        },
+        "AUDIT_TRAIL": {
+          "score": 12.0,
+          "weight": 12.0,
+          "weighted_score": 144.0
+        },
+        "CORRELATION_ID": {
+          "score": 24.82758620689655,
+          "weight": 8.0,
+          "weighted_score": 198.6206896551724
+        },
+        "LOG_API_CALLS": {
+          "score": 15.0,
+          "weight": 10.0,
+          "weighted_score": 150.0
+        },
+        "LOG_APPLICATION_MESSAGES": {
+          "score": 100.0,
+          "weight": 8.0,
+          "weighted_score": 800.0
+        },
+        "RETRY_LOGIC": {
+          "score": 100.0,
+          "weight": 12.0,
+          "weighted_score": 1200.0
+        },
+        "TIMEOUTS": {
+          "score": 100.0,
+          "weight": 12.0,
+          "weighted_score": 1200.0
+        },
+        "THROTTLING": {
+          "score": 88.2,
+          "weight": 8.0,
+          "weighted_score": 705.6
+        },
+        "CIRCUIT_BREAKERS": {
+          "score": 0.0,
+          "weight": 12.0,
+          "weighted_score": 0.0
+        },
+        "ERROR_LOGS": {
+          "score": 100.0,
+          "weight": 15.0,
+          "weighted_score": 1500.0
+        },
+        "HTTP_CODES": {
+          "score": 100.0,
+          "weight": 8.0,
+          "weighted_score": 800.0
+        },
+        "AUTOMATED_TESTS": {
+          "score": 100.0,
+          "weight": 18.0,
+          "weighted_score": 1800.0
+        }
+      },
+      "overall_weighted_score": 67.47374656230167
+    },
+    "pattern_statistics": {
+      "total_gates": 16,
+      "total_patterns": 149,
+      "supported_technologies": [
+        "java",
+        "python",
+        "javascript",
+        "typescript",
+        "csharp",
+        "go",
+        "rust",
+        "all_languages"
+      ],
+      "technology_coverage": {
+        "java": 29,
+        "python": 23,
+        "javascript": 18,
+        "typescript": 5,
+        "csharp": 4,
+        "go": 3,
+        "rust": 3,
+        "all_languages": 64
+      }
+    }
+  },
+  "applicability": {
+    "enabled": true,
+    "codebase_characteristics": {
+      "languages": [
+        "SQL",
+        "Java",
+        "CSS",
+        "YAML",
+        "Docker",
+        "Batch",
+        "Shell",
+        "Gradle",
+        "JavaScript",
+        "Ruby",
+        "XML",
+        "HTML",
+        "JSON"
+      ],
+      "language_counts": {
+        "JSON": 81,
+        "Java": 3914,
+        "XML": 44,
+        "Batch": 2,
+        "Ruby": 1,
+        "SQL": 3,
+        "CSS": 1,
+        "HTML": 1,
+        "YAML": 26,
+        "Docker": 6,
+        "Gradle": 9,
+        "Shell": 39,
+        "JavaScript": 1
+      },
+      "is_frontend": false,
+      "is_backend": true,
+      "is_api": true,
+      "is_mobile": false,
+      "is_backend_only": false,
+      "is_frontend_only": false,
+      "is_fullstack": true,
+      "primary_technology": "backend"
+    },
+    "total_gates": 15,
+    "applicable_gates": 13,
+    "non_applicable_gates": 2,
+    "applicable_by_category": {},
+    "non_applicable_details": [
+      {
+        "name": "UI_ERRORS",
+        "display_name": "Client UI Errors Logged",
+        "category": "Frontend",
+        "reason": "Not applicable to this technology stack"
+      },
+      {
+        "name": "UI_ERROR_TOOLS",
+        "display_name": "Client Error Tracking",
+        "category": "Frontend",
+        "reason": "Not applicable to this technology stack"
+      }
+    ],
+    "applicable_gate_names": [
+      "STRUCTURED_LOGS",
+      "AVOID_LOGGING_SECRETS",
+      "AUDIT_TRAIL",
+      "CORRELATION_ID",
+      "LOG_API_CALLS",
+      "LOG_APPLICATION_MESSAGES",
+      "RETRY_LOGIC",
+      "TIMEOUTS",
+      "THROTTLING",
+      "CIRCUIT_BREAKERS",
+      "ERROR_LOGS",
+      "HTTP_CODES",
+      "AUTOMATED_TESTS"
+    ]
+  }
+}

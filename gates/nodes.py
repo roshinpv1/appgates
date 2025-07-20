@@ -3073,7 +3073,7 @@ class GenerateReportNode(Node):
         gate_info_html += '</div>'
         details.append(gate_info_html)
         
-        # Pattern Analysis section - NEW
+        # Pattern Analysis section - Enhanced with pattern details
         pattern_description = gate.get("pattern_description", "")
         pattern_significance = gate.get("pattern_significance", "")
         
@@ -3090,19 +3090,122 @@ class GenerateReportNode(Node):
             pattern_html += '</div>'
             details.append(pattern_html)
         
-        # Details section
+        # Pattern Details section - NEW
+        validation_sources = gate.get("validation_sources", {})
+        if validation_sources:
+            pattern_details_html = '<div class="details-section">'
+            pattern_details_html += '<div class="details-section-title">Pattern Details:</div>'
+            
+            # LLM Patterns
+            llm_info = validation_sources.get("llm_patterns", {})
+            if llm_info.get("count", 0) > 0:
+                pattern_details_html += f'<p><strong>LLM-Generated Patterns:</strong> {llm_info["count"]} patterns tried, {llm_info["matches"]} matches found</p>'
+                pattern_details_html += f'<p><em>Source:</em> {llm_info.get("source", "AI-generated")}</p>'
+            
+            # Static Patterns
+            static_info = validation_sources.get("static_patterns", {})
+            if static_info.get("count", 0) > 0:
+                pattern_details_html += f'<p><strong>Static Library Patterns:</strong> {static_info["count"]} patterns tried, {static_info["matches"]} matches found</p>'
+                pattern_details_html += f'<p><em>Source:</em> {static_info.get("source", "Weighted pattern library")}</p>'
+            
+            # Combined results
+            unique_matches = validation_sources.get("unique_matches", 0)
+            overlap_matches = validation_sources.get("overlap_matches", 0)
+            combined_confidence = validation_sources.get("combined_confidence", "medium")
+            
+            pattern_details_html += f'<p><strong>Combined Results:</strong> {unique_matches} unique matches, {overlap_matches} overlapping matches</p>'
+            pattern_details_html += f'<p><strong>Confidence Level:</strong> {combined_confidence}</p>'
+            
+            # Show some example patterns if available
+            if gate.get("patterns_used", 0) > 0:
+                pattern_details_html += '<p><strong>Pattern Types Used:</strong></p><ul>'
+                
+                if llm_info.get("count", 0) > 0:
+                    pattern_details_html += f'<li>LLM-generated patterns for {gate.get("gate", "Unknown")} validation</li>'
+                
+                if static_info.get("count", 0) > 0:
+                    pattern_details_html += f'<li>Static library patterns with weighted scoring</li>'
+                
+                pattern_details_html += '</ul>'
+            
+            pattern_details_html += '</div>'
+            details.append(pattern_details_html)
+        
+        # Analysis Details section - Enhanced and FIXED
         gate_details = gate.get('details', [])
         if gate_details:
             details_html = '<div class="details-section">'
             details_html += '<div class="details-section-title">Analysis Details:</div>'
             details_html += '<ul>'
-            for detail in gate_details[:5]:  # Show first 5 details
+            
+            # Filter out confusing coverage details and focus on actual findings
+            filtered_details = []
+            for detail in gate_details:
+                # Skip the confusing coverage percentages
+                if any(skip_phrase in detail for skip_phrase in [
+                    "Expected Coverage:", 
+                    "Maximum Files Expected:", 
+                    "Actual Coverage:", 
+                    "Traditional Coverage:"
+                ]):
+                    continue
+                filtered_details.append(detail)
+            
+            # Show first 5 meaningful details
+            for detail in filtered_details[:5]:
                 details_html += f'<li>{detail}</li>'
+            
+            # If no meaningful details, show a summary
+            if not filtered_details:
+                matches_found = gate.get("matches_found", 0)
+                patterns_used = gate.get("patterns_used", 0)
+                details_html += f'<li>Analyzed {patterns_used} patterns across the codebase</li>'
+                details_html += f'<li>Found {matches_found} pattern matches</li>'
+                details_html += f'<li>Confidence: {gate.get("validation_sources", {}).get("combined_confidence", "medium")}</li>'
+            
             details_html += '</ul>'
             details_html += '</div>'
             details.append(details_html)
         
-        # Recommendations section
+        # Coverage Analysis section - FIXED
+        expected_coverage = gate.get("expected_coverage", {})
+        if expected_coverage:
+            coverage_html = '<div class="details-section">'
+            coverage_html += '<div class="details-section-title">Coverage Analysis:</div>'
+            
+            percentage = expected_coverage.get("percentage", 0)
+            reasoning = expected_coverage.get("reasoning", "Standard expectation")
+            confidence = expected_coverage.get("confidence", "medium")
+            
+            # Calculate more realistic coverage metrics
+            matches_found = gate.get("matches_found", 0)
+            patterns_used = gate.get("patterns_used", 0)
+            relevant_files = gate.get("relevant_files", 0)
+            
+            # Calculate coverage as percentage of relevant files that have matches
+            if relevant_files > 0:
+                files_with_matches = min(matches_found, relevant_files)  # Cap at relevant files
+                coverage_percentage = (files_with_matches / relevant_files) * 100
+            else:
+                coverage_percentage = 0
+            
+            coverage_html += f'<p><strong>Pattern Coverage:</strong> {patterns_used} patterns applied to {relevant_files} relevant files</p>'
+            coverage_html += f'<p><strong>Match Rate:</strong> {matches_found} pattern matches found</p>'
+            coverage_html += f'<p><strong>Expected Coverage:</strong> {percentage}% ({reasoning})</p>'
+            coverage_html += f'<p><strong>Confidence:</strong> {confidence}</p>'
+            
+            # Show actual vs expected with more realistic comparison
+            actual_score = gate.get("score", 0)
+            if actual_score > 0:
+                if actual_score >= percentage:
+                    coverage_html += f'<p><strong>Result:</strong> ✅ Meets or exceeds expectations ({actual_score:.1f}% score)</p>'
+                else:
+                    coverage_html += f'<p><strong>Result:</strong> ⚠️ Below expectations ({actual_score:.1f}% score vs {percentage}% target)</p>'
+            
+            coverage_html += '</div>'
+            details.append(coverage_html)
+        
+        # Recommendations section - Enhanced
         recommendations = gate.get('recommendations', [])
         if recommendations:
             rec_html = '<div class="details-section">'
@@ -3113,6 +3216,24 @@ class GenerateReportNode(Node):
             rec_html += '</ul>'
             rec_html += '</div>'
             details.append(rec_html)
+        
+        # Pattern Examples section - NEW (for failed gates)
+        if gate.get("status") == "FAIL" and gate.get("patterns_used", 0) > 0:
+            pattern_examples_html = '<div class="details-section">'
+            pattern_examples_html += '<div class="details-section-title">Patterns Tried:</div>'
+            pattern_examples_html += '<p><em>The following pattern types were used to validate this gate:</em></p>'
+            pattern_examples_html += '<ul>'
+            
+            if llm_info.get("count", 0) > 0:
+                pattern_examples_html += f'<li><strong>LLM Patterns:</strong> {llm_info["count"]} AI-generated patterns for {gate.get("gate", "Unknown")} detection</li>'
+            
+            if static_info.get("count", 0) > 0:
+                pattern_examples_html += f'<li><strong>Static Patterns:</strong> {static_info["count"]} weighted patterns from pattern library</li>'
+            
+            pattern_examples_html += '</ul>'
+            pattern_examples_html += '<p><em>Consider implementing the missing patterns or improving existing implementations.</em></p>'
+            pattern_examples_html += '</div>'
+            details.append(pattern_examples_html)
         
         return ''.join(details)
 
