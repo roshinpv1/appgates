@@ -14,7 +14,7 @@ from typing import Optional
 # Add current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from flow import create_validation_flow
+from flow import create_static_only_flow
 from utils.hard_gates import HARD_GATES
 from utils.llm_client import LLMProvider
 
@@ -148,7 +148,7 @@ def scan(repository_url: str, branch: str, token: Optional[str], threshold: int,
         # Create and run the validation flow
         with click.progressbar(length=100, label='Validating repository') as bar:
             # Mock progress updates - in real implementation, nodes would update this
-            validation_flow = create_validation_flow()
+            validation_flow = create_static_only_flow()
             validation_flow.run(shared)
             bar.update(100)
         

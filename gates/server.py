@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 # Add current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from flow import create_validation_flow
+from flow import create_static_only_flow
 from utils.hard_gates import HARD_GATES
 
 # Add server configuration at the top of the file
@@ -465,19 +465,17 @@ def create_progress_aware_flow(scan_id: str):
     """
     Create a progress-aware validation flow that reports progress to scan_results
     """
-    from flow import create_validation_flow
+    from flow import create_static_only_flow
     
-    # Get the original flow
-    original_flow = create_validation_flow()
+    # Get the static-only flow
+    original_flow = create_static_only_flow()
     
-    # Define step mappings
+    # Define step mappings for static-only flow (no LLM steps)
     step_mappings = {
-        'FetchRepositoryNode': ('Fetching repository...', 10),
-        'ProcessCodebaseNode': ('Processing codebase...', 25),
-        'ExtractConfigNode': ('Extracting configuration...', 35),
-        'GeneratePromptNode': ('Generating LLM prompt...', 45),
-        'CallLLMNode': ('Calling LLM for patterns...', 65),
-        'ValidateGatesNode': ('Validating gates...', 85),
+        'FetchRepositoryNode': ('Fetching repository...', 15),
+        'ProcessCodebaseNode': ('Processing codebase...', 35),
+        'ExtractConfigNode': ('Extracting configuration...', 50),
+        'ValidateGatesNode': ('Validating gates with static patterns...', 80),
         'GenerateReportNode': ('Generating reports...', 95),
         'CleanupNode': ('Cleaning up...', 100)
     }

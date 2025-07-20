@@ -18,14 +18,14 @@ try:
     from .utils.file_scanner import scan_directory
     from .utils.hard_gates import HARD_GATES
     from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
-    from .utils.static_patterns import get_static_patterns_for_gate, get_pattern_statistics
+    from .utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
 except ImportError:
     # Fall back to absolute imports (when run directly)
     from utils.git_operations import clone_repository, cleanup_repository
     from utils.file_scanner import scan_directory
     from utils.hard_gates import HARD_GATES
     from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
-    from utils.static_patterns import get_static_patterns_for_gate, get_pattern_statistics
+    from utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
 
 
 class FetchRepositoryNode(Node):
@@ -1208,19 +1208,44 @@ class ValidateGatesNode(Node):
     
     def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare validation parameters"""
+        # Get LLM patterns if available, otherwise use empty dict
+        llm_patterns = shared["llm"].get("patterns", {})
+        pattern_data = shared["llm"].get("pattern_data", {})
+        
+        # If no LLM patterns are available, use fallback patterns
+        if not llm_patterns:
+            print("   ⚠️ No LLM patterns available, using static patterns only")
+            # Generate fallback patterns for each gate
+            fallback_patterns = {}
+            fallback_data = {}
+            for gate in shared["hard_gates"]:
+                gate_name = gate["name"]
+                fallback_patterns[gate_name] = []
+                fallback_data[gate_name] = {
+                    "description": f"Static pattern analysis for {gate['display_name']}",
+                    "significance": "Important for code quality and compliance",
+                    "expected_coverage": {
+                        "percentage": 10,
+                        "reasoning": "Standard expectation for this gate type",
+                        "confidence": "medium"
+                    }
+                }
+            llm_patterns = fallback_patterns
+            pattern_data = fallback_data
+        
         return {
             "repo_path": shared["repository"]["local_path"],
             "metadata": shared["repository"]["metadata"],
-            "patterns": shared["llm"]["patterns"],
-            "pattern_data": shared["llm"].get("pattern_data", {}),
+            "patterns": llm_patterns,
+            "pattern_data": pattern_data,
             "hard_gates": shared["hard_gates"],
             "threshold": shared["request"]["threshold"],
             "shared": shared  # Pass shared context for configuration
         }
     
     def exec(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Validate all gates against the codebase using hybrid pattern validation"""
-        print("🎯 Validating gates against codebase with hybrid pattern validation...")
+        """Validate all gates against the codebase using weighted pattern validation"""
+        print("🎯 Validating gates against codebase with weighted pattern validation...")
         
         repo_path = Path(params["repo_path"])
         llm_patterns = params["patterns"]
@@ -1231,8 +1256,11 @@ class ValidateGatesNode(Node):
         config = self._get_pattern_matching_config(params.get("shared", {}))
         print(f"   📋 Pattern matching config: max_files={config['max_files']}, max_size={config['max_file_size_mb']}MB, lang_threshold={config['language_threshold_percent']}%")
         
-        # Get primary technologies for static pattern selection
+        # Get primary technologies for pattern selection
         primary_technologies = self._get_primary_technologies(metadata)
+        
+        # Initialize pattern loader
+        pattern_loader = get_pattern_loader()
         
         gate_results = []
         
@@ -1242,7 +1270,7 @@ class ValidateGatesNode(Node):
             llm_gate_patterns = llm_patterns.get(gate_name, [])
             gate_pattern_info = pattern_data.get(gate_name, {})
             
-            print(f"   Validating {gate_name} with hybrid patterns...")
+            print(f"   Validating {gate_name} with weighted patterns...")
             
             # Show file analysis summary
             if gate_name == "AUTOMATED_TESTS":
@@ -1288,10 +1316,11 @@ class ValidateGatesNode(Node):
                 }
                 print(f"   {gate_name} marked as NOT_APPLICABLE")
             else:
-                # Get static patterns for this gate and technology stack
-                static_gate_patterns = get_static_patterns_for_gate(gate_name, primary_technologies)
+                # Get weighted patterns for this gate and technology stack
+                weighted_patterns = pattern_loader.get_gate_patterns(gate_name, primary_technologies)
+                static_gate_patterns = [p["pattern"] for p in weighted_patterns]
                 
-                # Hybrid validation: LLM patterns + Static patterns (with improved matching)
+                # Hybrid validation: LLM patterns + Weighted patterns
                 llm_matches = self._find_pattern_matches_with_config(repo_path, llm_gate_patterns, metadata, gate, config, "LLM")
                 static_matches = self._find_pattern_matches_with_config(repo_path, static_gate_patterns, metadata, gate, config, "Static")
                 
@@ -1307,20 +1336,8 @@ class ValidateGatesNode(Node):
                 
                 relevant_file_count = len(relevant_files)
                 
-                # Prepare gate with expected coverage for scoring
-                gate_with_coverage = {
-                    **gate,
-                    "expected_coverage": gate_pattern_info.get("expected_coverage", {
-                        "percentage": 10,
-                        "reasoning": "Standard expectation for this gate type",
-                        "confidence": "medium"
-                    }),
-                    "total_files": metadata.get("total_files", 1),
-                    "relevant_files": relevant_file_count
-                }
-                
-                # Calculate score based on gate type and combined matches
-                score = self._calculate_gate_score(gate_with_coverage, unique_matches, metadata)
+                # Calculate weighted score using new system
+                weighted_score, scoring_details = calculate_weighted_gate_score(gate_name, unique_matches, metadata)
                 
                 # Determine combined confidence
                 combined_confidence = self._calculate_combined_confidence(
@@ -1335,10 +1352,10 @@ class ValidateGatesNode(Node):
                     "priority": gate["priority"],
                     "patterns_used": len(llm_gate_patterns) + len(static_gate_patterns),
                     "matches_found": len(unique_matches),
-                    "score": score,
-                    "status": self._determine_status(score, gate),
-                    "details": self._generate_gate_details(gate_with_coverage, unique_matches),
-                    "recommendations": self._generate_gate_recommendations(gate_with_coverage, unique_matches, score),
+                    "score": weighted_score,
+                    "status": self._determine_status(weighted_score, gate),
+                    "details": self._generate_gate_details(gate, unique_matches),
+                    "recommendations": self._generate_gate_recommendations(gate, unique_matches, weighted_score),
                     # Add LLM-generated pattern information
                     "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
                     "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance"),
@@ -1349,7 +1366,7 @@ class ValidateGatesNode(Node):
                     }),
                     "total_files": metadata.get("total_files", 1),
                     "relevant_files": relevant_file_count,
-                    # Enhanced validation tracking
+                    # Enhanced validation tracking with weighted scoring
                     "validation_sources": {
                         "llm_patterns": {
                             "count": len(llm_gate_patterns),
@@ -1359,35 +1376,40 @@ class ValidateGatesNode(Node):
                         "static_patterns": {
                             "count": len(static_gate_patterns),
                             "matches": len(static_matches),
-                            "source": "static_library"
+                            "source": "weighted_library"
                         },
                         "combined_confidence": combined_confidence,
                         "unique_matches": len(unique_matches),
-                        "overlap_matches": len(llm_matches) + len(static_matches) - len(unique_matches)
+                        "overlap_matches": len(llm_matches) + len(static_matches) - len(unique_matches),
+                        "weighted_scoring": scoring_details
                     }
                 }
                 
-                # Log validation details
-                print(f"   {gate_name}: LLM({len(llm_gate_patterns)} patterns, {len(llm_matches)} matches) + Static({len(static_gate_patterns)} patterns, {len(static_matches)} matches) = {len(unique_matches)} unique matches")
+                # Log validation details with weighted scoring info
+                gate_weight = pattern_loader.get_gate_weight(gate_name)
+                print(f"   {gate_name}: LLM({len(llm_gate_patterns)} patterns, {len(llm_matches)} matches) + Weighted({len(static_gate_patterns)} patterns, {len(static_matches)} matches) = {len(unique_matches)} unique matches")
+                print(f"   📊 Weighted Score: {weighted_score:.1f}% (Gate Weight: {gate_weight:.1f})")
             
             gate_results.append(gate_result)
         
         return gate_results
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: List[Dict[str, Any]]) -> str:
-        """Store validation results and calculate overall score with hybrid validation statistics"""
+        """Store validation results and calculate overall weighted score with enhanced statistics"""
         shared["validation"]["gate_results"] = exec_res
         
-        # Calculate overall score (Reduce phase) - exclude NOT_APPLICABLE gates
+        # Calculate overall weighted score (Reduce phase) - exclude NOT_APPLICABLE gates
         applicable_gates = [result for result in exec_res if result["status"] != "NOT_APPLICABLE"]
         
         if applicable_gates:
-            total_score = sum(result["score"] for result in applicable_gates)
-            overall_score = total_score / len(applicable_gates)
+            # Use new weighted scoring system
+            overall_score, scoring_summary = calculate_overall_weighted_score(applicable_gates)
+            shared["validation"]["overall_score"] = overall_score
+            shared["validation"]["weighted_scoring_summary"] = scoring_summary
         else:
             overall_score = 0.0
-        
-        shared["validation"]["overall_score"] = overall_score
+            shared["validation"]["overall_score"] = overall_score
+            shared["validation"]["weighted_scoring_summary"] = {}
         
         # Count status distribution
         passed = len([r for r in exec_res if r["status"] == "PASS"])
@@ -1399,10 +1421,16 @@ class ValidateGatesNode(Node):
         hybrid_stats = self._calculate_hybrid_validation_stats(exec_res)
         shared["validation"]["hybrid_stats"] = hybrid_stats
         
-        print(f"✅ Hybrid validation complete: {overall_score:.1f}% overall (based on {len(applicable_gates)} applicable gates)")
+        # Add weighted scoring statistics
+        pattern_loader = get_pattern_loader()
+        pattern_stats = pattern_loader.get_pattern_statistics()
+        shared["validation"]["pattern_statistics"] = pattern_stats
+        
+        print(f"✅ Weighted validation complete: {overall_score:.1f}% overall (based on {len(applicable_gates)} applicable gates)")
         print(f"   Passed: {passed}, Failed: {failed}, Warnings: {warnings}, Not Applicable: {not_applicable}")
-        print(f"   Pattern Sources: LLM({hybrid_stats['total_llm_patterns']} patterns, {hybrid_stats['total_llm_matches']} matches) + Static({hybrid_stats['total_static_patterns']} patterns, {hybrid_stats['total_static_matches']} matches)")
-        print(f"   Coverage Enhancement: {hybrid_stats['coverage_improvement']:.1f}% improvement from hybrid validation")
+        print(f"   Pattern Sources: LLM({hybrid_stats['total_llm_patterns']} patterns, {hybrid_stats['total_llm_matches']} matches) + Weighted({hybrid_stats['total_static_patterns']} patterns, {hybrid_stats['total_static_matches']} matches)")
+        print(f"   Coverage Enhancement: {hybrid_stats['coverage_improvement']:.1f}% improvement from weighted validation")
+        print(f"   Total Gate Weight: {scoring_summary.get('total_weight', 0):.1f}")
         
         return "default"
     
@@ -1605,16 +1633,9 @@ class ValidateGatesNode(Node):
             return []
         
         # Define technology relevance mapping
-        # Languages that are typically used for business logic and application code
         primary_languages = {
             "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
             "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
-        }
-        
-        # Languages that are typically configuration, markup, or data files
-        secondary_languages = {
-            "HTML", "CSS", "SCSS", "SASS", "XML", "JSON", "YAML", "SQL", 
-            "Dockerfile", "Shell", "Batch", "Markdown", "Properties"
         }
         
         primary_technologies = []
@@ -1624,15 +1645,10 @@ class ValidateGatesNode(Node):
             file_count = stats.get("files", 0)
             percentage = (file_count / total_files) * 100
             
-            # Consider a language primary if:
-            # 1. It's in the primary languages list AND
-            # 2. It represents at least 20% of files OR is the dominant language
-            if language in primary_languages:
-                if percentage >= 20.0:
-                    primary_technologies.append(language)
-                    print(f"   Primary technology detected: {language} ({percentage:.1f}%, {file_count} files)")
+            if language in primary_languages and percentage >= 20.0:
+                primary_technologies.append(language)
         
-        # If no primary technology found with 20% threshold, take the most dominant primary language
+        # If no primary technology found, take the most dominant
         if not primary_technologies:
             dominant_primary = None
             max_percentage = 0
@@ -1641,14 +1657,12 @@ class ValidateGatesNode(Node):
                 if language in primary_languages:
                     file_count = stats.get("files", 0)
                     percentage = (file_count / total_files) * 100
-                    if percentage > max_percentage:
+                    if percentage > max_percentage and percentage >= 10.0:
                         max_percentage = percentage
                         dominant_primary = language
             
-            if dominant_primary and max_percentage >= 10.0:  # At least 10% to be considered
+            if dominant_primary:
                 primary_technologies.append(dominant_primary)
-                file_count = language_stats[dominant_primary].get("files", 0)
-                print(f"   Dominant primary technology: {dominant_primary} ({max_percentage:.1f}%, {file_count} files)")
         
         return primary_technologies
     
@@ -2135,7 +2149,7 @@ class GenerateReportNode(Node):
         return "default"
     
     def _generate_json_report(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate JSON report with same structure as original plus hybrid validation info"""
+        """Generate JSON report with same structure as original plus weighted validation info"""
         
         validation = params["validation_results"]
         metadata = params["metadata"]
@@ -2144,106 +2158,82 @@ class GenerateReportNode(Node):
         # Use the new data structure directly
         gate_results = validation["gate_results"]
         hybrid_stats = validation.get("hybrid_stats", {})
+        weighted_scoring = validation.get("weighted_scoring_summary", {})
+        pattern_stats = validation.get("pattern_statistics", {})
+        
+        # Calculate summary statistics from new data
+        stats = self._calculate_summary_stats_from_new_data(gate_results)
         
         # Extract project name and branch for consistency
         project_name = self._extract_project_name(params["request"]["repository_url"])
         branch_name = params["request"]["branch"]
         project_display_name = f"{project_name} ({branch_name})"
         
-        # Transform to match expected JSON format while preserving new data
-        gates = []
-        for gate_result in gate_results:
-            expected_coverage = gate_result.get("expected_coverage", {})
-            total_files = gate_result.get("total_files", 1)
-            relevant_files = gate_result.get("relevant_files", total_files)
-            files_with_matches = len(set(m.get('file', '') for m in gate_result.get("matches", []))) if gate_result.get("matches") else 0
-            actual_coverage_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
-            
-            gate = {
-                "name": gate_result["gate"],
-                "display_name": gate_result["display_name"],
-                "status": gate_result["status"],
-                "score": gate_result["score"],
-                "details": gate_result["details"],
-                "category": gate_result["category"],
-                "priority": gate_result["priority"],
-                "description": gate_result["description"],
-                "patterns_used": gate_result.get("patterns_used", 0),
-                "matches_found": gate_result.get("matches_found", 0),
-                "recommendations": gate_result.get("recommendations", []),
-                "pattern_description": gate_result.get("pattern_description", ""),
-                "pattern_significance": gate_result.get("pattern_significance", ""),
-                # Enhanced coverage information with technology filtering
-                "expected_coverage": {
-                    "percentage": expected_coverage.get("percentage", 10),
-                    "reasoning": expected_coverage.get("reasoning", "Standard expectation"),
-                    "confidence": expected_coverage.get("confidence", "medium")
-                },
-                "actual_coverage": {
-                    "percentage": round(actual_coverage_percentage, 1),
-                    "files_with_matches": files_with_matches,
-                    "relevant_files": relevant_files,
-                    "total_files": total_files,
-                    "technology_filtered": relevant_files != total_files
-                },
-                "coverage_analysis": {
-                    "gap": round(expected_coverage.get("percentage", 10) - actual_coverage_percentage, 1),
-                    "meets_expectation": actual_coverage_percentage >= expected_coverage.get("percentage", 10),
-                    "confidence_level": expected_coverage.get("confidence", "medium"),
-                    "analysis_basis": f"Based on {relevant_files} relevant files" + (f" (filtered from {total_files} total)" if relevant_files != total_files else "")
-                },
-                # Hybrid validation information
-                "validation_sources": gate_result.get("validation_sources", {}),
-                # For compatibility with old format
-                "expected": gate_result.get("patterns_used", 0),
-                "found": gate_result.get("matches_found", 0),
-                "coverage": gate_result["score"],  # Use score as coverage
-                "quality_score": gate_result["score"],
-                "matches": []  # Could be populated with actual matches if needed
-            }
-            gates.append(gate)
-        
         return {
-            "report_metadata": {
-                "scan_id": params["scan_id"],
-                "repository_url": params["request"]["repository_url"],
-                "branch": params["request"]["branch"],
-                "generated_at": self._get_timestamp(),
-                "version": "2.0.0",
-                "llm_source": llm_info["source"],
-                "llm_model": llm_info["model"],
-                "validation_type": "hybrid"
-            },
-            "scan_metadata": {
-                "scan_duration": 0,  # Could be tracked
-                "total_files": metadata.get("total_files", 0),
-                "total_lines": metadata.get("total_lines", 0),
-                "timestamp": self._get_timestamp(),
-                "project_name": project_display_name,
-                "project_path": params["request"]["repository_url"],
-                "repository_url": params["request"]["repository_url"]
-            },
-            "languages_detected": list(metadata.get("languages", {}).keys()),
-            "gates": gates,
-            "score": validation["overall_score"],
+            "scan_id": params.get("scan_id", "unknown"),
+            "project_name": project_display_name,
+            "repository_url": params["request"]["repository_url"],
+            "branch": params["request"]["branch"],
+            "scan_timestamp": self._get_timestamp(),
+            "scan_timestamp_formatted": self._get_timestamp_formatted(),
             "overall_score": validation["overall_score"],
-            "passed_gates": len([g for g in gate_results if g["status"] == "PASS"]),
-            "warning_gates": len([g for g in gate_results if g["status"] == "WARNING"]),
-            "failed_gates": len([g for g in gate_results if g["status"] == "FAIL"]),
-            "not_applicable_gates": len([g for g in gate_results if g["status"] == "NOT_APPLICABLE"]),
-            "total_applicable_gates": len([g for g in gate_results if g["status"] != "NOT_APPLICABLE"]),
-            "total_all_gates": len(gate_results),
-            "critical_issues": [],
-            "recommendations": [rec for gate in gate_results for rec in gate.get("recommendations", [])],
-            # Enhanced hybrid validation statistics
-            "hybrid_validation": {
+            "threshold": params["request"]["threshold"],
+            "status": "PASS" if validation["overall_score"] >= params["request"]["threshold"] else "FAIL",
+            
+            # Summary statistics
+            "summary": {
+                "total_gates": stats["total_gates"],
+                "passed_gates": stats["passed_gates"],
+                "failed_gates": stats["failed_gates"],
+                "warning_gates": stats["warning_gates"],
+                "not_applicable_gates": stats["not_applicable_gates"],
+                "total_files": metadata.get("total_files", 0),
+                "total_lines": metadata.get("total_lines", 0)
+            },
+            
+            # Gate results with enhanced information
+            "gates": gate_results,
+            
+            # Metadata
+            "metadata": {
+                "file_count": metadata.get("total_files", 0),
+                "line_count": metadata.get("total_lines", 0),
+                "language_distribution": metadata.get("language_stats", {}),
+                "primary_technologies": self._get_primary_technologies(metadata),
+                "scan_duration": params.get("scan_duration", 0),
+                "pattern_library_version": "2.0.0"
+            },
+            
+            # LLM information
+            "llm_info": {
+                "provider": llm_info.get("provider", "none"),
+                "model": llm_info.get("model", "none"),
+                "patterns_generated": hybrid_stats.get("total_llm_patterns", 0),
+                "patterns_matched": hybrid_stats.get("total_llm_matches", 0),
+                "confidence": llm_info.get("confidence", "low")
+            },
+            
+            # Enhanced weighted validation statistics
+            "weighted_validation": {
                 "enabled": True,
                 "statistics": hybrid_stats,
-                "pattern_library_version": "1.0.0",
+                "pattern_library_version": "2.0.0",
                 "static_patterns_used": hybrid_stats.get("total_static_patterns", 0),
                 "llm_patterns_used": hybrid_stats.get("total_llm_patterns", 0),
                 "coverage_improvement": hybrid_stats.get("coverage_improvement", 0.0),
-                "confidence_distribution": hybrid_stats.get("confidence_distribution", {})
+                "confidence_distribution": hybrid_stats.get("confidence_distribution", {}),
+                "weighted_scoring": {
+                    "total_weight": weighted_scoring.get("total_weight", 0.0),
+                    "applicable_gates": weighted_scoring.get("applicable_gates", 0),
+                    "gate_scores": weighted_scoring.get("gate_scores", {}),
+                    "overall_weighted_score": weighted_scoring.get("overall_score", 0.0)
+                },
+                "pattern_statistics": {
+                    "total_gates": pattern_stats.get("total_gates", 0),
+                    "total_patterns": pattern_stats.get("total_patterns", 0),
+                    "supported_technologies": pattern_stats.get("supported_technologies", []),
+                    "technology_coverage": pattern_stats.get("technology_coverage", {})
+                }
             }
         }
     
@@ -2295,7 +2285,7 @@ class GenerateReportNode(Node):
         """
         
         # Generate hybrid validation summary
-        hybrid_summary = self._generate_hybrid_validation_summary_html(hybrid_stats)
+        # hybrid_summary = self._generate_hybrid_validation_summary_html(hybrid_stats)
         
         html_template = f"""<!DOCTYPE html>
 <html lang="en">
@@ -2325,15 +2315,15 @@ class GenerateReportNode(Node):
                 <div class="stat-label">Total Gates Evaluated</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['implemented_gates']}</div>
+                <div class="stat-number">{stats['passed_gates']}</div>
                 <div class="stat-label">Gates Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['partial_gates']}</div>
+                <div class="stat-number">{stats['warning_gates']}</div>
                 <div class="stat-label">Partially Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['not_implemented_gates']}</div>
+                <div class="stat-number">{stats['failed_gates']}</div>
                 <div class="stat-label">Not Met</div>
             </div>
             <div class="stat-card">
@@ -2350,8 +2340,6 @@ class GenerateReportNode(Node):
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
             <em>Percentage calculated based on {stats['total_gates']} applicable gates (excluding {stats['not_applicable_gates']} N/A gates)</em>
         </p>
-        
-        {hybrid_summary}
         
         <h2>Hard Gates Analysis</h2>
         {self._generate_gates_table_html_from_new_data(gate_results)}
@@ -2565,22 +2553,19 @@ class GenerateReportNode(Node):
         }
     
     def _calculate_summary_stats_from_new_data(self, gate_results: List[Dict[str, Any]]) -> Dict[str, int]:
-        """Calculate summary statistics from new data structure"""
-        implemented_gates = len([g for g in gate_results if g.get("status") == "PASS"])
-        partial_gates = len([g for g in gate_results if g.get("status") == "WARNING"])
-        not_implemented_gates = len([g for g in gate_results if g.get("status") == "FAIL"])
+        """Calculate summary statistics from new gate results structure"""
+        total_gates = len(gate_results)
+        passed_gates = len([g for g in gate_results if g.get("status") == "PASS"])
+        failed_gates = len([g for g in gate_results if g.get("status") == "FAIL"])
+        warning_gates = len([g for g in gate_results if g.get("status") == "WARNING"])
         not_applicable_gates = len([g for g in gate_results if g.get("status") == "NOT_APPLICABLE"])
         
-        # Total applicable gates (excluding NOT_APPLICABLE)
-        total_applicable_gates = len(gate_results) - not_applicable_gates
-        
         return {
-            "total_gates": total_applicable_gates,  # Only count applicable gates
-            "implemented_gates": implemented_gates,
-            "partial_gates": partial_gates,
-            "not_implemented_gates": not_implemented_gates,
-            "not_applicable_gates": not_applicable_gates,
-            "total_all_gates": len(gate_results)  # Total including N/A for reference
+            "total_gates": total_gates,
+            "passed_gates": passed_gates,
+            "failed_gates": failed_gates,
+            "warning_gates": warning_gates,
+            "not_applicable_gates": not_applicable_gates
         }
 
     def _extract_project_name(self, repository_url: str) -> str:
@@ -3032,6 +3017,53 @@ class GenerateReportNode(Node):
             details.append(rec_html)
         
         return ''.join(details)
+
+    def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
+        """Determine primary technologies based on language distribution"""
+        language_stats = metadata.get("language_stats", {})
+        
+        if not language_stats:
+            return []
+        
+        # Calculate total files
+        total_files = sum(stats.get("files", 0) for stats in language_stats.values())
+        
+        if total_files == 0:
+            return []
+        
+        # Define technology relevance mapping
+        primary_languages = {
+            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
+            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
+        }
+        
+        primary_technologies = []
+        
+        # Find languages that make up significant portion of the codebase
+        for language, stats in language_stats.items():
+            file_count = stats.get("files", 0)
+            percentage = (file_count / total_files) * 100
+            
+            if language in primary_languages and percentage >= 20.0:
+                primary_technologies.append(language)
+        
+        # If no primary technology found, take the most dominant
+        if not primary_technologies:
+            dominant_primary = None
+            max_percentage = 0
+            
+            for language, stats in language_stats.items():
+                if language in primary_languages:
+                    file_count = stats.get("files", 0)
+                    percentage = (file_count / total_files) * 100
+                    if percentage > max_percentage and percentage >= 10.0:
+                        max_percentage = percentage
+                        dominant_primary = language
+            
+            if dominant_primary:
+                primary_technologies.append(dominant_primary)
+        
+        return primary_technologies
 
 
 class CleanupNode(Node):

@@ -1,0 +1,1166 @@
+{
+  "version": "2.0.0",
+  "metadata": {
+    "description": "Externalized Pattern Library for CodeGates with Weighted Scoring",
+    "created": "2024-01-01",
+    "total_gates": 15,
+    "total_patterns": 556,
+    "supported_technologies": ["java", "python", "javascript", "typescript", "csharp", "go", "rust", "php", "ruby"]
+  },
+  "gates": {
+    "STRUCTURED_LOGS": {
+      "display_name": "Logs Searchable/Available",
+      "description": "Ensure logs are structured and searchable for operational monitoring",
+      "category": "Logging",
+      "priority": "high",
+      "weight": 15.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "Structured logging should be implemented across core application files",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.8,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.3,
+        "penalty_multiplier": 0.7
+      },
+      "patterns": {
+        "java": [
+          {
+            "pattern": "import\\s+org\\.slf4j\\.Logger",
+            "weight": 3.0,
+            "description": "SLF4J Logger import"
+          },
+          {
+            "pattern": "import\\s+org\\.slf4j\\.LoggerFactory",
+            "weight": 3.0,
+            "description": "SLF4J LoggerFactory import"
+          },
+          {
+            "pattern": "LoggerFactory\\.getLogger\\(",
+            "weight": 4.0,
+            "description": "Logger factory usage"
+          },
+          {
+            "pattern": "@Slf4j",
+            "weight": 5.0,
+            "description": "Lombok logging annotation"
+          },
+          {
+            "pattern": "private\\s+static\\s+final\\s+Logger\\s+\\w+",
+            "weight": 4.0,
+            "description": "Static logger declaration"
+          },
+          {
+            "pattern": "\\b\\w*logger\\w*\\.(info|debug|error|warn|trace|fatal)",
+            "weight": 2.0,
+            "description": "Logger method calls"
+          },
+          {
+            "pattern": "logback\\.xml",
+            "weight": 3.0,
+            "description": "Logback configuration"
+          },
+          {
+            "pattern": "application\\.properties.*logging",
+            "weight": 2.0,
+            "description": "Spring Boot logging config"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "import\\s+logging",
+            "weight": 3.0,
+            "description": "Python logging import"
+          },
+          {
+            "pattern": "import\\s+structlog",
+            "weight": 4.0,
+            "description": "Structured logging import"
+          },
+          {
+            "pattern": "import\\s+loguru",
+            "weight": 4.0,
+            "description": "Loguru import"
+          },
+          {
+            "pattern": "\\b\\w*log\\w*\\.(info|debug|error|warning|critical|exception)",
+            "weight": 2.0,
+            "description": "Logging method calls"
+          },
+          {
+            "pattern": "structlog\\.configure\\(",
+            "weight": 3.0,
+            "description": "Structured logging configuration"
+          }
+        ],
+        "javascript": [
+          {
+            "pattern": "import\\s+\\w*[Ll]og\\w*\\s+from",
+            "weight": 3.0,
+            "description": "ES6 logging import"
+          },
+          {
+            "pattern": "winston\\.createLogger\\(",
+            "weight": 4.0,
+            "description": "Winston logger creation"
+          },
+          {
+            "pattern": "pino\\(\\)",
+            "weight": 4.0,
+            "description": "Pino logger"
+          },
+          {
+            "pattern": "\\b\\w*log\\w*\\.(log|info|debug|error|warn|trace)",
+            "weight": 2.0,
+            "description": "Logging method calls"
+          }
+        ],
+        "typescript": [
+          {
+            "pattern": "import\\s+\\{\\s*Logger\\s*\\}",
+            "weight": 3.0,
+            "description": "TypeScript logger import"
+          },
+          {
+            "pattern": "private\\s+logger\\s*:\\s*Logger",
+            "weight": 4.0,
+            "description": "TypeScript logger property"
+          },
+          {
+            "pattern": "\\b\\w*log\\w*\\.(log|info|debug|error|warn|trace)",
+            "weight": 2.0,
+            "description": "Logging method calls"
+          }
+        ],
+        "csharp": [
+          {
+            "pattern": "using\\s+Microsoft\\.Extensions\\.Logging",
+            "weight": 3.0,
+            "description": ".NET logging import"
+          },
+          {
+            "pattern": "ILogger<\\w+>",
+            "weight": 4.0,
+            "description": "Generic logger interface"
+          },
+          {
+            "pattern": "\\b\\w*[Ll]og\\w*\\.(Information|Debug|Error|Warning|Critical|Trace|Fatal)",
+            "weight": 2.0,
+            "description": "Logging method calls"
+          }
+        ],
+        "go": [
+          {
+            "pattern": "import\\s+\"log\"",
+            "weight": 2.0,
+            "description": "Go log import"
+          },
+          {
+            "pattern": "import\\s+\"github\\.com/sirupsen/logrus\"",
+            "weight": 4.0,
+            "description": "Logrus import"
+          },
+          {
+            "pattern": "logrus\\.(Info|Debug|Error|Warn|Trace|Fatal|Panic)",
+            "weight": 3.0,
+            "description": "Logrus method calls"
+          }
+        ],
+        "rust": [
+          {
+            "pattern": "use\\s+log::\\{",
+            "weight": 3.0,
+            "description": "Rust log import"
+          },
+          {
+            "pattern": "info!\\(",
+            "weight": 3.0,
+            "description": "Rust info macro"
+          },
+          {
+            "pattern": "debug!\\(",
+            "weight": 2.0,
+            "description": "Rust debug macro"
+          }
+        ]
+      }
+    },
+    "AVOID_LOGGING_SECRETS": {
+      "display_name": "Avoid Logging Confidential Data",
+      "description": "Prevent sensitive data from being logged accidentally",
+      "category": "Security",
+      "priority": "critical",
+      "weight": 25.0,
+      "expected_coverage": {
+        "percentage": 0,
+        "reasoning": "No secrets should be logged",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "violation_penalty": 20,
+        "max_penalty": 100,
+        "bonus_for_clean": 10
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "(?i)\"(password|secret|token|apikey|credential)\"\\s*[:=]\\s*[\"'][^\"']{6,}[\"']",
+            "weight": 10.0,
+            "description": "Hardcoded secrets"
+          },
+          {
+            "pattern": "(?i)\\b(?:sk_live_|pk_live_|sk_test_|pk_test_)[A-Za-z0-9]{20,}\\b",
+            "weight": 15.0,
+            "description": "Stripe API keys"
+          },
+          {
+            "pattern": "(?i)\\bgithub_pat_[A-Za-z0-9_]{20,}\\b",
+            "weight": 15.0,
+            "description": "GitHub personal access tokens"
+          },
+          {
+            "pattern": "-----BEGIN\\s+(?:RSA\\s+)?PRIVATE\\s+KEY-----",
+            "weight": 20.0,
+            "description": "Private keys"
+          }
+        ],
+        "java": [
+          {
+            "pattern": "(?i)\\b(logging|logger|log|audit_logger|app_logger)\\.(debug|info|warning|warn|error|critical|exception)\\s*\\(\\s*f?[\"'].*?(password|secret|token|apikey|access[_-]?key|credential).*?[\"'].*?\\)",
+            "weight": 8.0,
+            "description": "Java logging secrets"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "(?i)\\b(logging|logger|log|audit_logger|app_logger)\\.(debug|info|warning|warn|error|critical|exception)\\s*\\(\\s*f?[\"'].*?(password|secret|token|apikey|access[_-]?key|credential).*?[\"']",
+            "weight": 8.0,
+            "description": "Python logging secrets"
+          },
+          {
+            "pattern": "(?i)\\bprint\\s*\\(\\s*f?[\"'].*?(password|secret|token|apikey|access[_-]?key|credential).*?[\"']",
+            "weight": 6.0,
+            "description": "Python print secrets"
+          }
+        ],
+        "csharp": [
+          {
+            "pattern": "(?i)\\b(_logger|logger|log|logFactory|serilog|nlog)\\.(LogInformation|LogDebug|LogWarning|LogError|LogCritical|LogTrace|Information|Debug|Warning|Error|Trace|Fatal)\\s*\\(\\s*\".*?(password|secret|token|apikey|credential).*?\"",
+            "weight": 8.0,
+            "description": "C# logging secrets"
+          }
+        ]
+      }
+    },
+    "AUDIT_TRAIL": {
+      "display_name": "Create Audit Trail Logs",
+      "description": "Log critical business operations for audit compliance",
+      "category": "Compliance",
+      "priority": "high",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "Audit trails should be present in business logic files",
+        "confidence": "medium"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.05,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.8
+      },
+      "patterns": {
+        "java": [
+          {
+            "pattern": "audit.*log",
+            "weight": 4.0,
+            "description": "Audit logging"
+          },
+          {
+            "pattern": "audit.*trail",
+            "weight": 4.0,
+            "description": "Audit trail"
+          },
+          {
+            "pattern": "business.*log",
+            "weight": 3.0,
+            "description": "Business logging"
+          },
+          {
+            "pattern": "transaction.*log",
+            "weight": 3.0,
+            "description": "Transaction logging"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "audit.*log",
+            "weight": 4.0,
+            "description": "Audit logging"
+          },
+          {
+            "pattern": "audit.*trail",
+            "weight": 4.0,
+            "description": "Audit trail"
+          },
+          {
+            "pattern": "business.*log",
+            "weight": 3.0,
+            "description": "Business logging"
+          }
+        ],
+        "all_languages": [
+          {
+            "pattern": "audit.*log",
+            "weight": 3.0,
+            "description": "Generic audit logging"
+          },
+          {
+            "pattern": "audit.*trail",
+            "weight": 3.0,
+            "description": "Generic audit trail"
+          }
+        ]
+      }
+    },
+    "CORRELATION_ID": {
+      "display_name": "Tracking ID for Logs",
+      "description": "Include correlation IDs for distributed tracing",
+      "category": "Observability",
+      "priority": "medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Correlation IDs should be present in API and service files",
+        "confidence": "medium"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.6,
+        "bonus_multiplier": 1.05,
+        "penalty_threshold": 0.1,
+        "penalty_multiplier": 0.9
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "x-correlation-id",
+            "weight": 4.0,
+            "description": "X-Correlation-ID header"
+          },
+          {
+            "pattern": "x-request-id",
+            "weight": 4.0,
+            "description": "X-Request-ID header"
+          },
+          {
+            "pattern": "x-trace-id",
+            "weight": 3.5,
+            "description": "X-Trace-ID header"
+          },
+          {
+            "pattern": "x-b3-traceid",
+            "weight": 3.5,
+            "description": "B3 Trace ID (Zipkin/Sleuth compatible)"
+          },
+          {
+            "pattern": "MDC\\.put\\(\"(correlationId|traceId|requestId)\"",
+            "weight": 4.0,
+            "description": "Injecting correlation ID into SLF4J MDC"
+          },
+          {
+            "pattern": "MDC\\.get\\(\"(correlationId|traceId|requestId)\"",
+            "weight": 3.0,
+            "description": "Reading correlation ID from SLF4J MDC"
+          },
+          {
+            "pattern": "req\\.headers\\[['\"]x-(correlation-id|request-id)['\"]\\]",
+            "weight": 3.5,
+            "description": "Accessing correlation ID from request headers in Express"
+          },
+          {
+            "pattern": "res\\.set\\(['\"]x-(correlation-id|request-id)['\"],",
+            "weight": 3.5,
+            "description": "Setting correlation ID in response headers in Express"
+          },
+          {
+            "pattern": "request\\.headers\\.get\\(['\"]x-(correlation-id|request-id)['\"]",
+            "weight": 3.5,
+            "description": "Extracting correlation ID from headers in Python web frameworks"
+          },
+          {
+            "pattern": "logger\\.bind\\(correlation_id=",
+            "weight": 3.5,
+            "description": "Binding correlation ID to logger context (e.g., structlog)"
+          },
+          {
+            "pattern": "traceparent",
+            "weight": 3.0,
+            "description": "W3C Trace Context header"
+          },
+          {
+            "pattern": "uber-trace-id",
+            "weight": 3.0,
+            "description": "Jaeger trace header"
+          },
+          {
+            "pattern": "correlation_id",
+            "weight": 5.0,
+            "description": "Correlation ID"
+          },
+          {
+            "pattern": "request_id",
+            "weight": 4.0,
+            "description": "Request ID"
+          },
+          {
+            "pattern": "trace_id",
+            "weight": 4.0,
+            "description": "Trace ID"
+          },
+          {
+            "pattern": "tracking.*id",
+            "weight": 3.0,
+            "description": "Tracking ID"
+          }
+        ]
+      }
+    },
+    "LOG_API_CALLS": {
+      "display_name": "Log REST API Calls",
+      "description": "Log all API requests and responses for monitoring",
+      "category": "API",
+      "priority": "medium",
+      "weight": 10.0,
+      "expected_coverage": {
+        "percentage": 30,
+        "reasoning": "API logging should be present in controller/route files",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.8
+      },
+      "patterns": {
+        "java": [
+          {
+            "pattern": "@RestController",
+            "weight": 3.0,
+            "description": "Spring REST controller"
+          },
+          {
+            "pattern": "@RequestMapping",
+            "weight": 2.0,
+            "description": "Request mapping"
+          },
+          {
+            "pattern": "@GetMapping",
+            "weight": 2.0,
+            "description": "GET mapping"
+          },
+          {
+            "pattern": "@PostMapping",
+            "weight": 2.0,
+            "description": "POST mapping"
+          },
+          {
+            "pattern": "api.*log",
+            "weight": 4.0,
+            "description": "API logging"
+          },
+          {
+            "pattern": "request.*log",
+            "weight": 3.0,
+            "description": "Request logging"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "@api\\.route",
+            "weight": 3.0,
+            "description": "Flask API route"
+          },
+          {
+            "pattern": "@app\\.route",
+            "weight": 2.0,
+            "description": "Flask app route"
+          },
+          {
+            "pattern": "api.*log",
+            "weight": 4.0,
+            "description": "API logging"
+          }
+        ],
+        "javascript": [
+          {
+            "pattern": "app\\.(get|post|put|delete|patch)",
+            "weight": 2.0,
+            "description": "Express routes"
+          },
+          {
+            "pattern": "router\\.(get|post|put|delete|patch)",
+            "weight": 2.0,
+            "description": "Router routes"
+          },
+          {
+            "pattern": "api.*log",
+            "weight": 4.0,
+            "description": "API logging"
+          }
+        ]
+      }
+    },
+    "LOG_APPLICATION_MESSAGES": {
+      "display_name": "Log Application Messages",
+      "description": "Log important application state changes and events",
+      "category": "Logging",
+      "priority": "medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Application messages should be logged in business logic",
+        "confidence": "medium"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.6,
+        "bonus_multiplier": 1.05,
+        "penalty_threshold": 0.1,
+        "penalty_multiplier": 0.9
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "application.*log",
+            "weight": 4.0,
+            "description": "Application logging"
+          },
+          {
+            "pattern": "app.*log",
+            "weight": 3.0,
+            "description": "App logging"
+          },
+          {
+            "pattern": "business.*event",
+            "weight": 3.0,
+            "description": "Business events"
+          },
+          {
+            "pattern": "state.*change",
+            "weight": 3.0,
+            "description": "State changes"
+          }
+        ]
+      }
+    },
+    "UI_ERRORS": {
+      "display_name": "Client UI Errors Logged",
+      "description": "Capture and log client-side UI errors",
+      "category": "Frontend",
+      "priority": "medium",
+      "weight": 6.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "UI error logging should be present in frontend files",
+        "confidence": "medium"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.6,
+        "bonus_multiplier": 1.05,
+        "penalty_threshold": 0.1,
+        "penalty_multiplier": 0.9
+      },
+      "patterns": {
+        "javascript": [
+          {
+            "pattern": "ui.*error",
+            "weight": 4.0,
+            "description": "UI errors"
+          },
+          {
+            "pattern": "frontend.*error",
+            "weight": 4.0,
+            "description": "Frontend errors"
+          },
+          {
+            "pattern": "client.*error",
+            "weight": 3.0,
+            "description": "Client errors"
+          },
+          {
+            "pattern": "javascript.*error",
+            "weight": 3.0,
+            "description": "JavaScript errors"
+          }
+        ],
+        "typescript": [
+          {
+            "pattern": "ui.*error",
+            "weight": 4.0,
+            "description": "UI errors"
+          },
+          {
+            "pattern": "frontend.*error",
+            "weight": 4.0,
+            "description": "Frontend errors"
+          }
+        ]
+      }
+    },
+    "RETRY_LOGIC": {
+      "display_name": "Retry Logic",
+      "description": "Implement retry mechanisms for resilient operations",
+      "category": "Reliability",
+      "priority": "high",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "Retry logic should be present in external service calls",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.8
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "retry",
+            "weight": 3.0,
+            "description": "Retry logic"
+          },
+          {
+            "pattern": "@retry",
+            "weight": 4.0,
+            "description": "Retry annotation"
+          },
+          {
+            "pattern": "backoff",
+            "weight": 3.0,
+            "description": "Backoff strategy"
+          },
+          {
+            "pattern": "exponential.*backoff",
+            "weight": 4.0,
+            "description": "Exponential backoff"
+          },
+          {
+            "pattern": "max_retries",
+            "weight": 3.0,
+            "description": "Max retries"
+          }
+        ]
+      }
+    },
+    "TIMEOUTS": {
+      "display_name": "Timeouts in IO Ops",
+      "description": "Set appropriate timeouts for I/O operations",
+      "category": "Reliability",
+      "priority": "high",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Timeouts should be present in I/O operations",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.8
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "timeout",
+            "weight": 3.0,
+            "description": "Timeout"
+          },
+          {
+            "pattern": "connection.*timeout",
+            "weight": 4.0,
+            "description": "Connection timeout"
+          },
+          {
+            "pattern": "read.*timeout",
+            "weight": 4.0,
+            "description": "Read timeout"
+          },
+          {
+            "pattern": "socket.*timeout",
+            "weight": 4.0,
+            "description": "Socket timeout"
+          }
+        ]
+      }
+    },
+    "THROTTLING": {
+      "display_name": "Throttling & Drop Request",
+      "description": "Implement rate limiting and request throttling",
+      "category": "Performance",
+      "priority": "medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "Throttling should be present in API endpoints",
+        "confidence": "medium"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.6,
+        "bonus_multiplier": 1.05,
+        "penalty_threshold": 0.1,
+        "penalty_multiplier": 0.9
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "throttle",
+            "weight": 4.0,
+            "description": "Throttling"
+          },
+          {
+            "pattern": "rate.*limit",
+            "weight": 4.0,
+            "description": "Rate limiting"
+          },
+          {
+            "pattern": "rate_limit",
+            "weight": 4.0,
+            "description": "Rate limit"
+          },
+          {
+            "pattern": "rate.*limiter",
+            "weight": 3.0,
+            "description": "Rate limiter"
+          }
+        ]
+      }
+    },
+    "CIRCUIT_BREAKERS": {
+      "display_name": "Circuit Breakers",
+      "description": "Implement circuit breaker pattern for fault tolerance",
+      "category": "Reliability",
+      "priority": "high",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "Circuit breakers should be present in external service calls",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.6,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.1,
+        "penalty_multiplier": 0.8
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "circuit.*breaker",
+            "weight": 4.0,
+            "description": "Circuit breaker"
+          },
+          {
+            "pattern": "circuit_breaker",
+            "weight": 4.0,
+            "description": "Circuit breaker"
+          },
+          {
+            "pattern": "@circuit_breaker",
+            "weight": 5.0,
+            "description": "Circuit breaker annotation"
+          },
+          {
+            "pattern": "hystrix",
+            "weight": 4.0,
+            "description": "Hystrix circuit breaker"
+          },
+          {
+            "pattern": "resilience4j",
+            "weight": 4.0,
+            "description": "Resilience4j circuit breaker"
+          }
+        ]
+      }
+    },
+    "ERROR_LOGS": {
+      "display_name": "Log System Errors",
+      "description": "Comprehensive error logging and exception handling",
+      "category": "Error Handling",
+      "priority": "high",
+      "weight": 15.0,
+      "expected_coverage": {
+        "percentage": 30,
+        "reasoning": "Error logging should be present in most application files",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.8
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "error.*log",
+            "weight": 4.0,
+            "description": "Error logging"
+          },
+          {
+            "pattern": "exception.*log",
+            "weight": 4.0,
+            "description": "Exception logging"
+          },
+          {
+            "pattern": "try\\s*\\{",
+            "weight": 2.0,
+            "description": "Try block"
+          },
+          {
+            "pattern": "catch\\s*\\(",
+            "weight": 2.0,
+            "description": "Catch block"
+          },
+          {
+            "pattern": "throw\\s+new",
+            "weight": 2.0,
+            "description": "Exception throwing"
+          },
+          {
+            "pattern": "Exception",
+            "weight": 2.0,
+            "description": "Exception handling"
+          },
+          {
+            "pattern": "Error",
+            "weight": 2.0,
+            "description": "Error handling"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "try:",
+            "weight": 2.0,
+            "description": "Python try block"
+          },
+          {
+            "pattern": "except\\s+\\w+:",
+            "weight": 2.0,
+            "description": "Python except block"
+          },
+          {
+            "pattern": "raise\\s+\\w+",
+            "weight": 2.0,
+            "description": "Python raise"
+          }
+        ]
+      }
+    },
+    "HTTP_CODES": {
+      "display_name": "HTTP Error Codes",
+      "description": "Use appropriate HTTP status codes for API responses",
+      "category": "API",
+      "priority": "medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "HTTP status codes should be present in API endpoints",
+        "confidence": "medium"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.6,
+        "bonus_multiplier": 1.05,
+        "penalty_threshold": 0.1,
+        "penalty_multiplier": 0.9
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "HttpStatus\\.(OK|CREATED|BAD_REQUEST|UNAUTHORIZED|FORBIDDEN|NOT_FOUND|INTERNAL_SERVER_ERROR)",
+            "weight": 3.0,
+            "description": "HTTP status codes"
+          },
+          {
+            "pattern": "status.*code",
+            "weight": 2.0,
+            "description": "Status code"
+          },
+          {
+            "pattern": "response.*status",
+            "weight": 2.0,
+            "description": "Response status"
+          },
+          {
+            "pattern": "200|201|400|401|403|404|500",
+            "weight": 2.0,
+            "description": "HTTP status numbers"
+          }
+        ]
+      }
+    },
+    "AUTOMATED_TESTS": {
+      "display_name": "Automated Tests",
+      "description": "Comprehensive test coverage for application functionality",
+      "category": "Testing",
+      "priority": "high",
+      "weight": 18.0,
+      "expected_coverage": {
+        "percentage": 40,
+        "reasoning": "Tests should cover significant portion of application logic",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.8,
+        "bonus_multiplier": 1.15,
+        "penalty_threshold": 0.3,
+        "penalty_multiplier": 0.7
+      },
+      "patterns": {
+        "java": [
+          {
+            "pattern": "@Test",
+            "weight": 4.0,
+            "description": "JUnit test annotation"
+          },
+          {
+            "pattern": "@Mock",
+            "weight": 3.0,
+            "description": "Mock annotation"
+          },
+          {
+            "pattern": "@SpringBootTest",
+            "weight": 3.0,
+            "description": "Spring Boot test"
+          },
+          {
+            "pattern": "import.*junit",
+            "weight": 2.0,
+            "description": "JUnit import"
+          },
+          {
+            "pattern": "import.*testng",
+            "weight": 2.0,
+            "description": "TestNG import"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "import.*pytest",
+            "weight": 3.0,
+            "description": "Pytest import"
+          },
+          {
+            "pattern": "import.*unittest",
+            "weight": 2.0,
+            "description": "Unittest import"
+          },
+          {
+            "pattern": "def test_",
+            "weight": 3.0,
+            "description": "Test function"
+          },
+          {
+            "pattern": "class.*Test",
+            "weight": 2.0,
+            "description": "Test class"
+          }
+        ],
+        "javascript": [
+          {
+            "pattern": "describe\\(",
+            "weight": 3.0,
+            "description": "Jest describe"
+          },
+          {
+            "pattern": "it\\(",
+            "weight": 3.0,
+            "description": "Jest it"
+          },
+          {
+            "pattern": "test\\(",
+            "weight": 3.0,
+            "description": "Test function"
+          },
+          {
+            "pattern": "expect\\(",
+            "weight": 2.0,
+            "description": "Expect assertion"
+          }
+        ],
+        "all_languages": [
+          {
+            "pattern": "assert",
+            "weight": 2.0,
+            "description": "Assertions"
+          },
+          {
+            "pattern": "should",
+            "weight": 2.0,
+            "description": "Should assertions"
+          }
+        ]
+      }
+    },
+    "INPUT_VALIDATION": {
+      "display_name": "Input Validation",
+      "description": "Validate all user inputs and external data",
+      "category": "Security",
+      "priority": "critical",
+      "weight": 20.0,
+      "expected_coverage": {
+        "percentage": 35,
+        "reasoning": "Input validation should be present in API endpoints and forms",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.7
+      },
+      "patterns": {
+        "java": [
+          {
+            "pattern": "@Valid",
+            "weight": 4.0,
+            "description": "Bean validation"
+          },
+          {
+            "pattern": "@NotNull",
+            "weight": 3.0,
+            "description": "NotNull validation"
+          },
+          {
+            "pattern": "@Size",
+            "weight": 3.0,
+            "description": "Size validation"
+          },
+          {
+            "pattern": "@Pattern",
+            "weight": 3.0,
+            "description": "Pattern validation"
+          },
+          {
+            "pattern": "validate\\(",
+            "weight": 3.0,
+            "description": "Validation method"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "validate",
+            "weight": 3.0,
+            "description": "Validation"
+          },
+          {
+            "pattern": "is_valid",
+            "weight": 3.0,
+            "description": "Is valid check"
+          },
+          {
+            "pattern": "clean_",
+            "weight": 2.0,
+            "description": "Clean method"
+          }
+        ],
+        "javascript": [
+          {
+            "pattern": "validate",
+            "weight": 3.0,
+            "description": "Validation"
+          },
+          {
+            "pattern": "isValid",
+            "weight": 3.0,
+            "description": "Is valid check"
+          },
+          {
+            "pattern": "joi\\.validate",
+            "weight": 4.0,
+            "description": "Joi validation"
+          }
+        ],
+        "all_languages": [
+          {
+            "pattern": "validate",
+            "weight": 2.0,
+            "description": "Generic validation"
+          },
+          {
+            "pattern": "validation",
+            "weight": 2.0,
+            "description": "Validation"
+          }
+        ]
+      }
+    },
+    "SECURE_COMMUNICATION": {
+      "display_name": "Secure Communication",
+      "description": "Use secure protocols and encryption for data transmission",
+      "category": "Security",
+      "priority": "critical",
+      "weight": 18.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Secure communication should be present in network calls",
+        "confidence": "high"
+      },
+      "scoring": {
+        "base_score": 100,
+        "bonus_threshold": 0.7,
+        "bonus_multiplier": 1.1,
+        "penalty_threshold": 0.2,
+        "penalty_multiplier": 0.7
+      },
+      "patterns": {
+        "all_languages": [
+          {
+            "pattern": "https://",
+            "weight": 4.0,
+            "description": "HTTPS protocol"
+          },
+          {
+            "pattern": "ssl",
+            "weight": 3.0,
+            "description": "SSL/TLS"
+          },
+          {
+            "pattern": "tls",
+            "weight": 3.0,
+            "description": "TLS"
+          },
+          {
+            "pattern": "encrypt",
+            "weight": 3.0,
+            "description": "Encryption"
+          },
+          {
+            "pattern": "certificate",
+            "weight": 3.0,
+            "description": "Certificate"
+          }
+        ]
+      }
+    }
+  }
+} 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-CodeGates - PocketFlow Implementation
-Main entry point for the hard gate validation system
+Test script to run CodeGates scan programmatically
 """
 
 import sys
@@ -18,31 +17,18 @@ from flow import create_static_only_flow
 from utils.hard_gates import HARD_GATES
 
 
-def main():
-    """Main function to run CodeGates validation"""
+def test_scan():
+    """Test function to run CodeGates validation"""
     
-    # Get user input
-    print("🚀 CodeGates - Hard Gate Validation System")
-    print("=" * 50)
+    # Test parameters
+    repository_url = "https://github.com/spring-projects/spring-boot"
+    branch = "main"
+    github_token = None
+    threshold = 70
     
-    repository_url = input("Enter repository URL: ").strip()
-    if not repository_url:
-        print("❌ Repository URL is required")
-        return
-    
-    branch = input("Enter branch (default: main): ").strip() or "main"
-    github_token = input("Enter GitHub token (optional): ").strip() or None
-    threshold = input("Enter quality threshold (default: 70): ").strip()
-    
-    try:
-        threshold = int(threshold) if threshold else 70
-    except ValueError:
-        threshold = 70
-    
-    print(f"\n🔍 Starting validation for: {repository_url}")
+    print(f"🔍 Starting validation for: {repository_url}")
     print(f"   Branch: {branch}")
     print(f"   Threshold: {threshold}%")
-    print(f"   Token: {'✓ Provided' if github_token else '✗ Not provided'}")
     
     # Initialize shared store
     shared = {
@@ -128,4 +114,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    test_scan() 
