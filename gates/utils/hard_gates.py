@@ -5,6 +5,20 @@ Defines all 15 enterprise hard gates for validation
 
 HARD_GATES = [
     {
+        "name": "ALERTING_ACTIONABLE",
+        "display_name": "All alerting is actionable",
+        "description": "Ensure all alerting integrations (Splunk, AppDynamics, ThousandEyes) are present and actionable.",
+        "category": "Alerting",
+        "priority": "high",
+        "patterns": [],
+        "scoring": {},
+        "expected_coverage": {
+            "percentage": 100,
+            "reasoning": "All integrations should be present",
+            "confidence": "high"
+        }
+    },
+    {
         "name": "STRUCTURED_LOGS",
         "display_name": "Logs Searchable/Available", 
         "description": "Ensure logs are structured and searchable for operational monitoring",
