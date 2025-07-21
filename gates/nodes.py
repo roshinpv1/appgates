@@ -2051,7 +2051,7 @@ class ValidateGatesNode(Node):
         """Get configurable pattern matching parameters"""
         # Default configuration
         default_config = {
-            "max_files": 500,
+            "max_files": 5000,
             "max_file_size_mb": 5,
             "language_threshold_percent": 5.0,
             "config_threshold_percent": 1.0,
@@ -2687,10 +2687,10 @@ class GenerateReportNode(Node):
         tr:hover { background: #f9fafb; }
         
         /* Status Styles */
-        .status-implemented { color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
-        .status-partial { color: #d97706; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
-        .status-not-implemented { color: #dc2626; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
-        .status-not-applicable { color: #6b7280; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-pass { color: #059669 !important; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-warning { color: #d97706 !important; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-fail { color: #dc2626 !important; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not_applicable { color: #6b7280 !important; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
         
         /* Expandable Details Styling */
         .details-toggle {
@@ -3622,8 +3622,21 @@ class GenerateReportNode(Node):
         files_with_matches = len(set(m['file'] for m in matches if m.get('file'))) if matches else 0
 
         # 1. Summary section
-        summary_color = "#059669" if status == "PASS" else ("#d97706" if status == "WARNING" else ("#dc2626" if status == "FAIL" else "#6b7280"))
-        summary_icon = "✓" if status == "PASS" else ("⚬" if status == "WARNING" else ("✗" if status == "FAIL" else "?"))
+        if status == "PASS":
+            summary_color = "#059669"  # green
+            summary_icon = "✓"
+        elif status == "WARNING":
+            summary_color = "#d97706"  # orange
+            summary_icon = "⚬"
+        elif status == "FAIL":
+            summary_color = "#dc2626"  # red
+            summary_icon = "✗"
+        elif status == "NOT_APPLICABLE":
+            summary_color = "#6b7280"  # gray
+            summary_icon = "?"
+        else:
+            summary_color = "#6b7280"
+            summary_icon = "?"
         if num_patterns == 0:
             summary_text = "No patterns defined for this gate."
         elif status == "NOT_APPLICABLE":
@@ -3640,7 +3653,7 @@ class GenerateReportNode(Node):
             summary_text = ""
         summary_html = f'''
         <div class="details-section" style="background: #f8fafc; border-left: 5px solid {summary_color}; margin-bottom: 10px;">
-            <div style="font-size: 1.1em; font-weight: 600; color: {summary_color}; margin-bottom: 4px;">{summary_icon} {summary_text}</div>
+            <div style="font-size: 1.1em; font-weight: 600; color: {summary_color}; margin-bottom: 4px;"><span style=\"color: {summary_color};\">{summary_icon} {summary_text}</span></div>
         </div>''' if summary_text else ""
 
         # 2. Patterns Used section
