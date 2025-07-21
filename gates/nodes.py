@@ -3564,11 +3564,22 @@ class GenerateReportNode(Node):
         return "\n".join(html_parts)
     
     def _generate_gate_metrics_html(self, gate: Dict[str, Any]) -> str:
-        """Generate metrics grid HTML for gate details"""
+        """Generate metrics grid HTML for gate details (accurate and context-aware)"""
         score = gate.get("score", 0.0)
         matches_found = gate.get("matches_found", 0)
-        patterns_used = len(gate.get("matches", []))
-        
+        patterns_used = len(gate.get("patterns", []))
+        matches = gate.get("matches", [])
+        # Only count files if file info is present in matches
+        files_with_matches = len(set(m['file'] for m in matches if m.get('file')))
+        expected_coverage = gate.get("expected_coverage", {})
+        max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
+        if patterns_used > 0 and max_files_expected > 0:
+            coverage_percent = files_with_matches / max_files_expected * 100
+            coverage_str = f"{coverage_percent:.1f}%"
+        elif patterns_used == 0:
+            coverage_str = "N/A"
+        else:
+            coverage_str = "0.0%"
         return f'''
         <div class="metrics-grid">
             <div class="metric-card">
@@ -3577,7 +3588,7 @@ class GenerateReportNode(Node):
             </div>
             <div class="metric-card">
                 <div class="metric-label">Coverage</div>
-                <div class="metric-value">{score:.1f}%</div>
+                <div class="metric-value">{coverage_str}</div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Patterns Used</div>
@@ -3626,11 +3637,11 @@ class GenerateReportNode(Node):
         elif matches_found == 0:
             summary_text = "No matches found for this gate."
         else:
-            summary_text = "No relevant patterns found in codebase."
+            summary_text = ""
         summary_html = f'''
         <div class="details-section" style="background: #f8fafc; border-left: 5px solid {summary_color}; margin-bottom: 10px;">
             <div style="font-size: 1.1em; font-weight: 600; color: {summary_color}; margin-bottom: 4px;">{summary_icon} {summary_text}</div>
-        </div>'''
+        </div>''' if summary_text else ""
 
         # 2. Patterns Used section
         patterns_used_html = f'''
@@ -3659,30 +3670,7 @@ class GenerateReportNode(Node):
                 sample_matches_html += f'<li style="color: #6b7280;">... and {matches_found - 3} more matches</li>'
             sample_matches_html += '</ul></div>'
 
-        # 5. Coverage/confidence section
-        if num_patterns == 0:
-            coverage_html = f'''
-            <div class="details-section">
-                <div class="details-section-title">Coverage & Confidence:</div>
-                <ul>
-                    <li>Coverage: N/A (no patterns defined)</li>
-                    <li>Expected Coverage: {expected_percentage}%</li>
-                    <li>Confidence: {confidence}</li>
-                </ul>
-            </div>'''
-        else:
-            coverage_percent = (files_with_matches / max_files_expected * 100) if max_files_expected else 0
-            coverage_html = f'''
-            <div class="details-section">
-                <div class="details-section-title">Coverage & Confidence:</div>
-                <ul>
-                    <li>Coverage: {files_with_matches}/{max_files_expected} files ({coverage_percent:.1f}%)</li>
-                    <li>Expected Coverage: {expected_percentage}%</li>
-                    <li>Confidence: {confidence}</li>
-                </ul>
-            </div>'''
-
-        # 6. Matched patterns and files (full table, up to 100)
+        # 5. Matched patterns and files (full table, up to 100)
         matched_patterns_html = ""
         if num_patterns == 0:
             matched_patterns_html = f'''
@@ -3726,12 +3714,12 @@ class GenerateReportNode(Node):
                 </div>
             </div>'''
 
-        # 7. Recommendations (actionable)
+        # 6. Recommendations (actionable)
         recommendations_html = ""
         if recommendations:
             recommendations_html = f'''<div class="details-section"><div class="details-section-title">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in recommendations[:5]])}</ul></div>'''
 
-        # 8. Gate info (category, priority, description)
+        # 7. Gate info (category, priority, description)
         gate_info_html = f'''
         <div class="details-section">
             <div class="details-section-title">Gate Information:</div>
@@ -3742,13 +3730,12 @@ class GenerateReportNode(Node):
             </ul>
         </div>'''
 
-        # Compose all sections in a logical order
+        # Compose all sections in a logical order, but omit coverage_html
         return (
             summary_html +
             patterns_used_html +
             matches_found_html +
             sample_matches_html +
-            coverage_html +
             matched_patterns_html +
             recommendations_html +
             gate_info_html
