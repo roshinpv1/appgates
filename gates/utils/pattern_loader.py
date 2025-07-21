@@ -163,10 +163,11 @@ class PatternLoader:
             "weighted_score": final_score,
             "final_score": final_score,
             "matches_count": len(matches),
-            "expected_coverage": {"percentage": 0, "reasoning": "No secrets should be logged", "confidence": "high"},
+            "expected_coverage": {"percentage": 0, "reasoning": "No secrets should be logged - this is a security gate where 0 violations is the goal", "confidence": "high"},
             "scoring_config": scoring_config,
             "security_violations": len(matches),
-            "penalty_applied": min(len(matches) * violation_penalty, max_penalty) if matches else 0
+            "penalty_applied": min(len(matches) * violation_penalty, max_penalty) if matches else 0,
+            "is_security_gate": True
         }
         
         return final_score, scoring_details

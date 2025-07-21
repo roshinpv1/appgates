@@ -755,16 +755,14 @@
       "weight": 25.0,
       "expected_coverage": {
         "percentage": 0,
-        "reasoning": "No secrets should be logged - this is a security gate where 0 violations is the goal",
-        "confidence": "high",
-        "max_files_expected": 100
+        "reasoning": "No secrets should be logged",
+        "confidence": "high"
       },
       "scoring": {
         "base_score": 100,
         "violation_penalty": 20,
         "max_penalty": 100,
-        "bonus_for_clean": 10,
-        "is_security_gate": true
+        "bonus_for_clean": 10
       },
       "patterns": {
         "all_languages": [
@@ -1163,8 +1161,7 @@
       "expected_coverage": {
         "percentage": 15,
         "reasoning": "Audit trails should be present in business logic files",
-        "confidence": "medium",
-        "max_files_expected": 100
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
@@ -1975,8 +1972,7 @@
       "expected_coverage": {
         "percentage": 20,
         "reasoning": "Correlation IDs should be present in API and service files",
-        "confidence": "medium",
-        "max_files_expected": 80
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
@@ -2079,8 +2075,7 @@
       "expected_coverage": {
         "percentage": 30,
         "reasoning": "API calls should be logged for monitoring and debugging",
-        "confidence": "high",
-        "max_files_expected": 120
+        "confidence": "high"
       },
       "scoring": {
         "base_score": 100,
@@ -2676,8 +2671,7 @@
       "expected_coverage": {
         "percentage": 40,
         "reasoning": "Application messages should be logged across business logic",
-        "confidence": "medium",
-        "max_files_expected": 180
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
@@ -3433,8 +3427,7 @@
       "expected_coverage": {
         "percentage": 15,
         "reasoning": "UI error logging should be present in frontend files",
-        "confidence": "medium",
-        "max_files_expected": 60
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
@@ -3646,8 +3639,7 @@
       "expected_coverage": {
         "percentage": 20,
         "reasoning": "Retry logic should be present in network and external service calls",
-        "confidence": "medium",
-        "max_files_expected": 80
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
@@ -4308,8 +4300,7 @@
       "expected_coverage": {
         "percentage": 25,
         "reasoning": "Timeouts should be present in network and database operations",
-        "confidence": "medium",
-        "max_files_expected": 80
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
@@ -5068,665 +5059,691 @@
     },
     "THROTTLING": {
       "display_name": "Throttling & Drop Request",
-      "description": "Implement rate limiting and request throttling",
-      "category": "Performance",
+      "description": "Implement request throttling and rate limiting",
+      "category": "Resilience",
       "priority": "medium",
       "weight": 10.0,
       "expected_coverage": {
         "percentage": 15,
-        "reasoning": "Rate limiting should be present in API endpoints and external service calls",
-        "confidence": "medium",
-        "max_files_expected": 80
+        "reasoning": "Throttling should be present in API endpoints and external service calls",
+        "confidence": "medium"
       },
       "scoring": {
         "base_score": 100,
-        "bonus_threshold": 0.6,
+        "bonus_threshold": 0.5,
         "bonus_multiplier": 1.05,
-        "penalty_threshold": 0.2,
+        "penalty_threshold": 0.1,
         "penalty_multiplier": 0.9
       },
       "patterns": {
         "java": [
           {
-            "pattern": "rate.*limit",
+            "pattern": "@RateLimiter",
             "weight": 5.0,
-            "description": "Rate limiting"
+            "description": "Rate limiter annotation"
           },
           {
-            "pattern": "throttle",
+            "pattern": "RateLimiter",
             "weight": 4.0,
-            "description": "Throttling"
+            "description": "Rate limiter usage"
           },
           {
-            "pattern": "rate.*limiter",
-            "weight": 5.0,
-            "description": "Rate limiter"
-          },
-          {
-            "pattern": "throttling.*config",
+            "pattern": "throttle.*request",
             "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
             "description": "Throttling configuration"
           },
           {
-            "pattern": "request.*limit",
-            "weight": 4.0,
-            "description": "Request limiting"
-          },
-          {
-            "pattern": "drop.*request",
+            "pattern": "throttle.*handler",
             "weight": 3.0,
-            "description": "Drop request"
+            "description": "Throttling handler"
           },
           {
-            "pattern": "reject.*request",
+            "pattern": "throttle.*exception",
             "weight": 3.0,
-            "description": "Reject request"
+            "description": "Throttling exception"
           },
           {
-            "pattern": "queue.*full",
+            "pattern": "throttle.*error",
             "weight": 3.0,
-            "description": "Queue full"
+            "description": "Throttling error"
           },
           {
-            "pattern": "backpressure",
-            "weight": 4.0,
-            "description": "Backpressure handling"
-          },
-          {
-            "pattern": "circuit.*breaker",
-            "weight": 4.0,
-            "description": "Circuit breaker"
-          },
-          {
-            "pattern": "bulkhead",
+            "pattern": "throttle.*failure",
             "weight": 3.0,
-            "description": "Bulkhead pattern"
+            "description": "Throttling failure"
           },
           {
-            "pattern": "semaphore",
+            "pattern": "throttle.*response",
             "weight": 3.0,
-            "description": "Semaphore"
+            "description": "Throttling response"
           },
           {
-            "pattern": "token.*bucket",
+            "pattern": "throttle.*drop",
             "weight": 4.0,
-            "description": "Token bucket algorithm"
+            "description": "Request dropping"
           },
           {
-            "pattern": "leaky.*bucket",
+            "pattern": "throttle.*reject",
             "weight": 4.0,
-            "description": "Leaky bucket algorithm"
+            "description": "Request rejection"
           },
           {
-            "pattern": "sliding.*window",
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          }
+        ],
+        "python": [
+          {
+            "pattern": "throttle.*request",
             "weight": 4.0,
-            "description": "Sliding window"
+            "description": "Request throttling"
           },
           {
-            "pattern": "fixed.*window",
+            "pattern": "throttle.*rate",
             "weight": 4.0,
-            "description": "Fixed window"
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          },
+          {
+            "pattern": "ratelimit",
+            "weight": 4.0,
+            "description": "Rate limiting"
+          },
+          {
+            "pattern": "slowapi",
+            "weight": 4.0,
+            "description": "SlowAPI rate limiting"
+          }
+        ],
+        "javascript": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          },
+          {
+            "pattern": "express-rate-limit",
+            "weight": 4.0,
+            "description": "Express rate limiting"
+          },
+          {
+            "pattern": "rate-limit",
+            "weight": 4.0,
+            "description": "Rate limiting"
+          }
+        ],
+        "typescript": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          }
+        ],
+        "csharp": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          }
+        ],
+        "go": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          }
+        ],
+        "rust": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          }
+        ],
+        "php": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
+          }
+        ],
+        "ruby": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 4.0,
+            "description": "Request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 4.0,
+            "description": "Rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 4.0,
+            "description": "Limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 4.0,
+            "description": "Throttling policy"
+          },
+          {
+            "pattern": "throttle.*config",
+            "weight": 3.0,
+            "description": "Throttling configuration"
+          },
+          {
+            "pattern": "throttle.*handler",
+            "weight": 3.0,
+            "description": "Throttling handler"
+          },
+          {
+            "pattern": "throttle.*exception",
+            "weight": 3.0,
+            "description": "Throttling exception"
+          },
+          {
+            "pattern": "throttle.*error",
+            "weight": 3.0,
+            "description": "Throttling error"
+          },
+          {
+            "pattern": "throttle.*failure",
+            "weight": 3.0,
+            "description": "Throttling failure"
+          },
+          {
+            "pattern": "throttle.*response",
+            "weight": 3.0,
+            "description": "Throttling response"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 4.0,
+            "description": "Request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 4.0,
+            "description": "Request rejection"
+          },
+          {
+            "pattern": "throttle.*queue",
+            "weight": 3.0,
+            "description": "Request queuing"
           }
         ],
         "all_languages": [
+          {
+            "pattern": "throttle.*request",
+            "weight": 3.0,
+            "description": "Generic request throttling"
+          },
+          {
+            "pattern": "throttle.*rate",
+            "weight": 3.0,
+            "description": "Generic rate throttling"
+          },
+          {
+            "pattern": "throttle.*limit",
+            "weight": 3.0,
+            "description": "Generic limit throttling"
+          },
+          {
+            "pattern": "throttle.*policy",
+            "weight": 3.0,
+            "description": "Generic throttling policy"
+          },
+          {
+            "pattern": "throttle.*drop",
+            "weight": 3.0,
+            "description": "Generic request dropping"
+          },
+          {
+            "pattern": "throttle.*reject",
+            "weight": 3.0,
+            "description": "Generic request rejection"
+          },
           {
             "pattern": "rate.*limit",
-            "weight": 4.0,
+            "weight": 3.0,
             "description": "Generic rate limiting"
-          },
-          {
-            "pattern": "throttle",
-            "weight": 3.0,
-            "description": "Generic throttling"
-          },
-          {
-            "pattern": "request.*limit",
-            "weight": 3.0,
-            "description": "Generic request limiting"
-          },
-          {
-            "pattern": "drop.*request",
-            "weight": 2.0,
-            "description": "Generic drop request"
-          },
-          {
-            "pattern": "reject.*request",
-            "weight": 2.0,
-            "description": "Generic reject request"
-          },
-          {
-            "pattern": "backpressure",
-            "weight": 3.0,
-            "description": "Generic backpressure"
-          },
-          {
-            "pattern": "semaphore",
-            "weight": 2.0,
-            "description": "Generic semaphore"
-          }
-        ]
-      }
-    },
-    "CIRCUIT_BREAKERS": {
-      "display_name": "Circuit Breakers",
-      "description": "Implement circuit breaker pattern for fault tolerance",
-      "category": "Reliability",
-      "priority": "high",
-      "weight": 12.0,
-      "expected_coverage": {
-        "percentage": 20,
-        "reasoning": "Circuit breakers should be present in external service calls and critical operations",
-        "confidence": "medium",
-        "max_files_expected": 60
-      },
-      "scoring": {
-        "base_score": 100,
-        "bonus_threshold": 0.6,
-        "bonus_multiplier": 1.1,
-        "penalty_threshold": 0.1,
-        "penalty_multiplier": 0.8
-      },
-      "patterns": {
-        "java": [
-          {
-            "pattern": "circuit.*breaker",
-            "weight": 5.0,
-            "description": "Circuit breaker"
-          },
-          {
-            "pattern": "CircuitBreaker",
-            "weight": 5.0,
-            "description": "CircuitBreaker class"
-          },
-          {
-            "pattern": "Hystrix",
-            "weight": 4.0,
-            "description": "Hystrix circuit breaker"
-          },
-          {
-            "pattern": "Resilience4j",
-            "weight": 4.0,
-            "description": "Resilience4j circuit breaker"
-          },
-          {
-            "pattern": "open.*state",
-            "weight": 3.0,
-            "description": "Open state"
-          },
-          {
-            "pattern": "closed.*state",
-            "weight": 3.0,
-            "description": "Closed state"
-          },
-          {
-            "pattern": "half.*open",
-            "weight": 3.0,
-            "description": "Half-open state"
-          },
-          {
-            "pattern": "failure.*threshold",
-            "weight": 4.0,
-            "description": "Failure threshold"
-          },
-          {
-            "pattern": "timeout.*window",
-            "weight": 4.0,
-            "description": "Timeout window"
-          },
-          {
-            "pattern": "error.*rate",
-            "weight": 4.0,
-            "description": "Error rate"
-          },
-          {
-            "pattern": "fallback",
-            "weight": 4.0,
-            "description": "Fallback method"
-          },
-          {
-            "pattern": "degradation",
-            "weight": 3.0,
-            "description": "Service degradation"
-          }
-        ],
-        "all_languages": [
-          {
-            "pattern": "circuit.*breaker",
-            "weight": 4.0,
-            "description": "Generic circuit breaker"
-          },
-          {
-            "pattern": "open.*state",
-            "weight": 2.0,
-            "description": "Generic open state"
-          },
-          {
-            "pattern": "closed.*state",
-            "weight": 2.0,
-            "description": "Generic closed state"
-          },
-          {
-            "pattern": "half.*open",
-            "weight": 2.0,
-            "description": "Generic half-open state"
-          },
-          {
-            "pattern": "fallback",
-            "weight": 3.0,
-            "description": "Generic fallback"
-          }
-        ]
-      }
-    },
-    "ERROR_LOGS": {
-      "display_name": "Log System Errors",
-      "description": "Comprehensive error logging and exception handling",
-      "category": "Error Handling",
-      "priority": "high",
-      "weight": 15.0,
-      "expected_coverage": {
-        "percentage": 30,
-        "reasoning": "Error logging should be present across all application layers",
-        "confidence": "high",
-        "max_files_expected": 120
-      },
-      "scoring": {
-        "base_score": 100,
-        "bonus_threshold": 0.7,
-        "bonus_multiplier": 1.1,
-        "penalty_threshold": 0.2,
-        "penalty_multiplier": 0.8
-      },
-      "patterns": {
-        "java": [
-          {
-            "pattern": "log\\.error",
-            "weight": 5.0,
-            "description": "Error logging"
-          },
-          {
-            "pattern": "log\\.fatal",
-            "weight": 5.0,
-            "description": "Fatal logging"
-          },
-          {
-            "pattern": "log\\.severe",
-            "weight": 4.0,
-            "description": "Severe logging"
-          },
-          {
-            "pattern": "exception.*log",
-            "weight": 4.0,
-            "description": "Exception logging"
-          },
-          {
-            "pattern": "error.*log",
-            "weight": 4.0,
-            "description": "Error log"
-          },
-          {
-            "pattern": "catch.*exception",
-            "weight": 3.0,
-            "description": "Exception catching"
-          },
-          {
-            "pattern": "try.*catch",
-            "weight": 3.0,
-            "description": "Try-catch blocks"
-          },
-          {
-            "pattern": "throw.*exception",
-            "weight": 3.0,
-            "description": "Exception throwing"
-          },
-          {
-            "pattern": "RuntimeException",
-            "weight": 3.0,
-            "description": "Runtime exception"
-          },
-          {
-            "pattern": "Exception.*handler",
-            "weight": 4.0,
-            "description": "Exception handler"
-          },
-          {
-            "pattern": "error.*handler",
-            "weight": 4.0,
-            "description": "Error handler"
-          },
-          {
-            "pattern": "global.*exception",
-            "weight": 4.0,
-            "description": "Global exception handler"
-          },
-          {
-            "pattern": "ControllerAdvice",
-            "weight": 4.0,
-            "description": "Controller advice"
-          },
-          {
-            "pattern": "ExceptionHandler",
-            "weight": 4.0,
-            "description": "Exception handler annotation"
-          }
-        ],
-        "all_languages": [
-          {
-            "pattern": "log\\.error",
-            "weight": 4.0,
-            "description": "Generic error logging"
-          },
-          {
-            "pattern": "exception.*log",
-            "weight": 3.0,
-            "description": "Generic exception logging"
-          },
-          {
-            "pattern": "error.*log",
-            "weight": 3.0,
-            "description": "Generic error log"
-          },
-          {
-            "pattern": "catch.*exception",
-            "weight": 2.0,
-            "description": "Generic exception catching"
-          },
-          {
-            "pattern": "try.*catch",
-            "weight": 2.0,
-            "description": "Generic try-catch blocks"
-          }
-        ]
-      }
-    },
-    "HTTP_CODES": {
-      "display_name": "HTTP Error Codes",
-      "description": "Use appropriate HTTP status codes for API responses",
-      "category": "API",
-      "priority": "medium",
-      "weight": 8.0,
-      "expected_coverage": {
-        "percentage": 25,
-        "reasoning": "HTTP status codes should be used consistently in API responses",
-        "confidence": "medium",
-        "max_files_expected": 100
-      },
-      "scoring": {
-        "base_score": 100,
-        "bonus_threshold": 0.6,
-        "bonus_multiplier": 1.05,
-        "penalty_threshold": 0.2,
-        "penalty_multiplier": 0.9
-      },
-      "patterns": {
-        "java": [
-          {
-            "pattern": "HttpStatus",
-            "weight": 4.0,
-            "description": "HttpStatus enum"
-          },
-          {
-            "pattern": "ResponseEntity",
-            "weight": 4.0,
-            "description": "ResponseEntity"
-          },
-          {
-            "pattern": "ResponseStatus",
-            "weight": 4.0,
-            "description": "ResponseStatus annotation"
-          },
-          {
-            "pattern": "HttpStatusCode",
-            "weight": 4.0,
-            "description": "HttpStatusCode"
-          },
-          {
-            "pattern": "status.*code",
-            "weight": 3.0,
-            "description": "Status code"
-          },
-          {
-            "pattern": "200.*OK",
-            "weight": 2.0,
-            "description": "200 OK"
-          },
-          {
-            "pattern": "201.*Created",
-            "weight": 2.0,
-            "description": "201 Created"
-          },
-          {
-            "pattern": "400.*Bad.*Request",
-            "weight": 3.0,
-            "description": "400 Bad Request"
-          },
-          {
-            "pattern": "401.*Unauthorized",
-            "weight": 3.0,
-            "description": "401 Unauthorized"
-          },
-          {
-            "pattern": "403.*Forbidden",
-            "weight": 3.0,
-            "description": "403 Forbidden"
-          },
-          {
-            "pattern": "404.*Not.*Found",
-            "weight": 3.0,
-            "description": "404 Not Found"
-          },
-          {
-            "pattern": "500.*Internal.*Server.*Error",
-            "weight": 3.0,
-            "description": "500 Internal Server Error"
-          },
-          {
-            "pattern": "502.*Bad.*Gateway",
-            "weight": 2.0,
-            "description": "502 Bad Gateway"
-          },
-          {
-            "pattern": "503.*Service.*Unavailable",
-            "weight": 2.0,
-            "description": "503 Service Unavailable"
-          }
-        ],
-        "all_languages": [
-          {
-            "pattern": "status.*code",
-            "weight": 3.0,
-            "description": "Generic status code"
-          },
-          {
-            "pattern": "200.*OK",
-            "weight": 2.0,
-            "description": "Generic 200 OK"
-          },
-          {
-            "pattern": "400.*Bad.*Request",
-            "weight": 2.0,
-            "description": "Generic 400 Bad Request"
-          },
-          {
-            "pattern": "500.*Internal.*Server.*Error",
-            "weight": 2.0,
-            "description": "Generic 500 Internal Server Error"
-          }
-        ]
-      }
-    },
-    "AUTOMATED_TESTS": {
-      "display_name": "Automated Tests",
-      "description": "Comprehensive automated test coverage",
-      "category": "Testing",
-      "priority": "high",
-      "weight": 15.0,
-      "expected_coverage": {
-        "percentage": 40,
-        "reasoning": "Automated tests should cover critical business logic and API endpoints",
-        "confidence": "high",
-        "max_files_expected": 150
-      },
-      "scoring": {
-        "base_score": 100,
-        "bonus_threshold": 0.7,
-        "bonus_multiplier": 1.1,
-        "penalty_threshold": 0.2,
-        "penalty_multiplier": 0.8
-      },
-      "patterns": {
-        "java": [
-          {
-            "pattern": "@Test",
-            "weight": 5.0,
-            "description": "JUnit test annotation"
-          },
-          {
-            "pattern": "@ParameterizedTest",
-            "weight": 4.0,
-            "description": "Parameterized test"
-          },
-          {
-            "pattern": "@RepeatedTest",
-            "weight": 3.0,
-            "description": "Repeated test"
-          },
-          {
-            "pattern": "@TestFactory",
-            "weight": 3.0,
-            "description": "Test factory"
-          },
-          {
-            "pattern": "assertThat",
-            "weight": 4.0,
-            "description": "AssertJ assertions"
-          },
-          {
-            "pattern": "assertEquals",
-            "weight": 3.0,
-            "description": "JUnit assertions"
-          },
-          {
-            "pattern": "assertTrue",
-            "weight": 3.0,
-            "description": "Assert true"
-          },
-          {
-            "pattern": "assertFalse",
-            "weight": 3.0,
-            "description": "Assert false"
-          },
-          {
-            "pattern": "assertNotNull",
-            "weight": 3.0,
-            "description": "Assert not null"
-          },
-          {
-            "pattern": "assertNull",
-            "weight": 3.0,
-            "description": "Assert null"
-          },
-          {
-            "pattern": "Mockito",
-            "weight": 4.0,
-            "description": "Mockito mocking"
-          },
-          {
-            "pattern": "@Mock",
-            "weight": 4.0,
-            "description": "Mock annotation"
-          },
-          {
-            "pattern": "@InjectMocks",
-            "weight": 4.0,
-            "description": "Inject mocks"
-          },
-          {
-            "pattern": "when\\(.*\\)\\.thenReturn",
-            "weight": 4.0,
-            "description": "Mock when-then"
-          },
-          {
-            "pattern": "verify",
-            "weight": 3.0,
-            "description": "Mock verification"
-          },
-          {
-            "pattern": "@SpringBootTest",
-            "weight": 4.0,
-            "description": "Spring Boot test"
-          },
-          {
-            "pattern": "@WebMvcTest",
-            "weight": 4.0,
-            "description": "Web MVC test"
-          },
-          {
-            "pattern": "@DataJpaTest",
-            "weight": 4.0,
-            "description": "Data JPA test"
-          },
-          {
-            "pattern": "@RestClientTest",
-            "weight": 3.0,
-            "description": "Rest client test"
-          },
-          {
-            "pattern": "TestRestTemplate",
-            "weight": 3.0,
-            "description": "Test REST template"
-          },
-          {
-            "pattern": "MockMvc",
-            "weight": 4.0,
-            "description": "Mock MVC"
-          },
-          {
-            "pattern": "perform\\(.*\\)",
-            "weight": 3.0,
-            "description": "MockMvc perform"
-          },
-          {
-            "pattern": "andExpect",
-            "weight": 3.0,
-            "description": "MockMvc expectations"
-          },
-          {
-            "pattern": "andReturn",
-            "weight": 3.0,
-            "description": "MockMvc return"
-          }
-        ],
-        "all_languages": [
-          {
-            "pattern": "@Test",
-            "weight": 4.0,
-            "description": "Generic test annotation"
-          },
-          {
-            "pattern": "assertEquals",
-            "weight": 2.0,
-            "description": "Generic assertEquals"
-          },
-          {
-            "pattern": "assertTrue",
-            "weight": 2.0,
-            "description": "Generic assertTrue"
-          },
-          {
-            "pattern": "assertFalse",
-            "weight": 2.0,
-            "description": "Generic assertFalse"
-          },
-          {
-            "pattern": "assertNotNull",
-            "weight": 2.0,
-            "description": "Generic assertNotNull"
-          },
-          {
-            "pattern": "assertNull",
-            "weight": 2.0,
-            "description": "Generic assertNull"
           }
         ]
       }

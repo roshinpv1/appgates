@@ -838,7 +838,7 @@ class CallLLMNode(Node):
         # Gate-specific maximum file expectations
         gate_max_files = {
             "STRUCTURED_LOGS": 200,
-            "AVOID_LOGGING_SECRETS": 150,
+            "AVOID_LOGGING_SECRETS": 100,  # Security gate - reasonable expectation
             "AUDIT_TRAIL": 100,
             "LOG_API_CALLS": 120,
             "LOG_APPLICATION_MESSAGES": 180,
@@ -861,6 +861,11 @@ class CallLLMNode(Node):
         
         # Get base maximum files for this gate
         base_max_files = gate_max_files.get(gate_name, 100)
+        
+        # Special handling for security gates
+        if gate_name == "AVOID_LOGGING_SECRETS" or "security" in reasoning.lower():
+            # For security gates, use a reasonable expectation regardless of percentage
+            return base_max_files
         
         # Adjust based on expected coverage percentage
         if percentage == 100:
@@ -1299,37 +1304,15 @@ class ValidateGatesNode(Node):
             characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
             applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
             
-            # Debug output for applicability
-            # if gate_name == "STRUCTURED_LOGS":  # Only for first gate to avoid spam
-            #     print(f"   🔍 Debug - Codebase characteristics:")
-            #     print(f"      Languages: {characteristics['languages']}")
-            #     print(f"      Is Frontend: {characteristics['is_frontend']}")
-            #     print(f"      Is Backend: {characteristics['is_backend']}")
-            #     print(f"      Is API: {characteristics['is_api']}")
-            #     print(f"      Is Backend Only: {characteristics['is_backend_only']}")
-            #     print(f"      Primary Technology: {characteristics['primary_technology']}")
-            
-            # print(f"   🔍 {gate_name} applicability check:")
-            # print(f"      Is Applicable: {applicability['is_applicable']}")
-            # print(f"      Reason: {applicability['reason']}")
-            # if 'required_technologies' in applicability:
-            #     print(f"      Required Technologies: {applicability['required_technologies']}")
-            #     print(f"      Has Required: {applicability['has_required']}")
-            #     print(f"      Is Excluded: {applicability['is_excluded']}")
-            # else:
-            #     print(f"      (No specific applicability rules)")
-            
-            # Show file analysis summary
             if gate_name == "AUTOMATED_TESTS":
                 relevant_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
             else:
                 relevant_files = self._get_improved_relevant_files(metadata, file_type="Source Code", gate_name=gate_name, config=config)
-            
+
             print(f"   📁 Analyzing {len(relevant_files)} relevant files for {gate_name} (from {metadata.get('total_files', 0)} total files in repository)")
-            
-            # Check if gate is not applicable based on applicability analyzer
+
             is_not_applicable = not applicability["is_applicable"]
-            
+
             if is_not_applicable:
                 # Handle Not Applicable gate
                 gate_result = {
@@ -1363,15 +1346,20 @@ class ValidateGatesNode(Node):
                 # Get weighted patterns for this gate and technology stack
                 weighted_patterns = pattern_loader.get_gate_patterns(gate_name, primary_technologies)
                 static_gate_patterns = [p["pattern"] for p in weighted_patterns]
-                
-                # Hybrid validation: LLM patterns + Weighted patterns
-                llm_matches = self._find_pattern_matches_with_config(repo_path, llm_gate_patterns, metadata, gate, config, "LLM")
-                static_matches = self._find_pattern_matches_with_config(repo_path, static_gate_patterns, metadata, gate, config, "Static")
-                
-                # Combine matches and remove duplicates based on file and line
-                all_matches = llm_matches + static_matches
-                unique_matches = self._deduplicate_matches(all_matches)
-                
+
+                # GUARD: If no patterns, skip matching and set matches to []
+                if not llm_gate_patterns and not static_gate_patterns:
+                    llm_matches = []
+                    static_matches = []
+                    unique_matches = []
+                else:
+                    # Hybrid validation: LLM patterns + Weighted patterns
+                    llm_matches = self._find_pattern_matches_with_config(repo_path, llm_gate_patterns, metadata, gate, config, "LLM")
+                    static_matches = self._find_pattern_matches_with_config(repo_path, static_gate_patterns, metadata, gate, config, "Static")
+                    # Combine matches and remove duplicates based on file and line
+                    all_matches = llm_matches + static_matches
+                    unique_matches = self._deduplicate_matches(all_matches)
+
                 # Calculate relevant file count for this gate type
                 if gate_name == "AUTOMATED_TESTS":
                     relevant_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
@@ -1396,11 +1384,12 @@ class ValidateGatesNode(Node):
                     "priority": gate["priority"],
                     "patterns_used": len(llm_gate_patterns) + len(static_gate_patterns),
                     "matches_found": len(unique_matches),
+                    "matches": unique_matches,
+                    "patterns": llm_gate_patterns + static_gate_patterns,
                     "score": weighted_score,
                     "status": self._determine_status(weighted_score, gate),
                     "details": self._generate_gate_details(gate, unique_matches),
                     "recommendations": self._generate_gate_recommendations(gate, unique_matches, weighted_score),
-                    # Add LLM-generated pattern information
                     "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
                     "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance"),
                     "expected_coverage": gate_pattern_info.get("expected_coverage", {
@@ -1410,7 +1399,6 @@ class ValidateGatesNode(Node):
                     }),
                     "total_files": metadata.get("total_files", 1),
                     "relevant_files": relevant_file_count,
-                    # Enhanced validation tracking with weighted scoring
                     "validation_sources": {
                         "llm_patterns": {
                             "count": len(llm_gate_patterns),
@@ -1765,6 +1753,22 @@ class ValidateGatesNode(Node):
         reasoning = expected_coverage_data.get("reasoning", "Standard expectation")
         max_files_expected = expected_coverage_data.get("max_files_expected", relevant_file_count)
         
+        # Check if this is a security gate (where fewer matches = better score)
+        scoring_config = gate.get("scoring", {})
+        is_security_gate = scoring_config.get("is_security_gate", False) or gate_name == "AVOID_LOGGING_SECRETS"
+        
+        if is_security_gate:
+            # For security gates, fewer matches = better score
+            if len(matches) == 0:
+                # No violations found - perfect score
+                return 100.0
+            else:
+                # Penalize based on number of violations
+                violation_penalty = scoring_config.get("violation_penalty", 20)
+                max_penalty = scoring_config.get("max_penalty", 100)
+                penalty = min(len(matches) * violation_penalty, max_penalty)
+                return max(0.0, 100.0 - penalty)
+        
         # Special handling for infrastructure patterns with 100% expected coverage
         if expected_percentage == 100:
             print(f"🎯 Infrastructure pattern detected for {gate_name}: {reasoning}")
@@ -1793,44 +1797,34 @@ class ValidateGatesNode(Node):
             "low": 0.8
         }.get(confidence, 0.9)
         
-        if gate_name == "AVOID_LOGGING_SECRETS":
-            # For security gates, fewer matches = better score
-            if len(matches) == 0:
-                return 100.0
-            else:
-                # Penalize based on number of violations
-                violation_penalty = min(len(matches) * 10, 100)
-                return max(0.0, 100.0 - violation_penalty)
+        if len(matches) == 0:
+            return 0.0
         else:
-            # For other gates, more matches = better score
-            if len(matches) == 0:
-                return 0.0
-            else:
-                # Score based on coverage vs expected coverage (using max files expected)
-                files_with_matches = len(set(m["file"] for m in matches))
-                
-                # Use maximum files expected for more accurate coverage calculation
-                actual_coverage = files_with_matches / max_files_expected
-                
-                # Calculate expected files based on LLM analysis (using max files expected)
-                expected_files = max(max_files_expected * expected_coverage_ratio, 1)
-                
-                # Calculate coverage ratio (actual vs expected)
-                coverage_ratio = min(files_with_matches / expected_files, 1.0)
-                
-                # Base score from coverage ratio
-                base_score = coverage_ratio * 100.0
-                
-                # Apply confidence multiplier
-                final_score = base_score * confidence_multiplier
-                
-                # Bonus for exceeding expectations (up to 10% bonus)
-                if files_with_matches > expected_files:
-                    excess_ratio = min((files_with_matches - expected_files) / expected_files, 0.1)
-                    bonus = excess_ratio * 10.0
-                    final_score = min(final_score + bonus, 100.0)
-                
-                return final_score
+            # Score based on coverage vs expected coverage (using max files expected)
+            files_with_matches = len(set(m["file"] for m in matches))
+            
+            # Use maximum files expected for more accurate coverage calculation
+            actual_coverage = files_with_matches / max_files_expected
+            
+            # Calculate expected files based on LLM analysis (using max files expected)
+            expected_files = max(max_files_expected * expected_coverage_ratio, 1)
+            
+            # Calculate coverage ratio (actual vs expected)
+            coverage_ratio = min(files_with_matches / expected_files, 1.0)
+            
+            # Base score from coverage ratio
+            base_score = coverage_ratio * 100.0
+            
+            # Apply confidence multiplier
+            final_score = base_score * confidence_multiplier
+            
+            # Bonus for exceeding expectations (up to 10% bonus)
+            if files_with_matches > expected_files:
+                excess_ratio = min((files_with_matches - expected_files) / expected_files, 0.1)
+                bonus = excess_ratio * 10.0
+                final_score = min(final_score + bonus, 100.0)
+            
+            return final_score
     
     def _determine_status(self, score: float, gate: Dict[str, Any]) -> str:
         """Determine gate status based on score"""
@@ -1868,30 +1862,50 @@ class ValidateGatesNode(Node):
         relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         
-        # Calculate coverage using maximum files expected for more accurate assessment
-        actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
+        # Check if this is a security gate
+        scoring_config = gate.get("scoring", {})
+        is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
         
-        # Special analysis for infrastructure patterns
-        if expected_percentage == 100:
-            details.append(f"🎯 Infrastructure Framework Analysis:")
-            details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
-            
-            if files_with_matches > 0:
-                details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
-                details.append(f"Framework: {coverage_reasoning}")
-            else:
-                details.append(f"⚠️ Framework Detected but Not Implemented: 0/{max_files_expected} expected files")
-                details.append(f"Framework: {coverage_reasoning}")
-                details.append(f"Recommendation: Implement the detected framework throughout your codebase")
-        else:
-            # Standard coverage analysis with maximum files context
-            details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+        if is_security_gate:
+            # For security gates, report violations instead of coverage
+            details.append(f"Security Gate Analysis:")
+            details.append(f"Expected Violations: 0 ({coverage_reasoning})")
             details.append(f"Maximum Files Expected: {max_files_expected} files")
-            details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{max_files_expected} expected files)")
+            details.append(f"Actual Violations: {len(matches)} violations across {files_with_matches} files")
             
-            # Show traditional coverage for comparison
+            # Show traditional coverage for context
             traditional_coverage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
-            details.append(f"Traditional Coverage: {traditional_coverage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+            details.append(f"Files with Violations: {traditional_coverage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+            
+            if len(matches) == 0:
+                details.append(f"✅ No security violations found - perfect implementation")
+            else:
+                details.append(f"❌ Security violations found - immediate attention required")
+        else:
+            # Calculate coverage using maximum files expected for more accurate assessment
+            actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
+            
+            # Special analysis for infrastructure patterns
+            if expected_percentage == 100:
+                details.append(f"🎯 Infrastructure Framework Analysis:")
+                details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
+                
+                if files_with_matches > 0:
+                    details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
+                    details.append(f"Framework: {coverage_reasoning}")
+                else:
+                    details.append(f"⚠️ Framework Detected but Not Implemented: 0/{max_files_expected} expected files")
+                    details.append(f"Framework: {coverage_reasoning}")
+                    details.append(f"Recommendation: Implement the detected framework throughout your codebase")
+            else:
+                # Standard coverage analysis with maximum files context
+                details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+                details.append(f"Maximum Files Expected: {max_files_expected} files")
+                details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{max_files_expected} expected files)")
+                
+                # Show traditional coverage for comparison
+                traditional_coverage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
+                details.append(f"Traditional Coverage: {traditional_coverage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
         
         # Show technology filtering information if different from total
         if relevant_files != total_files:
@@ -1900,7 +1914,10 @@ class ValidateGatesNode(Node):
         details.append(f"Confidence: {confidence}")
         
         if matches:
-            details.append(f"Found {len(matches)} matches across {files_with_matches} files")
+            if is_security_gate:
+                details.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+            else:
+                details.append(f"Found {len(matches)} matches across {files_with_matches} files")
             
             # Show sample matches
             for match in matches[:3]:
@@ -1909,7 +1926,10 @@ class ValidateGatesNode(Node):
             if len(matches) > 3:
                 details.append(f"  ... and {len(matches) - 3} more matches")
         else:
-            details.append(f"No matches found for {gate['display_name']}")
+            if is_security_gate:
+                details.append(f"No security violations found for {gate['display_name']}")
+            else:
+                details.append(f"No matches found for {gate['display_name']}")
         
         return details
     
@@ -1929,50 +1949,74 @@ class ValidateGatesNode(Node):
         relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         
-        # Calculate coverage using maximum files expected for more accurate assessment
-        actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
+        # Check if this is a security gate
+        scoring_config = gate.get("scoring", {})
+        is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
         
-        # Calculate coverage gap for all cases
-        coverage_gap = expected_percentage - actual_percentage
-        
-        # Special recommendations for infrastructure patterns
-        if expected_percentage == 100:
-            if files_with_matches > 0:
-                recommendations.append(f"✅ Infrastructure Framework Implemented: {coverage_reasoning}")
-                recommendations.append(f"Current Usage: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
-                if actual_percentage < 50:
-                    recommendations.append(f"Recommendation: Extend {gate['display_name']} implementation to more files")
-                else:
-                    recommendations.append(f"Recommendation: {gate['display_name']} is well implemented")
+        if is_security_gate:
+            # For security gates, focus on violations rather than coverage
+            if len(matches) == 0:
+                recommendations.append(f"✅ {gate['display_name']} is well implemented")
+                recommendations.append(f"No security violations found - perfect implementation")
             else:
-                recommendations.append(f"🎯 Infrastructure Framework Detected: {coverage_reasoning}")
-                recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
-                recommendations.append(f"Framework: {coverage_reasoning}")
-                recommendations.append(f"Expected Implementation: {max_files_expected} files")
+                recommendations.append(f"❌ Critical: {gate['display_name']} violations found")
+                recommendations.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+                recommendations.append(f"Immediate action required: {coverage_reasoning}")
+                
+                # Provide specific guidance based on violation count
+                if len(matches) > 100:
+                    recommendations.append(f"Major Security Issue: {len(matches)} violations require immediate remediation")
+                elif len(matches) > 50:
+                    recommendations.append(f"Significant Security Issue: {len(matches)} violations need urgent attention")
+                elif len(matches) > 10:
+                    recommendations.append(f"Security Issue: {len(matches)} violations should be addressed")
+                else:
+                    recommendations.append(f"Minor Security Issue: {len(matches)} violations to fix")
         else:
-            # Generate recommendations based on coverage gap with maximum files context
-            if score < 50.0:
-                recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
-                recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {max_files_expected} expected files)")
-                recommendations.append(f"Focus on {gate['description'].lower()}")
-                
-                # Provide specific guidance based on coverage gap
-                if coverage_gap > 50:
-                    recommendations.append(f"Major Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
-                elif coverage_gap > 25:
-                    recommendations.append(f"Significant Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+            # Calculate coverage using maximum files expected for more accurate assessment
+            actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
+            
+            # Calculate coverage gap for all cases
+            coverage_gap = expected_percentage - actual_percentage
+            
+            # Special recommendations for infrastructure patterns
+            if expected_percentage == 100:
+                if files_with_matches > 0:
+                    recommendations.append(f"✅ Infrastructure Framework Implemented: {coverage_reasoning}")
+                    recommendations.append(f"Current Usage: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
+                    if actual_percentage < 50:
+                        recommendations.append(f"Recommendation: Extend {gate['display_name']} implementation to more files")
+                    else:
+                        recommendations.append(f"Recommendation: {gate['display_name']} is well implemented")
                 else:
-                    recommendations.append(f"Moderate Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
-            elif score < 70.0:
-                recommendations.append(f"Improve: Enhance {gate['display_name']} implementation")
-                recommendations.append(f"Current: {actual_percentage:.1f}% coverage, Target: {expected_percentage}% coverage")
-                recommendations.append(f"Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                    recommendations.append(f"🎯 Infrastructure Framework Detected: {coverage_reasoning}")
+                    recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+                    recommendations.append(f"Framework: {coverage_reasoning}")
+                    recommendations.append(f"Expected Implementation: {max_files_expected} files")
             else:
-                recommendations.append(f"Good: {gate['display_name']} is well implemented")
-                recommendations.append(f"Achieved: {actual_percentage:.1f}% coverage (Target: {expected_percentage}%)")
-                
-                if actual_percentage > expected_percentage:
-                    recommendations.append(f"Exceeds expectations by {actual_percentage - expected_percentage:.1f}%")
+                # Generate recommendations based on coverage gap with maximum files context
+                if score < 50.0:
+                    recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+                    recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {max_files_expected} expected files)")
+                    recommendations.append(f"Focus on {gate['description'].lower()}")
+                    
+                    # Provide specific guidance based on coverage gap
+                    if coverage_gap > 50:
+                        recommendations.append(f"Major Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                    elif coverage_gap > 25:
+                        recommendations.append(f"Significant Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                    else:
+                        recommendations.append(f"Moderate Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                elif score < 70.0:
+                    recommendations.append(f"Improve: Enhance {gate['display_name']} implementation")
+                    recommendations.append(f"Current: {actual_percentage:.1f}% coverage, Target: {expected_percentage}% coverage")
+                    recommendations.append(f"Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                else:
+                    recommendations.append(f"Good: {gate['display_name']} is well implemented")
+                    recommendations.append(f"Achieved: {actual_percentage:.1f}% coverage (Target: {expected_percentage}%)")
+                    
+                    if actual_percentage > expected_percentage:
+                        recommendations.append(f"Exceeds expectations by {actual_percentage - expected_percentage:.1f}%")
         
         # Add context about maximum files expected
         if max_files_expected != relevant_files:
@@ -2187,23 +2231,67 @@ class GenerateReportNode(Node):
         
         # Generate JSON report
         if report_format in ["json", "both"]:
-            json_path = os.path.join(output_dir, f"codegates_report_{scan_id}.json")
-            json_data = self._generate_json_report(params)
-            
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(json_data, f, indent=2, ensure_ascii=False)
-            
-            report_paths["json"] = json_path
+            try:
+                json_path = os.path.join(output_dir, f"codegates_report_{scan_id}.json")
+                json_data = self._generate_json_report(params)
+                
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(json_data, f, indent=2, ensure_ascii=False)
+                
+                report_paths["json"] = json_path
+                print(f"✅ JSON report generated: {json_path}")
+            except Exception as e:
+                print(f"❌ Failed to generate JSON report: {e}")
         
-        # Generate HTML report
+        # Generate HTML report with timeout
         if report_format in ["html", "both"]:
-            html_path = os.path.join(output_dir, f"codegates_report_{scan_id}.html")
-            html_content = self._generate_html_report(params)
-            
-            with open(html_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            
-            report_paths["html"] = html_path
+            try:
+                html_path = os.path.join(output_dir, f"codegates_report_{scan_id}.html")
+                
+                # Add timeout for HTML generation
+                import signal
+                import threading
+                
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("HTML report generation timed out")
+                
+                # Set timeout to 5 minutes
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(300)  # 5 minutes timeout
+                
+                try:
+                    print(f"🔍 Debug: Generating HTML report...")
+                    html_content = self._generate_html_report(params)
+                    print(f"🔍 Debug: HTML content length: {len(html_content)}")
+                    
+                    if html_content:
+                        with open(html_path, 'w', encoding='utf-8') as f:
+                            f.write(html_content)
+                        
+                        # Verify file was written correctly
+                        file_size = os.path.getsize(html_path)
+                        print(f"🔍 Debug: HTML file size: {file_size} bytes")
+                        
+                        if file_size == 0:
+                            print("⚠️ Warning: HTML file is empty!")
+                        else:
+                            print(f"✅ HTML file written successfully")
+                        
+                        report_paths["html"] = html_path
+                        print(f"✅ HTML report generated: {html_path}")
+                    else:
+                        print("⚠️ Warning: HTML content is empty!")
+                        
+                finally:
+                    signal.alarm(0)  # Cancel the alarm
+                    
+            except TimeoutError:
+                print("⚠️ HTML report generation timed out after 5 minutes")
+                print("💡 Consider reducing the amount of data or using JSON format only")
+            except Exception as e:
+                print(f"❌ Failed to generate HTML report: {e}")
+                import traceback
+                traceback.print_exc()
         
         return report_paths
     
@@ -2335,54 +2423,106 @@ class GenerateReportNode(Node):
     def _generate_html_report(self, params: Dict[str, Any]) -> str:
         """Generate HTML report using exact same template as original report.py with hybrid validation info"""
         
-        validation = params["validation_results"]
-        metadata = params["metadata"]
-        llm_info = params["llm_info"]
-        
-        # Use the new data structure directly
-        gate_results = validation["gate_results"]
-        hybrid_stats = validation.get("hybrid_stats", {})
-        
-        # Calculate summary statistics from new data
-        stats = self._calculate_summary_stats_from_new_data(gate_results)
-        
-        # Extract project name and branch
-        project_name = self._extract_project_name(params["request"]["repository_url"])
-        branch_name = params["request"]["branch"]
-        
-        # Create display name with branch
-        project_display_name = f"{project_name} ({branch_name})"
-        
-        # Get current timestamp
-        timestamp = self._get_timestamp_formatted()
-        
-        # Report type display
-        report_type_display = "Hybrid Validation"
-        
-        # JavaScript for details toggle
-        toggle_script = """
-        <script>
-        function toggleDetails(button, detailsId) {
-            const details = document.getElementById(detailsId);
-            const isExpanded = button.getAttribute('aria-expanded') === 'true';
+        try:
+            validation = params["validation_results"]
+            metadata = params["metadata"]
+            llm_info = params["llm_info"]
             
-            button.setAttribute('aria-expanded', !isExpanded);
-            details.setAttribute('aria-hidden', isExpanded);
+            # Use the new data structure directly
+            gate_results = validation["gate_results"]
+            hybrid_stats = validation.get("hybrid_stats", {})
             
-            // Smooth scroll to expanded content
-            if (!isExpanded) {
-                setTimeout(() => {
-                    details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
+            # Limit the amount of data to prevent hanging
+            limited_gate_results = []
+            for gate in gate_results:
+                try:
+                    limited_gate = gate.copy()
+                    
+                    # Limit matches to prevent HTML from becoming too large
+                    if "matches" in limited_gate and isinstance(limited_gate["matches"], list) and len(limited_gate["matches"]) > 100:
+                        original_matches_count = len(limited_gate["matches"])
+                        limited_gate["matches"] = limited_gate["matches"][:100]
+                        limited_gate["matches_found"] = len(limited_gate["matches"])
+                        if "details" in limited_gate and isinstance(limited_gate["details"], list):
+                            limited_gate["details"] = limited_gate["details"][:5]  # Limit details too
+                            limited_gate["details"].append(f"... and {original_matches_count - 100} more matches (truncated for performance)")
+                    
+                    # Limit details to prevent HTML from becoming too large
+                    if "details" in limited_gate and isinstance(limited_gate["details"], list) and len(limited_gate["details"]) > 10:
+                        limited_gate["details"] = limited_gate["details"][:10]
+                        limited_gate["details"].append("... (details truncated for performance)")
+                    
+                    limited_gate_results.append(limited_gate)
+                except Exception as e:
+                    print(f"Warning: Error processing gate {gate.get('gate', 'unknown')}: {e}")
+                    # Add a safe fallback
+                    limited_gate_results.append({
+                        "gate": gate.get("gate", "unknown"),
+                        "display_name": gate.get("display_name", "Unknown Gate"),
+                        "description": gate.get("description", ""),
+                        "category": gate.get("category", "Unknown"),
+                        "priority": gate.get("priority", "medium"),
+                        "score": gate.get("score", 0.0),
+                        "status": gate.get("status", "UNKNOWN"),
+                        "matches_found": 0,
+                        "matches": [],
+                        "details": ["Error processing gate data"],
+                        "recommendations": ["Unable to generate recommendations due to data processing error"]
+                    })
+            
+            # Calculate summary statistics from limited data
+            stats = self._calculate_summary_stats_from_new_data(limited_gate_results)
+            
+            # Extract project name and branch
+            project_name = self._extract_project_name(params["request"]["repository_url"])
+            branch_name = params["request"]["branch"]
+            
+            # Create display name with branch
+            project_display_name = f"{project_name} ({branch_name})"
+            
+            # Get current timestamp
+            timestamp = self._get_timestamp_formatted()
+            
+            # Report type display
+            report_type_display = "Hybrid Validation"
+            
+            # Get overall score safely
+            overall_score = validation.get("overall_score", 0.0)
+            
+            # Generate gates table HTML
+            gates_table_html = self._generate_gates_table_html_from_new_data(limited_gate_results)
+            
+            # Generate applicability summary HTML
+            applicability_html = self._generate_applicability_summary_html(validation.get("applicability_summary", {}))
+            
+            # JavaScript for details toggle
+            toggle_script = """
+            <script>
+            function toggleDetails(button, detailsId) {
+                const details = document.getElementById(detailsId);
+                const isExpanded = button.getAttribute('aria-expanded') === 'true';
+                
+                button.setAttribute('aria-expanded', !isExpanded);
+                details.setAttribute('aria-hidden', isExpanded);
+                
+                // Smooth scroll to expanded content
+                if (!isExpanded) {
+                    setTimeout(() => {
+                        details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                }
             }
-        }
-        </script>
-        """
-        
-        # Generate hybrid validation summary
-        # hybrid_summary = self._generate_hybrid_validation_summary_html(hybrid_stats)
-        
-        html_template = f"""<!DOCTYPE html>
+            </script>
+            """
+            
+            # Create a simpler, more robust HTML template
+            llm_source = llm_info.get('source', '')
+            llm_model = llm_info.get('model', '')
+            if llm_source and llm_source != 'unknown':
+                llm_line = f"Generated with {llm_source} ({llm_model}) + Static Pattern Library"
+            else:
+                llm_line = "Generated with Static Pattern Library"
+            html_template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2399,47 +2539,47 @@ class GenerateReportNode(Node):
             <h1>{project_display_name}</h1>
             <div class="report-badge summary-badge">{report_type_display} Report</div>
             <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
-            <p style="color: #6b7280; margin-bottom: 20px;">Generated with {llm_info['source']} ({llm_info['model']}) + Static Pattern Library</p>
+            <p style="color: #6b7280; margin-bottom: 20px;">{llm_line}</p>
         </div>
         
         <h2>Executive Summary</h2>
         
         <div class="summary-stats">
             <div class="stat-card">
-                <div class="stat-number">{stats['total_gates']}</div>
+                <div class="stat-number">{stats.get('total_gates', 0)}</div>
                 <div class="stat-label">Total Gates Evaluated</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['passed_gates']}</div>
+                <div class="stat-number">{stats.get('passed_gates', 0)}</div>
                 <div class="stat-label">Gates Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['warning_gates']}</div>
+                <div class="stat-number">{stats.get('warning_gates', 0)}</div>
                 <div class="stat-label">Partially Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['failed_gates']}</div>
+                <div class="stat-number">{stats.get('failed_gates', 0)}</div>
                 <div class="stat-label">Not Met</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{stats['not_applicable_gates']}</div>
+                <div class="stat-number">{stats.get('not_applicable_gates', 0)}</div>
                 <div class="stat-label">Not Applicable</div>
             </div>
         </div>
         
         <h3>Overall Compliance</h3>
         <div class="compliance-bar">
-            <div class="compliance-fill" style="width: {validation['overall_score']:.1f}%"></div>
+            <div class="compliance-fill" style="width: {overall_score:.1f}%"></div>
         </div>
-        <p><strong>{validation['overall_score']:.1f}% Hard Gates Compliance</strong></p>
+        <p><strong>{overall_score:.1f}% Hard Gates Compliance</strong></p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
-            <em>Percentage calculated based on {stats['total_gates']} applicable gates (excluding {stats['not_applicable_gates']} N/A gates)</em>
+            <em>Percentage calculated based on {stats.get('total_gates', 0)} applicable gates (excluding {stats.get('not_applicable_gates', 0)} N/A gates)</em>
         </p>
         
-        {self._generate_applicability_summary_html(validation.get("applicability_summary", {}))}
+        {applicability_html}
         
         <h2>Hard Gates Analysis</h2>
-        {self._generate_gates_table_html_from_new_data(gate_results)}
+        {gates_table_html}
         
         <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
             <p>Hard Gate Assessment {report_type_display} Report generated on {timestamp}</p>
@@ -2447,8 +2587,13 @@ class GenerateReportNode(Node):
     </div>
 </body>
 </html>"""
-        
-        return html_template
+            
+            return html_template
+        except Exception as e:
+            print(f"⚠️ Failed to generate HTML report: {e}")
+            import traceback
+            traceback.print_exc()
+            return ""
     
     def _generate_hybrid_validation_summary_html(self, hybrid_stats: Dict[str, Any]) -> str:
         """Generate HTML summary for hybrid validation statistics"""
@@ -2709,17 +2854,17 @@ class GenerateReportNode(Node):
             
             # Special handling for avoid_logging_secrets
             if matches_found > 0 and gate.get("gate") == 'AVOID_LOGGING_SECRETS':
-                return {'class': 'not-implemented', 'text': '✗ Violations Found'}
+                return {'class': 'not-implemented', 'display': '✗ Violations Found'}
         
         # Default status mapping
         if status == 'PASS':
-            return {'class': 'implemented', 'text': '✓ Implemented'}
+            return {'class': 'implemented', 'display': '✓ Implemented'}
         elif status == 'WARNING':
-            return {'class': 'partial', 'text': '⚬ Partial'}
+            return {'class': 'partial', 'display': '⚬ Partial'}
         elif status == 'NOT_APPLICABLE':
-            return {'class': 'not-applicable', 'text': 'N/A'}
+            return {'class': 'not-applicable', 'display': 'N/A'}
         else:
-            return {'class': 'not-implemented', 'text': '✗ Missing'}
+            return {'class': 'not-implemented', 'display': '✗ Missing'}
 
     def _format_evidence_from_new_data(self, gate: Dict[str, Any]) -> str:
         """Format evidence for display from new data structure"""
@@ -2933,28 +3078,56 @@ class GenerateReportNode(Node):
         confidence = expected_coverage.get("confidence", "medium")
         max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
         
-        # Calculate actual coverage using relevant files
+        # Calculate actual coverage using maximum files expected
         total_files = gate.get("total_files", 1)
         relevant_files = gate.get("relevant_files", total_files)
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         actual_percentage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
         
-        # Special analysis for infrastructure patterns
-        if expected_percentage == 100:
-            details.append(f"🎯 Infrastructure Framework Analysis:")
-            details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
+        # Check if this is a security gate
+        scoring_config = gate.get("scoring", {})
+        is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
+        
+        if is_security_gate:
+            # For security gates, report violations instead of coverage
+            details.append(f"Security Gate Analysis:")
+            details.append(f"Expected Violations: 0 ({coverage_reasoning})")
+            details.append(f"Maximum Files Expected: {max_files_expected} files")
+            details.append(f"Actual Violations: {len(matches)} violations across {files_with_matches} files")
             
-            if files_with_matches > 0:
-                details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{relevant_files} files ({actual_percentage:.1f}%)")
-                details.append(f"Framework: {coverage_reasoning}")
+            # Show traditional coverage for context
+            traditional_coverage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
+            details.append(f"Files with Violations: {traditional_coverage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+            
+            if len(matches) == 0:
+                details.append(f"✅ No security violations found - perfect implementation")
             else:
-                details.append(f"⚠️ Framework Detected but Not Implemented: 0/{relevant_files} files")
-                details.append(f"Framework: {coverage_reasoning}")
-                details.append(f"Recommendation: Implement the detected framework throughout your codebase")
+                details.append(f"❌ Security violations found - immediate attention required")
         else:
-            # Standard coverage analysis
-            details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
-            details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
+            # Calculate coverage using maximum files expected for more accurate assessment
+            actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
+            
+            # Special analysis for infrastructure patterns
+            if expected_percentage == 100:
+                details.append(f"🎯 Infrastructure Framework Analysis:")
+                details.append(f"Expected Coverage: 100% ({coverage_reasoning})")
+                
+                if files_with_matches > 0:
+                    details.append(f"✅ Framework Detected & Implemented: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
+                    details.append(f"Framework: {coverage_reasoning}")
+                else:
+                    details.append(f"⚠️ Framework Detected but Not Implemented: 0/{max_files_expected} expected files")
+                    details.append(f"Framework: {coverage_reasoning}")
+                    details.append(f"Recommendation: Implement the detected framework throughout your codebase")
+            else:
+                # Standard coverage analysis with maximum files context
+                details.append(f"Expected Coverage: {expected_percentage}% ({coverage_reasoning})")
+                details.append(f"Maximum Files Expected: {max_files_expected} files")
+                details.append(f"Actual Coverage: {actual_percentage:.1f}% ({files_with_matches}/{max_files_expected} expected files)")
+                
+                # Show traditional coverage for comparison
+                traditional_coverage = (files_with_matches / relevant_files) * 100 if relevant_files > 0 else 0
+                details.append(f"Traditional Coverage: {traditional_coverage:.1f}% ({files_with_matches}/{relevant_files} relevant files)")
         
         # Show technology filtering information if different from total
         if relevant_files != total_files:
@@ -2963,7 +3136,10 @@ class GenerateReportNode(Node):
         details.append(f"Confidence: {confidence}")
         
         if matches:
-            details.append(f"Found {len(matches)} matches across {files_with_matches} files")
+            if is_security_gate:
+                details.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+            else:
+                details.append(f"Found {len(matches)} matches across {files_with_matches} files")
             
             # Show sample matches
             for match in matches[:3]:
@@ -2972,23 +3148,306 @@ class GenerateReportNode(Node):
             if len(matches) > 3:
                 details.append(f"  ... and {len(matches) - 3} more matches")
         else:
-            details.append(f"No matches found for {gate['display_name']}")
+            if is_security_gate:
+                details.append(f"No security violations found for {gate['display_name']}")
+            else:
+                details.append(f"No matches found for {gate['display_name']}")
         
         return details
     
+    def _generate_gate_recommendations(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], score: float) -> List[str]:
+        """Generate recommendations for gate based on expected coverage analysis with maximum files context"""
+        recommendations = []
+        
+        # Get expected coverage information
+        expected_coverage = gate.get("expected_coverage", {})
+        expected_percentage = expected_coverage.get("percentage", 10)
+        coverage_reasoning = expected_coverage.get("reasoning", "Standard expectation")
+        confidence = expected_coverage.get("confidence", "medium")
+        max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
+        
+        # Calculate actual coverage using maximum files expected
+        total_files = gate.get("total_files", 1)
+        relevant_files = gate.get("relevant_files", total_files)
+        files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
+        
+        # Check if this is a security gate
+        scoring_config = gate.get("scoring", {})
+        is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
+        
+        if is_security_gate:
+            # For security gates, focus on violations rather than coverage
+            if len(matches) == 0:
+                recommendations.append(f"✅ {gate['display_name']} is well implemented")
+                recommendations.append(f"No security violations found - perfect implementation")
+            else:
+                recommendations.append(f"❌ Critical: {gate['display_name']} violations found")
+                recommendations.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+                recommendations.append(f"Immediate action required: {coverage_reasoning}")
+                
+                # Provide specific guidance based on violation count
+                if len(matches) > 100:
+                    recommendations.append(f"Major Security Issue: {len(matches)} violations require immediate remediation")
+                elif len(matches) > 50:
+                    recommendations.append(f"Significant Security Issue: {len(matches)} violations need urgent attention")
+                elif len(matches) > 10:
+                    recommendations.append(f"Security Issue: {len(matches)} violations should be addressed")
+                else:
+                    recommendations.append(f"Minor Security Issue: {len(matches)} violations to fix")
+        else:
+            # Calculate coverage using maximum files expected for more accurate assessment
+            actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
+            
+            # Calculate coverage gap for all cases
+            coverage_gap = expected_percentage - actual_percentage
+            
+            # Special recommendations for infrastructure patterns
+            if expected_percentage == 100:
+                if files_with_matches > 0:
+                    recommendations.append(f"✅ Infrastructure Framework Implemented: {coverage_reasoning}")
+                    recommendations.append(f"Current Usage: {files_with_matches}/{max_files_expected} expected files ({actual_percentage:.1f}%)")
+                    if actual_percentage < 50:
+                        recommendations.append(f"Recommendation: Extend {gate['display_name']} implementation to more files")
+                    else:
+                        recommendations.append(f"Recommendation: {gate['display_name']} is well implemented")
+                else:
+                    recommendations.append(f"🎯 Infrastructure Framework Detected: {coverage_reasoning}")
+                    recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+                    recommendations.append(f"Framework: {coverage_reasoning}")
+                    recommendations.append(f"Expected Implementation: {max_files_expected} files")
+            else:
+                # Generate recommendations based on coverage gap with maximum files context
+                if score < 50.0:
+                    recommendations.append(f"Critical: Implement {gate['display_name']} throughout your codebase")
+                    recommendations.append(f"Expected {expected_percentage}% coverage, currently at {actual_percentage:.1f}% (based on {max_files_expected} expected files)")
+                    recommendations.append(f"Focus on {gate['description'].lower()}")
+                    
+                    # Provide specific guidance based on coverage gap
+                    if coverage_gap > 50:
+                        recommendations.append(f"Major Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                    elif coverage_gap > 25:
+                        recommendations.append(f"Significant Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                    else:
+                        recommendations.append(f"Moderate Gap: Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                elif score < 70.0:
+                    recommendations.append(f"Improve: Enhance {gate['display_name']} implementation")
+                    recommendations.append(f"Current: {actual_percentage:.1f}% coverage, Target: {expected_percentage}% coverage")
+                    recommendations.append(f"Need to implement in {int(coverage_gap * max_files_expected / 100)} more files")
+                else:
+                    recommendations.append(f"Good: {gate['display_name']} is well implemented")
+                    recommendations.append(f"Achieved: {actual_percentage:.1f}% coverage (Target: {expected_percentage}%)")
+                    
+                    if actual_percentage > expected_percentage:
+                        recommendations.append(f"Exceeds expectations by {actual_percentage - expected_percentage:.1f}%")
+        
+        # Add context about maximum files expected
+        if max_files_expected != relevant_files:
+            recommendations.append(f"Note: Analysis based on {max_files_expected} expected files (from {relevant_files} relevant files)")
+        
+        return recommendations
+    
+    def _deduplicate_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate matches based on file and line"""
+        seen = set()
+        unique_matches = []
+        for match in matches:
+            key = (match["file"], match["line"])
+            if key not in seen:
+                seen.add(key)
+                unique_matches.append(match)
+        return unique_matches
+    
+    def _calculate_combined_confidence(self, llm_matches: int, static_matches: int, unique_matches: int) -> str:
+        """Calculate combined confidence based on LLM, static, and unique matches"""
+        total_matches = llm_matches + static_matches + unique_matches
+        if total_matches == 0:
+            return "low"
+        elif llm_matches > 0 and static_matches > 0 and unique_matches > 0:
+            return "high"
+        elif llm_matches > 0 or static_matches > 0 or unique_matches > 0:
+            return "medium"
+        else:
+            return "low"
+
+    def _get_pattern_matching_config(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Get configurable pattern matching parameters"""
+        # Default configuration
+        default_config = {
+            "max_files": 500,
+            "max_file_size_mb": 5,
+            "language_threshold_percent": 5.0,
+            "config_threshold_percent": 1.0,
+            "min_languages": 1,
+            "enable_detailed_logging": True,
+            "skip_binary_files": True,
+            "process_large_files": False
+        }
+        
+        # Override with request-specific config if available
+        request_config = shared.get("request", {}).get("pattern_matching", {})
+        config = {**default_config, **request_config}
+        
+        # Validate configuration
+        config["max_files"] = max(50, min(config["max_files"], 2000))  # Between 50-2000
+        config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 50))  # Between 1-50 MB
+        config["language_threshold_percent"] = max(0.5, min(config["language_threshold_percent"], 50.0))  # Between 0.5-50%
+        
+        return config
+
+    def _get_improved_relevant_files(self, metadata: Dict[str, Any], file_type: str = "Source Code", gate_name: str = "", config: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """Get files that are relevant with improved, less aggressive filtering"""
+        all_files = [f for f in metadata.get("file_list", []) 
+                    if f["type"] == file_type and not f["is_binary"]]
+        
+        # Use default config if none provided
+        if config is None:
+            config = {
+                "language_threshold_percent": 5.0,
+                "config_threshold_percent": 1.0,
+                "min_languages": 1
+            }
+        
+        # Get language statistics for intelligent filtering
+        language_stats = metadata.get("language_stats", {})
+        total_files = sum(stats.get("files", 0) for stats in language_stats.values())
+        
+        if not language_stats or total_files == 0:
+            print(f"   No language statistics available, using all {len(all_files)} {file_type.lower()} files")
+            return all_files
+        
+        # Define technology categories for more intelligent filtering
+        primary_languages = {
+            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
+            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
+        }
+        
+        config_languages = {
+            "XML", "JSON", "YAML", "Properties", "TOML", "INI"
+        }
+        
+        web_languages = {
+            "HTML", "CSS", "SCSS", "SASS", "Less"
+        }
+        
+        script_languages = {
+            "Shell", "Batch", "PowerShell", "Dockerfile"
+        }
+        
+        # Calculate language percentages
+        language_percentages = {}
+        for language, stats in language_stats.items():
+            file_count = stats.get("files", 0)
+            percentage = (file_count / total_files) * 100
+            language_percentages[language] = percentage
+        
+        # Determine relevant languages based on gate type and configurable thresholds
+        relevant_languages = set()
+        
+        # Get configurable thresholds
+        primary_threshold = config["language_threshold_percent"]
+        config_threshold = config["config_threshold_percent"]
+        
+        # Gate-specific logic for better relevance
+        if gate_name in ["STRUCTURED_LOGS", "AVOID_LOGGING_SECRETS", "AUDIT_TRAIL", "LOG_API_CALLS", "LOG_APPLICATION_MESSAGES", "ERROR_LOGS"]:
+            # Logging-related gates: include primary languages + config files
+            for language, percentage in language_percentages.items():
+                if language in primary_languages and percentage >= primary_threshold:
+                    relevant_languages.add(language)
+                elif language in config_languages and percentage >= config_threshold:
+                    relevant_languages.add(language)
+        elif gate_name in ["UI_ERRORS", "UI_ERROR_TOOLS"]:
+            # UI-related gates: include web languages + primary languages
+            for language, percentage in language_percentages.items():
+                if language in web_languages and percentage >= config_threshold:
+                    relevant_languages.add(language)
+                elif language in primary_languages and percentage >= primary_threshold:
+                    relevant_languages.add(language)
+        elif gate_name == "AUTOMATED_TESTS":
+            # Test-related gates: include all primary languages with lower threshold
+            test_threshold = max(primary_threshold * 0.6, 1.0)  # 60% of primary threshold, minimum 1%
+            for language, percentage in language_percentages.items():
+                if language in primary_languages and percentage >= test_threshold:
+                    relevant_languages.add(language)
+        else:
+            # Other gates: include primary languages with configurable threshold
+            for language, percentage in language_percentages.items():
+                if language in primary_languages and percentage >= primary_threshold:
+                    relevant_languages.add(language)
+                elif language in script_languages and percentage >= config_threshold * 2:
+                    relevant_languages.add(language)
+        
+        # If no languages meet the threshold, include the most dominant ones
+        if not relevant_languages:
+            sorted_languages = sorted(language_percentages.items(), key=lambda x: x[1], reverse=True)
+            
+            # Include top languages or languages with >2% representation
+            min_languages = config.get("min_languages", 1)
+            for language, percentage in sorted_languages[:max(min_languages, 3)]:
+                if language in primary_languages or percentage >= 2.0:
+                    relevant_languages.add(language)
+        
+        # Always include the dominant language if it's a primary language
+        if language_percentages:
+            dominant_language = max(language_percentages.items(), key=lambda x: x[1])[0]
+            if dominant_language in primary_languages:
+                relevant_languages.add(dominant_language)
+        
+        # Filter files to include relevant languages
+        if relevant_languages:
+            relevant_files = [f for f in all_files 
+                             if f["language"] in relevant_languages]
+        else:
+            # Fallback: use all files if no relevant languages found
+            relevant_files = all_files
+        
+        # Sort files by relevance (prioritize larger files and common patterns)
+        relevant_files.sort(key=lambda f: (
+            f["language"] in primary_languages,  # Primary languages first
+            f["size"],  # Larger files first
+            not f["relative_path"].startswith("test"),  # Non-test files first (except for test gates)
+            f["relative_path"]  # Alphabetical as tiebreaker
+        ), reverse=True)
+        
+        # Report filtering results
+        relevant_langs_str = ", ".join(sorted(relevant_languages))
+        print(f"   Relevant languages: {relevant_langs_str}")
+        print(f"   Filtered to {len(relevant_files)} relevant files (from {len(all_files)} total {file_type.lower()} files)")
+        
+        # Show percentage breakdown
+        if len(all_files) > 0:
+            coverage_percentage = (len(relevant_files) / len(all_files)) * 100
+            print(f"   Coverage: {coverage_percentage:.1f}% of {file_type.lower()} files")
+        
+        return relevant_files
+
     def _generate_gates_table_html_from_new_data(self, gate_results: List[Dict[str, Any]]) -> str:
-        """Generate gates table HTML with categories using new data structure"""
-        gate_categories = self._get_new_gate_categories()
+        """Generate gates table HTML from new data structure with proper categories and table format"""
         
-        html = """<div class="gates-analysis">"""
+        if not gate_results:
+            return "<p>No gate results available.</p>"
         
-        for category_name, gate_names in gate_categories.items():
-            category_gates = [g for g in gate_results if g.get("gate") in gate_names]
-            
-            if not category_gates:
-                continue
-            
-            html += f"""
+        # Use the predefined 4 categories
+        predefined_categories = {
+            'Auditability': ['STRUCTURED_LOGS', 'AVOID_LOGGING_SECRETS', 'AUDIT_TRAIL', 'CORRELATION_ID', 'LOG_API_CALLS', 'LOG_APPLICATION_MESSAGES', 'UI_ERRORS'],
+            'Availability': ['RETRY_LOGIC', 'TIMEOUTS', 'THROTTLING', 'CIRCUIT_BREAKERS'],
+            'Error Handling': ['ERROR_LOGS', 'HTTP_CODES', 'UI_ERROR_TOOLS'],
+            'Testing': ['AUTOMATED_TESTS']
+        }
+        
+        # Group gates by predefined categories
+        categories = {}
+        for category_name, gate_names in predefined_categories.items():
+            categories[category_name] = []
+            for gate in gate_results:
+                if gate.get("gate") in gate_names:
+                    categories[category_name].append(gate)
+        
+        html_parts = []
+        html_parts.append('<div class="gates-analysis">')
+        
+        # Generate HTML for each predefined category (always show all 4)
+        for category_name, gates in categories.items():
+            html_parts.append(f'''
                 <div class="gate-category-section">
                     <h3 class="category-title">{category_name}</h3>
                     <div class="category-content">
@@ -3002,314 +3461,368 @@ class GenerateReportNode(Node):
                                     <th>Recommendation</th>
                                 </tr>
                             </thead>
-                            <tbody>"""
+                            <tbody>''')
             
-            for i, gate in enumerate(category_gates):
-                gate_id = f"{category_name.lower()}-{gate.get('gate', '')}-{i}"
-                display_name = gate.get("display_name", "Unknown Gate")
-                status_info = self._get_status_info_from_new_data(gate.get("status", ""), gate)
-                evidence = self._format_evidence_from_new_data(gate)
-                recommendation = self._get_recommendation_from_new_data(gate)
-                
-                # Generate detailed content
-                details_content = self._generate_gate_details_from_new_data(gate)
-                
-                html += f"""
-                                <tr>
-                                    <td style="text-align: center">
-                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-{gate_id}')" aria-expanded="false" aria-label="Show details for {display_name}">+</button>
-                                    </td>
-                                    <td><strong>{display_name}</strong></td>
-                                    <td><span class="status-{status_info['class']}">{status_info['text']}</span></td>
-                                    <td>{evidence}</td>
-                                    <td>{recommendation}</td>
-                                </tr>"""
-                
-                # Add details row (hidden by default)
-                html += f"""
-                                <tr id="details-{gate_id}" class="gate-details" aria-hidden="true">
-                                    <td colspan="5" class="details-content">
-                                        {details_content}
-                                    </td>
-                                </tr>"""
+            if gates:
+                # Generate rows for each gate in this category
+                for i, gate in enumerate(gates):
+                    try:
+                        gate_name = gate.get("gate", "Unknown")
+                        display_name = gate.get("display_name", gate_name)
+                        description = gate.get("description", "")
+                        priority = gate.get("priority", "medium")
+                        score = gate.get("score", 0.0)
+                        status = gate.get("status", "UNKNOWN")
+                        matches_found = gate.get("matches_found", 0)
+                        matches = gate.get("matches", [])
+                        details = gate.get("details", [])
+                        recommendations = gate.get("recommendations", [])
+                        
+                        # Ensure details and recommendations are lists
+                        if not isinstance(details, list):
+                            details = [str(details)] if details else []
+                        if not isinstance(recommendations, list):
+                            recommendations = [str(recommendations)] if recommendations else []
+                        if not isinstance(matches, list):
+                            matches = []
+                        
+                        # Get status info
+                        status_info = self._get_status_info_from_new_data(status, gate)
+                        
+                        # Format evidence
+                        evidence = self._format_evidence_from_new_data(gate)
+                        
+                        # Get recommendation
+                        recommendation = self._get_recommendation_from_new_data(gate)
+                        
+                        # Generate metrics for details
+                        metrics_html = self._generate_gate_metrics_html(gate)
+                        
+                        # Generate details content
+                        details_content = self._generate_gate_details_content(gate, matches, details, recommendations)
+                        
+                        # Generate the table row
+                        gate_html = f'''
+                                    <tr>
+                                        <td style="text-align: center">
+                                            <button class="details-toggle" onclick="toggleDetails(this, 'details-{category_name.lower().replace(' ', '-')}-{gate_name}-{i}')" aria-expanded="false" aria-label="Show details for {display_name}">+</button>
+                                        </td>
+                                        <td><strong>{display_name}</strong></td>
+                                        <td><span class="status-{status.lower()}">{status_info.get('display', status)}</span></td>
+                                        <td>{evidence}</td>
+                                        <td>{recommendation}</td>
+                                    </tr>
+                                    <tr id="details-{category_name.lower().replace(' ', '-')}-{gate_name}-{i}" class="gate-details" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            {metrics_html}
+                                            {details_content}
+                                        </td>
+                                    </tr>'''
+                        
+                        html_parts.append(gate_html)
+                        
+                    except Exception as e:
+                        print(f"Warning: Error generating HTML for gate {gate.get('gate', 'unknown')}: {e}")
+                        # Add a fallback gate HTML
+                        fallback_html = f'''
+                                    <tr>
+                                        <td style="text-align: center">
+                                            <button class="details-toggle" onclick="toggleDetails(this, 'details-{category_name.lower().replace(' ', '-')}-unknown-{i}')" aria-expanded="false" aria-label="Show details for Unknown Gate">+</button>
+                                        </td>
+                                        <td><strong>{gate.get('display_name', 'Unknown Gate')}</strong></td>
+                                        <td><span class="status-unknown">UNKNOWN</span></td>
+                                        <td>Error processing gate data</td>
+                                        <td>Unable to generate recommendation</td>
+                                    </tr>
+                                    <tr id="details-{category_name.lower().replace(' ', '-')}-unknown-{i}" class="gate-details" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <div class="details-section">
+                                                <div class="details-section-title">Error:</div>
+                                                <p>Unable to process gate data due to an error: {e}</p>
+                                            </div>
+                                        </td>
+                                    </tr>'''
+                        
+                        html_parts.append(fallback_html)
+            else:
+                # Add a message for empty categories
+                html_parts.append(f'''
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; color: #6b7280; padding: 20px;">
+                                            <em>No gates in this category were evaluated for this codebase.</em>
+                                        </td>
+                                    </tr>''')
             
-            html += """
+            html_parts.append('''
                             </tbody>
                         </table>
                     </div>
-                </div>"""
+                </div>''')
         
-        html += """</div>"""
-        return html
-
-    def _generate_gate_details_from_new_data(self, gate: Dict[str, Any]) -> str:
-        """Generate detailed content for a gate using new data structure"""
-        details = []
+        html_parts.append('</div>')
         
-        # Metrics section
-        metrics = [
-            ('Score', f"{gate.get('score', 0):.1f}%"),
-            ('Coverage', f"{gate.get('score', 0):.1f}%"),
-            ('Patterns Used', f"{gate.get('patterns_used', 0)}"),
-            ('Matches Found', f"{gate.get('matches_found', 0)}")
-        ]
+        return "\n".join(html_parts)
+    
+    def _generate_gate_metrics_html(self, gate: Dict[str, Any]) -> str:
+        """Generate metrics grid HTML for gate details"""
+        score = gate.get("score", 0.0)
+        matches_found = gate.get("matches_found", 0)
+        patterns_used = len(gate.get("matches", []))
         
-        metrics_html = '<div class="metrics-grid">'
-        for label, value in metrics:
-            metrics_html += f"""
-                <div class="metric-card">
-                    <div class="metric-label">{label}</div>
-                    <div class="metric-value">{value}</div>
-                </div>"""
-        metrics_html += '</div>'
-        details.append(metrics_html)
-        
-        # Gate information section
-        gate_info_html = '<div class="details-section">'
-        gate_info_html += '<div class="details-section-title">Gate Information:</div>'
-        gate_info_html += f'<p><strong>Category:</strong> {gate.get("category", "Unknown")}</p>'
-        gate_info_html += f'<p><strong>Priority:</strong> {gate.get("priority", "Unknown")}</p>'
-        gate_info_html += f'<p><strong>Description:</strong> {gate.get("description", "No description available")}</p>'
-        gate_info_html += '</div>'
-        details.append(gate_info_html)
-        
-        # Pattern Analysis section - Enhanced with pattern details
-        pattern_description = gate.get("pattern_description", "")
-        pattern_significance = gate.get("pattern_significance", "")
-        
-        if pattern_description or pattern_significance:
-            pattern_html = '<div class="details-section">'
-            pattern_html += '<div class="details-section-title">Pattern Analysis:</div>'
-            
-            if pattern_description:
-                pattern_html += f'<p><strong>Pattern Description:</strong> {pattern_description}</p>'
-            
-            if pattern_significance:
-                pattern_html += f'<p><strong>Significance:</strong> {pattern_significance}</p>'
-            
-            pattern_html += '</div>'
-            details.append(pattern_html)
-        
-        # Pattern Details section - NEW
-        validation_sources = gate.get("validation_sources", {})
-        if validation_sources:
-            pattern_details_html = '<div class="details-section">'
-            pattern_details_html += '<div class="details-section-title">Pattern Details:</div>'
-            
-            # LLM Patterns
-            llm_info = validation_sources.get("llm_patterns", {})
-            if llm_info.get("count", 0) > 0:
-                pattern_details_html += f'<p><strong>LLM-Generated Patterns:</strong> {llm_info["count"]} patterns tried, {llm_info["matches"]} matches found</p>'
-                pattern_details_html += f'<p><em>Source:</em> {llm_info.get("source", "AI-generated")}</p>'
-            
-            # Static Patterns
-            static_info = validation_sources.get("static_patterns", {})
-            if static_info.get("count", 0) > 0:
-                pattern_details_html += f'<p><strong>Static Library Patterns:</strong> {static_info["count"]} patterns tried, {static_info["matches"]} matches found</p>'
-                pattern_details_html += f'<p><em>Source:</em> {static_info.get("source", "Weighted pattern library")}</p>'
-            
-            # Combined results
-            unique_matches = validation_sources.get("unique_matches", 0)
-            overlap_matches = validation_sources.get("overlap_matches", 0)
-            combined_confidence = validation_sources.get("combined_confidence", "medium")
-            
-            pattern_details_html += f'<p><strong>Combined Results:</strong> {unique_matches} unique matches, {overlap_matches} overlapping matches</p>'
-            pattern_details_html += f'<p><strong>Confidence Level:</strong> {combined_confidence}</p>'
-            
-            # Show some example patterns if available
-            if gate.get("patterns_used", 0) > 0:
-                pattern_details_html += '<p><strong>Pattern Types Used:</strong></p><ul>'
-                
-                if llm_info.get("count", 0) > 0:
-                    pattern_details_html += f'<li>LLM-generated patterns for {gate.get("gate", "Unknown")} validation</li>'
-                
-                if static_info.get("count", 0) > 0:
-                    pattern_details_html += f'<li>Static library patterns with weighted scoring</li>'
-                
-                pattern_details_html += '</ul>'
-            
-            pattern_details_html += '</div>'
-            details.append(pattern_details_html)
-        
-        # Analysis Details section - Enhanced and FIXED
-        gate_details = gate.get('details', [])
-        if gate_details:
-            details_html = '<div class="details-section">'
-            details_html += '<div class="details-section-title">Analysis Details:</div>'
-            details_html += '<ul>'
-            
-            # Filter out confusing coverage details and focus on actual findings
-            filtered_details = []
-            for detail in gate_details:
-                # Skip the confusing coverage percentages
-                if any(skip_phrase in detail for skip_phrase in [
-                    "Expected Coverage:", 
-                    "Maximum Files Expected:", 
-                    "Actual Coverage:", 
-                    "Traditional Coverage:"
-                ]):
-                    continue
-                filtered_details.append(detail)
-            
-            # Show first 5 meaningful details
-            for detail in filtered_details[:5]:
-                details_html += f'<li>{detail}</li>'
-            
-            # If no meaningful details, show a summary
-            if not filtered_details:
-                matches_found = gate.get("matches_found", 0)
-                patterns_used = gate.get("patterns_used", 0)
-                details_html += f'<li>Analyzed {patterns_used} patterns across the codebase</li>'
-                details_html += f'<li>Found {matches_found} pattern matches</li>'
-                details_html += f'<li>Confidence: {gate.get("validation_sources", {}).get("combined_confidence", "medium")}</li>'
-            
-            details_html += '</ul>'
-            details_html += '</div>'
-            details.append(details_html)
-        
-        # Coverage Analysis section - FIXED
+        return f'''
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Score</div>
+                <div class="metric-value">{score:.1f}%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Coverage</div>
+                <div class="metric-value">{score:.1f}%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Patterns Used</div>
+                <div class="metric-value">{patterns_used}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Matches Found</div>
+                <div class="metric-value">{matches_found}</div>
+            </div>
+        </div>'''
+    
+    def _generate_gate_details_content(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], details: List[str], recommendations: List[str]) -> str:
+        """Generate detailed content for gate expandable section (robust, context-aware, no contradictions)"""
+        gate_name = gate.get("gate", "Unknown")
+        display_name = gate.get("display_name", gate_name)
+        description = gate.get("description", "")
+        category = gate.get("category", "Unknown")
+        priority = gate.get("priority", "medium")
+        status = gate.get("status", "UNKNOWN")
+        score = gate.get("score", 0.0)
+        matches_found = gate.get("matches_found", 0)
+        total_files = gate.get("total_files", 1)
+        relevant_files = gate.get("relevant_files", total_files)
         expected_coverage = gate.get("expected_coverage", {})
-        if expected_coverage:
-            coverage_html = '<div class="details-section">'
-            coverage_html += '<div class="details-section-title">Coverage Analysis:</div>'
-            
-            percentage = expected_coverage.get("percentage", 0)
-            reasoning = expected_coverage.get("reasoning", "Standard expectation")
-            confidence = expected_coverage.get("confidence", "medium")
-            
-            # Calculate more realistic coverage metrics
-            matches_found = gate.get("matches_found", 0)
-            patterns_used = gate.get("patterns_used", 0)
-            relevant_files = gate.get("relevant_files", 0)
-            
-            # Calculate coverage as percentage of relevant files that have matches
-            if relevant_files > 0:
-                files_with_matches = min(matches_found, relevant_files)  # Cap at relevant files
-                coverage_percentage = (files_with_matches / relevant_files) * 100
-            else:
-                coverage_percentage = 0
-            
-            coverage_html += f'<p><strong>Pattern Coverage:</strong> {patterns_used} patterns applied to {relevant_files} relevant files</p>'
-            coverage_html += f'<p><strong>Match Rate:</strong> {matches_found} pattern matches found</p>'
-            coverage_html += f'<p><strong>Expected Coverage:</strong> {percentage}% ({reasoning})</p>'
-            coverage_html += f'<p><strong>Confidence:</strong> {confidence}</p>'
-            
-            # Show actual vs expected with more realistic comparison
-            actual_score = gate.get("score", 0)
-            if actual_score > 0:
-                if actual_score >= percentage:
-                    coverage_html += f'<p><strong>Result:</strong> ✅ Meets or exceeds expectations ({actual_score:.1f}% score)</p>'
-                else:
-                    coverage_html += f'<p><strong>Result:</strong> ⚠️ Below expectations ({actual_score:.1f}% score vs {percentage}% target)</p>'
-            
-            coverage_html += '</div>'
-            details.append(coverage_html)
-        
-        # Recommendations section - Enhanced
-        recommendations = gate.get('recommendations', [])
-        if recommendations:
-            rec_html = '<div class="details-section">'
-            rec_html += '<div class="details-section-title">Recommendations:</div>'
-            rec_html += '<ul>'
-            for rec in recommendations[:3]:  # Show first 3 recommendations
-                rec_html += f'<li>{rec}</li>'
-            rec_html += '</ul>'
-            rec_html += '</div>'
-            details.append(rec_html)
-        
-        # Pattern Examples section - NEW (for failed gates)
-        if gate.get("status") == "FAIL" and gate.get("patterns_used", 0) > 0:
-            pattern_examples_html = '<div class="details-section">'
-            pattern_examples_html += '<div class="details-section-title">Patterns Tried:</div>'
-            pattern_examples_html += '<p><em>The following pattern types were used to validate this gate:</em></p>'
-            pattern_examples_html += '<ul>'
-            
-            if llm_info.get("count", 0) > 0:
-                pattern_examples_html += f'<li><strong>LLM Patterns:</strong> {llm_info["count"]} AI-generated patterns for {gate.get("gate", "Unknown")} detection</li>'
-            
-            if static_info.get("count", 0) > 0:
-                pattern_examples_html += f'<li><strong>Static Patterns:</strong> {static_info["count"]} weighted patterns from pattern library</li>'
-            
-            pattern_examples_html += '</ul>'
-            pattern_examples_html += '<p><em>Consider implementing the missing patterns or improving existing implementations.</em></p>'
-            pattern_examples_html += '</div>'
-            details.append(pattern_examples_html)
-        
-        return ''.join(details)
+        expected_percentage = expected_coverage.get("percentage", 10)
+        confidence = expected_coverage.get("confidence", "medium")
+        max_files_expected = expected_coverage.get("max_files_expected", relevant_files)
+        patterns = gate.get("patterns", [])
+        num_patterns = len(patterns) if isinstance(patterns, list) else 0
+        # Only count files if file info is present in matches
+        files_with_matches = len(set(m['file'] for m in matches if m.get('file'))) if matches else 0
 
-    def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
-        """Determine primary technologies based on language distribution"""
-        language_stats = metadata.get("language_stats", {})
-        
-        if not language_stats:
-            return []
-        
-        # Calculate total files
-        total_files = sum(stats.get("files", 0) for stats in language_stats.values())
-        
-        if total_files == 0:
-            return []
-        
-        # Define technology relevance mapping
-        primary_languages = {
-            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
-            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
-        }
-        
-        primary_technologies = []
-        
-        # Find languages that make up significant portion of the codebase
-        for language, stats in language_stats.items():
-            file_count = stats.get("files", 0)
-            percentage = (file_count / total_files) * 100
-            
-            if language in primary_languages and percentage >= 20.0:
-                primary_technologies.append(language)
-        
-        # If no primary technology found, take the most dominant
-        if not primary_technologies:
-            dominant_primary = None
-            max_percentage = 0
-            
-            for language, stats in language_stats.items():
-                if language in primary_languages:
-                    file_count = stats.get("files", 0)
-                    percentage = (file_count / total_files) * 100
-                    if percentage > max_percentage and percentage >= 10.0:
-                        max_percentage = percentage
-                        dominant_primary = language
-            
-            if dominant_primary:
-                primary_technologies.append(dominant_primary)
-        
-        return primary_technologies
+        # 1. Summary section
+        summary_color = "#059669" if status == "PASS" else ("#d97706" if status == "WARNING" else ("#dc2626" if status == "FAIL" else "#6b7280"))
+        summary_icon = "✓" if status == "PASS" else ("⚬" if status == "WARNING" else ("✗" if status == "FAIL" else "?"))
+        if num_patterns == 0:
+            summary_text = "No patterns defined for this gate."
+        elif status == "NOT_APPLICABLE":
+            summary_text = "Not applicable to this technology stack."
+        elif matches_found == 0 and status == "PASS":
+            summary_text = "No issues found. This gate is fully implemented."
+        elif matches_found > 0 and status == "FAIL":
+            summary_text = f"{matches_found} issue{'s' if matches_found != 1 else ''} found in {files_with_matches} file{'s' if files_with_matches != 1 else ''}"
+        elif status == "WARNING":
+            summary_text = f"Partial implementation. {matches_found} issue{'s' if matches_found != 1 else ''} remain."
+        elif matches_found == 0:
+            summary_text = "No matches found for this gate."
+        else:
+            summary_text = "No relevant patterns found in codebase."
+        summary_html = f'''
+        <div class="details-section" style="background: #f8fafc; border-left: 5px solid {summary_color}; margin-bottom: 10px;">
+            <div style="font-size: 1.1em; font-weight: 600; color: {summary_color}; margin-bottom: 4px;">{summary_icon} {summary_text}</div>
+        </div>'''
+
+        # 2. Patterns Used section
+        patterns_used_html = f'''
+        <div class="details-section">
+            <div class="details-section-title">Patterns Used:</div>
+            <p>{num_patterns} pattern{'s' if num_patterns != 1 else ''} defined for this gate.</p>
+        </div>'''
+
+        # 3. Matches Found section
+        matches_found_html = f'''
+        <div class="details-section">
+            <div class="details-section-title">Matches Found:</div>
+            <p>{matches_found if num_patterns > 0 else 0} match{'es' if matches_found != 1 else ''} found in {files_with_matches if num_patterns > 0 else 0} file{'s' if files_with_matches != 1 else ''}.</p>
+        </div>'''
+
+        # 4. Sample Matches section (up to 3)
+        sample_matches_html = ""
+        if num_patterns > 0 and matches_found > 0:
+            sample_matches_html = '''<div class="details-section"><div class="details-section-title">Sample Matches:</div><ul style="margin-bottom: 0;">'''
+            for match in matches[:3]:
+                file_path = match.get("file", "Unknown")
+                line_number = match.get("line", "Unknown")
+                pattern_match = match.get("match", "Unknown")
+                sample_matches_html += f'<li><span style="font-family: monospace; color: #1f2937;">{file_path}:{line_number}</span> &rarr; <span style="font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; padding: 2px 4px;">{pattern_match}</span></li>'
+            if matches_found > 3:
+                sample_matches_html += f'<li style="color: #6b7280;">... and {matches_found - 3} more matches</li>'
+            sample_matches_html += '</ul></div>'
+
+        # 5. Coverage/confidence section
+        if num_patterns == 0:
+            coverage_html = f'''
+            <div class="details-section">
+                <div class="details-section-title">Coverage & Confidence:</div>
+                <ul>
+                    <li>Coverage: N/A (no patterns defined)</li>
+                    <li>Expected Coverage: {expected_percentage}%</li>
+                    <li>Confidence: {confidence}</li>
+                </ul>
+            </div>'''
+        else:
+            coverage_percent = (files_with_matches / max_files_expected * 100) if max_files_expected else 0
+            coverage_html = f'''
+            <div class="details-section">
+                <div class="details-section-title">Coverage & Confidence:</div>
+                <ul>
+                    <li>Coverage: {files_with_matches}/{max_files_expected} files ({coverage_percent:.1f}%)</li>
+                    <li>Expected Coverage: {expected_percentage}%</li>
+                    <li>Confidence: {confidence}</li>
+                </ul>
+            </div>'''
+
+        # 6. Matched patterns and files (full table, up to 100)
+        matched_patterns_html = ""
+        if num_patterns == 0:
+            matched_patterns_html = f'''
+            <div class="details-section">
+                <div class="details-section-title">All Matched Patterns and Files:</div>
+                <p><em>No patterns are defined for this gate.</em></p>
+            </div>'''
+        elif matches_found == 0:
+            matched_patterns_html = f'''
+            <div class="details-section">
+                <div class="details-section-title">All Matched Patterns and Files:</div>
+                <p><em>No patterns were matched for this gate.</em></p>
+            </div>'''
+        else:
+            matched_patterns_html = f'''
+            <div class="details-section">
+                <div class="details-section-title">All Matched Patterns and Files:</div>
+                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                        <thead>
+                            <tr style="background: #f3f4f6;">
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">File</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Line</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Pattern Match</th>
+                            </tr>
+                        </thead>
+                        <tbody>'''
+            for match in matches[:100]:
+                file_path = match.get("file", "Unknown")
+                line_number = match.get("line", "Unknown")
+                pattern_match = match.get("match", "Unknown")
+                matched_patterns_html += f'''
+                                <tr>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937;">{file_path}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280;">{line_number}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px;">{pattern_match}</td>
+                                </tr>'''
+            matched_patterns_html += '''
+                        </tbody>
+                    </table>
+                </div>
+            </div>'''
+
+        # 7. Recommendations (actionable)
+        recommendations_html = ""
+        if recommendations:
+            recommendations_html = f'''<div class="details-section"><div class="details-section-title">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in recommendations[:5]])}</ul></div>'''
+
+        # 8. Gate info (category, priority, description)
+        gate_info_html = f'''
+        <div class="details-section">
+            <div class="details-section-title">Gate Information:</div>
+            <ul>
+                <li><strong>Category:</strong> {category}</li>
+                <li><strong>Priority:</strong> {priority}</li>
+                <li><strong>Description:</strong> {description}</li>
+            </ul>
+        </div>'''
+
+        # Compose all sections in a logical order
+        return (
+            summary_html +
+            patterns_used_html +
+            matches_found_html +
+            sample_matches_html +
+            coverage_html +
+            matched_patterns_html +
+            recommendations_html +
+            gate_info_html
+        )
 
     def _generate_applicability_summary_html(self, applicability_summary: Dict[str, Any]) -> str:
-        """Generate HTML for applicability summary"""
+        """Generate applicability summary HTML"""
+        
         if not applicability_summary:
             return ""
         
-        applicable_gates = applicability_summary.get('applicable_gates', 0)
-        non_applicable_gates = applicability_summary.get('non_applicable_gates', 0)
-        total_gates = applicability_summary.get('total_gates', 0)
+        applicable_gates = applicability_summary.get("applicable_gates", [])
+        not_applicable_gates = applicability_summary.get("not_applicable_gates", [])
         
-        html = f"""
-        <h3>Applicability Summary</h3>
-        <div class="summary-stats">
-            <div class="stat-card">
-                <div class="stat-number">{applicable_gates}</div>
-                <div class="stat-label">Applicable Gates</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">{non_applicable_gates}</div>
-                <div class="stat-label">Non-Applicable Gates</div>
-            </div>
-        </div>
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
-            <em>Gates automatically filtered based on codebase type and technology stack</em>
-        </p>
+        # Ensure these are lists, not integers
+        if not isinstance(applicable_gates, list):
+            applicable_gates = []
+        if not isinstance(not_applicable_gates, list):
+            not_applicable_gates = []
+        
+        html = """
+        <h3>Gate Applicability</h3>
+        <div class="applicability-summary">
         """
+        
+        if applicable_gates:
+            html += f"""
+            <div class="applicable-gates">
+                <h4>Applicable Gates ({len(applicable_gates)})</h4>
+                <ul>
+                    {''.join([f'<li>{gate.get("display_name", gate.get("gate", "Unknown"))}</li>' for gate in applicable_gates])}
+                </ul>
+            </div>
+            """
+        
+        if not_applicable_gates:
+            html += f"""
+            <div class="not-applicable-gates">
+                <h4>Not Applicable Gates ({len(not_applicable_gates)})</h4>
+                <ul>
+                    {''.join([f'<li>{gate.get("display_name", gate.get("gate", "Unknown"))}</li>' for gate in not_applicable_gates])}
+                </ul>
+            </div>
+            """
+        
+        html += """
+        </div>
+        """
+        
         return html
+
+    def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
+        """Extract primary technologies from metadata"""
+        try:
+            language_stats = metadata.get("language_stats", {})
+            if not language_stats:
+                return []
+            
+            # Sort languages by file count and take top 5
+            sorted_languages = sorted(
+                language_stats.items(), 
+                key=lambda x: x[1].get("files", 0), 
+                reverse=True
+            )
+            
+            primary_techs = []
+            for lang, stats in sorted_languages[:5]:
+                if stats.get("files", 0) > 0:
+                    primary_techs.append(lang)
+            
+            return primary_techs
+        except Exception as e:
+            print(f"Warning: Error extracting primary technologies: {e}")
+            return []
 
 
 class CleanupNode(Node):
