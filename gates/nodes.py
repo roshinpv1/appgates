@@ -3596,16 +3596,16 @@ class GenerateReportNode(Node):
         matched_patterns_html = ""
         if num_patterns > 0 and matches_found > 0:
             matched_patterns_html = f'''
-            <div class="details-section">
+            <div class="details-section" style="overflow-x: auto;">
                 <div class="details-section-title">All Matched Patterns and Files:</div>
-                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                <div style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
                         <thead>
                             <tr style="background: #f3f4f6;">
-                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">File</th>
-                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Line</th>
-                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Pattern Match</th>
-                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Actual Pattern</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 350px; white-space: pre-line;">File</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 80px; white-space: pre-line;">Line</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Pattern Match</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Actual Pattern</th>
                             </tr>
                         </thead>
                         <tbody>'''
@@ -3616,10 +3616,10 @@ class GenerateReportNode(Node):
                 actual_pattern = match.get("pattern", "Unknown")
                 matched_patterns_html += f'''
                                 <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937;">{file_path}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280;">{line_number}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px;">{pattern_match}</td>
-                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px;">{actual_pattern}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">{file_path}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">{line_number}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">{pattern_match}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">{actual_pattern}</td>
                                 </tr>'''
             matched_patterns_html += '''
                         </tbody>
@@ -3630,9 +3630,12 @@ class GenerateReportNode(Node):
         # 6. Recommendations (actionable)
         recommendations_html = ""
         if recommendations:
-            filtered_recommendations = [rec for rec in recommendations if 'Achieved:' not in rec and 'Exceeds expectations' not in rec]
+            filtered_recommendations = [
+                rec for rec in recommendations
+                if 'Achieved:' not in rec and 'Exceeds expectations' not in rec and 'coverage' not in rec.lower()
+            ]
             if filtered_recommendations:
-                recommendations_html = f'''<div class="details-section"><div class="details-section-title">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in filtered_recommendations[:5]])}</ul></div>'''
+                recommendations_html = f'''<div class=\"details-section\"><div class=\"details-section-title\">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in filtered_recommendations[:5]])}</ul></div>'''
 
         # 7. Gate info (category, priority, description)
         gate_info_html = f'''
