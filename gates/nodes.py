@@ -3494,27 +3494,23 @@ class GenerateReportNode(Node):
         score = gate.get("score", 0.0)
         matches_found = gate.get("matches_found", 0)
         patterns_used = len(gate.get("patterns", []))
-        matches = gate.get("matches", [])
+        # matches = gate.get("matches", [])
         # Only count files if file info is present in matches
-        files_with_matches = len(set(m['file'] for m in matches if m.get('file')))
-        expected_coverage = gate.get("expected_coverage", {})
-        max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
-        if patterns_used > 0 and max_files_expected > 0:
-            coverage_percent = files_with_matches / max_files_expected * 100
-            coverage_str = f"{coverage_percent:.1f}%"
-        elif patterns_used == 0:
-            coverage_str = "N/A"
-        else:
-            coverage_str = "0.0%"
+        # files_with_matches = len(set(m['file'] for m in matches if m.get('file')))
+        # expected_coverage = gate.get("expected_coverage", {})
+        # max_files_expected = expected_coverage.get("max_files_expected", gate.get("relevant_files", 1))
+        # if patterns_used > 0 and max_files_expected > 0:
+        #     coverage_percent = files_with_matches / max_files_expected * 100
+        #     coverage_str = f"{coverage_percent:.1f}%"
+        # elif patterns_used == 0:
+        #     coverage_str = "N/A"
+        # else:
+        #     coverage_str = "0.0%"
         return f'''
         <div class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-label">Score</div>
                 <div class="metric-value">{score:.1f}%</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Coverage</div>
-                <div class="metric-value">{coverage_str}</div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Patterns Used</div>
