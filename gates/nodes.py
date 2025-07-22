@@ -3605,6 +3605,7 @@ class GenerateReportNode(Node):
                                 <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">File</th>
                                 <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Line</th>
                                 <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Pattern Match</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Actual Pattern</th>
                             </tr>
                         </thead>
                         <tbody>'''
@@ -3612,11 +3613,13 @@ class GenerateReportNode(Node):
                 file_path = match.get("file", "Unknown")
                 line_number = match.get("line", "Unknown")
                 pattern_match = match.get("match", "Unknown")
+                actual_pattern = match.get("pattern", "Unknown")
                 matched_patterns_html += f'''
                                 <tr>
                                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937;">{file_path}</td>
                                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280;">{line_number}</td>
                                     <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px;">{pattern_match}</td>
+                                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px;">{actual_pattern}</td>
                                 </tr>'''
             matched_patterns_html += '''
                         </tbody>
@@ -3627,7 +3630,9 @@ class GenerateReportNode(Node):
         # 6. Recommendations (actionable)
         recommendations_html = ""
         if recommendations:
-            recommendations_html = f'''<div class="details-section"><div class="details-section-title">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in recommendations[:5]])}</ul></div>'''
+            filtered_recommendations = [rec for rec in recommendations if 'Achieved:' not in rec and 'Exceeds expectations' not in rec]
+            if filtered_recommendations:
+                recommendations_html = f'''<div class="details-section"><div class="details-section-title">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in filtered_recommendations[:5]])}</ul></div>'''
 
         # 7. Gate info (category, priority, description)
         gate_info_html = f'''
