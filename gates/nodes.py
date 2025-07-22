@@ -20,6 +20,7 @@ try:
     from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from .utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
     from .utils.gate_applicability import gate_applicability_analyzer
+    from .utils.db_integration import extract_app_id_from_url
 except ImportError:
     # Fall back to absolute imports (when run directly)
     from utils.git_operations import clone_repository, cleanup_repository
@@ -28,6 +29,7 @@ except ImportError:
     from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
     from utils.gate_applicability import gate_applicability_analyzer
+    from utils.db_integration import extract_app_id_from_url
 
 
 class FetchRepositoryNode(Node):
@@ -2336,9 +2338,13 @@ class GenerateReportNode(Node):
         stats = self._calculate_summary_stats_from_new_data(gate_results)
         
         # Extract project name and branch for consistency
-        project_name = self._extract_project_name(params["request"]["repository_url"])
+        repository_url = params["request"]["repository_url"]
         branch_name = params["request"]["branch"]
-        project_display_name = f"{project_name} ({branch_name})"
+        app_id = extract_app_id_from_url(repository_url)
+        if app_id:
+            project_display_name = f"{app_id}  -  {repository_url}  ({branch_name})"
+        else:
+            project_display_name = f"App-Id  -  {repository_url}  ({branch_name})"
         
         return {
             "scan_id": params.get("scan_id", "unknown"),
@@ -2474,11 +2480,13 @@ class GenerateReportNode(Node):
             stats = self._calculate_summary_stats_from_new_data(limited_gate_results)
             
             # Extract project name and branch
-            project_name = self._extract_project_name(params["request"]["repository_url"])
+            repository_url = params["request"]["repository_url"]
             branch_name = params["request"]["branch"]
-            
-            # Create display name with branch
-            project_display_name = f"{project_name} ({branch_name})"
+            app_id = extract_app_id_from_url(repository_url)
+            if app_id:
+                project_display_name = f"{app_id}  -  {repository_url}  ({branch_name})"
+            else:
+                project_display_name = f"App-Id  -  {repository_url}  ({branch_name})"
             
             # Get current timestamp
             timestamp = self._get_timestamp_formatted()

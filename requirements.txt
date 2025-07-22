@@ -1,15 +1,14 @@
-# Core dependencies for CodeGates Hard Gate Validation System
-
-# Data validation
-pydantic>=2.0.0
-
-# Environment configuration
-python-dotenv>=1.0.0
-
-# Development and testing
-pytest>=7.0.0
-pytest-cov>=4.0.0
-
-markdown==3.4.3
-weasyprint==59.0
-Pygments==2.15.1  # For code highlighting
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+requests==2.31.0
+urllib3==2.1.0
+python-multipart==0.0.6
+jinja2==3.1.2
+markdown==3.5.1
+pyyaml==6.0.1
+gitpython==3.1.40
+pocketflow==0.1.0
+sqlalchemy==2.0.23
+pymssql==2.2.8
+pandas==2.1.4
