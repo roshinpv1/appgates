@@ -1,0 +1,10 @@
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/@types/node/net.d.ts,545
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/signal-exit/dist/mjs/index.js,4
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/signal-exit/dist/mjs/index.js.map,1
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/signal-exit/dist/cjs/index.js,8
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/signal-exit/dist/cjs/index.js.map,1
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/underscore/modules/index.js,68
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/lie/README.md,24
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/eslint/lib/eslint/flat-eslint.js,1008
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/mime-db/README.md,26
+https://github.com/roshinpv1/appgates.git,./_github_repos/appgates/vscode-extension/node_modules/mime-db/README.md,40
