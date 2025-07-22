@@ -1305,7 +1305,27 @@ class ValidateGatesNode(Node):
             applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
             
             if gate_name == "ALERTING_ACTIONABLE":
-                # Force as implemented
+                # Use fetch_alerting_integrations_status to determine status
+                from utils.db_integration import fetch_alerting_integrations_status
+                # Try to get app_id from params, else extract from repo URL
+                app_id = params.get('shared', {}).get('request', {}).get('app_id')
+                if not app_id:
+                    repo_url = params.get('shared', {}).get('request', {}).get('repository_url', '')
+                    from utils.db_integration import extract_app_id_from_url
+                    app_id = extract_app_id_from_url(repo_url) or '<APP ID>'
+                print(f"   [DEBUG] Calling fetch_alerting_integrations_status for app_id={app_id}")
+                try:
+                    integration_status = fetch_alerting_integrations_status(app_id)
+                    print(f"   [DEBUG] Integration status: {integration_status}")
+                except Exception as ex:
+                    print(f"   [ERROR] fetch_alerting_integrations_status failed: {ex}")
+                    integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
+                present = [k for k, v in integration_status.items() if v]
+                missing = [k for k, v in integration_status.items() if not v]
+                all_present = all(integration_status.values())
+                # Only include App ID in evidence/details if it is not '<APP ID>' or empty
+                app_id_str = f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else ""
+                evidence_str = f"Present: {', '.join(present) if present else 'None'}; Missing: {', '.join(missing) if missing else 'None'}{app_id_str}"
                 gate_result = {
                     "gate": gate_name,
                     "display_name": gate["display_name"],
@@ -1316,10 +1336,16 @@ class ValidateGatesNode(Node):
                     "matches_found": 0,
                     "matches": [],
                     "patterns": [],
-                    "score": 100.0,
-                    "status": "PASS",
-                    "details": ["Splunk, AppDynamics and Thousand Eyes Present"],
-                    "recommendations": ["All integrations detected and actionable"],
+                    "score": 100.0 if all_present else 0.0,
+                    "status": "PASS" if all_present else "FAIL",
+                    "details": [
+                        f"Present: {', '.join(present) if present else 'None'}",
+                        f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
+                    ],
+                    "evidence": evidence_str,
+                    "recommendations": [
+                        "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
+                    ],
                     "pattern_description": gate.get("description", "Pattern analysis for this gate"),
                     "pattern_significance": gate.get("significance", "Important for code quality and compliance"),
                     "expected_coverage": gate.get("expected_coverage", {
@@ -1330,8 +1356,8 @@ class ValidateGatesNode(Node):
                     "total_files": metadata.get("total_files", 1),
                     "relevant_files": 1,
                     "validation_sources": {
-                        "llm_patterns": {"count": 0, "matches": 0, "source": "manual_override"},
-                        "static_patterns": {"count": 0, "matches": 0, "source": "manual_override"},
+                        "llm_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
+                        "static_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
                         "combined_confidence": "high",
                         "unique_matches": 0,
                         "overlap_matches": 0,
@@ -2796,12 +2822,13 @@ class GenerateReportNode(Node):
 
     def _format_evidence_from_new_data(self, gate: Dict[str, Any]) -> str:
         """Format evidence for display from new data structure"""
+        if gate.get("gate") == "ALERTING_ACTIONABLE" or gate.get("name") == "ALERTING_ACTIONABLE":
+            # Use the evidence field if present, else a default message
+            return gate.get("evidence") or "Status check from VISTA monitoring system"
         if gate.get("status") == 'NOT_APPLICABLE':
             return 'Not applicable to this technology stack'
-        
         matches_found = gate.get("matches_found", 0)
         score = gate.get("score", 0)
-        
         if matches_found > 0:
             return f"Found {matches_found} implementations with {score:.1f}% coverage"
         else:
@@ -2933,7 +2960,7 @@ class GenerateReportNode(Node):
         gates = result_data.get("gates", [])
         gate_categories = self._get_gate_categories()
         
-        html = """<div class="gates-analysis">"""
+        html = """<div class=\"gates-analysis\">"""
         
         for category_name, gate_names in gate_categories.items():
             category_gates = [g for g in gates if g.get("name") in gate_names]
@@ -2942,13 +2969,13 @@ class GenerateReportNode(Node):
                 continue
             
             html += f"""
-                <div class="gate-category-section">
-                    <h3 class="category-title">{category_name}</h3>
-                    <div class="category-content">
-                        <table class="gates-table">
+                <div class=\"gate-category-section\">
+                    <h3 class=\"category-title\">{category_name}</h3>
+                    <div class=\"category-content\">
+                        <table class=\"gates-table\">
                             <thead>
                                 <tr>
-                                    <th style="width: 30px"></th>
+                                    <th style=\"width: 30px\"></th>
                                     <th>Practice</th>
                                     <th>Status</th>
                                     <th>Evidence</th>
@@ -2961,7 +2988,11 @@ class GenerateReportNode(Node):
                 gate_id = f"{category_name.lower()}-{gate.get('name', '')}-{i}"
                 gate_name = self._format_gate_name(gate.get("name", ""))
                 status_info = self._get_status_info(gate.get("status", ""), gate)
-                evidence = self._format_evidence(gate)
+                # OVERRIDE: Evidence for ALERTING_ACTIONABLE
+                if gate.get("name") == "ALERTING_ACTIONABLE" and gate.get("evidence"):
+                    evidence = gate["evidence"]
+                else:
+                    evidence = self._format_evidence(gate)
                 recommendation = self._get_recommendation(gate, gate_name)
                 
                 # Generate detailed content
@@ -2969,19 +3000,19 @@ class GenerateReportNode(Node):
                 
                 html += f"""
                                 <tr>
-                                    <td style="text-align: center">
-                                        <button class="details-toggle" onclick="toggleDetails(this, 'details-{gate_id}')" aria-expanded="false" aria-label="Show details for {gate_name}">+</button>
+                                    <td style=\"text-align: center\">
+                                        <button class=\"details-toggle\" onclick=\"toggleDetails(this, 'details-{gate_id}')\" aria-expanded=\"false\" aria-label=\"Show details for {gate_name}\">+</button>
                                     </td>
                                     <td><strong>{gate_name}</strong></td>
-                                    <td><span class="status-{status_info['class']}">{status_info['text']}</span></td>
+                                    <td><span class=\"status-{status_info['class']}\">{status_info['text']}</span></td>
                                     <td>{evidence}</td>
                                     <td>{recommendation}</td>
                                 </tr>"""
                 
                 # Add details row (hidden by default)
                 html += f"""
-                                <tr id="details-{gate_id}" class="gate-details" aria-hidden="true">
-                                    <td colspan="5" class="details-content">
+                                <tr id=\"details-{gate_id}\" class=\"gate-details\" aria-hidden=\"true\">
+                                    <td colspan=\"5\" class=\"details-content\">
                                         {details_content}
                                     </td>
                                 </tr>"""
@@ -3458,6 +3489,8 @@ class GenerateReportNode(Node):
     
     def _generate_gate_metrics_html(self, gate: Dict[str, Any]) -> str:
         """Generate metrics grid HTML for gate details (accurate and context-aware)"""
+        if gate.get("gate") == "ALERTING_ACTIONABLE" or gate.get("name") == "ALERTING_ACTIONABLE":
+            return ""
         score = gate.get("score", 0.0)
         matches_found = gate.get("matches_found", 0)
         patterns_used = len(gate.get("patterns", []))
@@ -3515,6 +3548,8 @@ class GenerateReportNode(Node):
         files_with_matches = len(set(m['file'] for m in matches if m.get('file'))) if matches else 0
 
         # 1. Summary section
+        summary_color = "#6b7280"
+        summary_icon = "?"
         if status == "PASS":
             summary_color = "#059669"  # green
             summary_icon = "✓"
@@ -3527,12 +3562,9 @@ class GenerateReportNode(Node):
         elif status == "NOT_APPLICABLE":
             summary_color = "#6b7280"  # gray
             summary_icon = "?"
-        else:
-            summary_color = "#6b7280"
-            summary_icon = "?"
-        if num_patterns == 0:
-            summary_text = "No patterns defined for this gate."
-        elif status == "NOT_APPLICABLE":
+        # Remove summary text for no patterns/matches
+        summary_text = ""
+        if status == "NOT_APPLICABLE":
             summary_text = "Not applicable to this technology stack."
         elif matches_found == 0 and status == "PASS":
             summary_text = "No issues found. This gate is fully implemented."
@@ -3540,29 +3572,17 @@ class GenerateReportNode(Node):
             summary_text = f"{matches_found} issue{'s' if matches_found != 1 else ''} found in {files_with_matches} file{'s' if files_with_matches != 1 else ''}"
         elif status == "WARNING":
             summary_text = f"Partial implementation. {matches_found} issue{'s' if matches_found != 1 else ''} remain."
-        elif matches_found == 0:
+        elif matches_found == 0 and status == "FAIL":
             summary_text = "No matches found for this gate."
-        else:
-            summary_text = ""
         summary_html = f'''
-        <div class="details-section" style="background: #f8fafc; border-left: 5px solid {summary_color}; margin-bottom: 10px;">
+        <!--<div class="details-section" style="background: #f8fafc; border-left: 5px solid {summary_color}; margin-bottom: 10px;">
             <div style="font-size: 1.1em; font-weight: 600; color: {summary_color}; margin-bottom: 4px;"><span style=\"color: {summary_color};\">{summary_icon} {summary_text}</span></div>
-        </div>''' if summary_text else ""
+        </div>-->''' if summary_text else ""
 
-        # 2. Patterns Used section
-        patterns_used_html = f'''
-        <div class="details-section">
-            <div class="details-section-title">Patterns Used:</div>
-            <p>{num_patterns} pattern{'s' if num_patterns != 1 else ''} defined for this gate.</p>
-        </div>'''
-
-        # 3. Matches Found section
-        matches_found_html = f'''
-        <div class="details-section">
-            <div class="details-section-title">Matches Found:</div>
-            <p>{matches_found if num_patterns > 0 else 0} match{'es' if matches_found != 1 else ''} found in {files_with_matches if num_patterns > 0 else 0} file{'s' if files_with_matches != 1 else ''}.</p>
-        </div>'''
-
+        # 2. Patterns Used section (removed if 0 patterns)
+        patterns_used_html = ""
+        # 3. Matches Found section (removed if 0 patterns)
+        matches_found_html = ""
         # 4. Sample Matches section (up to 3)
         sample_matches_html = ""
         if num_patterns > 0 and matches_found > 0:
@@ -3576,21 +3596,9 @@ class GenerateReportNode(Node):
                 sample_matches_html += f'<li style="color: #6b7280;">... and {matches_found - 3} more matches</li>'
             sample_matches_html += '</ul></div>'
 
-        # 5. Matched patterns and files (full table, up to 100)
+        # 5. Matched patterns and files (full table, up to 100) (removed if 0 patterns)
         matched_patterns_html = ""
-        if num_patterns == 0:
-            matched_patterns_html = f'''
-            <div class="details-section">
-                <div class="details-section-title">All Matched Patterns and Files:</div>
-                <p><em>No patterns are defined for this gate.</em></p>
-            </div>'''
-        elif matches_found == 0:
-            matched_patterns_html = f'''
-            <div class="details-section">
-                <div class="details-section-title">All Matched Patterns and Files:</div>
-                <p><em>No patterns were matched for this gate.</em></p>
-            </div>'''
-        else:
+        if num_patterns > 0 and matches_found > 0:
             matched_patterns_html = f'''
             <div class="details-section">
                 <div class="details-section-title">All Matched Patterns and Files:</div>
@@ -3636,11 +3644,9 @@ class GenerateReportNode(Node):
             </ul>
         </div>'''
 
-        # Compose all sections in a logical order, but omit coverage_html
+        # Compose all sections in a logical order, but omit coverage_html and all 0-pattern/match sections
         return (
             summary_html +
-            patterns_used_html +
-            matches_found_html +
             sample_matches_html +
             matched_patterns_html +
             recommendations_html +

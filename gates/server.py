@@ -21,6 +21,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from flow import create_static_only_flow
 from utils.hard_gates import HARD_GATES
+from utils.db_integration import extract_app_id_from_url
 
 # Add server configuration at the top of the file
 import socket
@@ -351,6 +352,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             scan_temp_dir = tempfile.mkdtemp(prefix=f"codegates_{scan_id}_")
         
         # Initialize shared store with environment-based paths
+        app_id = extract_app_id_from_url(request.repository_url) or '<APP ID>'
         shared = {
             "request": {
                 "repository_url": request.repository_url,
@@ -360,7 +362,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "scan_id": scan_id,
                 "output_dir": scan_reports_dir,
                 "report_format": request.report_format,
-                "verbose": False
+                "verbose": False,
+                "app_id": app_id
             },
             "server": {
                 "url": server_url,

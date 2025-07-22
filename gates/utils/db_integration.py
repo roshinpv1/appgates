@@ -3,7 +3,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import re
 
-def fetch_alerting_integrations_status():
+def fetch_alerting_integrations_status(app_id: str):
     # TODO: Update with actual connection details
     conn_str = (
         "mssql+pymssql://{user}:{password}@{host}:{port}/{db}"
@@ -18,10 +18,14 @@ def fetch_alerting_integrations_status():
     status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
     try:
         with engine.connect() as connection:
-            # Example: check for presence of integration tables or config
+            # Example: check for presence of integration config for the given app_id
             for integration in status.keys():
-                query = text(f"""SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%{integration.lower()}%'""")
-                result = connection.execute(query).scalar()
+                # This is a placeholder query. Replace with actual logic for your schema.
+                query = text(f"""
+                    SELECT COUNT(*) FROM EFTVISTA.VW_DC_ENTRY.MONITORING_INTEGRATIONS
+                    WHERE LOWER(integration_name) = :integration AND app_id = :app_id
+                """)
+                result = connection.execute(query, {"integration": integration.lower(), "app_id": app_id}).scalar()
                 status[integration] = result > 0
     except Exception as ex:
         print('Error fetching alerting integration status:', ex)
