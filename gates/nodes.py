@@ -2493,7 +2493,7 @@ class GenerateReportNode(Node):
             <h1>{project_display_name}</h1>
             <div class="report-badge summary-badge">{report_type_display} Report</div>
             <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
-            <p style="color: #6b7280; margin-bottom: 20px;">{llm_line}</p>
+            <!--<p style="color: #6b7280; margin-bottom: 20px;">{llm_line}</p>-->
         </div>
         
         <h2>Executive Summary</h2>

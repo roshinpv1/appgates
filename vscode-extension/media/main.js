@@ -126,6 +126,45 @@ function showResults(result) {
     // Make results div visible
     resultsEl.style.display = 'block';
     
+    // Add JIRA upload button if app_id and scan_id are available
+    if (result.app_id && result.scan_id) {
+        let jiraBtn = document.getElementById('jira-upload-btn');
+        if (!jiraBtn) {
+            jiraBtn = document.createElement('button');
+            jiraBtn.id = 'jira-upload-btn';
+            jiraBtn.textContent = 'Upload Report to JIRA';
+            jiraBtn.style.margin = '10px 0';
+            jiraBtn.onclick = async () => {
+                jiraBtn.disabled = true;
+                jiraBtn.textContent = 'Uploading to JIRA...';
+                try {
+                    const reportType = result.htmlContent ? 'html' : 'json';
+                    const response = await fetch('/api/v1/jira/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            app_id: result.app_id,
+                            scan_id: result.scan_id,
+                            report_type: reportType
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        alert('JIRA upload started!');
+                    } else {
+                        alert('JIRA upload failed: ' + (data.message || 'Unknown error'));
+                    }
+                } catch (err) {
+                    alert('JIRA upload failed: ' + err.message);
+                } finally {
+                    jiraBtn.disabled = false;
+                    jiraBtn.textContent = 'Upload Report to JIRA';
+                }
+            };
+            resultsEl.prepend(jiraBtn);
+        }
+    }
+    
     // Check if we have server-generated HTML content
     if (result.htmlContent) {
         // Use server-generated HTML content directly

@@ -175,16 +175,12 @@ class CodeGatesAssessmentPanel {
                     console.log('Fetching server-generated HTML content for display...');
                     const htmlContent = await this.apiRunner.getHtmlReport(result.scan_id);
                     
-                    // Extract just the body content (remove html/head tags for embedding)
-                    const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-                    const reportContent = bodyMatch ? bodyMatch[1] : htmlContent;
-                    
-                    // Send server-generated content to webview with enhanced features
+                    // Use the full HTML content to preserve all scripts/styles/interactivity
                     this.panel.webview.postMessage({
                         command: 'showResults',
                         data: {
                             ...result,
-                            htmlContent: reportContent,
+                            htmlContent: htmlContent,
                             canGenerateReport: true,
                             hasEnhancedFeatures: true  // Flag to indicate enhanced report features
                         }
@@ -280,16 +276,12 @@ class CodeGatesAssessmentPanel {
                         console.log('Fetching server-generated HTML content for display...');
                         const htmlContent = await this.apiRunner.getHtmlReport(result.scan_id);
                         
-                        // Extract just the body content (remove html/head tags for embedding)
-                        const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-                        const reportContent = bodyMatch ? bodyMatch[1] : htmlContent;
-                        
-                        // Send server-generated content to webview
+                        // Use the full HTML content to preserve all scripts/styles/interactivity
                         this.panel.webview.postMessage({
                             command: 'showResults',
                             data: {
                                 ...result,
-                                htmlContent: reportContent,
+                                htmlContent: htmlContent,
                                 canGenerateReport: true
                             }
                         });

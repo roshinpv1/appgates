@@ -22,6 +22,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from flow import create_static_only_flow
 from utils.hard_gates import HARD_GATES
 from utils.db_integration import extract_app_id_from_url
+from utils.jira_upload import upload_report_to_jira
 
 # Add server configuration at the top of the file
 import socket
@@ -91,6 +92,7 @@ class ScanResult(BaseModel):
     current_step: Optional[str] = None
     progress_percentage: Optional[int] = None
     step_details: Optional[str] = None
+    app_id: Optional[str] = None
 
 
 class GateInfo(BaseModel):
@@ -98,6 +100,11 @@ class GateInfo(BaseModel):
     description: str
     category: str
 
+
+class JiraUploadRequest(BaseModel):
+    app_id: str
+    scan_id: str
+    report_type: str = Field(default="html", description="Report type: html or json")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -240,7 +247,8 @@ async def get_scan_status(scan_id: str):
         errors=result["errors"],
         current_step=result.get("current_step"),
         progress_percentage=result.get("progress_percentage"),
-        step_details=result.get("step_details")
+        step_details=result.get("step_details"),
+        app_id=result["request"].get("app_id") if "request" in result else None
     )
 
 
@@ -298,6 +306,41 @@ async def get_json_report(scan_id: str):
             json_data = json.load(f)
         return JSONResponse(content=json_data)
     raise HTTPException(status_code=404, detail="JSON report not found")
+
+
+@app.post("/api/v1/jira/upload")
+async def jira_upload(request: JiraUploadRequest, background_tasks: BackgroundTasks):
+    """
+    Upload the report for a scan to all JIRA stories for the given app_id.
+    JIRA config is read from environment variables.
+    """
+    import os
+    jira_url = os.getenv("JIRA_URL")
+    jira_user = os.getenv("JIRA_USER")
+    jira_token = os.getenv("JIRA_TOKEN")
+    if not jira_url or not jira_user or not jira_token:
+        raise HTTPException(status_code=400, detail="JIRA_URL, JIRA_USER, and JIRA_TOKEN must be set in the environment.")
+    # Find report file
+    import glob
+    import os
+    report_dir = os.path.join(REPORTS_DIR, request.scan_id)
+    if request.report_type == "html":
+        pattern = os.path.join(report_dir, f"codegates_report_{request.scan_id}.html")
+    else:
+        pattern = os.path.join(report_dir, f"codegates_report_{request.scan_id}.json")
+    matches = glob.glob(pattern)
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"Report file not found: {pattern}")
+    report_path = matches[0]
+    # Start background upload
+    results = {}
+    def upload_all():
+        nonlocal results
+        results = upload_report_to_jira(
+            jira_url, jira_user, jira_token, request.app_id, report_path, request.report_type
+        )
+    background_tasks.add_task(upload_all)
+    return {"success": True, "message": f"Upload started for app_id {request.app_id}.", "results": []}
 
 
 @app.get("/api/v1/gates", response_model=List[GateInfo])

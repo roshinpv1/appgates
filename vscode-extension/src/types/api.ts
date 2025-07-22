@@ -37,6 +37,7 @@ export interface ScanResult {
     current_step?: string;
     progress_percentage?: number;
     step_details?: string;
+    app_id?: string;
 }
 
 export interface ICodeGatesRunner {

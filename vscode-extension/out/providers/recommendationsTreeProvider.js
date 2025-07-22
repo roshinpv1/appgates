@@ -81,18 +81,19 @@ class RecommendationsTreeProvider {
             if (gateRecommendations.length > 0) {
                 categories.push(new RecommendationTreeItem(`Gate-Specific (${gateRecommendations.length})`, vscode.TreeItemCollapsibleState.Expanded, undefined, 'category'));
             }
-            if (generalRecommendations.length > 0) {
-                categories.push(new RecommendationTreeItem(`General (${generalRecommendations.length})`, vscode.TreeItemCollapsibleState.Expanded, undefined, 'category'));
+            const filteredGeneralRecommendations = generalRecommendations.filter(rec => !/Achieved:|Exceeds expectations|coverage/i.test(rec));
+            if (filteredGeneralRecommendations.length > 0) {
+                categories.push(new RecommendationTreeItem(`General (${filteredGeneralRecommendations.length})`, vscode.TreeItemCollapsibleState.Expanded, undefined, 'category'));
             }
             return Promise.resolve(categories);
         }
         // Show recommendations by category
         if (element.label.startsWith('Gate-Specific')) {
-            const gateRecommendations = this.getGateRecommendations();
+            const gateRecommendations = this.getGateRecommendations().filter(rec => !/Achieved:|Exceeds expectations|coverage/i.test(rec.recommendation));
             return Promise.resolve(gateRecommendations.map((rec, index) => new RecommendationTreeItem(`${rec.gate}: ${rec.recommendation.substring(0, 50)}${rec.recommendation.length > 50 ? '...' : ''}`, vscode.TreeItemCollapsibleState.None, rec.recommendation)));
         }
         else if (element.label.startsWith('General')) {
-            const generalRecommendations = this.scanResult.recommendations || [];
+            const generalRecommendations = (this.scanResult.recommendations || []).filter(rec => !/Achieved:|Exceeds expectations|coverage/i.test(rec));
             return Promise.resolve(generalRecommendations.map((rec, index) => new RecommendationTreeItem(rec.length > 60 ? `${rec.substring(0, 60)}...` : rec, vscode.TreeItemCollapsibleState.None, rec)));
         }
         return Promise.resolve([]);
