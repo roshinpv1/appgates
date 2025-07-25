@@ -15,6 +15,8 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+load_dotenv()
 
 # Add current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -66,6 +68,7 @@ class ScanRequest(BaseModel):
     report_format: str = Field(default="both", description="Report format: html, json, or both")
     llm_url: Optional[str] = Field(default=None, description="Custom LLM service URL")
     llm_api_key: Optional[str] = Field(default=None, description="LLM API key")
+    splunk_query: Optional[str] = Field(default=None, description="Optional Splunk query to execute during scan")
 
 
 class ScanResponse(BaseModel):
@@ -406,7 +409,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "output_dir": scan_reports_dir,
                 "report_format": request.report_format,
                 "verbose": False,
-                "app_id": app_id
+                "app_id": app_id,
+                "splunk_query": request.splunk_query
             },
             "server": {
                 "url": server_url,

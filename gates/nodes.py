@@ -1304,6 +1304,45 @@ class ValidateGatesNode(Node):
             characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
             applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
             
+            # --- SPLUNK INTEGRATION: gates to include Splunk matches ---
+            gates_with_splunk = {"STRUCTURED_LOGS", "CORRELATION_ID", "LOG_APPLICATION_MESSAGES"}
+            splunk_matches = []
+            splunk_reference = None
+            if gate_name in gates_with_splunk:
+                splunk_data = params.get("shared", {}).get("splunk", {})
+                if splunk_data and splunk_data.get("status") == "success":
+                    # Filter Splunk events to only those matching the gate's patterns
+                    gate_patterns = llm_gate_patterns + [p["pattern"] for p in pattern_loader.get_gate_patterns(gate_name, primary_technologies)]
+                    filtered_events = []
+                    for event in splunk_data.get("results", []):
+                        match_text = event.get("_raw") or event.get("message") or str(event)
+                        for pattern in gate_patterns:
+                            try:
+                                if re.search(pattern, match_text, re.IGNORECASE):
+                                    file_hint = event.get("source") or event.get("host") or "SplunkEvent"
+                                    line_hint = event.get("line") or 0
+                                    language_hint = event.get("sourcetype") or "Splunk"
+                                    pattern_hint = pattern
+                                    filtered_events.append({
+                                        "file": file_hint,
+                                        "pattern": pattern_hint,
+                                        "match": match_text,
+                                        "line": line_hint,
+                                        "language": language_hint,
+                                        "source": "Splunk"
+                                    })
+                                    break
+                            except Exception:
+                                continue
+                    splunk_matches = filtered_events
+                    if splunk_matches:
+                        splunk_reference = {
+                            "query": splunk_data.get("query", ""),
+                            "job_id": splunk_data.get("job_id", ""),
+                            "message": splunk_data.get("message", ""),
+                            "influenced": True
+                        }
+
             if gate_name == "ALERTING_ACTIONABLE":
                 # Use fetch_alerting_integrations_status to determine status
                 from utils.db_integration import fetch_alerting_integrations_status
@@ -1364,6 +1403,8 @@ class ValidateGatesNode(Node):
                         "weighted_scoring": {}
                     }
                 }
+                if splunk_reference:
+                    gate_result["splunk_reference"] = splunk_reference
                 gate_results.append(gate_result)
                 continue
             else:
@@ -1418,6 +1459,10 @@ class ValidateGatesNode(Node):
                     static_matches = self._find_pattern_matches_with_config(repo_path, static_gate_patterns, metadata, gate, config, "Static")
                     # Combine matches and remove duplicates based on file and line
                     all_matches = llm_matches + static_matches
+                    # --- SPLUNK INTEGRATION: merge Splunk matches ---
+                    if splunk_matches:
+                        print(f"   Adding {len(splunk_matches)} Splunk matches for {gate_name}")
+                        all_matches += splunk_matches
                     unique_matches = self._deduplicate_matches(all_matches)
 
                 # Calculate relevant file count for this gate type
@@ -1436,6 +1481,20 @@ class ValidateGatesNode(Node):
                     len(llm_matches), len(static_matches), len(unique_matches)
                 )
                 
+                # --- SPLUNK INTEGRATION: If Splunk matches exist, force PASS and high score ---
+                splunk_priority = False
+                if gate_name in gates_with_splunk and splunk_matches:
+                    print(f"   Splunk matches found for {gate_name}: Forcing PASS and high score.")
+                    weighted_score = 100.0
+                    status = "PASS"
+                    splunk_priority = True
+                else:
+                    status = self._determine_status(weighted_score, gate)
+
+                details = self._generate_gate_details(gate, unique_matches)
+                if splunk_priority:
+                    details.append("Splunk validation: PASS (matches found in Splunk logs)")
+                
                 gate_result = {
                     "gate": gate_name,
                     "display_name": gate["display_name"],
@@ -1447,8 +1506,8 @@ class ValidateGatesNode(Node):
                     "matches": unique_matches,
                     "patterns": llm_gate_patterns + static_gate_patterns,
                     "score": weighted_score,
-                    "status": self._determine_status(weighted_score, gate),
-                    "details": self._generate_gate_details(gate, unique_matches),
+                    "status": status,
+                    "details": details,
                     "recommendations": self._generate_gate_recommendations(gate, unique_matches, weighted_score),
                     "pattern_description": gate_pattern_info.get("description", "Pattern analysis for this gate"),
                     "pattern_significance": gate_pattern_info.get("significance", "Important for code quality and compliance"),
@@ -1476,6 +1535,8 @@ class ValidateGatesNode(Node):
                         "weighted_scoring": scoring_details
                     }
                 }
+                if splunk_reference:
+                    gate_result["splunk_reference"] = splunk_reference
                 
                 # Log validation details with weighted scoring info
                 gate_weight = pattern_loader.get_gate_weight(gate_name)
@@ -2166,7 +2227,8 @@ class GenerateReportNode(Node):
                 "source": shared["llm"].get("source", "unknown"),
                 "model": shared["llm"].get("model", "unknown")
             },
-            "scan_id": shared["request"]["scan_id"]
+            "scan_id": shared["request"]["scan_id"],
+            "splunk_results": shared.get("splunk", {})
         }
     
     def exec(self, params: Dict[str, Any]) -> Dict[str, str]:
@@ -2371,6 +2433,18 @@ class GenerateReportNode(Node):
                 "applicable_by_category": validation.get("applicability_summary", {}).get("applicable_by_category", {}),
                 "non_applicable_details": validation.get("applicability_summary", {}).get("non_applicable_details", []),
                 "applicable_gate_names": validation.get("applicability_summary", {}).get("applicable_gate_names", [])
+            },
+            
+            # Splunk integration results
+            "splunk_integration": {
+                "enabled": True,
+                "query_executed": params.get("splunk_results", {}).get("status") != "skipped",
+                "status": params.get("splunk_results", {}).get("status", "skipped"),
+                "message": params.get("splunk_results", {}).get("message", "No Splunk query provided"),
+                "total_results": params.get("splunk_results", {}).get("total_results", 0),
+                "execution_time": params.get("splunk_results", {}).get("execution_time", 0),
+                "analysis": params.get("splunk_results", {}).get("analysis", {}),
+                "query": params.get("splunk_results", {}).get("query", "")
             }
         }
     
@@ -3627,6 +3701,24 @@ class GenerateReportNode(Node):
                 </div>
             </div>'''
 
+        # Splunk Reference Section (after sample matches)
+        splunk_html = ""
+        splunk_reference = gate.get("splunk_reference", {})
+        if splunk_reference and splunk_reference.get("influenced"):
+            splunk_query = splunk_reference.get("query", "")
+            splunk_job_id = splunk_reference.get("job_id", "")
+            splunk_message = splunk_reference.get("message", "")
+            splunk_html = f'''
+            <div class="details-section" style="background: #f3f4f6; border-left: 4px solid #4f46e5; margin-top: 10px;">
+                <div class="details-section-title">Splunk Reference</div>
+                <ul>
+                    <li><strong>Query:</strong> <span style="font-family: monospace;">{splunk_query}</span></li>
+                    <li><strong>Job ID:</strong> {splunk_job_id}</li>
+                    <li><strong>Splunk Influence:</strong> Yes</li>
+                    <li><strong>Message:</strong> {splunk_message}</li>
+                </ul>
+            </div>'''
+
         # 6. Recommendations (actionable)
         recommendations_html = ""
         if recommendations:
@@ -3652,6 +3744,7 @@ class GenerateReportNode(Node):
         return (
             summary_html +
             sample_matches_html +
+            splunk_html +
             matched_patterns_html +
             recommendations_html +
             gate_info_html
@@ -3817,3 +3910,92 @@ class CleanupNode(Node):
         prompt_parts.append("```")
         
         return "\n".join(prompt_parts)
+
+
+class SplunkQueryNode(Node):
+    """Node to execute Splunk queries and analyze results during scan"""
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare Splunk query parameters"""
+        return {
+            "splunk_query": shared["request"].get("splunk_query"),
+            "app_id": shared["request"].get("app_id"),
+            "scan_id": shared["request"]["scan_id"]
+        }
+    
+    def exec(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute Splunk query and analyze results"""
+        splunk_query = params.get("splunk_query")
+        app_id = params.get("app_id")
+        scan_id = params.get("scan_id")
+        
+        if not splunk_query:
+            print("📊 No Splunk query provided - skipping Splunk analysis")
+            return {
+                "status": "skipped",
+                "message": "No Splunk query provided",
+                "results": [],
+                "analysis": {},
+                "execution_time": 0
+            }
+        
+        print(f"🔍 Executing Splunk query for scan {scan_id}...")
+        print(f"   Query: {splunk_query}")
+        if app_id:
+            print(f"   App ID: {app_id}")
+        
+        try:
+            # Import Splunk integration
+            from utils.splunk_integration import execute_splunk_query
+            
+            # Execute the query
+            import time
+            start_time = time.time()
+            
+            result = execute_splunk_query(splunk_query, app_id)
+            
+            execution_time = time.time() - start_time
+            
+            # Add execution time to result
+            result["execution_time"] = execution_time
+            
+            if result["status"] == "success":
+                print(f"✅ Splunk query executed successfully in {execution_time:.2f}s")
+                print(f"   Results: {result.get('total_results', 0)} events")
+                
+                # Log analysis summary
+                analysis = result.get("analysis", {})
+                if analysis:
+                    print(f"   Analysis: {analysis.get('total_events', 0)} total events")
+                    print(f"   Errors: {analysis.get('error_count', 0)}")
+                    print(f"   Warnings: {analysis.get('warning_count', 0)}")
+                    print(f"   Info: {analysis.get('info_count', 0)}")
+                    
+                    error_types = analysis.get("error_types", [])
+                    if error_types:
+                        print(f"   Error types: {', '.join(error_types)}")
+            else:
+                print(f"⚠️ Splunk query failed: {result.get('message', 'Unknown error')}")
+            
+            return result
+            
+        except Exception as e:
+            print(f"❌ Splunk query execution failed: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Splunk query execution failed: {str(e)}",
+                "results": [],
+                "analysis": {},
+                "execution_time": 0
+            }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: Dict[str, Any]) -> str:
+        """Store Splunk results in shared data"""
+        shared["splunk"] = exec_res
+        
+        if exec_res["status"] == "success":
+            return f"Splunk analysis completed: {exec_res.get('total_results', 0)} events analyzed"
+        elif exec_res["status"] == "skipped":
+            return "Splunk analysis skipped - no query provided"
+        else:
+            return f"Splunk analysis failed: {exec_res.get('message', 'Unknown error')}"

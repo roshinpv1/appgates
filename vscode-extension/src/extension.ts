@@ -3,6 +3,9 @@ import { ApiRunner } from './runners/apiRunner';
 import { ConfigurationManager } from './utils/configurationManager';
 import { NotificationManager } from './utils/notificationManager';
 import { ScanOptions } from './types/api';
+import { captureScreenshot } from './utils/screenshot';
+import * as path from 'path';
+import * as fs from 'fs';
 
 class CodeGatesAssessmentPanel {
     public static currentPanel: CodeGatesAssessmentPanel | undefined;
@@ -60,6 +63,9 @@ class CodeGatesAssessmentPanel {
                         break;
                     case 'updateComments':
                         this.handleUpdateComments(message.data);
+                        break;
+                    case 'captureScreenshot':
+                        await this.handleCaptureScreenshot(message.data);
                         break;
                 }
             }
@@ -141,6 +147,7 @@ class CodeGatesAssessmentPanel {
             const options: ScanOptions = {
                 threshold: assessmentData.threshold || 70
             };
+            const splunkQuery = assessmentData.splunk_query;
 
             this.panel.webview.postMessage({
                 command: 'assessmentProgress',
@@ -151,7 +158,8 @@ class CodeGatesAssessmentPanel {
                 assessmentData.repositoryUrl,
                 assessmentData.branch || 'main',
                 assessmentData.githubToken,
-                options
+                options,
+                splunkQuery
             );
 
             // Add repository URL to result for better display
@@ -431,6 +439,49 @@ class CodeGatesAssessmentPanel {
                     `Failed to update comments: ${error.message}`
                 );
             }
+        }
+    }
+
+    private async handleCaptureScreenshot(data: any) {
+        try {
+            const scanId = data.scan_id;
+            const appId = data.app_id;
+            if (!scanId) {
+                vscode.window.showErrorMessage('Scan ID not found. Run a scan first.');
+                return;
+            }
+            // Prompt for URL, default to http://abc.com/appid={app_id} if blank
+            const url = await vscode.window.showInputBox({
+                prompt: 'Enter the URL to capture a screenshot (leave blank to use default)',
+                placeHolder: 'https://example.com',
+                value: appId ? `http://abc.com/appid=${appId}` : 'https://example.com'
+            });
+            const finalUrl = url && url.trim() !== '' ? url : (appId ? `http://abc.com/appid=${appId}` : 'https://example.com');
+            if (!finalUrl) return;
+            // Save screenshot to the scan's report directory
+            const reportsDir = path.join(__dirname, '..', '..', 'reports', scanId);
+            if (!fs.existsSync(reportsDir)) {
+                fs.mkdirSync(reportsDir, { recursive: true });
+            }
+            const screenshotPath = path.join(reportsDir, `screenshot_${Date.now()}.png`);
+            await captureScreenshot(finalUrl, screenshotPath);
+            vscode.window.showInformationMessage('Screenshot captured and saved. Regenerating report...');
+            // Append screenshot to the HTML report
+            const htmlReportPath = path.join(reportsDir, `codegates_report_${scanId}.html`);
+            if (fs.existsSync(htmlReportPath)) {
+                let html = fs.readFileSync(htmlReportPath, 'utf-8');
+                // Append screenshot at the bottom before </body>
+                const imgTag = `<div style="margin-top:40px;"><h2>Captured Screenshot</h2><img src="file://${screenshotPath}" style="max-width:100%;border:1px solid #ccc;" /></div>`;
+                if (html.includes('</body>')) {
+                    html = html.replace('</body>', `${imgTag}</body>`);
+                } else {
+                    html += imgTag;
+                }
+                fs.writeFileSync(htmlReportPath, html, 'utf-8');
+            }
+            vscode.window.showInformationMessage('Screenshot appended to the report.');
+        } catch (err: any) {
+            vscode.window.showErrorMessage('Failed to capture screenshot: ' + err.message);
         }
     }
 

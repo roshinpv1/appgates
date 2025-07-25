@@ -9,3 +9,7 @@ codegates/core/__pycache__/llm_analyzer.cpython-313.pyc
 /codegates/core/__pycache__
 /codegates/core/__pycache__
 /gates/logs
+*.md
+.env
+/backup
+/gates/reports

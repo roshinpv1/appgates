@@ -14,6 +14,7 @@ export interface ScanRequest {
     branch?: string;
     github_token?: string;
     scan_options?: ScanOptions;
+    splunk_query?: string;
 }
 
 export interface GateResult {

@@ -14,6 +14,7 @@ try:
         CallLLMNode,
         ValidateGatesNode,
         GenerateReportNode,
+        SplunkQueryNode,
         CleanupNode
     )
 except ImportError:
@@ -26,6 +27,7 @@ except ImportError:
         CallLLMNode,
         ValidateGatesNode,
         GenerateReportNode,
+        SplunkQueryNode,
         CleanupNode
     )
 
@@ -53,6 +55,7 @@ def create_validation_flow() -> Flow:
     call_llm = CallLLMNode(max_retries=3, wait=2.0)
     validate_gates = ValidateGatesNode()
     generate_report = GenerateReportNode()
+    splunk_query = SplunkQueryNode()
     cleanup = CleanupNode()
     
     # Connect nodes in sequence
@@ -62,7 +65,8 @@ def create_validation_flow() -> Flow:
     generate_prompt >> call_llm
     call_llm >> validate_gates
     validate_gates >> generate_report
-    generate_report >> cleanup
+    generate_report >> splunk_query
+    splunk_query >> cleanup
     
     # Create and return flow starting with fetch_repo
     return Flow(start=fetch_repo)
@@ -90,6 +94,7 @@ def create_static_only_flow() -> Flow:
     call_llm = CallLLMNode(max_retries=3, wait=2.0)
     validate_gates = ValidateGatesNode()
     generate_report = GenerateReportNode()
+    splunk_query = SplunkQueryNode()
     cleanup = CleanupNode()
     
     # Connect nodes in sequence, bypassing LLM steps
@@ -100,7 +105,8 @@ def create_static_only_flow() -> Flow:
     # Skip: call_llm >> validate_gates
     extract_config >> validate_gates  # Direct connection, bypassing LLM
     validate_gates >> generate_report
-    generate_report >> cleanup
+    generate_report >> splunk_query
+    splunk_query >> cleanup
     
     # Create and return flow starting with fetch_repo
     return Flow(start=fetch_repo) 

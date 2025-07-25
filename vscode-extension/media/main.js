@@ -133,7 +133,7 @@ function showResults(result) {
             jiraBtn = document.createElement('button');
             jiraBtn.id = 'jira-upload-btn';
             jiraBtn.textContent = 'Upload Report to JIRA';
-            jiraBtn.style.margin = '10px 0';
+            jiraBtn.style.margin = '10px 10px 10px 0';
             jiraBtn.onclick = async () => {
                 jiraBtn.disabled = true;
                 jiraBtn.textContent = 'Uploading to JIRA...';
@@ -162,6 +162,23 @@ function showResults(result) {
                 }
             };
             resultsEl.prepend(jiraBtn);
+        }
+    }
+    // Add Capture Screenshot button if scan_id is available
+    if (result.scan_id) {
+        let screenshotBtn = document.getElementById('screenshot-btn');
+        if (!screenshotBtn) {
+            screenshotBtn = document.createElement('button');
+            screenshotBtn.id = 'screenshot-btn';
+            screenshotBtn.textContent = 'Capture Screenshot';
+            screenshotBtn.style.margin = '10px 0 10px 10px';
+            screenshotBtn.onclick = () => {
+                vscode.postMessage({
+                    command: 'captureScreenshot',
+                    data: { scan_id: result.scan_id, app_id: result.app_id }
+                });
+            };
+            resultsEl.prepend(screenshotBtn);
         }
     }
     
@@ -1125,6 +1142,7 @@ function startAssessment() {
     const branch = document.getElementById('branch').value.trim() || 'main';
     const githubToken = document.getElementById('githubToken').value.trim();
     const threshold = document.getElementById('threshold').value;
+    const splunkQuery = document.getElementById('splunkQuery') ? document.getElementById('splunkQuery').value.trim() : '';
 
     if (!repositoryUrl) {
         showStatus('Please enter a repository URL', 'error');
@@ -1164,7 +1182,8 @@ function startAssessment() {
             repositoryUrl,
             branch,
             githubToken,
-            threshold: parseInt(threshold)
+            threshold: parseInt(threshold),
+            splunk_query: splunkQuery
         }
     });
 }

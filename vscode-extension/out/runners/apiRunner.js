@@ -162,7 +162,7 @@ class ApiRunner {
             }
         }
     }
-    async scanRepository(repoUrl, branch = 'main', token, options = {}) {
+    async scanRepository(repoUrl, branch = 'main', token, options = {}, splunkQuery) {
         try {
             // Test connection first
             try {
@@ -177,6 +177,9 @@ class ApiRunner {
                 github_token: token,
                 scan_options: options
             };
+            if (splunkQuery) {
+                requestData.splunk_query = splunkQuery;
+            }
             console.log('Sending scan request:', {
                 repository_url: repoUrl,
                 branch,

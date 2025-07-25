@@ -39,6 +39,9 @@ const vscode = __importStar(require("vscode"));
 const apiRunner_1 = require("./runners/apiRunner");
 const configurationManager_1 = require("./utils/configurationManager");
 const notificationManager_1 = require("./utils/notificationManager");
+const screenshot_1 = require("./utils/screenshot");
+const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
 class CodeGatesAssessmentPanel {
     static createOrShow(extensionUri) {
         const column = vscode.window.activeTextEditor
@@ -75,6 +78,9 @@ class CodeGatesAssessmentPanel {
                     break;
                 case 'updateComments':
                     this.handleUpdateComments(message.data);
+                    break;
+                case 'captureScreenshot':
+                    await this.handleCaptureScreenshot(message.data);
                     break;
             }
         });
@@ -142,11 +148,12 @@ class CodeGatesAssessmentPanel {
             const options = {
                 threshold: assessmentData.threshold || 70
             };
+            const splunkQuery = assessmentData.splunk_query;
             this.panel.webview.postMessage({
                 command: 'assessmentProgress',
                 data: { message: 'Connecting to repository...' }
             });
-            const result = await this.apiRunner.scanRepository(assessmentData.repositoryUrl, assessmentData.branch || 'main', assessmentData.githubToken, options);
+            const result = await this.apiRunner.scanRepository(assessmentData.repositoryUrl, assessmentData.branch || 'main', assessmentData.githubToken, options, splunkQuery);
             // Add repository URL to result for better display
             result.repository_url = assessmentData.repositoryUrl;
             // If scan is running, poll for completion (up to 15 minutes)
@@ -389,6 +396,51 @@ class CodeGatesAssessmentPanel {
             else {
                 vscode.window.showWarningMessage(`Failed to update comments: ${error.message}`);
             }
+        }
+    }
+    async handleCaptureScreenshot(data) {
+        try {
+            const scanId = data.scan_id;
+            const appId = data.app_id;
+            if (!scanId) {
+                vscode.window.showErrorMessage('Scan ID not found. Run a scan first.');
+                return;
+            }
+            // Prompt for URL, default to http://abc.com/appid={app_id} if blank
+            const url = await vscode.window.showInputBox({
+                prompt: 'Enter the URL to capture a screenshot (leave blank to use default)',
+                placeHolder: 'https://example.com',
+                value: appId ? `http://abc.com/appid=${appId}` : 'https://example.com'
+            });
+            const finalUrl = url && url.trim() !== '' ? url : (appId ? `http://abc.com/appid=${appId}` : 'https://example.com');
+            if (!finalUrl)
+                return;
+            // Save screenshot to the scan's report directory
+            const reportsDir = path.join(__dirname, '..', '..', 'reports', scanId);
+            if (!fs.existsSync(reportsDir)) {
+                fs.mkdirSync(reportsDir, { recursive: true });
+            }
+            const screenshotPath = path.join(reportsDir, `screenshot_${Date.now()}.png`);
+            await (0, screenshot_1.captureScreenshot)(finalUrl, screenshotPath);
+            vscode.window.showInformationMessage('Screenshot captured and saved. Regenerating report...');
+            // Append screenshot to the HTML report
+            const htmlReportPath = path.join(reportsDir, `codegates_report_${scanId}.html`);
+            if (fs.existsSync(htmlReportPath)) {
+                let html = fs.readFileSync(htmlReportPath, 'utf-8');
+                // Append screenshot at the bottom before </body>
+                const imgTag = `<div style="margin-top:40px;"><h2>Captured Screenshot</h2><img src="file://${screenshotPath}" style="max-width:100%;border:1px solid #ccc;" /></div>`;
+                if (html.includes('</body>')) {
+                    html = html.replace('</body>', `${imgTag}</body>`);
+                }
+                else {
+                    html += imgTag;
+                }
+                fs.writeFileSync(htmlReportPath, html, 'utf-8');
+            }
+            vscode.window.showInformationMessage('Screenshot appended to the report.');
+        }
+        catch (err) {
+            vscode.window.showErrorMessage('Failed to capture screenshot: ' + err.message);
         }
     }
     update() {

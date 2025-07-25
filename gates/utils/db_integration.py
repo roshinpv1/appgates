@@ -18,15 +18,27 @@ def fetch_alerting_integrations_status(app_id: str):
     status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
     try:
         with engine.connect() as connection:
-            # Example: check for presence of integration config for the given app_id
-            for integration in status.keys():
-                # This is a placeholder query. Replace with actual logic for your schema.
-                query = text(f"""
-                    SELECT COUNT(*) FROM EFTVISTA.VW_DC_ENTRY.MONITORING_INTEGRATIONS
-                    WHERE LOWER(integration_name) = :integration AND app_id = :app_id
-                """)
-                result = connection.execute(query, {"integration": integration.lower(), "app_id": app_id}).scalar()
-                status[integration] = result > 0
+            # Actual query for monitoring maturity
+            query = text("""
+                SELECT TOP 5 TOOL, MATURITY_LEVEL
+                FROM EFTVISTA.VW_MONITORINGMATURITY.MATURITY_SUMMARY_VW
+                WHERE DISTRIBUTED_APP_ID = :app_id
+            """)
+            result = connection.execute(query, {"app_id": app_id})
+            rows = result.fetchall()
+            # Map tool names to status keys
+            tool_map = {
+                "SPLUNK": "Splunk",
+                "APPDYNAMICS": "AppDynamics",
+                "THOUSANDEYES": "ThousandEyes"
+            }
+            positive_levels = {"In Progress", "Fundamental", "Intermediate"}
+            for row in rows:
+                tool = str(row[0]).strip().upper()
+                maturity = str(row[1]).strip().title()
+                for key, status_key in tool_map.items():
+                    if key in tool and maturity in positive_levels:
+                        status[status_key] = True
     except Exception as ex:
         print('Error fetching alerting integration status:', ex)
     return status

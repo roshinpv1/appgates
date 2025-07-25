@@ -159,7 +159,7 @@ export class ApiRunner implements ICodeGatesRunner {
         }
     }
 
-    async scanRepository(repoUrl: string, branch: string = 'main', token?: string, options: ScanOptions = {}): Promise<ScanResult> {
+    async scanRepository(repoUrl: string, branch: string = 'main', token?: string, options: ScanOptions = {}, splunkQuery?: string): Promise<ScanResult> {
         try {
             // Test connection first
             try {
@@ -174,6 +174,9 @@ export class ApiRunner implements ICodeGatesRunner {
                 github_token: token,
                 scan_options: options
             };
+            if (splunkQuery) {
+                requestData.splunk_query = splunkQuery;
+            }
 
             console.log('Sending scan request:', { 
                 repository_url: repoUrl, 
