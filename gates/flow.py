@@ -3,7 +3,7 @@ CodeGates Flow - PocketFlow Implementation
 Defines the complete validation workflow using PocketFlow nodes
 """
 
-from pocketflow import Flow
+from base import Flow
 try:
     # Try relative imports first (when run as module)
     from .nodes import (

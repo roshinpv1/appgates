@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import re
+from base import Node
 
 
 class PatternLoader:
