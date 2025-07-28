@@ -227,9 +227,11 @@ class CodeGatesRunner {
         };
     }
     determineStatus(score) {
-        if (score >= 80)
+        const excellentThreshold = this.configManager.get('excellentThreshold', 80);
+        const goodThreshold = this.configManager.get('goodThreshold', 60);
+        if (score >= excellentThreshold)
             return 'PASSED';
-        if (score >= 60)
+        if (score >= goodThreshold)
             return 'WARNING';
         return 'FAILED';
     }

@@ -267,8 +267,11 @@ export class CodeGatesRunner {
     }
 
     private determineStatus(score: number): 'PASSED' | 'WARNING' | 'FAILED' {
-        if (score >= 80) return 'PASSED';
-        if (score >= 60) return 'WARNING';
+        const excellentThreshold = this.configManager.get<number>('excellentThreshold', 80);
+        const goodThreshold = this.configManager.get<number>('goodThreshold', 60);
+        
+        if (score >= excellentThreshold) return 'PASSED';
+        if (score >= goodThreshold) return 'WARNING';
         return 'FAILED';
     }
 

@@ -5731,5 +5731,65 @@
         ]
       }
     }
+  },
+  "global_config": {
+    "scoring": {
+      "default_bonus_threshold": 0.8,
+      "default_bonus_multiplier": 1.1,
+      "default_penalty_threshold": 0.3,
+      "default_penalty_multiplier": 0.8,
+      "security_gate_threshold": 100.0,
+      "default_pass_threshold": 20.0,
+      "max_score": 100.0,
+      "min_score": 0.0
+    },
+    "technology_detection": {
+      "primary_language_threshold": 20.0,
+      "secondary_language_threshold": 10.0,
+      "primary_languages": ["java", "python", "javascript", "typescript", "csharp", "go", "rust"],
+      "config_languages": ["yaml", "json", "xml", "properties", "toml", "ini"],
+      "web_languages": ["html", "css", "scss", "sass", "less"],
+      "script_languages": ["bash", "sh", "ps1", "bat", "cmd"]
+    },
+    "file_processing": {
+      "max_files": 10000,
+      "min_files": 1,
+      "max_file_size_mb": 10,
+      "min_file_size_mb": 0.001,
+      "language_threshold_percent": 5.0,
+      "config_threshold_percent": 2.0,
+      "min_languages": 1,
+      "test_threshold_multiplier": 0.8,
+      "min_test_threshold": 5.0
+    },
+    "coverage_analysis": {
+      "min_coverage_percentage": 0.0,
+      "max_coverage_percentage": 100.0,
+      "default_coverage_percentage": 10.0,
+      "excess_bonus_cap": 0.2
+    },
+    "recommendations": {
+      "critical_score_threshold": 30.0,
+      "improve_score_threshold": 60.0,
+      "infrastructure_coverage_threshold": 80.0,
+      "major_gap_threshold": 50.0,
+      "significant_gap_threshold": 25.0
+    },
+    "status_determination": {
+      "pass_threshold": 20.0,
+      "warning_threshold": 60.0,
+      "fail_threshold": 20.0,
+      "security_pass_threshold": 100.0
+    },
+    "llm_config": {
+      "default_temperature": 0.1,
+      "max_tokens": 4000,
+      "timeout_seconds": 30
+    },
+    "ui_config": {
+      "excellent_threshold": 80.0,
+      "good_threshold": 60.0,
+      "default_threshold": 70.0
+    }
   }
 } 

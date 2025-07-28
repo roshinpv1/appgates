@@ -64,11 +64,23 @@ class ScanRequest(BaseModel):
     repository_url: str = Field(..., description="Git repository URL")
     branch: str = Field(default="main", description="Branch to scan")
     github_token: Optional[str] = Field(default=None, description="GitHub token for private repos")
-    threshold: int = Field(default=70, ge=0, le=100, description="Quality threshold percentage")
+    threshold: int = Field(default=None, ge=0, le=100, description="Quality threshold percentage (uses global config default if not specified)")
     report_format: str = Field(default="both", description="Report format: html, json, or both")
     llm_url: Optional[str] = Field(default=None, description="Custom LLM service URL")
     llm_api_key: Optional[str] = Field(default=None, description="LLM API key")
     splunk_query: Optional[str] = Field(default=None, description="Optional Splunk query to execute during scan")
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Set default threshold from global config if not provided
+        if self.threshold is None:
+            try:
+                from utils.pattern_loader import get_pattern_loader
+                pattern_loader = get_pattern_loader()
+                ui_config = pattern_loader.get_ui_config()
+                self.threshold = ui_config.get("default_threshold", 70)
+            except Exception:
+                self.threshold = 70  # Fallback to hardcoded value
 
 
 class ScanResponse(BaseModel):

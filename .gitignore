@@ -13,3 +13,4 @@ codegates/core/__pycache__/llm_analyzer.cpython-313.pyc
 .env
 /backup
 /gates/reports
+/ai_agent

@@ -88,6 +88,27 @@
           "type": "boolean",
           "default": true,
           "description": "Enable enhanced report features including pattern details, coverage analysis, and gate applicability"
+        },
+        "codegates.excellentThreshold": {
+          "type": "number",
+          "default": 80,
+          "description": "Score threshold for 'excellent' status (from global config)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "codegates.goodThreshold": {
+          "type": "number",
+          "default": 60,
+          "description": "Score threshold for 'good' status (from global config)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "codegates.defaultThreshold": {
+          "type": "number",
+          "default": 70,
+          "description": "Default quality threshold (from global config)",
+          "minimum": 0,
+          "maximum": 100
         }
       }
     }

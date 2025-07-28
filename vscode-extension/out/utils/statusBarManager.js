@@ -65,9 +65,11 @@ class StatusBarManager {
             return;
         }
         const score = Math.round(this.scanResult.overall_score || 0);
-        const statusIcon = score >= 80 ? '$(check)' : score >= 60 ? '$(warning)' : '$(error)';
-        const statusColor = score >= 80 ? undefined :
-            score >= 60 ? new vscode.ThemeColor('statusBarItem.warningBackground') :
+        const excellentThreshold = vscode.workspace.getConfiguration('codegates').get('excellentThreshold', 80);
+        const goodThreshold = vscode.workspace.getConfiguration('codegates').get('goodThreshold', 60);
+        const statusIcon = score >= excellentThreshold ? '$(check)' : score >= goodThreshold ? '$(warning)' : '$(error)';
+        const statusColor = score >= excellentThreshold ? undefined :
+            score >= goodThreshold ? new vscode.ThemeColor('statusBarItem.warningBackground') :
                 new vscode.ThemeColor('statusBarItem.errorBackground');
         this.statusBarItem.text = `${statusIcon} CodeGates: ${score}%`;
         this.statusBarItem.tooltip = this.createTooltip();
@@ -79,12 +81,14 @@ class StatusBarManager {
             return 'Click to run CodeGates scan';
         }
         const score = Math.round(this.scanResult.overall_score || 0);
+        const excellentThreshold = vscode.workspace.getConfiguration('codegates').get('excellentThreshold', 80);
+        const goodThreshold = vscode.workspace.getConfiguration('codegates').get('goodThreshold', 60);
         const passedGates = this.scanResult.gate_scores?.filter(g => g.status === 'PASSED').length || 0;
         const warningGates = this.scanResult.gate_scores?.filter(g => g.status === 'WARNING').length || 0;
         const failedGates = this.scanResult.gate_scores?.filter(g => g.status === 'FAILED').length || 0;
         const totalGates = this.scanResult.gate_scores?.length || 0;
-        const status = score >= 80 ? 'Production Ready' :
-            score >= 60 ? 'Needs Improvement' :
+        const status = score >= excellentThreshold ? 'Production Ready' :
+            score >= goodThreshold ? 'Needs Improvement' :
                 'Not Production Ready';
         return [
             `CodeGates Analysis Results`,

@@ -1825,11 +1825,14 @@ class ValidateGatesNode(Node):
         if total_files == 0:
             return []
         
-        # Define technology relevance mapping
-        primary_languages = {
-            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
-            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
-        }
+        # Get technology config from global config
+        from utils.pattern_loader import get_pattern_loader
+        pattern_loader = get_pattern_loader()
+        tech_config = pattern_loader.get_technology_config()
+        
+        primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
+        primary_threshold = tech_config.get("primary_language_threshold", 20.0)
+        secondary_threshold = tech_config.get("secondary_language_threshold", 10.0)
         
         primary_technologies = []
         
@@ -1838,7 +1841,7 @@ class ValidateGatesNode(Node):
             file_count = stats.get("files", 0)
             percentage = (file_count / total_files) * 100
             
-            if language in primary_languages and percentage >= 20.0:
+            if language in primary_languages and percentage >= primary_threshold:
                 primary_technologies.append(language)
         
         # If no primary technology found, take the most dominant
@@ -1850,7 +1853,7 @@ class ValidateGatesNode(Node):
                 if language in primary_languages:
                     file_count = stats.get("files", 0)
                     percentage = (file_count / total_files) * 100
-                    if percentage > max_percentage and percentage >= 10.0:
+                    if percentage > max_percentage and percentage >= secondary_threshold:
                         max_percentage = percentage
                         dominant_primary = language
             
@@ -1874,9 +1877,26 @@ class ValidateGatesNode(Node):
 
     def _determine_status(self, score: float, gate: Dict[str, Any]) -> str:
         """
-        PASS if actual / expected >= 0.2, else FAIL
+        Determine gate status based on score and gate configuration
+        Uses global config values for thresholds
         """
-        return "PASS" if score >= 20 else "FAIL"
+        # Get pattern loader for global config
+        from utils.pattern_loader import get_pattern_loader
+        pattern_loader = get_pattern_loader()
+        status_config = pattern_loader.get_status_config()
+        
+        # Get gate-specific scoring config
+        scoring_config = gate.get("scoring", {})
+        is_security_gate = scoring_config.get("is_security_gate", False) or gate.get("name") == "AVOID_LOGGING_SECRETS"
+        
+        if is_security_gate:
+            # Security gates need 100% score to pass
+            security_threshold = status_config.get("security_pass_threshold", 100.0)
+            return "PASS" if score >= security_threshold else "FAIL"
+        else:
+            # Regular gates use configurable threshold
+            pass_threshold = status_config.get("pass_threshold", 20.0)
+            return "PASS" if score >= pass_threshold else "FAIL"
     
     def _generate_gate_details(self, gate: Dict[str, Any], matches: List[Dict[str, Any]]) -> List[str]:
         """Generate details for gate result including expected coverage analysis"""
@@ -2074,12 +2094,20 @@ class ValidateGatesNode(Node):
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
         
-        # Use default config if none provided
+        # Get global config for file processing
+        from utils.pattern_loader import get_pattern_loader
+        pattern_loader = get_pattern_loader()
+        file_config = pattern_loader.get_global_config("file_processing")
+        tech_config = pattern_loader.get_technology_config()
+        
+        # Use global config defaults if none provided
         if config is None:
             config = {
-                "language_threshold_percent": 5.0,
-                "config_threshold_percent": 1.0,
-                "min_languages": 1
+                "language_threshold_percent": file_config.get("language_threshold_percent", 5.0),
+                "config_threshold_percent": file_config.get("config_threshold_percent", 2.0),
+                "min_languages": file_config.get("min_languages", 1),
+                "test_threshold_multiplier": file_config.get("test_threshold_multiplier", 0.8),
+                "min_test_threshold": file_config.get("min_test_threshold", 5.0)
             }
         
         # Get language statistics for intelligent filtering
@@ -2090,23 +2118,11 @@ class ValidateGatesNode(Node):
             print(f"   No language statistics available, using all {len(all_files)} {file_type.lower()} files")
             return all_files
         
-        # Define technology categories for more intelligent filtering
-        primary_languages = {
-            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
-            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
-        }
-        
-        config_languages = {
-            "XML", "JSON", "YAML", "Properties", "TOML", "INI"
-        }
-        
-        web_languages = {
-            "HTML", "CSS", "SCSS", "SASS", "Less"
-        }
-        
-        script_languages = {
-            "Shell", "Batch", "PowerShell", "Dockerfile"
-        }
+        # Get technology categories from global config
+        primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
+        config_languages = set(tech_config.get("config_languages", ["yaml", "json", "xml", "properties", "toml", "ini"]))
+        web_languages = set(tech_config.get("web_languages", ["html", "css", "scss", "sass", "less"]))
+        script_languages = set(tech_config.get("script_languages", ["bash", "sh", "ps1", "bat", "cmd"]))
         
         # Calculate language percentages
         language_percentages = {}
@@ -2139,7 +2155,7 @@ class ValidateGatesNode(Node):
                     relevant_languages.add(language)
         elif gate_name == "AUTOMATED_TESTS":
             # Test-related gates: include all primary languages with lower threshold
-            test_threshold = max(primary_threshold * 0.6, 1.0)  # 60% of primary threshold, minimum 1%
+            test_threshold = max(primary_threshold * config.get("test_threshold_multiplier", 0.8), config.get("min_test_threshold", 5.0))
             for language, percentage in language_percentages.items():
                 if language in primary_languages and percentage >= test_threshold:
                     relevant_languages.add(language)
@@ -3296,12 +3312,20 @@ class GenerateReportNode(Node):
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
         
-        # Use default config if none provided
+        # Get global config for file processing
+        from utils.pattern_loader import get_pattern_loader
+        pattern_loader = get_pattern_loader()
+        file_config = pattern_loader.get_global_config("file_processing")
+        tech_config = pattern_loader.get_technology_config()
+        
+        # Use global config defaults if none provided
         if config is None:
             config = {
-                "language_threshold_percent": 5.0,
-                "config_threshold_percent": 1.0,
-                "min_languages": 1
+                "language_threshold_percent": file_config.get("language_threshold_percent", 5.0),
+                "config_threshold_percent": file_config.get("config_threshold_percent", 2.0),
+                "min_languages": file_config.get("min_languages", 1),
+                "test_threshold_multiplier": file_config.get("test_threshold_multiplier", 0.8),
+                "min_test_threshold": file_config.get("min_test_threshold", 5.0)
             }
         
         # Get language statistics for intelligent filtering
@@ -3312,23 +3336,11 @@ class GenerateReportNode(Node):
             print(f"   No language statistics available, using all {len(all_files)} {file_type.lower()} files")
             return all_files
         
-        # Define technology categories for more intelligent filtering
-        primary_languages = {
-            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
-            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
-        }
-        
-        config_languages = {
-            "XML", "JSON", "YAML", "Properties", "TOML", "INI"
-        }
-        
-        web_languages = {
-            "HTML", "CSS", "SCSS", "SASS", "Less"
-        }
-        
-        script_languages = {
-            "Shell", "Batch", "PowerShell", "Dockerfile"
-        }
+        # Get technology categories from global config
+        primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
+        config_languages = set(tech_config.get("config_languages", ["yaml", "json", "xml", "properties", "toml", "ini"]))
+        web_languages = set(tech_config.get("web_languages", ["html", "css", "scss", "sass", "less"]))
+        script_languages = set(tech_config.get("script_languages", ["bash", "sh", "ps1", "bat", "cmd"]))
         
         # Calculate language percentages
         language_percentages = {}
@@ -3361,7 +3373,7 @@ class GenerateReportNode(Node):
                     relevant_languages.add(language)
         elif gate_name == "AUTOMATED_TESTS":
             # Test-related gates: include all primary languages with lower threshold
-            test_threshold = max(primary_threshold * 0.6, 1.0)  # 60% of primary threshold, minimum 1%
+            test_threshold = max(primary_threshold * config.get("test_threshold_multiplier", 0.8), config.get("min_test_threshold", 5.0))
             for language, percentage in language_percentages.items():
                 if language in primary_languages and percentage >= test_threshold:
                     relevant_languages.add(language)

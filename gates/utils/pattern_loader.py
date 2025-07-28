@@ -56,6 +56,29 @@ class PatternLoader:
         gate_info = self.get_gate_info(gate_name)
         return gate_info.get("weight", 0.0) if gate_info else 0.0
     
+    def get_global_config(self, section: str = None) -> Dict[str, Any]:
+        """Get global configuration values"""
+        global_config = self.pattern_library.get("global_config", {})
+        if section:
+            return global_config.get(section, {})
+        return global_config
+    
+    def get_scoring_config(self) -> Dict[str, Any]:
+        """Get scoring configuration from global config"""
+        return self.get_global_config("scoring")
+    
+    def get_technology_config(self) -> Dict[str, Any]:
+        """Get technology detection configuration from global config"""
+        return self.get_global_config("technology_detection")
+    
+    def get_status_config(self) -> Dict[str, Any]:
+        """Get status determination configuration from global config"""
+        return self.get_global_config("status_determination")
+    
+    def get_ui_config(self) -> Dict[str, Any]:
+        """Get UI configuration from global config"""
+        return self.get_global_config("ui_config")
+    
     def get_gate_patterns(self, gate_name: str, technologies: List[str]) -> List[Dict[str, Any]]:
         """Get patterns for a gate and technology stack with weights"""
         gate_info = self.get_gate_info(gate_name)
@@ -222,25 +245,34 @@ class PatternLoader:
             coverage_ratio = 0.0
         
         # Apply expected coverage adjustment
-        expected_percentage = expected_coverage.get("percentage", 10) / 100.0
-        adjusted_score = coverage_ratio * 100.0
+        coverage_config = self.get_global_config("coverage_analysis")
+        default_coverage = coverage_config.get("default_coverage_percentage", 10.0)
+        excess_bonus_cap = coverage_config.get("excess_bonus_cap", 0.2)
+        max_score = self.get_scoring_config().get("max_score", 100.0)
+        
+        expected_percentage = expected_coverage.get("percentage", default_coverage) / 100.0
+        adjusted_score = coverage_ratio * max_score
         
         # Bonus for exceeding expectations
         if coverage_ratio > expected_percentage:
-            excess_ratio = min((coverage_ratio - expected_percentage) / expected_percentage, 0.2)
+            excess_ratio = min((coverage_ratio - expected_percentage) / expected_percentage, excess_bonus_cap)
             bonus = excess_ratio * 20.0
-            adjusted_score = min(adjusted_score + bonus, 100.0)
+            adjusted_score = min(adjusted_score + bonus, max_score)
         
         return adjusted_score
     
     def _apply_scoring_config(self, base_score: float, scoring_config: Dict[str, Any]) -> float:
         """Apply scoring configuration (bonus/penalty thresholds)"""
-        bonus_threshold = scoring_config.get("bonus_threshold", 0.8)
-        bonus_multiplier = scoring_config.get("bonus_multiplier", 1.1)
-        penalty_threshold = scoring_config.get("penalty_threshold", 0.3)
-        penalty_multiplier = scoring_config.get("penalty_multiplier", 0.8)
+        # Get global scoring config as fallback
+        global_scoring = self.get_scoring_config()
         
-        score_ratio = base_score / 100.0
+        bonus_threshold = scoring_config.get("bonus_threshold", global_scoring.get("default_bonus_threshold", 0.8))
+        bonus_multiplier = scoring_config.get("bonus_multiplier", global_scoring.get("default_bonus_multiplier", 1.1))
+        penalty_threshold = scoring_config.get("penalty_threshold", global_scoring.get("default_penalty_threshold", 0.3))
+        penalty_multiplier = scoring_config.get("penalty_multiplier", global_scoring.get("default_penalty_multiplier", 0.8))
+        max_score = global_scoring.get("max_score", 100.0)
+        
+        score_ratio = base_score / max_score
         
         if score_ratio >= bonus_threshold:
             # Apply bonus
@@ -252,7 +284,7 @@ class PatternLoader:
             # No adjustment
             final_score = base_score
         
-        return min(final_score, 100.0)
+        return min(final_score, max_score)
     
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
         """Determine primary technologies from metadata"""
@@ -267,11 +299,11 @@ class PatternLoader:
         if total_files == 0:
             return []
         
-        # Define technology relevance mapping
-        primary_languages = {
-            "Java", "Python", "JavaScript", "TypeScript", "C#", "C++", "C", 
-            "Go", "Rust", "Kotlin", "Scala", "Swift", "PHP", "Ruby"
-        }
+        # Get technology config from global config
+        tech_config = self.get_technology_config()
+        primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
+        primary_threshold = tech_config.get("primary_language_threshold", 20.0)
+        secondary_threshold = tech_config.get("secondary_language_threshold", 10.0)
         
         primary_technologies = []
         
@@ -280,7 +312,7 @@ class PatternLoader:
             file_count = stats.get("files", 0)
             percentage = (file_count / total_files) * 100
             
-            if language in primary_languages and percentage >= 20.0:
+            if language in primary_languages and percentage >= primary_threshold:
                 primary_technologies.append(language)
         
         # If no primary technology found, take the most dominant
@@ -292,7 +324,7 @@ class PatternLoader:
                 if language in primary_languages:
                     file_count = stats.get("files", 0)
                     percentage = (file_count / total_files) * 100
-                    if percentage > max_percentage and percentage >= 10.0:
+                    if percentage > max_percentage and percentage >= secondary_threshold:
                         max_percentage = percentage
                         dominant_primary = language
             
