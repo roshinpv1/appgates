@@ -1,8 +1,8 @@
 {
   "name": "codegates",
   "displayName": "CodeGates - Hard Gate Validator",
-  "description": "API-driven code quality analysis with enhanced pattern details, coverage analysis, and gate applicability",
-  "version": "2.1.0",
+  "description": "API-driven code quality analysis with enhanced pattern library, auto-scaling validation, and comprehensive gate assessment",
+  "version": "2.2.0",
   "publisher": "codegates",
   "repository": {
     "type": "git",
@@ -26,7 +26,11 @@
     "remote analysis",
     "pattern matching",
     "coverage analysis",
-    "gate applicability"
+    "gate applicability",
+    "auto scaling",
+    "kubernetes",
+    "docker",
+    "infrastructure validation"
   ],
   "activationEvents": [
     "onCommand:codegates.assess"
@@ -109,6 +113,27 @@
           "description": "Default quality threshold (from global config)",
           "minimum": 0,
           "maximum": 100
+        },
+        "codegates.enableEnhancedPatternLibrary": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable enhanced pattern library with criteria-based evaluation and comprehensive patterns"
+        },
+        "codegates.enableAutoScalingValidation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable auto-scaling validation including Kubernetes, Docker, and cloud provider patterns"
+        },
+        "codegates.enhancedEvaluationMode": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "enhanced", "legacy"],
+          "description": "Evaluation mode: auto (use enhanced if available), enhanced (force enhanced), legacy (use legacy system)"
+        },
+        "codegates.includeInfrastructureValidation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include infrastructure validation patterns (Kubernetes, Docker, cloud providers)"
         }
       }
     }

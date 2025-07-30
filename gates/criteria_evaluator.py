@@ -59,21 +59,28 @@ class CriteriaEvaluator:
                 max_possible_matches=0
             )
         
+        print(f"   🔍 Evaluating {len(conditions)} conditions with {operator} logic...")
+        
         # Evaluate each condition
         condition_results = []
         all_matches = []
         total_weight = 0.0
         max_possible_matches = 0
         
-        for condition in conditions:
+        for i, condition in enumerate(conditions):
+            print(f"   📋 Evaluating condition {i+1}/{len(conditions)}: {condition.get('name', 'unknown')}")
             condition_result = self._evaluate_condition(condition)
             condition_results.append(condition_result)
             all_matches.extend(condition_result.matches)
             total_weight += condition_result.weight
             max_possible_matches += condition_result.max_possible_matches
+            
+            print(f"   ✅ Condition {i+1} result: {'PASS' if condition_result.passed else 'FAIL'} ({len(condition_result.matches)} matches)")
         
         # Apply logic operator
         passed = self._apply_logic_operator(operator, condition_results)
+        
+        print(f"   🎯 Overall criteria result: {'PASS' if passed else 'FAIL'} ({len(all_matches)} total matches)")
         
         return CriteriaResult(
             passed=passed,
@@ -203,8 +210,15 @@ class CriteriaEvaluator:
         """Find pattern matches in files"""
         
         matches = []
+        processed_files = 0
+        max_files_to_process = 1000  # Limit to prevent hanging
         
         for file_path in self.codebase_files:
+            # Limit processing to prevent hanging
+            if processed_files >= max_files_to_process:
+                print(f"   ⚠️ Reached file limit ({max_files_to_process}), stopping pattern search")
+                break
+            
             # Apply file context filter
             if file_context and not self._matches_file_context(file_path, file_context):
                 continue
@@ -218,22 +232,42 @@ class CriteriaEvaluator:
             if not file_content:
                 continue
             
-            # Find all matches in the file
-            pattern_matches = re.finditer(pattern, file_content, re.MULTILINE)
-            
-            for match in pattern_matches:
-                line_number = file_content[:match.start()].count('\n') + 1
-                context = self._extract_context(file_content, match.start(), match.end())
+            try:
+                # Find all matches in the file
+                pattern_matches = re.finditer(pattern, file_content, re.MULTILINE)
                 
-                matches.append(PatternMatch(
-                    file=file_path,
-                    pattern=pattern,
-                    weight=weight,
-                    type="pattern",
-                    line_number=line_number,
-                    context=context
-                ))
+                for match in pattern_matches:
+                    line_number = file_content[:match.start()].count('\n') + 1
+                    context = self._extract_context(file_content, match.start(), match.end())
+                    
+                    matches.append(PatternMatch(
+                        file=file_path,
+                        pattern=pattern,
+                        weight=weight,
+                        type="pattern",
+                        line_number=line_number,
+                        context=context
+                    ))
+                    
+                    # Limit matches per file to prevent excessive results
+                    if len(matches) >= 100:
+                        print(f"   ⚠️ Reached match limit (100) for pattern '{pattern}', stopping")
+                        break
+                
+                processed_files += 1
+                
+                # Progress logging every 100 files
+                if processed_files % 100 == 0:
+                    print(f"   📊 Processed {processed_files} files, found {len(matches)} matches")
+                    
+            except re.error as e:
+                print(f"   ⚠️ Invalid regex pattern '{pattern}': {e}")
+                continue
+            except Exception as e:
+                print(f"   ⚠️ Error processing file {file_path}: {e}")
+                continue
         
+        print(f"   ✅ Pattern '{pattern}' evaluation complete: {len(matches)} matches in {processed_files} files")
         return matches
     
     def _matches_file_context(self, file_path: str, file_context: str) -> bool:

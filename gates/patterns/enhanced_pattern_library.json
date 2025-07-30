@@ -591,6 +591,652 @@
           }
         ]
       }
+    },
+    "ALERTING_ACTIONABLE": {
+      "display_name": "Alerting Actionable",
+      "description": "Ensure alerting is actionable and meaningful",
+      "category": "Monitoring",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "Alerting should be implemented in monitoring and operational files",
+        "confidence": "Medium",
+        "max_files_expected": 30
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "alerting_config",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "alert.*threshold", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "monitoring.*alert", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "prometheus.*alert", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "grafana.*alert", "weight": 3.0, "file_context": "config_files"}
+            ]
+          },
+          {
+            "name": "alerting_implementation",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "sendAlert", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "notifyAlert", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "triggerAlert", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "AUDIT_TRAIL": {
+      "display_name": "Audit Trail",
+      "description": "Ensure audit trail logging is implemented",
+      "category": "Security",
+      "priority": "High",
+      "weight": 14.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Audit trail should be implemented in security-critical operations",
+        "confidence": "High",
+        "max_files_expected": 40
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 75.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "audit_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "audit.*log", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "auditTrail", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "audit.*event", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "security.*audit", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "audit_framework",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "import.*audit", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "audit.*framework", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "CORRELATION_ID": {
+      "display_name": "Correlation ID",
+      "description": "Ensure correlation IDs are used for request tracing",
+      "category": "Observability",
+      "priority": "Medium",
+      "weight": 10.0,
+      "expected_coverage": {
+        "percentage": 30,
+        "reasoning": "Correlation IDs should be used in API and service calls",
+        "confidence": "Medium",
+        "max_files_expected": 60
+      },
+      "scoring": {
+        "pass_threshold": 20.0,
+        "perfect_threshold": 80.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "correlation_id_usage",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "correlation.*id", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "request.*id", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "trace.*id", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "x-.*-id", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "tracing_framework",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "import.*tracing", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "trace.*span", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "LOG_API_CALLS": {
+      "display_name": "Log API Calls",
+      "description": "Ensure API calls are logged",
+      "category": "Logging",
+      "priority": "Medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "API calls should be logged in service and controller files",
+        "confidence": "Medium",
+        "max_files_expected": 50
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "api_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "log.*api", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "log.*request", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "log.*endpoint", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "log.*http", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "api_interceptor",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "interceptor.*api", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "filter.*api", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "LOG_APPLICATION_MESSAGES": {
+      "display_name": "Log Application Messages",
+      "description": "Ensure application messages are logged",
+      "category": "Logging",
+      "priority": "Medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 40,
+        "reasoning": "Application messages should be logged throughout the codebase",
+        "confidence": "High",
+        "max_files_expected": 80
+      },
+      "scoring": {
+        "pass_threshold": 25.0,
+        "perfect_threshold": 75.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "application_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "log.*message", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "logger.*info", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "logging.*info", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "console.*log", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "business_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "log.*business", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "log.*event", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "UI_ERRORS": {
+      "display_name": "UI Error Handling",
+      "description": "Ensure UI errors are properly handled",
+      "category": "Frontend",
+      "priority": "Medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "UI error handling should be implemented in frontend files",
+        "confidence": "Medium",
+        "max_files_expected": 40
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "ui_error_handling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "catch.*error", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "error.*boundary", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "try.*catch", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "onError", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "error_display",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "error.*message", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "show.*error", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "RETRY_LOGIC": {
+      "display_name": "Retry Logic",
+      "description": "Ensure retry logic is implemented for external calls",
+      "category": "Resilience",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "Retry logic should be implemented for external service calls",
+        "confidence": "Medium",
+        "max_files_expected": 30
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "retry_implementation",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "retry.*logic", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "retry.*attempt", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "retry.*policy", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "retry.*mechanism", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "retry_framework",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "import.*retry", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "retry.*library", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "TIMEOUTS": {
+      "display_name": "Timeouts",
+      "description": "Ensure timeouts are set on external calls",
+      "category": "Resilience",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Timeouts should be set on external service calls",
+        "confidence": "Medium",
+        "max_files_expected": 40
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "timeout_config",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "timeout.*ms", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "timeout.*seconds", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "timeout.*config", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "timeout.*setting", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "timeout_usage",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "setTimeout", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "timeout.*parameter", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "THROTTLING": {
+      "display_name": "Throttling",
+      "description": "Ensure throttling is implemented",
+      "category": "Performance",
+      "priority": "Medium",
+      "weight": 10.0,
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Throttling should be implemented in API and service layers",
+        "confidence": "Medium",
+        "max_files_expected": 20
+      },
+      "scoring": {
+        "pass_threshold": 10.0,
+        "perfect_threshold": 60.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "throttling_implementation",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "throttle.*request", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "rate.*limit", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "throttling.*config", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "throttle.*api", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "throttling_framework",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "import.*throttle", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "throttle.*library", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "CIRCUIT_BREAKERS": {
+      "display_name": "Circuit Breakers",
+      "description": "Ensure circuit breakers are implemented",
+      "category": "Resilience",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "Circuit breakers should be implemented for external service calls",
+        "confidence": "Medium",
+        "max_files_expected": 20
+      },
+      "scoring": {
+        "pass_threshold": 10.0,
+        "perfect_threshold": 60.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "circuit_breaker_implementation",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "circuit.*breaker", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "circuitBreaker", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "hystrix", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "resilience4j", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "circuit_breaker_config",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "circuit.*config", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "breaker.*config", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "ERROR_LOGS": {
+      "display_name": "Error Logs",
+      "description": "Ensure error logging is implemented",
+      "category": "Logging",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 35,
+        "reasoning": "Error logging should be implemented throughout the application",
+        "confidence": "High",
+        "max_files_expected": 70
+      },
+      "scoring": {
+        "pass_threshold": 25.0,
+        "perfect_threshold": 75.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "error_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "log.*error", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "logger.*error", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "logging.*error", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "console.*error", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "exception_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "log.*exception", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "catch.*log", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "HTTP_CODES": {
+      "display_name": "HTTP Status Codes",
+      "description": "Ensure proper HTTP status codes are used",
+      "category": "API",
+      "priority": "Medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "HTTP status codes should be used in API endpoints",
+        "confidence": "Medium",
+        "max_files_expected": 50
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "http_status_codes",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "HttpStatus", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "ResponseEntity", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "status.*code", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "res\\.status", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "status_code_usage",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "200|201|400|401|403|404|500", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "OK|CREATED|BAD_REQUEST|UNAUTHORIZED|FORBIDDEN|NOT_FOUND|INTERNAL_SERVER_ERROR", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "UI_ERROR_TOOLS": {
+      "display_name": "UI Error Tools",
+      "description": "Ensure UI error tracking tools are integrated",
+      "category": "Frontend",
+      "priority": "Medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "UI error tracking tools should be integrated in frontend applications",
+        "confidence": "Medium",
+        "max_files_expected": 20
+      },
+      "scoring": {
+        "pass_threshold": 10.0,
+        "perfect_threshold": 60.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "error_tracking_tools",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "sentry", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "rollbar", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "bugsnag", "weight": 3.0, "file_context": "source_files"},
+              {"pattern": "logrocket", "weight": 3.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "error_monitoring",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "error.*tracking", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "error.*monitoring", "weight": 2.0, "file_context": "source_files"}
+            ]
+          }
+        ]
+      }
+    },
+    "AUTOMATED_TESTS": {
+      "display_name": "Automated Tests",
+      "description": "Ensure automated tests are implemented",
+      "category": "Testing",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Automated tests should be implemented for the codebase",
+        "confidence": "Medium",
+        "max_files_expected": 40
+      },
+      "scoring": {
+        "pass_threshold": 15.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "test_files",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "test.*\\.js", "weight": 3.0, "file_context": "test_files"},
+              {"pattern": "test.*\\.py", "weight": 3.0, "file_context": "test_files"},
+              {"pattern": "test.*\\.java", "weight": 3.0, "file_context": "test_files"},
+              {"pattern": "spec.*\\.js", "weight": 3.0, "file_context": "test_files"}
+            ]
+          },
+          {
+            "name": "test_framework",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "import.*test", "weight": 2.0, "file_context": "test_files"},
+              {"pattern": "describe.*test", "weight": 2.0, "file_context": "test_files"},
+              {"pattern": "@Test", "weight": 2.0, "file_context": "test_files"}
+            ]
+          }
+        ]
+      }
     }
   },
   "global_config": {

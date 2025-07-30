@@ -23,14 +23,12 @@ try:
     from .utils.file_scanner import scan_directory
     from .utils.hard_gates import HARD_GATES
     from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
-    from .utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
     from .utils.gate_applicability import gate_applicability_analyzer
 except ImportError:
     from utils.git_operations import clone_repository, cleanup_repository
     from utils.file_scanner import scan_directory
     from utils.hard_gates import HARD_GATES
     from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
-    from utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
     from utils.gate_applicability import gate_applicability_analyzer
 
 
@@ -81,7 +79,7 @@ class EnhancedValidateGatesNode(Node):
                 print(f"      - {gate['name']} ({gate['category']}): {gate['reason']}")
         
         # Check if enhanced pattern library exists
-        enhanced_pattern_library_path = Path("gates/patterns/enhanced_pattern_library.json")
+        enhanced_pattern_library_path = Path("patterns/enhanced_pattern_library.json")
         use_enhanced_evaluation = enhanced_pattern_library_path.exists()
         
         if use_enhanced_evaluation:
@@ -124,7 +122,7 @@ class EnhancedValidateGatesNode(Node):
         
         # Load enhanced pattern library
         try:
-            with open("gates/patterns/enhanced_pattern_library.json", "r") as f:
+            with open("patterns/enhanced_pattern_library.json", "r") as f:
                 enhanced_pattern_library = json.load(f)
         except FileNotFoundError:
             print("   ❌ Enhanced pattern library not found, falling back to legacy system")
@@ -143,30 +141,41 @@ class EnhancedValidateGatesNode(Node):
         legacy_gates = params["hard_gates"]
         gate_results = []
         
-        for legacy_gate in legacy_gates:
+        print(f"   🎯 Starting enhanced evaluation of {len(legacy_gates)} gates...")
+        
+        for i, legacy_gate in enumerate(legacy_gates):
             gate_name = legacy_gate["name"]
             
             # Check if enhanced gate exists
             if gate_name in enhanced_gates:
-                print(f"   🔍 Evaluating {gate_name} with enhanced criteria-based system...")
+                print(f"   🔍 Evaluating {gate_name} with enhanced criteria-based system... ({i+1}/{len(legacy_gates)})")
                 enhanced_gate_config = enhanced_gates[gate_name]
                 
-                # Evaluate using enhanced system
-                enhanced_result = evaluator.evaluate_gate(gate_name, enhanced_gate_config)
-                
-                # Convert enhanced result to legacy format for compatibility
-                legacy_result = self._convert_enhanced_result_to_legacy_format(
-                    enhanced_result, legacy_gate, metadata
-                )
-                
-                gate_results.append(legacy_result)
+                try:
+                    # Evaluate using enhanced system
+                    enhanced_result = evaluator.evaluate_gate(gate_name, enhanced_gate_config)
+                    
+                    # Convert enhanced result to legacy format for compatibility
+                    legacy_result = self._convert_enhanced_result_to_legacy_format(
+                        enhanced_result, legacy_gate, metadata
+                    )
+                    
+                    gate_results.append(legacy_result)
+                    print(f"   ✅ {gate_name} evaluation complete: {legacy_result.get('status', 'UNKNOWN')} ({legacy_result.get('score', 0):.1f}%)")
+                    
+                except Exception as e:
+                    print(f"   ❌ Error evaluating {gate_name}: {e}")
+                    # Fall back to legacy evaluation for this gate
+                    legacy_result = self._evaluate_single_gate_legacy(legacy_gate, params)
+                    gate_results.append(legacy_result)
                 
             else:
-                print(f"   ⚠️ Enhanced config not found for {gate_name}, using legacy evaluation...")
+                print(f"   ⚠️ Enhanced config not found for {gate_name}, using legacy evaluation... ({i+1}/{len(legacy_gates)})")
                 # Fall back to legacy evaluation for this gate
                 legacy_result = self._evaluate_single_gate_legacy(legacy_gate, params)
                 gate_results.append(legacy_result)
         
+        print(f"   🎉 Enhanced evaluation complete: {len(gate_results)} gates processed")
         return gate_results
     
     def _evaluate_with_legacy_system(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -232,22 +241,55 @@ class EnhancedValidateGatesNode(Node):
         codebase_files = []
         file_contents = {}
         
-        # Get all files from metadata
-        for file_info in metadata.get("files", []):
-            file_path = file_info.get("path", "")
-            if file_path:
-                # Convert to relative path
-                relative_path = os.path.relpath(file_path, repo_path)
-                codebase_files.append(relative_path)
+        # Get all files from metadata - handle different metadata structures
+        files_info = metadata.get("file_list", [])  # Changed from "files" to "file_list"
+        
+        if not files_info:
+            # If no files in metadata, scan the repository directly
+            print("   ⚠️ No files in metadata, scanning repository directly...")
+            for file_path in repo_path.rglob("*"):
+                if file_path.is_file() and not file_path.name.startswith('.'):
+                    try:
+                        relative_path = str(file_path.relative_to(repo_path))
+                        codebase_files.append(relative_path)
+                        
+                        # Read file content
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                            file_contents[relative_path] = content
+                    except Exception as e:
+                        print(f"   ⚠️ Could not read {file_path}: {e}")
+        else:
+            # Process files from metadata
+            for file_info in files_info:
+                if isinstance(file_info, dict):
+                    file_path = file_info.get("path", "")
+                    relative_path = file_info.get("relative_path", "")
+                else:
+                    file_path = str(file_info)
+                    relative_path = ""
                 
-                # Read file content
-                try:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                        file_contents[relative_path] = content
-                except Exception as e:
-                    print(f"   ⚠️ Could not read {relative_path}: {e}")
-                    file_contents[relative_path] = ""
+                if file_path:
+                    # Convert to relative path
+                    try:
+                        if os.path.isabs(file_path):
+                            relative_path = os.path.relpath(file_path, repo_path)
+                        elif not relative_path:
+                            relative_path = file_path
+                        
+                        codebase_files.append(relative_path)
+                        
+                        # Read file content
+                        full_path = repo_path / relative_path
+                        if full_path.exists():
+                            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                content = f.read()
+                                file_contents[relative_path] = content
+                        else:
+                            file_contents[relative_path] = ""
+                    except Exception as e:
+                        print(f"   ⚠️ Could not read {relative_path}: {e}")
+                        file_contents[relative_path] = ""
         
         print(f"   📊 Prepared {len(codebase_files)} files for enhanced evaluation")
         return codebase_files, file_contents

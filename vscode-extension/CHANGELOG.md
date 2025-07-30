@@ -2,6 +2,53 @@
 
 All notable changes to the CodeGates VS Code extension will be documented in this file.
 
+## [2.2.0] - 2024-01-XX
+
+### Added
+- **Enhanced Pattern Library Integration**: Added support for the new enhanced pattern library with:
+  - Criteria-based evaluation system
+  - Comprehensive pattern matching with weights
+  - Technology-specific pattern detection
+  - File context filtering (config files, source files, test files)
+  - AND/OR/NOT logic support for complex pattern matching
+- **Auto-Scaling Validation (Gate 3.18)**: Added comprehensive auto-scaling validation including:
+  - Kubernetes HorizontalPodAutoscaler patterns
+  - Docker Compose scaling configurations
+  - Cloud provider auto-scaling groups (AWS, Azure, GCP)
+  - Application-level scaling patterns
+  - Monitoring and metrics patterns for scaling
+- **Infrastructure Validation**: Enhanced infrastructure validation with:
+  - Kubernetes deployment patterns
+  - Docker containerization patterns
+  - Cloud provider infrastructure patterns
+  - Load balancer and scaling configurations
+- **Enhanced Configuration Options**:
+  - `codegates.enableEnhancedPatternLibrary`: Enable enhanced pattern library
+  - `codegates.enableAutoScalingValidation`: Enable auto-scaling validation
+  - `codegates.enhancedEvaluationMode`: Control evaluation mode (auto/enhanced/legacy)
+  - `codegates.includeInfrastructureValidation`: Include infrastructure patterns
+- **Improved Pattern Detection**: Enhanced pattern matching with:
+  - Weighted pattern scoring
+  - Technology-specific pattern recognition
+  - File context-aware pattern matching
+  - Multi-level criteria evaluation
+- **Enhanced Report Features**: Improved reporting with:
+  - Auto-scaling gate results and recommendations
+  - Infrastructure validation details
+  - Enhanced pattern library integration status
+  - Comprehensive coverage analysis for new gates
+
+### Improved
+- **Pattern Library Integration**: Seamless integration with enhanced pattern library
+- **Evaluation System**: Improved criteria-based evaluation with better accuracy
+- **Infrastructure Support**: Enhanced support for infrastructure and DevOps patterns
+- **Configuration Management**: More granular control over validation features
+
+### Fixed
+- **Enhanced Pattern Library Detection**: Fixed issues with enhanced pattern library not being detected
+- **Auto-Scaling Gate Display**: Corrected display of auto-scaling gate in reports
+- **Pattern Matching Accuracy**: Improved accuracy of infrastructure pattern detection
+
 ## [2.1.0] - 2024-01-XX
 
 ### Added

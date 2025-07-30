@@ -75,10 +75,10 @@ class ScanRequest(BaseModel):
         # Set default threshold from global config if not provided
         if self.threshold is None:
             try:
-                from utils.pattern_loader import get_pattern_loader
-                pattern_loader = get_pattern_loader()
-                ui_config = pattern_loader.get_ui_config()
-                self.threshold = ui_config.get("default_threshold", 70)
+                # Only keep enhanced pattern library logic
+                # Remove fallback/legacy pattern loader logic
+                # Remove lines: 77, 78, 79
+                pass # No pattern loader to get UI config
             except Exception:
                 self.threshold = 70  # Fallback to hardcoded value
 
@@ -274,6 +274,7 @@ async def get_html_report(scan_id: str):
     """
     import glob
     from pathlib import Path
+    
     # Try in-memory first
     if scan_id in scan_results:
         result = scan_results[scan_id]
@@ -282,15 +283,37 @@ async def get_html_report(scan_id: str):
             with open(html_path, 'r', encoding='utf-8') as f:
                 html_content = f.read()
             return HTMLResponse(content=html_content)
-    # Fallback: look for file on disk
-    report_dir = os.path.join(REPORTS_DIR, scan_id)
-    pattern = os.path.join(report_dir, f"codegates_report_{scan_id}.html")
-    matches = glob.glob(pattern)
-    if matches:
-        html_path = matches[0]
-        with open(html_path, 'r', encoding='utf-8') as f:
+    
+    # Look for report in main reports directory first
+    pattern1 = os.path.join(REPORTS_DIR, f"codegates_report_{scan_id}.html")
+    if os.path.exists(pattern1):
+        with open(pattern1, 'r', encoding='utf-8') as f:
             html_content = f.read()
         return HTMLResponse(content=html_content)
+    
+    # Fallback: look for file in scan-specific subdirectory
+    report_dir = os.path.join(REPORTS_DIR, scan_id)
+    pattern2 = os.path.join(report_dir, f"codegates_report_{scan_id}.html")
+    if os.path.exists(pattern2):
+        with open(pattern2, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    
+    # Final fallback: use glob to find any matching file
+    patterns = [
+        os.path.join(REPORTS_DIR, f"*{scan_id}*.html"),
+        os.path.join(REPORTS_DIR, scan_id, "*.html"),
+        os.path.join(REPORTS_DIR, "**", f"*{scan_id}*.html")
+    ]
+    
+    for pattern in patterns:
+        matches = glob.glob(pattern, recursive=True)
+        if matches:
+            html_path = matches[0]
+            with open(html_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            return HTMLResponse(content=html_content)
+    
     raise HTTPException(status_code=404, detail="HTML report not found")
 
 
@@ -301,6 +324,7 @@ async def get_json_report(scan_id: str):
     """
     import glob
     from pathlib import Path
+    
     # Try in-memory first
     if scan_id in scan_results:
         result = scan_results[scan_id]
@@ -310,16 +334,40 @@ async def get_json_report(scan_id: str):
             with open(json_path, 'r', encoding='utf-8') as f:
                 json_data = json.load(f)
             return JSONResponse(content=json_data)
-    # Fallback: look for file on disk
-    report_dir = os.path.join(REPORTS_DIR, scan_id)
-    pattern = os.path.join(report_dir, f"codegates_report_{scan_id}.json")
-    matches = glob.glob(pattern)
-    if matches:
-        json_path = matches[0]
+    
+    # Look for report in main reports directory first
+    pattern1 = os.path.join(REPORTS_DIR, f"codegates_report_{scan_id}.json")
+    if os.path.exists(pattern1):
         import json
-        with open(json_path, 'r', encoding='utf-8') as f:
+        with open(pattern1, 'r', encoding='utf-8') as f:
             json_data = json.load(f)
         return JSONResponse(content=json_data)
+    
+    # Fallback: look for file in scan-specific subdirectory
+    report_dir = os.path.join(REPORTS_DIR, scan_id)
+    pattern2 = os.path.join(report_dir, f"codegates_report_{scan_id}.json")
+    if os.path.exists(pattern2):
+        import json
+        with open(pattern2, 'r', encoding='utf-8') as f:
+            json_data = json.load(f)
+        return JSONResponse(content=json_data)
+    
+    # Final fallback: use glob to find any matching file
+    patterns = [
+        os.path.join(REPORTS_DIR, f"*{scan_id}*.json"),
+        os.path.join(REPORTS_DIR, scan_id, "*.json"),
+        os.path.join(REPORTS_DIR, "**", f"*{scan_id}*.json")
+    ]
+    
+    for pattern in patterns:
+        matches = glob.glob(pattern, recursive=True)
+        if matches:
+            json_path = matches[0]
+            import json
+            with open(json_path, 'r', encoding='utf-8') as f:
+                json_data = json.load(f)
+            return JSONResponse(content=json_data)
+    
     raise HTTPException(status_code=404, detail="JSON report not found")
 
 

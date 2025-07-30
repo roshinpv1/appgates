@@ -2,7 +2,7 @@
 
 🛡️ **Real-time hard gate validation and code quality analysis for production-ready development**
 
-The CodeGates VS Code extension brings the power of enterprise-grade hard gate validation directly into your editor, providing real-time feedback on code quality, security, and production readiness.
+The CodeGates VS Code extension brings the power of enterprise-grade hard gate validation directly into your editor, providing real-time feedback on code quality, security, and production readiness with enhanced pattern library support and comprehensive infrastructure validation.
 
 ## ✨ Features
 
@@ -11,6 +11,20 @@ The CodeGates VS Code extension brings the power of enterprise-grade hard gate v
 - **File-Level Scanning**: Quick validation of individual files
 - **Auto-Scan on Save**: Optional automatic scanning when files are modified
 - **Live Diagnostics**: Inline warnings and errors in the editor
+
+### 🧠 **Enhanced Pattern Library**
+- **Criteria-Based Evaluation**: Advanced pattern matching with AND/OR/NOT logic
+- **Technology-Specific Patterns**: Language-aware pattern detection
+- **File Context Filtering**: Config files, source files, and test files
+- **Weighted Pattern Scoring**: Intelligent pattern matching with confidence levels
+- **Multi-Level Criteria**: Complex validation rules with nested conditions
+
+### 🏗️ **Infrastructure Validation**
+- **Auto-Scaling Validation (Gate 3.18)**: Comprehensive infrastructure scaling analysis
+- **Kubernetes Patterns**: HorizontalPodAutoscaler, replica configurations
+- **Docker Support**: Docker Compose scaling and containerization patterns
+- **Cloud Provider Integration**: AWS, Azure, GCP auto-scaling group detection
+- **Load Balancer Validation**: Infrastructure load balancing patterns
 
 ### 🤖 **LLM-Enhanced Analysis**
 - **AI-Powered Insights**: Leverage OpenAI, Anthropic, Gemini, or local models
@@ -23,7 +37,7 @@ The CodeGates VS Code extension brings the power of enterprise-grade hard gate v
 - **Overview Dashboard**: Visual summary of gate validation results
 - **Issues Tree**: Hierarchical view of problems by gate and severity
 - **Recommendations Panel**: Actionable improvement suggestions
-- **Hard Gates Reference**: Interactive guide to all 15 validation gates
+- **Hard Gates Reference**: Interactive guide to all validation gates including new auto-scaling gate
 
 ### ⚙️ **Flexible Configuration**
 - **Customizable Thresholds**: Set quality standards for your team
@@ -98,6 +112,17 @@ The CodeGates VS Code extension brings the power of enterprise-grade hard gate v
 }
 ```
 
+### Enhanced Pattern Library Settings
+
+```json
+{
+  "codegates.enableEnhancedPatternLibrary": true,
+  "codegates.enableAutoScalingValidation": true,
+  "codegates.enhancedEvaluationMode": "auto",
+  "codegates.includeInfrastructureValidation": true
+}
+```
+
 ### LLM Configuration
 
 ```json
@@ -121,25 +146,25 @@ The CodeGates VS Code extension brings the power of enterprise-grade hard gate v
 
 ## 🛡️ Hard Gates Overview
 
-The extension validates 15 production-critical hard gates:
+The extension validates production-critical hard gates including the new Auto-Scaling validation:
 
-| Gate | Weight | Description |
-|------|--------|-------------|
-| **Structured Logs** | 2.0 | JSON-formatted logging with consistent fields |
-| **Avoid Logging Secrets** | 2.0 | Prevents sensitive data in log files |
-| **Audit Trail** | 1.8 | Tracks critical business operations |
-| **Error Logs** | 1.8 | Comprehensive exception handling |
-| **Circuit Breakers** | 1.7 | Fault tolerance for external services |
-| **Timeouts** | 1.6 | Prevents hanging operations |
-| **UI Errors** | 1.5 | User-friendly error handling |
-| **Correlation ID** | 1.5 | Request tracing across services |
-| **Automated Tests** | 1.5 | Test coverage and quality |
-| **UI Error Tools** | 1.4 | Error monitoring integration |
-| **Retry Logic** | 1.4 | Resilient failure handling |
-| **API Logs** | 1.3 | Endpoint access logging |
-| **Throttling** | 1.3 | Rate limiting implementation |
-| **Background Jobs** | 1.2 | Async task monitoring |
-| **HTTP Codes** | 1.2 | Proper status code usage |
+| Gate | Number | Weight | Description |
+|------|--------|--------|-------------|
+| **Structured Logs** | 1.8 | 2.0 | JSON-formatted logging with consistent fields |
+| **Avoid Logging Secrets** | 1.10 | 2.0 | Prevents sensitive data in log files |
+| **Audit Trail** | 1.3 | 1.8 | Tracks critical business operations |
+| **Error Logs** | 1.1 | 1.8 | Comprehensive exception handling |
+| **Circuit Breakers** | 3.9 | 1.7 | Fault tolerance for external services |
+| **Timeouts** | 1.5 | 1.6 | Prevents hanging operations |
+| **UI Errors** | 2.7 | 1.5 | User-friendly error handling |
+| **Correlation ID** | 1.5 | 1.5 | Request tracing across services |
+| **Automated Tests** | 2.0 | 1.5 | Test coverage and quality |
+| **UI Error Tools** | 2.4 | 1.4 | Error monitoring integration |
+| **Retry Logic** | 1.12 | 1.4 | Resilient failure handling |
+| **API Logs** | 1.6 | 1.3 | Endpoint access logging |
+| **Throttling** | 3.6 | 1.3 | Rate limiting implementation |
+| **Auto Scale** | 3.18 | 1.5 | Infrastructure auto-scaling validation |
+| **HTTP Codes** | 1.3 | 1.2 | Proper status code usage |
 
 ## 🔧 Advanced Usage
 
