@@ -3141,133 +3141,142 @@ class GenerateReportNode(Node):
             border: 1px solid #e5e7eb;
         }
         
+        /* New Metric Box Styles */
+        .gate-metrics {
+            margin: 16px 0;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .metric-box {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.2s ease;
+        }
+        
+        .metric-box:hover {
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+        
         .metric-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
             color: #6b7280;
-            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             margin-bottom: 4px;
         }
         
         .metric-value {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 700;
             color: #1f2937;
-            font-weight: 500;
-            font-size: 1.1em;
         }
         
-        .details-section {
-            margin-top: 16px;
+        .metric-value.score-pass { color: #059669; }
+        .metric-value.score-warning { color: #d97706; }
+        .metric-value.score-fail { color: #dc2626; }
+        .metric-value.status-pass { color: #059669; }
+        .metric-value.status-warning { color: #d97706; }
+        .metric-value.status-fail { color: #dc2626; }
+        .metric-value.status-not_applicable { color: #6b7280; }
+        
+        /* Enhanced Metrics Section */
+        .enhanced-metrics {
+            margin-top: 20px;
             padding-top: 16px;
             border-top: 1px solid #e5e7eb;
         }
         
-        .details-section-title {
-            color: #1f2937;
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-        
-        /* Enhanced metrics styles */
-        .enhanced-metrics {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-            color: white;
-        }
-        
         .enhanced-metrics h4 {
-            margin: 0 0 10px 0;
-            color: white;
-            font-size: 14px;
+            font-size: 1rem;
             font-weight: 600;
+            color: #374151;
+            margin-bottom: 12px;
         }
         
-        .enhanced-metrics h5 {
-            margin: 10px 0 5px 0;
-            color: white;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
+        /* Condition Results */
         .condition-results {
-            margin-top: 10px;
+            margin-top: 16px;
+        }
+        
+        .condition-results h5 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
         }
         
         .condition-list {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 8px;
         }
         
         .condition-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.875rem;
+        }
+        
+        .condition-item.condition-pass {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+        
+        .condition-item.condition-fail {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        
+        .condition-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 11px;
-            padding: 3px 0;
+            margin-bottom: 4px;
         }
         
-        .condition-status {
-            font-size: 12px;
+        .condition-icon {
+            font-size: 0.75rem;
         }
         
         .condition-name {
             font-weight: 600;
-            color: #f0f0f0;
+            color: #374151;
         }
         
         .condition-type {
-            color: #d0d0d0;
-            font-style: italic;
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+        
+        .condition-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #6b7280;
         }
         
         .condition-matches {
-            color: #e0e0e0;
+            font-weight: 500;
         }
         
         .condition-weight {
-            color: #d0d0d0;
-            font-size: 10px;
+            font-weight: 500;
         }
-        
-        /* Gate metrics styles */
-        .gate-metrics {
-            background: #f8f9fa;
-            border-radius: 6px;
-            padding: 12px;
-            margin: 10px 0;
-        }
-        
-        .metric-row {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 8px;
-        }
-        
-        .metric-row:last-child {
-            margin-bottom: 0;
-        }
-        
-        .metric {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .metric-label {
-            font-weight: 600;
-            color: #495057;
-            font-size: 12px;
-        }
-        
-        .metric-value {
-            font-weight: 700;
-            font-size: 12px;
-        }
-        
-        .score-pass { color: #28a745; }
-        .score-fail { color: #dc3545; }
-        .status-pass { color: #28a745; }
-        .status-fail { color: #dc3545; }
         """
     
     def _transform_gates_for_template(self, gate_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -4045,7 +4054,7 @@ class GenerateReportNode(Node):
         return "\n".join(html_parts)
     
     def _generate_gate_metrics_html(self, gate: Dict[str, Any]) -> str:
-        """Generate metrics HTML for a gate"""
+        """Generate metrics HTML for a gate with simple, elegant boxes"""
         score = gate.get("score", 0.0)
         status = gate.get("status", "FAIL")
         patterns_used = gate.get("patterns_used", 0)
@@ -4059,34 +4068,32 @@ class GenerateReportNode(Node):
         coverage_score = enhanced_data.get("coverage_score", None)
         condition_results = enhanced_data.get("condition_results", [])
         
+        # Core metrics boxes
         metrics_html = f"""
         <div class="gate-metrics">
-            <div class="metric-row">
-                <div class="metric">
-                    <span class="metric-label">Score:</span>
-                    <span class="metric-value score-{status.lower()}">{score:.1f}%</span>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="metric-label">Score</div>
+                    <div class="metric-value score-{status.lower()}">{score:.1f}%</div>
                 </div>
-                <div class="metric">
-                    <span class="metric-label">Status:</span>
-                    <span class="metric-value status-{status.lower()}">{status}</span>
+                <div class="metric-box">
+                    <div class="metric-label">Status</div>
+                    <div class="metric-value status-{status.lower()}">{status}</div>
                 </div>
-            </div>
-            <div class="metric-row">
-                <div class="metric">
-                    <span class="metric-label">Patterns:</span>
-                    <span class="metric-value">{patterns_used}</span>
+                <div class="metric-box">
+                    <div class="metric-label">Patterns</div>
+                    <div class="metric-value">{patterns_used}</div>
                 </div>
-                <div class="metric">
-                    <span class="metric-label">Matches:</span>
-                    <span class="metric-value">{matches_found}</span>
+                <div class="metric-box">
+                    <div class="metric-label">Matches</div>
+                    <div class="metric-value">{matches_found}</div>
                 </div>
-            </div>
-            <div class="metric-row">
-                <div class="metric">
-                    <span class="metric-label">Relevant Files:</span>
-                    <span class="metric-value">{relevant_files}/{total_files}</span>
+                <div class="metric-box">
+                    <div class="metric-label">Relevant Files</div>
+                    <div class="metric-value">{relevant_files}/{total_files}</div>
                 </div>
             </div>
+        </div>
         """
         
         # Add enhanced metrics if available
@@ -4094,22 +4101,22 @@ class GenerateReportNode(Node):
             metrics_html += f"""
             <div class="enhanced-metrics">
                 <h4>Enhanced Evaluation Metrics</h4>
-                <div class="metric-row">
+                <div class="metrics-grid">
             """
             
             if criteria_score is not None:
                 metrics_html += f"""
-                    <div class="metric">
-                        <span class="metric-label">Criteria Score:</span>
-                        <span class="metric-value">{criteria_score:.1f}%</span>
+                    <div class="metric-box">
+                        <div class="metric-label">Criteria Score</div>
+                        <div class="metric-value">{criteria_score:.1f}%</div>
                     </div>
                 """
             
             if coverage_score is not None:
                 metrics_html += f"""
-                    <div class="metric">
-                        <span class="metric-label">Coverage Score:</span>
-                        <span class="metric-value">{coverage_score:.1f}%</span>
+                    <div class="metric-box">
+                        <div class="metric-label">Coverage Score</div>
+                        <div class="metric-value">{coverage_score:.1f}%</div>
                     </div>
                 """
             
@@ -4126,19 +4133,27 @@ class GenerateReportNode(Node):
                 """
                 
                 for condition in condition_results:
-                    condition_status = "✅" if condition.get("passed", False) else "❌"
-                    condition_name = condition.get("name", "Unknown")
-                    condition_type = condition.get("type", "Unknown")
-                    matches_count = condition.get("matches_count", 0)
+                    condition_name = condition.get("name", "unknown")
+                    condition_type = condition.get("type", "pattern")
+                    operator = condition.get("operator", "OR")
+                    passed = condition.get("passed", False)
                     weight = condition.get("weight", 1.0)
+                    matches_count = condition.get("matches_count", 0)
+                    
+                    status_icon = "✅" if passed else "❌"
+                    status_class = "condition-pass" if passed else "condition-fail"
                     
                     metrics_html += f"""
-                    <div class="condition-item">
-                        <span class="condition-status">{condition_status}</span>
-                        <span class="condition-name">{condition_name}</span>
-                        <span class="condition-type">({condition_type})</span>
-                        <span class="condition-matches">{matches_count} matches</span>
-                        <span class="condition-weight">weight: {weight}</span>
+                    <div class="condition-item {status_class}">
+                        <div class="condition-header">
+                            <span class="condition-icon">{status_icon}</span>
+                            <span class="condition-name">{condition_name}</span>
+                            <span class="condition-type">({condition_type})</span>
+                        </div>
+                        <div class="condition-details">
+                            <span class="condition-matches">{matches_count} matches</span>
+                            <span class="condition-weight">weight: {weight:.1f}</span>
+                        </div>
                     </div>
                     """
                 
@@ -4147,13 +4162,7 @@ class GenerateReportNode(Node):
                 </div>
                 """
             
-            metrics_html += """
-            </div>
-            """
-        
-        metrics_html += """
-        </div>
-        """
+            metrics_html += "</div>"
         
         return metrics_html
     
