@@ -479,6 +479,118 @@
           }
         ]
       }
+    },
+    "AUTO_SCALE": {
+      "display_name": "Auto Scale",
+      "description": "Ensure infrastructure can automatically scale up or down based on demand with proper replica configurations",
+      "category": "Availability",
+      "priority": "High",
+      "weight": 15.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "Auto-scaling configurations should be present in deployment and infrastructure files",
+        "confidence": "High",
+        "max_files_expected": 30
+      },
+      "scoring": {
+        "pass_threshold": 20.0,
+        "perfect_threshold": 80.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2,
+        "logic_multipliers": {
+          "AND": 1.0,
+          "OR": 0.8,
+          "NOT": 1.2
+        },
+        "condition_weights": {
+          "pattern": 1.0,
+          "file_pattern": 0.7,
+          "criteria": 1.2
+        }
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "kubernetes_autoscaling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 8.0,
+            "patterns": [
+              {"pattern": "HorizontalPodAutoscaler", "weight": 5.0, "file_context": "config_files"},
+              {"pattern": "apiVersion:\\s*autoscaling/v2", "weight": 4.0, "file_context": "config_files"},
+              {"pattern": "apiVersion:\\s*autoscaling/v1", "weight": 4.0, "file_context": "config_files"},
+              {"pattern": "kind:\\s*HorizontalPodAutoscaler", "weight": 5.0, "file_context": "config_files"},
+              {"pattern": "minReplicas:", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "maxReplicas:", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "targetCPUUtilizationPercentage:", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "targetMemoryUtilizationPercentage:", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "replicas:", "weight": 2.0, "file_context": "config_files"},
+              {"pattern": "replicaCount:", "weight": 2.0, "file_context": "config_files"}
+            ]
+          },
+          {
+            "name": "docker_compose_scaling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 6.0,
+            "patterns": [
+              {"pattern": "deploy:\\s*replicas:", "weight": 4.0, "file_context": "config_files"},
+              {"pattern": "scale:", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "docker-compose.*scale", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "docker.*scale", "weight": 3.0, "file_context": "config_files"}
+            ]
+          },
+          {
+            "name": "cloud_autoscaling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 7.0,
+            "patterns": [
+              {"pattern": "AutoScalingGroup", "weight": 5.0, "file_context": "config_files"},
+              {"pattern": "ASG", "weight": 4.0, "file_context": "config_files"},
+              {"pattern": "autoscaling.*group", "weight": 4.0, "file_context": "config_files"},
+              {"pattern": "desired.*capacity", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "min.*capacity", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "max.*capacity", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "target.*tracking", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "scale.*up", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "scale.*down", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "auto.*scaling", "weight": 4.0, "file_context": "config_files"},
+              {"pattern": "load.*balancer", "weight": 3.0, "file_context": "config_files"}
+            ]
+          },
+          {
+            "name": "application_scaling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "spring\\.cloud\\.kubernetes\\.replicas", "weight": 4.0, "technology": "java"},
+              {"pattern": "kubernetes\\.replicas", "weight": 4.0, "technology": "java"},
+              {"pattern": "replica.*count", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "instance.*count", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "worker.*count", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "thread.*pool", "weight": 2.0, "file_context": "source_files"},
+              {"pattern": "connection.*pool", "weight": 2.0, "file_context": "source_files"}
+            ]
+          },
+          {
+            "name": "monitoring_scaling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "cpu.*utilization", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "memory.*utilization", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "load.*average", "weight": 3.0, "file_context": "config_files"},
+              {"pattern": "response.*time", "weight": 2.0, "file_context": "config_files"},
+              {"pattern": "throughput", "weight": 2.0, "file_context": "config_files"},
+              {"pattern": "queue.*length", "weight": 2.0, "file_context": "config_files"}
+            ]
+          }
+        ]
+      }
     }
   },
   "global_config": {

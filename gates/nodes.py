@@ -1335,7 +1335,7 @@ class ValidateGatesNode(Node):
         use_enhanced_evaluation = enhanced_pattern_library_path.exists()
         
         if use_enhanced_evaluation:
-            print("   🚀 Enhanced criteria-based evaluation available")
+            print("   🚀 Enhanced criteria-based evaluation available - using enhanced pattern library")
         else:
             print("   ⚠️ Enhanced pattern library not found, using legacy evaluation")
         
