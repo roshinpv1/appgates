@@ -78,7 +78,7 @@ class CriteriaEvaluator:
             print(f"   ✅ Condition {i+1} result: {'PASS' if condition_result.passed else 'FAIL'} ({len(condition_result.matches)} matches)")
         
         # Apply logic operator
-        passed = self._apply_logic_operator(operator, condition_results)
+        passed = self._apply_logic_operator_to_conditions(operator, condition_results)
         
         print(f"   🎯 Overall criteria result: {'PASS' if passed else 'FAIL'} ({len(all_matches)} total matches)")
         
