@@ -15,12 +15,11 @@ import uuid
 
 # Import utilities
 try:
-    # Try relative imports first (when run as module)
+    # Relative imports (when run as module)
     from .utils.git_operations import clone_repository, cleanup_repository
     from .utils.file_scanner import scan_directory
     from .utils.hard_gates import HARD_GATES, get_gate_number
     from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
-    from .utils.pattern_loader import get_pattern_loader, calculate_weighted_gate_score, calculate_overall_weighted_score
     from .utils.gate_applicability import gate_applicability_analyzer
     # Import enhanced criteria evaluator
     from .criteria_evaluator import EnhancedGateEvaluator, CriteriaEvaluator, migrate_legacy_gate
@@ -1446,9 +1445,6 @@ class ValidateGatesNode(Node):
         # Get primary technologies for pattern selection
         primary_technologies = self._get_primary_technologies(metadata)
         
-        # Initialize pattern loader
-        pattern_loader = get_pattern_loader()
-        
         gate_results = []
         
         # Validate each gate (Map phase)
@@ -1507,7 +1503,7 @@ class ValidateGatesNode(Node):
                 splunk_data = params.get("shared", {}).get("splunk", {})
                 if splunk_data and splunk_data.get("status") == "success":
                     # Filter Splunk events to only those matching the gate's patterns
-                    gate_patterns = llm_gate_patterns + [p["pattern"] for p in pattern_loader.get_gate_patterns(gate_name, primary_technologies)]
+                    gate_patterns = llm_gate_patterns  # Use only LLM patterns since pattern_loader is removed
                     filtered_events = []
                     for event in splunk_data.get("results", []):
                         match_text = event.get("_raw") or event.get("message") or str(event)
@@ -1602,8 +1598,8 @@ class ValidateGatesNode(Node):
             # Get relevant files for this gate
             relevant_files = self._get_improved_relevant_files(metadata, "Source Code", gate_name, config)
             
-            # Get static patterns for this gate
-            static_patterns = pattern_loader.get_pattern_strings(gate_name, primary_technologies)
+            # Get static patterns for this gate (using fallback since pattern_loader is removed)
+            static_patterns = []  # Empty since pattern_loader is removed
             
             # Combine LLM and static patterns
             all_patterns = llm_gate_patterns + static_patterns
@@ -1953,26 +1949,14 @@ class ValidateGatesNode(Node):
         return relevant_files
     
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
-        """Determine primary technologies based on language distribution"""
+        """Get primary technologies from metadata"""
         language_stats = metadata.get("language_stats", {})
+        total_files = metadata.get("total_files", 1)
         
-        if not language_stats:
-            return []
-        
-        # Calculate total files
-        total_files = sum(stats.get("files", 0) for stats in language_stats.values())
-        
-        if total_files == 0:
-            return []
-        
-        # Get technology config from global config
-        from utils.pattern_loader import get_pattern_loader
-        pattern_loader = get_pattern_loader()
-        tech_config = pattern_loader.get_technology_config()
-        
-        primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
-        primary_threshold = tech_config.get("primary_language_threshold", 20.0)
-        secondary_threshold = tech_config.get("secondary_language_threshold", 10.0)
+        # Use hardcoded defaults since pattern_loader is removed
+        primary_languages = set(["java", "python", "javascript", "typescript", "csharp", "go", "rust"])
+        primary_threshold = 20.0
+        secondary_threshold = 10.0
         
         primary_technologies = []
         
@@ -2018,12 +2002,11 @@ class ValidateGatesNode(Node):
     def _determine_status(self, score: float, gate: Dict[str, Any]) -> str:
         """
         Determine gate status based on score and gate configuration
-        Uses global config values for thresholds
+        Uses hardcoded defaults since pattern_loader is removed
         """
-        # Get pattern loader for global config
-        from utils.pattern_loader import get_pattern_loader
-        pattern_loader = get_pattern_loader()
-        status_config = pattern_loader.get_status_config()
+        # Use hardcoded defaults since pattern_loader is removed
+        security_pass_threshold = 100.0
+        pass_threshold = 20.0
         
         # Get gate-specific scoring config
         scoring_config = gate.get("scoring", {})
@@ -2031,11 +2014,9 @@ class ValidateGatesNode(Node):
         
         if is_security_gate:
             # Security gates need 100% score to pass
-            security_threshold = status_config.get("security_pass_threshold", 100.0)
-            return "PASS" if score >= security_threshold else "FAIL"
+            return "PASS" if score >= security_pass_threshold else "FAIL"
         else:
             # Regular gates use configurable threshold
-            pass_threshold = status_config.get("pass_threshold", 20.0)
             return "PASS" if score >= pass_threshold else "FAIL"
     
     def _generate_gate_details(self, gate: Dict[str, Any], matches: List[Dict[str, Any]]) -> List[str]:
@@ -2208,7 +2189,7 @@ class ValidateGatesNode(Node):
         """Get configurable pattern matching parameters"""
         # Default configuration
         default_config = {
-            "max_files": 5000,
+            "max_files": 500,
             "max_file_size_mb": 5,
             "language_threshold_percent": 5.0,
             "config_threshold_percent": 1.0,
@@ -2234,11 +2215,21 @@ class ValidateGatesNode(Node):
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
         
-        # Get global config for file processing
-        from utils.pattern_loader import get_pattern_loader
-        pattern_loader = get_pattern_loader()
-        file_config = pattern_loader.get_global_config("file_processing")
-        tech_config = pattern_loader.get_technology_config()
+        # Use hardcoded defaults since pattern_loader is removed
+        file_config = {
+            "language_threshold_percent": 5.0,
+            "config_threshold_percent": 2.0,
+            "min_languages": 1,
+            "test_threshold_multiplier": 0.8,
+            "min_test_threshold": 5.0
+        }
+        
+        tech_config = {
+            "primary_languages": ["java", "python", "javascript", "typescript", "csharp", "go", "rust"],
+            "config_languages": ["yaml", "json", "xml", "properties", "toml", "ini"],
+            "web_languages": ["html", "css", "scss", "sass", "less"],
+            "script_languages": ["bash", "sh", "ps1", "bat", "cmd"]
+        }
         
         # Use global config defaults if none provided
         if config is None:
@@ -2352,19 +2343,8 @@ class ValidateGatesNode(Node):
         return relevant_files
 
     def _get_min_expected_implementation(self, gate_name: str, primary_technologies: list) -> int:
-        """
-        Get the minimum expected implementation for a gate by technology.
-        Uses pattern library if available, else returns a hard minimum (5).
-        """
-        try:
-            from utils.pattern_loader import pattern_loader
-            patterns = pattern_loader.get_gate_patterns(gate_name, primary_technologies)
-            # Use the number of unique files in the pattern library as a proxy for expected
-            expected = len(set(p.get("file", "") for p in patterns if p.get("file")))
-            if expected > 0:
-                return expected
-        except Exception:
-            pass
+        """Get minimum expected implementation count for a gate"""
+        # Use hardcoded fallback since pattern_loader is removed
         # Fallback minimum
         return 5
 
@@ -3789,11 +3769,21 @@ class GenerateReportNode(Node):
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
         
-        # Get global config for file processing
-        from utils.pattern_loader import get_pattern_loader
-        pattern_loader = get_pattern_loader()
-        file_config = pattern_loader.get_global_config("file_processing")
-        tech_config = pattern_loader.get_technology_config()
+        # Use hardcoded defaults since pattern_loader is removed
+        file_config = {
+            "language_threshold_percent": 5.0,
+            "config_threshold_percent": 2.0,
+            "min_languages": 1,
+            "test_threshold_multiplier": 0.8,
+            "min_test_threshold": 5.0
+        }
+        
+        tech_config = {
+            "primary_languages": ["java", "python", "javascript", "typescript", "csharp", "go", "rust"],
+            "config_languages": ["yaml", "json", "xml", "properties", "toml", "ini"],
+            "web_languages": ["html", "css", "scss", "sass", "less"],
+            "script_languages": ["bash", "sh", "ps1", "bat", "cmd"]
+        }
         
         # Use global config defaults if none provided
         if config is None:
@@ -4367,28 +4357,42 @@ class GenerateReportNode(Node):
         return html
 
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
-        """Extract primary technologies from metadata"""
-        try:
-            language_stats = metadata.get("language_stats", {})
-            if not language_stats:
-                return []
+        """Get primary technologies from metadata"""
+        language_stats = metadata.get("language_stats", {})
+        total_files = metadata.get("total_files", 1)
+        
+        # Use hardcoded defaults since pattern_loader is removed
+        primary_languages = set(["java", "python", "javascript", "typescript", "csharp", "go", "rust"])
+        primary_threshold = 20.0
+        secondary_threshold = 10.0
+        
+        primary_technologies = []
+        
+        # Find languages that make up significant portion of the codebase
+        for language, stats in language_stats.items():
+            file_count = stats.get("files", 0)
+            percentage = (file_count / total_files) * 100
             
-            # Sort languages by file count and take top 5
-            sorted_languages = sorted(
-                language_stats.items(), 
-                key=lambda x: x[1].get("files", 0), 
-                reverse=True
-            )
+            if language in primary_languages and percentage >= primary_threshold:
+                primary_technologies.append(language)
+        
+        # If no primary technology found, take the most dominant
+        if not primary_technologies:
+            dominant_primary = None
+            max_percentage = 0
             
-            primary_techs = []
-            for lang, stats in sorted_languages[:5]:
-                if stats.get("files", 0) > 0:
-                    primary_techs.append(lang)
+            for language, stats in language_stats.items():
+                if language in primary_languages:
+                    file_count = stats.get("files", 0)
+                    percentage = (file_count / total_files) * 100
+                    if percentage > max_percentage and percentage >= secondary_threshold:
+                        max_percentage = percentage
+                        dominant_primary = language
             
-            return primary_techs
-        except Exception as e:
-            print(f"Warning: Error extracting primary technologies: {e}")
-            return []
+            if dominant_primary:
+                primary_technologies.append(dominant_primary)
+        
+        return primary_technologies
 
     def _extract_app_id(self, repository_url: str) -> str:
         """Extract App Id from repository URL using /app-XYZ/ pattern. Returns XYZ or <APP> if not found."""
