@@ -948,7 +948,7 @@ function extractProjectName(repositoryUrl) {
 function generateGatesTableHtml(gates) {
     const gateCategories = {
         'Auditability': ['structured_logs', 'avoid_logging_secrets', 'audit_trail', 'correlation_id', 'log_api_calls', 'log_background_jobs', 'ui_errors'],
-        'Availability': ['retry_logic', 'timeouts', 'throttling', 'circuit_breakers'],
+        'Availability': ['retry_logic', 'timeouts', 'throttling', 'circuit_breakers', 'auto_scale'],
         'Error Handling': ['error_logs', 'http_codes', 'ui_error_tools'],
         'Testing': ['automated_tests']
     };
@@ -968,7 +968,8 @@ function generateGatesTableHtml(gates) {
         'error_logs': 'Log System Errors',
         'http_codes': 'Use HTTP Standard Error Codes',
         'ui_error_tools': 'Include Client Error Tracking',
-        'automated_tests': 'Automated Regression Testing'
+        'automated_tests': 'Automated Regression Testing',
+        'auto_scale': 'Auto Scale'
     };
 
     let html = '';
@@ -1000,6 +1001,9 @@ function generateGatesTableHtml(gates) {
             const recommendation = getRecommendation(gate, gateName);
             const currentComment = ''; // Empty for new comments
             
+            // Generate metric boxes for this gate
+            const metricsHtml = generateGateMetricsHtml(gate);
+            
             html += `
                         <tr>
                             <td><strong>${gateName}</strong></td>
@@ -1015,6 +1019,11 @@ function generateGatesTableHtml(gates) {
                                     style="width: 100%; resize: vertical; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;"
                                 >${currentComment}</textarea>
                             </td>
+                        </tr>
+                        <tr class="gate-details-row">
+                            <td colspan="5">
+                                ${metricsHtml}
+                            </td>
                         </tr>`;
         });
         
@@ -1025,6 +1034,115 @@ function generateGatesTableHtml(gates) {
     });
 
     return html;
+}
+
+function generateGateMetricsHtml(gate) {
+    const score = gate.score || 0.0;
+    const status = gate.status || 'FAIL';
+    const patternsUsed = gate.patterns_used || 0;
+    const matchesFound = gate.matches_found || gate.found || 0;
+    const relevantFiles = gate.relevant_files || 0;
+    const totalFiles = gate.total_files || 1;
+    
+    // Get enhanced data if available
+    const enhancedData = gate.enhanced_data || {};
+    const criteriaScore = enhancedData.criteria_score;
+    const coverageScore = enhancedData.coverage_score;
+    const conditionResults = enhancedData.condition_results || [];
+    
+    let metricsHtml = `
+        <div class="gate-metrics">
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="metric-label">Score</div>
+                    <div class="metric-value score-${status.toLowerCase()}">${score.toFixed(1)}%</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Status</div>
+                    <div class="metric-value status-${status.toLowerCase()}">${status}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Patterns</div>
+                    <div class="metric-value">${patternsUsed}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Matches</div>
+                    <div class="metric-value">${matchesFound}</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Relevant Files</div>
+                    <div class="metric-value">${relevantFiles}/${totalFiles}</div>
+                </div>
+            </div>
+        </div>`;
+    
+    // Add enhanced metrics if available
+    if (criteriaScore !== undefined || coverageScore !== undefined) {
+        metricsHtml += `
+        <div class="enhanced-metrics">
+            <h4>Enhanced Evaluation Metrics</h4>
+            <div class="metrics-grid">`;
+        
+        if (criteriaScore !== undefined) {
+            metricsHtml += `
+                <div class="metric-box">
+                    <div class="metric-label">Criteria Score</div>
+                    <div class="metric-value">${criteriaScore.toFixed(1)}%</div>
+                </div>`;
+        }
+        
+        if (coverageScore !== undefined) {
+            metricsHtml += `
+                <div class="metric-box">
+                    <div class="metric-label">Coverage Score</div>
+                    <div class="metric-value">${coverageScore.toFixed(1)}%</div>
+                </div>`;
+        }
+        
+        metricsHtml += `
+            </div>
+        </div>`;
+        
+        // Add condition results if available
+        if (conditionResults.length > 0) {
+            metricsHtml += `
+            <div class="condition-results">
+                <h5>Condition Results:</h5>
+                <div class="condition-list">`;
+            
+            conditionResults.forEach(condition => {
+                const conditionName = condition.name || 'unknown';
+                const conditionType = condition.type || 'pattern';
+                const passed = condition.passed || false;
+                const weight = condition.weight || 1.0;
+                const matchesCount = condition.matches_count || 0;
+                
+                const statusIcon = passed ? '✅' : '❌';
+                const statusClass = passed ? 'condition-pass' : 'condition-fail';
+                
+                metricsHtml += `
+                <div class="condition-item ${statusClass}">
+                    <div class="condition-header">
+                        <span class="condition-icon">${statusIcon}</span>
+                        <span class="condition-name">${conditionName}</span>
+                        <span class="condition-type">(${conditionType})</span>
+                    </div>
+                    <div class="condition-details">
+                        <span class="condition-matches">${matchesCount} matches</span>
+                        <span class="condition-weight">weight: ${weight.toFixed(1)}</span>
+                    </div>
+                </div>`;
+            });
+            
+            metricsHtml += `
+                </div>
+            </div>`;
+        }
+        
+        metricsHtml += '</div>';
+    }
+    
+    return metricsHtml;
 }
 
 function getStatusInfo(status) {

@@ -1,131 +1,102 @@
 # Changelog
 
-All notable changes to the CodeGates VS Code extension will be documented in this file.
+All notable changes to the CodeGates VS Code Extension will be documented in this file.
 
-## [2.2.0] - 2024-01-XX
+## [2.3.0] - 2025-07-30
 
 ### Added
-- **Enhanced Pattern Library Integration**: Added support for the new enhanced pattern library with:
-  - Criteria-based evaluation system
-  - Comprehensive pattern matching with weights
-  - Technology-specific pattern detection
-  - File context filtering (config files, source files, test files)
-  - AND/OR/NOT logic support for complex pattern matching
-- **Auto-Scaling Validation (Gate 3.18)**: Added comprehensive auto-scaling validation including:
-  - Kubernetes HorizontalPodAutoscaler patterns
-  - Docker Compose scaling configurations
-  - Cloud provider auto-scaling groups (AWS, Azure, GCP)
-  - Application-level scaling patterns
-  - Monitoring and metrics patterns for scaling
-- **Infrastructure Validation**: Enhanced infrastructure validation with:
-  - Kubernetes deployment patterns
-  - Docker containerization patterns
-  - Cloud provider infrastructure patterns
-  - Load balancer and scaling configurations
-- **Enhanced Configuration Options**:
-  - `codegates.enableEnhancedPatternLibrary`: Enable enhanced pattern library
-  - `codegates.enableAutoScalingValidation`: Enable auto-scaling validation
-  - `codegates.enhancedEvaluationMode`: Control evaluation mode (auto/enhanced/legacy)
-  - `codegates.includeInfrastructureValidation`: Include infrastructure patterns
-- **Improved Pattern Detection**: Enhanced pattern matching with:
-  - Weighted pattern scoring
-  - Technology-specific pattern recognition
-  - File context-aware pattern matching
-  - Multi-level criteria evaluation
-- **Enhanced Report Features**: Improved reporting with:
-  - Auto-scaling gate results and recommendations
-  - Infrastructure validation details
-  - Enhanced pattern library integration status
-  - Comprehensive coverage analysis for new gates
+- **Elegant Metric Boxes**: New simple and elegant metric boxes for better visualization of gate results
+- **Enhanced Metric Display**: Core metrics (Score, Status, Patterns, Matches, Relevant Files) displayed in clean boxes
+- **Enhanced Evaluation Metrics**: Criteria Score and Coverage Score boxes for advanced evaluation
+- **Condition Results Visualization**: Visual indicators (✅/❌) for condition results with detailed breakdown
+- **Auto Scale Gate Support**: Added support for the new Auto Scale gate (3.18) in the Availability category
+- **Improved Client-Side Generation**: Enhanced fallback report generation with metric boxes when server HTML is unavailable
+- **VS Code Theme Integration**: Metric boxes adapt to VS Code's light/dark theme using CSS variables
 
-### Improved
+### Enhanced
+- **Visual Consistency**: Metric boxes maintain consistent styling across both server-generated and client-side reports
+- **Responsive Design**: Metric boxes adapt to different screen sizes with responsive grid layout
+- **Color Coding**: Score and status values are color-coded for quick visual interpretation
+- **Hover Effects**: Subtle hover effects on metric boxes for better user interaction
+
+### Technical
+- **CSS Integration**: Added comprehensive metric box styles to the extension's CSS file
+- **JavaScript Enhancement**: Updated client-side report generation to include metric boxes
+- **Configuration Option**: Added `codegates.enableMetricBoxes` setting for metric box display control
+
+## [2.2.0] - 2025-07-30
+
+### Added
+- **Enhanced Pattern Library Integration**: Full integration with the enhanced pattern library for improved validation accuracy
+- **Auto-Scaling Validation**: Comprehensive auto-scaling validation including Kubernetes, Docker, and cloud provider patterns
+- **Infrastructure Validation**: Enhanced infrastructure validation patterns for production readiness assessment
+- **New Configuration Options**: Added settings for enhanced pattern library, auto-scaling validation, and evaluation modes
+- **Improved Pattern Detection**: Better pattern matching with criteria-based evaluation and weighted scoring
+- **Enhanced Report Features**: Improved report generation with detailed pattern analysis and coverage metrics
+
+### Enhanced
+- **Pattern Library**: Complete migration to enhanced pattern library with criteria-based evaluation
+- **Gate Coverage**: Comprehensive coverage of all hard gates with enhanced evaluation metrics
+- **Report Accuracy**: Improved accuracy through enhanced pattern matching and scoring algorithms
+- **Configuration Management**: Better configuration options for different validation scenarios
+
+### Technical
+- **Enhanced Evaluation System**: Criteria-based evaluation with weights and logical operators
+- **Performance Optimization**: Improved performance with file limits and progress logging
+- **Error Handling**: Better error handling and fallback mechanisms
+- **API Integration**: Enhanced API integration for seamless backend communication
+
+## [2.1.0] - 2025-07-29
+
+### Added
+- **Enhanced Report Generation**: Improved HTML and JSON report generation with better formatting
+- **Gate Numbering System**: Added specific numerical identifiers for each gate (1.10, 1.3, 1.5, etc.)
+- **Expansion Button Reordering**: Moved expansion button to the first column for better UX
+- **Styled Detail Boxes**: Added elegant boxes for displaying gate details (Score, Status, Patterns, Matches, Relevant Files)
+- **Formatted File View**: Restored and enhanced the formatted file view within expanded gate details
+- **Dual Repository Support**: Automatic checkout of additional "-cd" repository variants for comprehensive validation
+- **Enhanced Pattern Library**: Integration with enhanced pattern library for improved validation accuracy
+
+### Enhanced
+- **Report Layout**: Improved report layout with better visual hierarchy and spacing
+- **Gate Details Display**: Enhanced gate details with structured information display
+- **Repository Processing**: Improved repository handling with support for multiple repository variants
+- **Pattern Matching**: Enhanced pattern matching with comprehensive pattern library integration
+
+### Technical
+- **HTML Generation**: Improved HTML generation with better structure and styling
+- **CSS Styling**: Enhanced CSS styles for better visual presentation
+- **Repository Management**: Improved repository cloning and processing logic
 - **Pattern Library Integration**: Seamless integration with enhanced pattern library
-- **Evaluation System**: Improved criteria-based evaluation with better accuracy
-- **Infrastructure Support**: Enhanced support for infrastructure and DevOps patterns
-- **Configuration Management**: More granular control over validation features
 
-### Fixed
-- **Enhanced Pattern Library Detection**: Fixed issues with enhanced pattern library not being detected
-- **Auto-Scaling Gate Display**: Corrected display of auto-scaling gate in reports
-- **Pattern Matching Accuracy**: Improved accuracy of infrastructure pattern detection
-
-## [2.1.0] - 2024-01-XX
+## [2.0.0] - 2025-07-28
 
 ### Added
-- **Enhanced Pattern Details Display**: Added collapsible sections showing detailed pattern information including:
-  - Pattern source indicators (static library, LLM-generated, combined)
-  - Pattern match counts and confidence levels
-  - File-specific pattern matches with line numbers
-  - Pattern type categorization and descriptions
-- **Improved Coverage Analysis**: Enhanced coverage reporting with:
-  - Clear expected vs actual coverage metrics
-  - Confidence level indicators (high, medium, low)
-  - Coverage result status (exceeds, meets, below expectations)
-  - Detailed coverage reasoning and context
-- **Gate Applicability Support**: Added support for NOT_APPLICABLE gates:
-  - Visual indicators for non-applicable gates
-  - Clear status badges and styling
-  - Applicability reasoning and explanations
-  - Proper exclusion from scoring while maintaining visibility
-- **Enhanced UI Components**:
-  - Collapsible pattern details sections with smooth animations
-  - Interactive coverage analysis panels
-  - Enhanced status indicators with color coding
-  - Improved file path and line number display
-  - Pattern source badges and confidence indicators
-- **Responsive Design**: Added mobile-friendly responsive design for enhanced features
-- **Dark Theme Support**: Enhanced dark theme compatibility for all new UI components
-- **Configuration Option**: Added `codegates.enableEnhancedFeatures` setting to control enhanced features
+- **Comprehensive Hard Gate Assessment**: Full integration with CodeGates backend for comprehensive repository validation
+- **Real-time Progress Tracking**: Live progress updates during assessment with detailed step information
+- **Enhanced Report Generation**: Advanced HTML and JSON report generation with detailed analysis
+- **Interactive Gate Details**: Expandable gate details with pattern matches and recommendations
+- **Comment Integration**: Ability to add comments to individual gates for team collaboration
+- **Screenshot Capture**: Built-in screenshot capture functionality for report documentation
+- **JIRA Integration**: Direct upload of reports to JIRA for issue tracking
+- **Configuration Management**: Comprehensive settings for API endpoints, timeouts, and validation options
 
-### Improved
-- **Error Handling**: Enhanced error messages with more specific guidance for different failure scenarios
-- **Report Display**: Improved HTML report rendering with better structure and styling
-- **Performance**: Optimized report loading and display for large repositories
-- **Accessibility**: Added proper ARIA attributes and keyboard navigation for collapsible sections
+### Enhanced
+- **User Interface**: Modern, responsive webview interface with VS Code theme integration
+- **Error Handling**: Robust error handling with user-friendly error messages
+- **Performance**: Optimized performance with efficient API communication
+- **Accessibility**: Improved accessibility with proper ARIA labels and keyboard navigation
 
-### Fixed
-- **Report Generation**: Fixed issues with pattern details not displaying correctly in VS Code webview
-- **Status Display**: Corrected NOT_APPLICABLE gate status display and counting
-- **Coverage Metrics**: Fixed confusing coverage percentages and made them more logical
-- **Pattern Matching**: Improved pattern match display and organization
+### Technical
+- **TypeScript Implementation**: Full TypeScript implementation for better type safety
+- **VS Code API Integration**: Deep integration with VS Code APIs for seamless user experience
+- **Webview Communication**: Efficient communication between extension and webview
+- **Configuration System**: Flexible configuration system with workspace and user settings support
 
-## [2.0.5] - 2024-01-XX
+## [1.0.0] - 2025-07-27
 
-### Added
-- Enhanced error handling for API connection issues
-- Better progress reporting during repository scans
-- Improved HTML report generation and display
-- Support for GitHub Enterprise repositories
-- Configuration options for API timeout and retries
-
-### Fixed
-- Connection timeout issues with large repositories
-- HTML report display in VS Code webview
-- Error message clarity and user guidance
-
-## [2.0.4] - 2024-01-XX
-
-### Added
-- Support for custom API server URLs
-- Enhanced progress reporting
-- Better error handling and user feedback
-
-### Fixed
-- Connection issues with API server
-- Report generation reliability
-
-## [2.0.3] - 2024-01-XX
-
-### Added
-- Initial VS Code extension release
-- API-driven repository scanning
-- HTML report generation
-- Basic configuration options
-
-### Features
-- Repository URL input and validation
-- GitHub token support for private repositories
-- Quality threshold configuration
-- Real-time scan progress reporting
-- HTML report generation and display
-- Comment system for gate feedback 
+### Initial Release
+- **Basic CodeGates Integration**: Initial integration with CodeGates backend API
+- **Repository Assessment**: Basic repository validation functionality
+- **Report Generation**: Simple HTML report generation
+- **VS Code Extension**: Basic VS Code extension with webview interface 

@@ -1,54 +1,44 @@
 {
   "name": "codegates",
-  "displayName": "CodeGates - Hard Gate Validator",
-  "description": "API-driven code quality analysis with enhanced pattern library, auto-scaling validation, and comprehensive gate assessment",
-  "version": "2.2.0",
+  "displayName": "CodeGates Hard Gate Assessment",
+  "description": "Comprehensive validation of your repository against production-ready quality gates with enhanced pattern library, auto-scaling validation, comprehensive gate assessment, and elegant metric boxes",
+  "version": "2.3.0",
   "publisher": "codegates",
   "repository": {
     "type": "git",
     "url": "https://github.com/yourusername/codegates"
   },
   "engines": {
-    "vscode": "^1.80.0",
+    "vscode": "^1.74.0",
     "node": ">=16.0.0"
   },
   "categories": [
-    "Linters",
-    "Testing",
     "Other"
   ],
   "keywords": [
-    "code quality",
+    "codegates",
     "hard gates",
-    "validation",
-    "security",
-    "api",
-    "remote analysis",
-    "pattern matching",
-    "coverage analysis",
-    "gate applicability",
+    "quality gates",
+    "production readiness",
+    "code validation",
     "auto scaling",
     "kubernetes",
     "docker",
-    "infrastructure validation"
+    "infrastructure validation",
+    "metric boxes",
+    "enhanced patterns"
   ],
-  "activationEvents": [
-    "onCommand:codegates.assess"
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "codegates.configure",
-        "title": "CodeGates: Configure",
-        "category": "CodeGates",
-        "icon": "$(settings-gear)"
+        "command": "codegates.assess",
+        "title": "CodeGates: Assess Repository"
       },
       {
-        "command": "codegates.assess",
-        "title": "CodeGates: Hard Gate Assessment",
-        "category": "CodeGates",
-        "icon": "$(search)"
+        "command": "codegates.configure",
+        "title": "CodeGates: Configure Settings"
       }
     ],
     "menus": {
@@ -66,13 +56,8 @@
       "properties": {
         "codegates.apiUrl": {
           "type": "string",
-          "default": "http://localhost:8000/api/v1",
-          "description": "CodeGates API server URL (configurable for different environments)",
-          "examples": [
-            "http://localhost:8000/api/v1",
-            "https://codegates.example.com/api/v1",
-            "http://192.168.1.100:8000/api/v1"
-          ]
+          "default": "http://localhost:8000",
+          "description": "CodeGates API server URL"
         },
         "codegates.apiTimeout": {
           "type": "number",
@@ -88,58 +73,37 @@
           "minimum": 0,
           "maximum": 10
         },
-        "codegates.enableEnhancedFeatures": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable enhanced report features including pattern details, coverage analysis, and gate applicability"
-        },
-        "codegates.excellentThreshold": {
-          "type": "number",
-          "default": 80,
-          "description": "Score threshold for 'excellent' status (from global config)",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "codegates.goodThreshold": {
-          "type": "number",
-          "default": 60,
-          "description": "Score threshold for 'good' status (from global config)",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "codegates.defaultThreshold": {
-          "type": "number",
-          "default": 70,
-          "description": "Default quality threshold (from global config)",
-          "minimum": 0,
-          "maximum": 100
-        },
         "codegates.enableEnhancedPatternLibrary": {
           "type": "boolean",
           "default": true,
-          "description": "Enable enhanced pattern library with criteria-based evaluation and comprehensive patterns"
+          "description": "Enable enhanced pattern library for improved validation accuracy"
         },
         "codegates.enableAutoScalingValidation": {
           "type": "boolean",
           "default": true,
-          "description": "Enable auto-scaling validation including Kubernetes, Docker, and cloud provider patterns"
+          "description": "Enable auto-scaling validation for infrastructure assessment"
         },
         "codegates.enhancedEvaluationMode": {
           "type": "string",
-          "default": "auto",
           "enum": ["auto", "enhanced", "legacy"],
-          "description": "Evaluation mode: auto (use enhanced if available), enhanced (force enhanced), legacy (use legacy system)"
+          "default": "auto",
+          "description": "Evaluation mode for gate validation"
         },
         "codegates.includeInfrastructureValidation": {
           "type": "boolean",
           "default": true,
-          "description": "Include infrastructure validation patterns (Kubernetes, Docker, cloud providers)"
+          "description": "Include infrastructure validation in assessment"
+        },
+        "codegates.enableMetricBoxes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable elegant metric boxes for better visualization"
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run clean && npm run compile",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "clean": "rm -rf out",
@@ -150,13 +114,13 @@
   },
   "devDependencies": {
     "@types/node": "16.x",
-    "@types/vscode": "^1.80.0",
+    "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/test-electron": "^2.3.0",
     "@vscode/vsce": "^2.19.0",
     "eslint": "^8.0.0",
-    "typescript": "^5.2.0"
+    "typescript": "^4.9.4"
   },
   "dependencies": {
     "playwright": "^1.54.1"

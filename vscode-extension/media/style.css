@@ -1051,3 +1051,150 @@ tr:hover {
         color: #d1d5db;
     }
 } 
+
+/* New Metric Box Styles */
+.gate-metrics {
+    margin: 16px 0;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.metric-box {
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.metric-box:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.metric-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.metric-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+}
+
+.metric-value.score-pass { color: #059669; }
+.metric-value.score-warning { color: #d97706; }
+.metric-value.score-fail { color: #dc2626; }
+.metric-value.status-pass { color: #059669; }
+.metric-value.status-warning { color: #d97706; }
+.metric-value.status-fail { color: #dc2626; }
+.metric-value.status-not_applicable { color: var(--vscode-descriptionForeground); }
+
+/* Enhanced Metrics Section */
+.enhanced-metrics {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--vscode-panel-border);
+}
+
+.enhanced-metrics h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: 12px;
+}
+
+/* Condition Results */
+.condition-results {
+    margin-top: 16px;
+}
+
+.condition-results h5 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: 8px;
+}
+
+.condition-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.condition-item {
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+}
+
+.condition-item.condition-pass {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+
+.condition-item.condition-fail {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.condition-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.condition-icon {
+    font-size: 0.75rem;
+}
+
+.condition-name {
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.condition-type {
+    color: var(--vscode-descriptionForeground);
+    font-size: 0.75rem;
+}
+
+.condition-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--vscode-descriptionForeground);
+}
+
+.condition-matches {
+    font-weight: 500;
+}
+
+.condition-weight {
+    font-weight: 500;
+}
+
+/* Gate details row styling */
+.gate-details-row {
+    background: var(--vscode-editor-background);
+}
+
+.gate-details-row td {
+    padding: 16px;
+    border-top: none;
+} 
