@@ -19,32 +19,22 @@ from utils.hard_gates import HARD_GATES
 
 
 def main():
-    """Main function to run CodeGates validation"""
-    
-    # Get user input
+    """Main entry point for the CodeGates validation system"""
     print("🚀 CodeGates - Hard Gate Validation System")
     print("=" * 50)
     
-    repository_url = input("Enter repository URL: ").strip()
-    if not repository_url:
-        print("❌ Repository URL is required")
-        return
+    # For testing the reverted implementation, use local repository
+    repository_url = "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_2c265bxo/repository"
+    branch = "main"
+    github_token = ""
+    threshold = 70
     
-    branch = input("Enter branch (default: main): ").strip() or "main"
-    github_token = input("Enter GitHub token (optional): ").strip() or None
-    threshold = input("Enter quality threshold (default: 70): ").strip()
-    
-    try:
-        threshold = int(threshold) if threshold else 70
-    except ValueError:
-        threshold = 70
-    
-    print(f"\n🔍 Starting validation for: {repository_url}")
+    print(f"🔍 Starting validation for: {repository_url}")
     print(f"   Branch: {branch}")
     print(f"   Threshold: {threshold}%")
     print(f"   Token: {'✓ Provided' if github_token else '✗ Not provided'}")
     
-    # Initialize shared store
+    # Initialize shared context
     shared = {
         "request": {
             "repository_url": repository_url,
@@ -80,52 +70,6 @@ def main():
         "errors": []
     }
     
-    try:
-        # Create and run the validation flow
-        validation_flow = create_static_only_flow()
-        validation_flow.run(shared)
-        
-        # Display results
-        print("\n" + "=" * 60)
-        print("🎯 VALIDATION COMPLETE")
-        print("=" * 60)
-        
-        if shared["validation"]["gate_results"]:
-            print(f"📊 Overall Score: {shared['validation']['overall_score']:.1f}%")
-            print(f"📁 Total Files: {shared['repository']['metadata'].get('total_files', 0)}")
-            print(f"📝 Total Lines: {shared['repository']['metadata'].get('total_lines', 0)}")
-            
-            # Show gate summary
-            passed = len([g for g in shared["validation"]["gate_results"] if g.get("status") == "PASS"])
-            failed = len([g for g in shared["validation"]["gate_results"] if g.get("status") == "FAIL"])
-            total = len(shared["validation"]["gate_results"])
-            
-            print(f"✅ Passed Gates: {passed}/{total}")
-            print(f"❌ Failed Gates: {failed}/{total}")
-            
-            # Show report locations
-            if shared["reports"]["html_path"]:
-                print(f"📄 HTML Report: {shared['reports']['html_path']}")
-            if shared["reports"]["json_path"]:
-                print(f"📄 JSON Report: {shared['reports']['json_path']}")
-        else:
-            print("❌ No validation results generated")
-            
-        # Show any errors
-        if shared["errors"]:
-            print("\n⚠️ Errors encountered:")
-            for error in shared["errors"]:
-                print(f"   - {error}")
-    
-    except Exception as e:
-        print(f"\n❌ Validation failed: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        # Cleanup is handled by CleanupNode in the flow
-        pass
-
-
-if __name__ == "__main__":
-    main() 
+    # Create and run validation flow
+    validation_flow = create_static_only_flow()
+    validation_flow.run(shared) 

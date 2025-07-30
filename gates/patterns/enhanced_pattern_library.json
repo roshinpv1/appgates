@@ -1,0 +1,562 @@
+{
+  "version": "2.0",
+  "metadata": {
+    "description": "Enhanced pattern library with criteria-based configuration",
+    "author": "CodeGates Team",
+    "created": "2024-01-01",
+    "features": [
+      "Criteria-based pattern matching",
+      "AND/OR/NOT logic support",
+      "File pattern evaluation",
+      "Simplified scoring model",
+      "Technology-specific patterns",
+      "File context filtering"
+    ]
+  },
+  "gates": {
+    "STRUCTURED_LOGS": {
+      "display_name": "Logs Searchable/Available",
+      "description": "Ensure structured logging is implemented across the application",
+      "category": "Logging",
+      "priority": "High",
+      "weight": 15.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "Structured logging should be implemented across core application files",
+        "confidence": "High",
+        "max_files_expected": 50
+      },
+      "scoring": {
+        "pass_threshold": 20.0,
+        "perfect_threshold": 80.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2,
+        "logic_multipliers": {
+          "AND": 1.0,
+          "OR": 0.8,
+          "NOT": 1.2
+        },
+        "condition_weights": {
+          "pattern": 1.0,
+          "file_pattern": 0.7,
+          "criteria": 1.2
+        }
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "logging_framework_import",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "import org.slf4j.Logger", "weight": 3.0, "technology": "java"},
+              {"pattern": "import logging", "weight": 3.0, "technology": "python"},
+              {"pattern": "import winston", "weight": 3.0, "technology": "javascript"},
+              {"pattern": "import loguru", "weight": 3.0, "technology": "python"}
+            ]
+          },
+          {
+            "name": "logging_usage",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "logger\\.(info|debug|warn|error)", "weight": 2.0, "technology": "java"},
+              {"pattern": "logging\\.(info|debug|warning|error)", "weight": 2.0, "technology": "python"},
+              {"pattern": "logger\\.(info|debug|warn|error)", "weight": 2.0, "technology": "javascript"},
+              {"pattern": "loguru\\.(info|debug|warning|error)", "weight": 2.0, "technology": "python"}
+            ]
+          }
+        ]
+      }
+    },
+    "AVOID_LOGGING_SECRETS": {
+      "display_name": "Avoid Logging Sensitive Data",
+      "description": "Ensure no sensitive data is logged",
+      "category": "Security",
+      "priority": "Critical",
+      "weight": 15.0,
+      "expected_coverage": {
+        "percentage": 0,
+        "reasoning": "No secrets should ever be logged",
+        "confidence": "High",
+        "max_files_expected": 0
+      },
+      "scoring": {
+        "pass_threshold": 100.0,
+        "perfect_threshold": 100.0,
+        "criteria_weight": 1.0,
+        "coverage_weight": 0.0,
+        "logic_multipliers": {
+          "AND": 1.0,
+          "OR": 0.8,
+          "NOT": 1.2
+        }
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "no_password_logging",
+            "type": "pattern",
+            "operator": "NOT",
+            "weight": 10.0,
+            "patterns": [
+              {"pattern": "password.*=.*['\"][^'\"]*['\"]", "weight": 10.0},
+              {"pattern": "passwd.*=.*['\"][^'\"]*['\"]", "weight": 10.0},
+              {"pattern": "pwd.*=.*['\"][^'\"]*['\"]", "weight": 10.0}
+            ]
+          },
+          {
+            "name": "no_api_key_logging",
+            "type": "pattern",
+            "operator": "NOT",
+            "weight": 10.0,
+            "patterns": [
+              {"pattern": "api_key.*=.*['\"][^'\"]*['\"]", "weight": 10.0},
+              {"pattern": "apiKey.*=.*['\"][^'\"]*['\"]", "weight": 10.0},
+              {"pattern": "secret.*=.*['\"][^'\"]*['\"]", "weight": 10.0}
+            ]
+          }
+        ]
+      }
+    },
+    "TESTING_INFRASTRUCTURE": {
+      "display_name": "Testing Infrastructure",
+      "description": "Ensure proper testing infrastructure is in place",
+      "category": "Testing",
+      "priority": "High",
+      "weight": 10.0,
+      "expected_coverage": {
+        "percentage": 15,
+        "reasoning": "15% of projects should have testing infrastructure",
+        "confidence": "Medium",
+        "max_files_expected": 30
+      },
+      "scoring": {
+        "pass_threshold": 30.0,
+        "criteria_weight": 0.7,
+        "coverage_weight": 0.3,
+        "condition_weights": {
+          "file_pattern": 0.7,
+          "pattern": 1.0
+        }
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "test_files_exist",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "file_patterns": [
+              {"pattern": ".*Test\\.java", "weight": 3.0, "technology": "java"},
+              {"pattern": ".*_test\\.py", "weight": 3.0, "technology": "python"},
+              {"pattern": ".*\\.spec\\.js", "weight": 3.0, "technology": "javascript"},
+              {"pattern": ".*\\.test\\.js", "weight": 3.0, "technology": "javascript"},
+              {"pattern": ".*Test\\.cs", "weight": 3.0, "technology": "csharp"},
+              {"pattern": ".*_test\\.go", "weight": 3.0, "technology": "go"}
+            ]
+          },
+          {
+            "name": "test_methods_in_test_files",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "@Test", "weight": 2.0, "file_context": "test_files", "technology": "java"},
+              {"pattern": "def test_", "weight": 2.0, "file_context": "test_files", "technology": "python"},
+              {"pattern": "describe\\(", "weight": 2.0, "file_context": "test_files", "technology": "javascript"},
+              {"pattern": "it\\(", "weight": 2.0, "file_context": "test_files", "technology": "javascript"},
+              {"pattern": "\\[Test\\]", "weight": 2.0, "file_context": "test_files", "technology": "csharp"},
+              {"pattern": "func Test", "weight": 2.0, "file_context": "test_files", "technology": "go"}
+            ]
+          }
+        ]
+      }
+    },
+    "DOCUMENTATION_AVAILABLE": {
+      "display_name": "Documentation Available",
+      "description": "Ensure proper documentation is available",
+      "category": "Documentation",
+      "priority": "Medium",
+      "weight": 8.0,
+      "expected_coverage": {
+        "percentage": 10,
+        "reasoning": "10% of projects should have documentation",
+        "confidence": "Medium",
+        "max_files_expected": 20
+      },
+      "scoring": {
+        "pass_threshold": 20.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2,
+        "condition_weights": {
+          "file_pattern": 0.8,
+          "pattern": 1.0
+        }
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "readme_exists",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "file_patterns": [
+              {"pattern": "README\\.md", "weight": 4.0},
+              {"pattern": "README\\.txt", "weight": 3.0},
+              {"pattern": "README", "weight": 3.0}
+            ]
+          },
+          {
+            "name": "api_docs_exist",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "file_patterns": [
+              {"pattern": "API\\.md", "weight": 3.0},
+              {"pattern": "docs/.*\\.md", "weight": 2.0},
+              {"pattern": "swagger\\.yml", "weight": 3.0},
+              {"pattern": "openapi\\.yml", "weight": 3.0}
+            ]
+          }
+        ]
+      }
+    },
+    "CONTAINERIZATION_READY": {
+      "display_name": "Containerization Ready",
+      "description": "Ensure project is ready for containerization",
+      "category": "DevOps",
+      "priority": "Medium",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "20% of projects should be containerized",
+        "confidence": "Medium",
+        "max_files_expected": 25
+      },
+      "scoring": {
+        "pass_threshold": 40.0,
+        "criteria_weight": 0.9,
+        "coverage_weight": 0.1,
+        "condition_weights": {
+          "file_pattern": 0.9,
+          "pattern": 1.0
+        }
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "docker_files_exist",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 6.0,
+            "file_patterns": [
+              {"pattern": "Dockerfile", "weight": 4.0},
+              {"pattern": "docker-compose\\.yml", "weight": 3.0},
+              {"pattern": "docker-compose\\.yaml", "weight": 3.0}
+            ]
+          },
+          {
+            "name": "container_config_files",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "file_patterns": [
+              {"pattern": "\\.dockerignore", "weight": 2.0},
+              {"pattern": "docker-compose\\..*\\.yml", "weight": 2.0},
+              {"pattern": "Dockerfile\\..*", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+    "ERROR_HANDLING": {
+      "display_name": "Proper Error Handling",
+      "description": "Ensure proper error handling is implemented",
+      "category": "Quality",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 30,
+        "reasoning": "30% of files should have proper error handling",
+        "confidence": "High",
+        "max_files_expected": 60
+      },
+      "scoring": {
+        "pass_threshold": 25.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2,
+        "logic_multipliers": {
+          "AND": 1.0,
+          "OR": 0.8,
+          "NOT": 1.2
+        }
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "try_catch_blocks",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "try\\s*\\{", "weight": 2.0, "technology": "java"},
+              {"pattern": "try:", "weight": 2.0, "technology": "python"},
+              {"pattern": "try\\s*\\{", "weight": 2.0, "technology": "javascript"},
+              {"pattern": "try\\s*\\{", "weight": 2.0, "technology": "csharp"}
+            ]
+          },
+          {
+            "name": "exception_handling",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "catch\\s*\\(", "weight": 2.0, "technology": "java"},
+              {"pattern": "except\\s+", "weight": 2.0, "technology": "python"},
+              {"pattern": "catch\\s*\\(", "weight": 2.0, "technology": "javascript"},
+              {"pattern": "catch\\s*\\(", "weight": 2.0, "technology": "csharp"}
+            ]
+          },
+          {
+            "name": "error_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "logger\\.error", "weight": 2.0, "technology": "java"},
+              {"pattern": "logging\\.error", "weight": 2.0, "technology": "python"},
+              {"pattern": "console\\.error", "weight": 2.0, "technology": "javascript"}
+            ]
+          }
+        ]
+      }
+    },
+    "INPUT_VALIDATION": {
+      "display_name": "Input Validation",
+      "description": "Ensure proper input validation is implemented",
+      "category": "Security",
+      "priority": "High",
+      "weight": 14.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "20% of files should have input validation",
+        "confidence": "Medium",
+        "max_files_expected": 40
+      },
+      "scoring": {
+        "pass_threshold": 50.0,
+        "criteria_weight": 0.9,
+        "coverage_weight": 0.1,
+        "logic_multipliers": {
+          "AND": 1.0,
+          "OR": 0.8,
+          "NOT": 1.2
+        }
+      },
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "validation_annotations",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "@Valid", "weight": 3.0, "technology": "java"},
+              {"pattern": "@NotNull", "weight": 3.0, "technology": "java"},
+              {"pattern": "@NotBlank", "weight": 3.0, "technology": "java"},
+              {"pattern": "@Size\\(", "weight": 3.0, "technology": "java"},
+              {"pattern": "@Pattern\\(", "weight": 3.0, "technology": "java"}
+            ]
+          },
+          {
+            "name": "validation_checks",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "if\\s*\\(.*==\\s*null", "weight": 2.0},
+              {"pattern": "if\\s*\\(.*isEmpty", "weight": 2.0},
+              {"pattern": "if\\s*\\(.*length", "weight": 2.0},
+              {"pattern": "assert\\s+", "weight": 2.0},
+              {"pattern": "validate\\(", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+    "COMPREHENSIVE_TESTING": {
+      "display_name": "Comprehensive Testing",
+      "description": "Ensure comprehensive testing coverage",
+      "category": "Testing",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "20% of files should be test files",
+        "confidence": "Medium",
+        "max_files_expected": 40
+      },
+      "scoring": {
+        "pass_threshold": 30.0,
+        "criteria_weight": 0.7,
+        "coverage_weight": 0.3,
+        "condition_weights": {
+          "file_pattern": 0.7,
+          "pattern": 1.0
+        }
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "test_files_exist",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "file_patterns": [
+              {"pattern": ".*Test\\.java", "weight": 3.0, "technology": "java"},
+              {"pattern": ".*_test\\.py", "weight": 3.0, "technology": "python"},
+              {"pattern": ".*\\.spec\\.js", "weight": 3.0, "technology": "javascript"},
+              {"pattern": ".*\\.test\\.js", "weight": 3.0, "technology": "javascript"},
+              {"pattern": ".*Test\\.cs", "weight": 3.0, "technology": "csharp"},
+              {"pattern": ".*_test\\.go", "weight": 3.0, "technology": "go"}
+            ]
+          },
+          {
+            "name": "test_methods_in_test_files",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 3.0,
+            "patterns": [
+              {"pattern": "@Test", "weight": 2.0, "file_context": "test_files", "technology": "java"},
+              {"pattern": "def test_", "weight": 2.0, "file_context": "test_files", "technology": "python"},
+              {"pattern": "describe\\(", "weight": 2.0, "file_context": "test_files", "technology": "javascript"},
+              {"pattern": "it\\(", "weight": 2.0, "file_context": "test_files", "technology": "javascript"},
+              {"pattern": "\\[Test\\]", "weight": 2.0, "file_context": "test_files", "technology": "csharp"},
+              {"pattern": "func Test", "weight": 2.0, "file_context": "test_files", "technology": "go"}
+            ]
+          },
+          {
+            "name": "test_coverage_adequate",
+            "type": "criteria",
+            "operator": "AND",
+            "weight": 4.0,
+            "criteria": {
+              "operator": "OR",
+              "conditions": [
+                {
+                  "name": "unit_tests",
+                  "type": "pattern",
+                  "operator": "OR",
+                  "weight": 2.0,
+                  "patterns": [
+                    {"pattern": "test.*unit", "weight": 2.0, "file_context": "test_files"},
+                    {"pattern": "unit.*test", "weight": 2.0, "file_context": "test_files"}
+                  ]
+                },
+                {
+                  "name": "integration_tests",
+                  "type": "pattern",
+                  "operator": "OR",
+                  "weight": 2.0,
+                  "patterns": [
+                    {"pattern": "test.*integration", "weight": 2.0, "file_context": "test_files"},
+                    {"pattern": "integration.*test", "weight": 2.0, "file_context": "test_files"}
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "global_config": {
+    "default_scoring": {
+      "pass_threshold": 20.0,
+      "perfect_threshold": 80.0,
+      "criteria_weight": 0.8,
+      "coverage_weight": 0.2,
+      "logic_multipliers": {
+        "AND": 1.0,
+        "OR": 0.8,
+        "NOT": 1.2
+      },
+      "condition_weights": {
+        "pattern": 1.0,
+        "file_pattern": 0.7,
+        "criteria": 1.2
+      }
+    },
+    "gate_categories": {
+      "Security": {
+        "pass_threshold": 100.0,
+        "perfect_threshold": 100.0,
+        "criteria_weight": 1.0,
+        "coverage_weight": 0.0
+      },
+      "Critical": {
+        "pass_threshold": 50.0,
+        "perfect_threshold": 80.0,
+        "criteria_weight": 0.9,
+        "coverage_weight": 0.1
+      },
+      "Quality": {
+        "pass_threshold": 20.0,
+        "perfect_threshold": 70.0,
+        "criteria_weight": 0.8,
+        "coverage_weight": 0.2
+      }
+    },
+    "technology_mapping": {
+      "java": [".java"],
+      "python": [".py", ".pyc"],
+      "javascript": [".js", ".jsx"],
+      "typescript": [".ts", ".tsx"],
+      "csharp": [".cs"],
+      "go": [".go"],
+      "rust": [".rs"],
+      "php": [".php"],
+      "ruby": [".rb"],
+      "scala": [".scala"],
+      "kotlin": [".kt"],
+      "swift": [".swift"]
+    },
+    "file_contexts": {
+      "test_files": [
+        ".*Test\\.java$",
+        ".*_test\\.py$",
+        ".*\\.spec\\.js$",
+        ".*\\.test\\.js$",
+        ".*Test\\.cs$",
+        ".*_test\\.go$"
+      ],
+      "config_files": [
+        ".*\\.yml$",
+        ".*\\.yaml$",
+        ".*\\.json$",
+        ".*\\.properties$",
+        ".*\\.conf$",
+        ".*\\.ini$"
+      ],
+      "source_files": [
+        ".*\\.java$",
+        ".*\\.py$",
+        ".*\\.js$",
+        ".*\\.ts$",
+        ".*\\.cs$",
+        ".*\\.go$"
+      ]
+    }
+  }
+} 

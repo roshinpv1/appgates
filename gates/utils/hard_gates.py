@@ -3,6 +3,49 @@ Hard Gates Definition
 Defines all 15 enterprise hard gates for validation
 """
 
+# Gate Number Mapping
+GATE_NUMBER_MAPPING = {
+    "ALERTING_ACTIONABLE": "1.1",
+    "LOG_APPLICATION_MESSAGES": "1.2",
+    "AVOID_LOGGING_SECRETS": "1.10",
+    "AUDIT_TRAIL": "1.3", 
+    "CORRELATION_ID": "1.5",
+    "LOG_API_CALLS": "1.6",
+    "STRUCTURED_LOGS": "1.8",
+    "CLIENT_UI_ERRORS": "2.7",
+    "RETRY_LOGIC": "1.12",
+    "TIMEOUT_IO": "1.5",
+    "THROTTLING": "3.6",
+    "CIRCUIT_BREAKERS": "3.9",
+    "HTTP_ERROR_CODES": "1.3",
+    "CLIENT_ERROR_TRACKING": "2.4",
+    "URL_MONITORING": "1.14",
+    "AUTOMATED_TESTS": "2",
+    "TIMEOUTS": "1.5",
+    "ERROR_LOGS": "1.1",
+    "HTTP_CODES" : "1.3",
+    "UI_ERROR_TOOLS":"2.4",
+    "UI_ERRORS":"2.7",
+    "URL_MONITORING":"1.14",
+    "API_MONITORING":"1.15",
+    "API_SECURITY":"1.16",
+    "API_PERFORMANCE":"1.17",
+    "API_AVAILABILITY":"1.18",
+    "API_ERRORS":"1.19",
+    "API_USAGE":"1.20",
+}
+
+def get_gate_number(gate_name: str) -> str:
+    """Get the gate number for a given gate name"""
+    return GATE_NUMBER_MAPPING.get(gate_name, "N/A")
+
+def get_gate_by_number(gate_number: str):
+    """Get gate by its number"""
+    for gate_name, number in GATE_NUMBER_MAPPING.items():
+        if number == gate_number:
+            return get_gate_by_name(gate_name)
+    return None
+
 HARD_GATES = [
     {
         "name": "ALERTING_ACTIONABLE",
