@@ -24,7 +24,7 @@ def main():
     print("=" * 50)
     
     # For testing the -cd variant functionality, use a repository that might have a -cd variant
-    repository_url = "https://github.com/kubernetes/kubernetes"
+    repository_url = "https://github.com/spring-projects/spring-boot"
     branch = "main"
     github_token = ""
     threshold = 70
