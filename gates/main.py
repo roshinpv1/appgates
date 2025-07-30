@@ -23,8 +23,8 @@ def main():
     print("🚀 CodeGates - Hard Gate Validation System")
     print("=" * 50)
     
-    # For testing the reverted implementation, use local repository
-    repository_url = "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_2c265bxo/repository"
+    # For testing the -cd variant functionality, use a repository that might have a -cd variant
+    repository_url = "https://github.com/kubernetes/kubernetes"
     branch = "main"
     github_token = ""
     threshold = 70

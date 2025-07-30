@@ -49,7 +49,7 @@ class FetchRepositoryNode(Node):
         }
     
     def exec(self, params: Dict[str, Any]) -> str:
-        """Fetch repository from URL or use local path"""
+        """Fetch repository from URL or use local path, including -cd variant if available"""
         repo_url = params["repository_url"]
         branch = params["branch"]
         github_token = params["github_token"]
@@ -67,15 +67,79 @@ class FetchRepositoryNode(Node):
         os.makedirs(target_dir, exist_ok=True)
         print(f"📁 Target directory created: {target_dir}")
         
-        # Clone repository
-        repo_path = clone_repository(
+        # Clone main repository
+        main_repo_path = clone_repository(
             repo_url=repo_url,
             branch=branch,
             github_token=github_token,
             target_dir=target_dir
         )
         
-        return repo_path
+        # Try to clone the -cd variant
+        cd_repo_path = None
+        try:
+            # Construct -cd variant URL
+            if repo_url.endswith('.git'):
+                cd_repo_url = repo_url[:-4] + '-cd.git'
+            else:
+                cd_repo_url = repo_url + '-cd'
+            
+            print(f"🔄 Attempting to fetch -cd variant: {cd_repo_url}")
+            
+            # Create subdirectory for -cd variant
+            cd_target_dir = os.path.join(target_dir, 'cd-variant')
+            os.makedirs(cd_target_dir, exist_ok=True)
+            
+            cd_repo_path = clone_repository(
+                repo_url=cd_repo_url,
+                branch=branch,
+                github_token=github_token,
+                target_dir=cd_target_dir
+            )
+            
+            print(f"✅ Successfully fetched -cd variant: {cd_repo_path}")
+            
+        except Exception as e:
+            print(f"⚠️ -cd variant not available or failed to fetch: {e}")
+            cd_repo_path = None
+        
+        # If we have both repositories, merge them
+        if cd_repo_path and os.path.exists(cd_repo_path):
+            print(f"🔄 Merging main repository with -cd variant...")
+            
+            # Copy -cd variant files to main repository (avoiding conflicts)
+            import shutil
+            from pathlib import Path
+            
+            main_path = Path(main_repo_path)
+            cd_path = Path(cd_repo_path)
+            
+            # Copy files from -cd variant to main repository
+            for item in cd_path.rglob('*'):
+                if item.is_file():
+                    # Calculate relative path from cd_path
+                    relative_path = item.relative_to(cd_path)
+                    target_path = main_path / relative_path
+                    
+                    # Create parent directories if they don't exist
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Copy file if it doesn't exist in main repo, or if it's different
+                    if not target_path.exists():
+                        shutil.copy2(item, target_path)
+                        print(f"📄 Copied: {relative_path}")
+                    else:
+                        # If file exists, append -cd suffix to filename
+                        stem = target_path.stem
+                        suffix = target_path.suffix
+                        new_name = f"{stem}-cd{suffix}"
+                        new_target_path = target_path.parent / new_name
+                        shutil.copy2(item, new_target_path)
+                        print(f"📄 Copied with -cd suffix: {relative_path} -> {new_name}")
+            
+            print(f"✅ Successfully merged repositories")
+        
+        return main_repo_path
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: str) -> str:
         """Store repository path in shared store"""
