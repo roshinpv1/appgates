@@ -494,6 +494,14 @@ class CodeGatesAssessmentPanel {
                                 <option value="90">90% - Enterprise (Very Strict)</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="splunkQuery">Splunk Query (Optional)</label>
+                            <textarea id="splunkQuery" placeholder="Enter Splunk SPL query to analyze logs during assessment..." rows="3"></textarea>
+                            <small>
+                                Optional Splunk query to analyze logs and enhance gate validation. 
+                                Example: <code>index=main sourcetype=application ERROR</code>
+                            </small>
+                        </div>
 
                         <div class="form-actions">
                             <button id="scanButton" onclick="startAssessment()">Start Assessment</button>

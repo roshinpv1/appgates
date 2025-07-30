@@ -2,6 +2,27 @@
 
 All notable changes to the CodeGates VS Code Extension will be documented in this file.
 
+## [2.4.0] - 2025-07-30
+
+### Added
+- **Splunk Integration**: Complete Splunk integration for log analysis during assessment
+- **Splunk Query Input**: UI field for entering Splunk SPL queries in the assessment form
+- **Log Analysis**: Splunk results enhance gate validation for structured logs, correlation IDs, and application messages
+- **Splunk Configuration**: New settings for enabling/disabling Splunk integration and configuring query timeouts
+- **Enhanced Gate Validation**: Splunk results are combined with static and LLM pattern matching for comprehensive analysis
+
+### Enhanced
+- **Form Interface**: Added textarea for Splunk queries with proper styling and monospace font
+- **Configuration Options**: Added `codegates.enableSplunkIntegration` and `codegates.splunkQueryTimeout` settings
+- **Backend Integration**: Full backend support for Splunk query execution and result analysis
+- **Gate Influence**: Splunk results influence specific gates: STRUCTURED_LOGS, CORRELATION_ID, LOG_APPLICATION_MESSAGES
+
+### Technical
+- **SplunkQueryNode**: Dedicated workflow node for executing Splunk queries
+- **Authentication Support**: Supports both token-based and username/password Splunk authentication
+- **Result Analysis**: Comprehensive log pattern analysis with error, warning, and info categorization
+- **Error Handling**: Robust error handling for Splunk query execution and timeout management
+
 ## [2.3.0] - 2025-07-30
 
 ### Added

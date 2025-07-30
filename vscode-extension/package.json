@@ -1,8 +1,8 @@
 {
   "name": "codegates",
   "displayName": "CodeGates Hard Gate Assessment",
-  "description": "Comprehensive validation of your repository against production-ready quality gates with enhanced pattern library, auto-scaling validation, comprehensive gate assessment, and elegant metric boxes",
-  "version": "2.3.0",
+  "description": "Comprehensive validation of your repository against production-ready quality gates with enhanced pattern library, auto-scaling validation, Splunk integration, and elegant metric boxes",
+  "version": "2.4.0",
   "publisher": "codegates",
   "repository": {
     "type": "git",
@@ -98,6 +98,18 @@
           "type": "boolean",
           "default": true,
           "description": "Enable elegant metric boxes for better visualization"
+        },
+        "codegates.enableSplunkIntegration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Splunk integration for log analysis during assessment"
+        },
+        "codegates.splunkQueryTimeout": {
+          "type": "number",
+          "default": 300,
+          "description": "Splunk query timeout in seconds",
+          "minimum": 30,
+          "maximum": 600
         }
       }
     }
