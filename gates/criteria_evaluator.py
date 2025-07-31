@@ -90,6 +90,67 @@ class CriteriaEvaluator:
             max_possible_matches=max_possible_matches
         )
     
+    def evaluate_criteria_with_required_optional(self, criteria: Dict[str, Any]) -> CriteriaResult:
+        """Evaluate criteria with required vs optional conditions using weight-based scoring"""
+        
+        conditions = criteria.get("conditions", [])
+        operator = criteria.get("operator", "AND")
+        
+        if not conditions:
+            return CriteriaResult(
+                passed=False,
+                condition_results=[],
+                matches=[],
+                total_weight=0.0
+            )
+        
+        print(f"   🔍 Evaluating {len(conditions)} conditions with {operator} logic...")
+        
+        condition_results = []
+        all_matches = []
+        total_weight = 0.0
+        
+        for i, condition in enumerate(conditions):
+            print(f"   📋 Evaluating condition {i+1}/{len(conditions)}: {condition.get('name', f'condition_{i+1}')}")
+            
+            condition_result = self._evaluate_condition(condition)
+            condition_results.append(condition_result)
+            all_matches.extend(condition_result.matches)
+            total_weight += condition_result.weight
+            
+            status = "PASS" if condition_result.passed else "FAIL"
+            print(f"   ✅ Condition {i+1} result: {status} ({len(condition_result.matches)} matches)")
+        
+        # Calculate weighted score for required vs optional conditions
+        required_weight = sum(cr.weight for cr in condition_results if cr.weight >= 5.0)  # High weight = required
+        optional_weight = sum(cr.weight for cr in condition_results if cr.weight < 5.0)   # Low weight = optional
+        
+        required_passed = sum(cr.weight for cr in condition_results if cr.passed and cr.weight >= 5.0)
+        optional_passed = sum(cr.weight for cr in condition_results if cr.passed and cr.weight < 5.0)
+        
+        # Determine if criteria passed based on required conditions
+        if required_weight > 0:
+            required_score = (required_passed / required_weight) * 100
+            passed = required_score >= 80.0  # At least 80% of required conditions must pass
+        else:
+            # If no required conditions, use optional conditions
+            if optional_weight > 0:
+                optional_score = (optional_passed / optional_weight) * 100
+                passed = optional_score >= 50.0  # At least 50% of optional conditions must pass
+            else:
+                passed = any(cr.passed for cr in condition_results)
+        
+        print(f"   🎯 Overall criteria result: {'PASS' if passed else 'FAIL'} ({len(all_matches)} total matches)")
+        print(f"   📊 Required: {required_passed}/{required_weight} ({required_passed/required_weight*100:.1f}%)")
+        print(f"   📊 Optional: {optional_passed}/{optional_weight} ({optional_passed/optional_weight*100:.1f}%)")
+        
+        return CriteriaResult(
+            passed=passed,
+            condition_results=condition_results,
+            matches=all_matches,
+            total_weight=total_weight
+        )
+    
     def _evaluate_condition(self, condition: Dict[str, Any]) -> ConditionResult:
         """Evaluate a single condition"""
         
@@ -284,6 +345,18 @@ class CriteriaEvaluator:
     
     def _matches_file_context(self, file_path: str, file_context: str) -> bool:
         """Check if file matches the specified file context"""
+        
+        # First, exclude documentation files from all contexts
+        doc_extensions = ['.md', '.txt', '.rst', '.adoc', '.asciidoc', '.doc', '.docx', '.pdf', '.rtf']
+        file_extension = os.path.splitext(file_path)[1].lower()
+        if file_extension in doc_extensions:
+            return False
+        
+        # Check for documentation file names
+        doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
+        file_name = os.path.basename(file_path).upper()
+        if any(pattern in file_name for pattern in doc_patterns):
+            return False
         
         if file_context == "test_files":
             # Check if file is a test file

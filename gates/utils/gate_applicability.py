@@ -52,10 +52,65 @@ class GateApplicabilityAnalyzer:
                 "excluded_technologies": [],
                 "description": "Applicable for API/backend services that handle API calls"
             },
+            "STRUCTURED_LOGS": {
+                "required_technologies": [],
+                "excluded_technologies": [],
+                "description": "Applicable for all codebases with logging requirements"
+            },
+            "ERROR_LOGS": {
+                "required_technologies": [],
+                "excluded_technologies": [],
+                "description": "Applicable for all codebases with error handling"
+            },
+            "CORRELATION_ID": {
+                "required_technologies": ["api"],
+                "excluded_technologies": [],
+                "description": "Applicable for API/backend services that handle requests"
+            },
+            "LOG_APPLICATION_MESSAGES": {
+                "required_technologies": [],
+                "excluded_technologies": [],
+                "description": "Applicable for all codebases with application logging"
+            },
+            "CIRCUIT_BREAKERS": {
+                "required_technologies": ["api"],
+                "excluded_technologies": [],
+                "description": "Applicable for API/backend services with external dependencies"
+            },
+            "TIMEOUTS": {
+                "required_technologies": ["api"],
+                "excluded_technologies": [],
+                "description": "Applicable for API/backend services with I/O operations"
+            },
+            "RETRY_LOGIC": {
+                "required_technologies": ["api"],
+                "excluded_technologies": [],
+                "description": "Applicable for API/backend services with external calls"
+            },
+            "THROTTLING": {
+                "required_technologies": ["api"],
+                "excluded_technologies": [],
+                "description": "Applicable for API/backend services with rate limiting needs"
+            },
             "AUTOMATED_TESTS": {
                 "required_technologies": [],
                 "excluded_technologies": [],
                 "description": "Applicable for all codebases"
+            },
+            "API_LOGS": {
+                "required_technologies": ["api"],
+                "excluded_technologies": [],
+                "description": "Applicable for API/backend services"
+            },
+            "BACKGROUND_JOBS": {
+                "required_technologies": ["backend"],
+                "excluded_technologies": [],
+                "description": "Applicable for backend services with async processing"
+            },
+            "AVOID_LOGGING_SECRETS": {
+                "required_technologies": [],
+                "excluded_technologies": [],
+                "description": "Applicable for all codebases (security requirement)"
             }
         }
     
@@ -81,9 +136,9 @@ class GateApplicabilityAnalyzer:
             "is_backend": self._has_backend_technologies(all_languages),
             "is_api": self._has_api_characteristics(metadata),
             "is_mobile": self._has_mobile_technologies(all_languages),
-            "is_backend_only": self._is_backend_only(all_languages),
-            "is_frontend_only": self._is_frontend_only(all_languages),
-            "is_fullstack": self._is_fullstack(all_languages),
+            "is_backend_only": self._is_backend_only(all_languages, language_counts),
+            "is_frontend_only": self._is_frontend_only(all_languages, language_counts),
+            "is_fullstack": self._is_fullstack(all_languages, language_counts),
             "primary_technology": self._get_primary_technology(all_languages, language_counts)
         }
         
@@ -101,9 +156,13 @@ class GateApplicabilityAnalyzer:
             total_files = sum(language_counts.values())
             frontend_files = sum(language_counts.get(lang, 0) for lang in frontend_langs)
             
-            # Consider it frontend only if frontend files are more than 5% of total
+            # Consider it frontend only if frontend files are more than 10% of total
             # This prevents documentation HTML from being considered frontend
-            if frontend_files > 0 and (frontend_files / total_files) > 0.05:
+            # Also check if there are actual frontend frameworks present
+            has_frontend_frameworks = any(lang in ['JavaScript', 'TypeScript', 'React', 'Vue', 'Angular', 'Svelte'] 
+                                        for lang in frontend_langs)
+            
+            if frontend_files > 0 and (frontend_files / total_files) > 0.10 and has_frontend_frameworks:
                 return True
             else:
                 return False
@@ -141,19 +200,19 @@ class GateApplicabilityAnalyzer:
         backend_langs = set(language_stats.keys()) & self.backend_technologies
         return len(backend_langs) > 0
     
-    def _is_backend_only(self, languages: Set[str]) -> bool:
+    def _is_backend_only(self, languages: Set[str], language_counts: Dict[str, int] = None) -> bool:
         """Check if codebase is backend-only (no frontend)"""
         return (self._has_backend_technologies(languages) and 
-                not self._has_frontend_technologies(languages))
+                not self._has_frontend_technologies(languages, language_counts))
     
-    def _is_frontend_only(self, languages: Set[str]) -> bool:
+    def _is_frontend_only(self, languages: Set[str], language_counts: Dict[str, int] = None) -> bool:
         """Check if codebase is frontend-only (no backend)"""
-        return (self._has_frontend_technologies(languages) and 
+        return (self._has_frontend_technologies(languages, language_counts) and 
                 not self._has_backend_technologies(languages))
     
-    def _is_fullstack(self, languages: Set[str]) -> bool:
+    def _is_fullstack(self, languages: Set[str], language_counts: Dict[str, int] = None) -> bool:
         """Check if codebase is fullstack (both frontend and backend)"""
-        return (self._has_frontend_technologies(languages) and 
+        return (self._has_frontend_technologies(languages, language_counts) and 
                 self._has_backend_technologies(languages))
     
     def _get_primary_technology(self, languages: Set[str], language_counts: Dict[str, int]) -> str:

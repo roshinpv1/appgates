@@ -46,7 +46,20 @@ IGNORE_PATTERNS = [
     '.idea', '.vscode', '.vs',
     '*.pyc', '*.class', '*.jar', '*.war',
     '*.log', '*.tmp', '*.swp',
-    '.DS_Store', 'Thumbs.db'
+    '.DS_Store', 'Thumbs.db',
+    # Documentation files
+    '*.md', '*.txt', '*.rst', '*.adoc', '*.asciidoc',
+    '*.doc', '*.docx', '*.pdf', '*.rtf',
+    '*.odt', '*.ods', '*.odp',
+    'LICENSE', 'README', 'CHANGELOG', 'CONTRIBUTING',
+    '*.license', '*.readme', '*.changelog',
+    # Documentation directories
+    'docs', 'documentation', 'doc',
+    # Other unnecessary files
+    '*.bak', '*.backup', '*.orig',
+    '*.sample', '*.example', '*.template',
+    '*.min.js', '*.min.css',  # Minified files
+    '*.map'  # Source maps
 ]
 
 # Binary file extensions to skip

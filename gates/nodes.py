@@ -1399,6 +1399,46 @@ class ValidateGatesNode(Node):
         for i, legacy_gate in enumerate(legacy_gates):
             gate_name = legacy_gate["name"]
             
+            # Check gate applicability using the applicability analyzer
+            from utils.gate_applicability import gate_applicability_analyzer
+            characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
+            applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
+            
+            # Check if gate is not applicable
+            is_not_applicable = not applicability["is_applicable"]
+            
+            if is_not_applicable:
+                # Handle Not Applicable gate
+                gate_result = {
+                    "gate": gate_name,
+                    "display_name": legacy_gate["display_name"],
+                    "description": legacy_gate["description"],
+                    "category": legacy_gate["category"],
+                    "priority": legacy_gate["priority"],
+                    "patterns_used": 0,
+                    "matches_found": 0,
+                    "score": 0.0,
+                    "status": "NOT_APPLICABLE",
+                    "details": [f"This gate is not applicable: {applicability['reason']}"],
+                    "recommendations": [f"Not applicable to this technology stack: {applicability['reason']}"],
+                    "pattern_description": f"Not applicable: {applicability['reason']}",
+                    "pattern_significance": applicability["reason"],
+                    "expected_coverage": {
+                        "percentage": 0,
+                        "reasoning": applicability["reason"],
+                        "confidence": "high"
+                    },
+                    "total_files": metadata.get("total_files", 1),
+                    "validation_sources": {
+                        "llm_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
+                        "static_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
+                        "combined_confidence": "high"
+                    }
+                }
+                print(f"   {gate_name} marked as NOT_APPLICABLE: {applicability['reason']}")
+                gate_results.append(gate_result)
+                continue
+            
             # Check if enhanced gate exists
             if gate_name in enhanced_gates:
                 print(f"   🔍 Evaluating {gate_name} with enhanced criteria-based system... ({i+1}/{len(legacy_gates)})")
@@ -1930,23 +1970,44 @@ class ValidateGatesNode(Node):
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
         
+        # Additional filter to exclude documentation files
+        doc_extensions = ['.md', '.txt', '.rst', '.adoc', '.asciidoc', '.doc', '.docx', '.pdf', '.rtf']
+        doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
+        
+        def is_doc_file(file_info):
+            file_name = file_info.get("name", "").upper()
+            file_ext = file_info.get("extension", "").lower()
+            
+            # Check for documentation extensions
+            if file_ext in doc_extensions:
+                return True
+            
+            # Check for documentation file names
+            if any(pattern in file_name for pattern in doc_patterns):
+                return True
+            
+            return False
+        
+        # Filter out documentation files
+        relevant_files = [f for f in all_files if not is_doc_file(f)]
+        
         # Determine primary technologies from language distribution
         primary_technologies = self._get_primary_technologies(metadata)
         
         if not primary_technologies:
             # Fallback to all files if no primary technology detected
-            print(f"   No primary technology detected, using all {len(all_files)} {file_type.lower()} files")
-            return all_files
+            print(f"   No primary technology detected, using all {len(relevant_files)} {file_type.lower()} files")
+            return relevant_files
         
         # Filter files to only include primary technology files
-        relevant_files = [f for f in all_files 
-                         if f["language"] in primary_technologies]
+        technology_relevant_files = [f for f in relevant_files 
+                                   if f["language"] in primary_technologies]
         
         primary_tech_str = ", ".join(primary_technologies)
         print(f"   Primary technologies: {primary_tech_str}")
-        print(f"   Filtered to {len(relevant_files)} relevant files (from {len(all_files)} total {file_type.lower()} files)")
+        print(f"   Filtered to {len(technology_relevant_files)} relevant files (from {len(relevant_files)} total {file_type.lower()} files)")
         
-        return relevant_files
+        return technology_relevant_files
     
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
         """Get primary technologies from metadata"""
@@ -2214,6 +2275,27 @@ class ValidateGatesNode(Node):
         """Get files that are relevant with improved, less aggressive filtering"""
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
+        
+        # Additional filter to exclude documentation files
+        doc_extensions = ['.md', '.txt', '.rst', '.adoc', '.asciidoc', '.doc', '.docx', '.pdf', '.rtf']
+        doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
+        
+        def is_doc_file(file_info):
+            file_name = file_info.get("name", "").upper()
+            file_ext = file_info.get("extension", "").lower()
+            
+            # Check for documentation extensions
+            if file_ext in doc_extensions:
+                return True
+            
+            # Check for documentation file names
+            if any(pattern in file_name for pattern in doc_patterns):
+                return True
+            
+            return False
+        
+        # Filter out documentation files
+        relevant_files = [f for f in all_files if not is_doc_file(f)]
         
         # Use hardcoded defaults since pattern_loader is removed
         file_config = {
@@ -2491,6 +2573,50 @@ class ValidateGatesNode(Node):
         gate_name = gate["name"]
         print(f"   🔍 Evaluating {gate_name} with legacy system...")
         
+        # Check gate applicability using the applicability analyzer
+        from utils.gate_applicability import gate_applicability_analyzer
+        metadata = params["metadata"]
+        characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
+        applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
+        
+        # Check if gate is not applicable
+        is_not_applicable = not applicability["is_applicable"]
+        
+        if is_not_applicable:
+            # Handle Not Applicable gate
+            gate_result = {
+                "gate": gate_name,
+                "display_name": gate["display_name"],
+                "description": gate["description"],
+                "category": gate["category"],
+                "priority": gate["priority"],
+                "patterns_used": 0,
+                "matches_found": 0,
+                "matches": [],
+                "patterns": [],
+                "score": 0.0,
+                "status": "NOT_APPLICABLE",
+                "details": [f"This gate is not applicable: {applicability['reason']}"],
+                "evidence": f"Not applicable: {applicability['reason']}",
+                "recommendations": [f"Not applicable to this technology stack: {applicability['reason']}"],
+                "pattern_description": f"Not applicable: {applicability['reason']}",
+                "pattern_significance": applicability["reason"],
+                "expected_coverage": {
+                    "percentage": 0,
+                    "reasoning": applicability["reason"],
+                    "confidence": "high"
+                },
+                "total_files": metadata.get("total_files", 1),
+                "relevant_files": 0,
+                "validation_sources": {
+                    "llm_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
+                    "static_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
+                    "combined_confidence": "high"
+                }
+            }
+            print(f"   {gate_name} marked as NOT_APPLICABLE: {applicability['reason']}")
+            return gate_result
+        
         # Simplified legacy evaluation - in practice, you'd copy the full legacy logic here
         return {
             "gate": gate_name,
@@ -2514,7 +2640,7 @@ class ValidateGatesNode(Node):
                 "reasoning": "Standard expectation",
                 "confidence": "medium"
             }),
-            "total_files": params["metadata"].get("total_files", 1),
+            "total_files": metadata.get("total_files", 1),
             "relevant_files": 1,
             "validation_sources": {
                 "llm_patterns": {"count": 0, "matches": 0, "source": "legacy"},
@@ -3768,6 +3894,27 @@ class GenerateReportNode(Node):
         """Get files that are relevant with improved, less aggressive filtering"""
         all_files = [f for f in metadata.get("file_list", []) 
                     if f["type"] == file_type and not f["is_binary"]]
+        
+        # Additional filter to exclude documentation files
+        doc_extensions = ['.md', '.txt', '.rst', '.adoc', '.asciidoc', '.doc', '.docx', '.pdf', '.rtf']
+        doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
+        
+        def is_doc_file(file_info):
+            file_name = file_info.get("name", "").upper()
+            file_ext = file_info.get("extension", "").lower()
+            
+            # Check for documentation extensions
+            if file_ext in doc_extensions:
+                return True
+            
+            # Check for documentation file names
+            if any(pattern in file_name for pattern in doc_patterns):
+                return True
+            
+            return False
+        
+        # Filter out documentation files
+        relevant_files = [f for f in all_files if not is_doc_file(f)]
         
         # Use hardcoded defaults since pattern_loader is removed
         file_config = {

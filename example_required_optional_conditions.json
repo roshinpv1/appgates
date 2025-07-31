@@ -1,0 +1,189 @@
+{
+  "HTTP_CODES_WEIGHT_BASED": {
+    "display_name": "HTTP Status Codes (Weight-Based Required/Optional)",
+    "description": "Ensure HTTP status codes are used (required) and optionally imported",
+    "category": "API",
+    "priority": "Medium",
+    "weight": 8.0,
+    "expected_coverage": {
+      "percentage": 25,
+      "reasoning": "HTTP status codes should be used in API endpoints",
+      "confidence": "Medium",
+      "max_files_expected": 50
+    },
+    "scoring": {
+      "pass_threshold": 15.0,
+      "perfect_threshold": 70.0,
+      "criteria_weight": 0.8,
+      "coverage_weight": 0.2
+    },
+    "criteria": {
+      "operator": "AND",
+      "conditions": [
+        {
+          "name": "required_http_status_usage",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 8.0,
+          "patterns": [
+            {
+              "pattern": "(HttpStatus|StatusCode)\\s*\\.\\s*(\\w+|\\d{3})",
+              "weight": 8.0,
+              "description": "Required: Detects direct references to HTTP status code enums or constants"
+            },
+            {
+              "pattern": "ResponseEntity\\.status\\(",
+              "weight": 8.0,
+              "description": "Required: Detects ResponseEntity status usage"
+            }
+          ]
+        },
+        {
+          "name": "required_status_code_values",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 8.0,
+          "patterns": [
+            {
+              "pattern": "200|201|400|401|403|404|500",
+              "weight": 8.0,
+              "description": "Required: Detects HTTP status code values"
+            },
+            {
+              "pattern": "OK|CREATED|BAD_REQUEST|UNAUTHORIZED|FORBIDDEN|NOT_FOUND|INTERNAL_SERVER_ERROR",
+              "weight": 8.0,
+              "description": "Required: Detects HTTP status code constants"
+            }
+          ]
+        },
+        {
+          "name": "optional_import",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 2.0,
+          "patterns": [
+            {
+              "pattern": "(?i)\\bimport\\s+[\\w.]+\\s*\\.\\s*(HttpStatus|StatusCode|HttpStatusCodes)\\s*(?:\\s|;|$)",
+              "weight": 2.0,
+              "description": "Optional: Detects imports of HTTP status code classes"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "SECURITY_WEIGHT_BASED": {
+    "display_name": "Security (Weight-Based Required/Optional)",
+    "description": "Ensure security measures are implemented (required) with optional monitoring",
+    "category": "Security",
+    "priority": "High",
+    "weight": 15.0,
+    "expected_coverage": {
+      "percentage": 20,
+      "reasoning": "Security measures should be implemented across the application",
+      "confidence": "High",
+      "max_files_expected": 40
+    },
+    "scoring": {
+      "pass_threshold": 20.0,
+      "perfect_threshold": 80.0,
+      "criteria_weight": 0.8,
+      "coverage_weight": 0.2
+    },
+    "criteria": {
+      "operator": "AND",
+      "conditions": [
+        {
+          "name": "required_authentication",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 10.0,
+          "patterns": [
+            {"pattern": "@PreAuthorize", "weight": 10.0, "technology": "java"},
+            {"pattern": "authentication", "weight": 10.0},
+            {"pattern": "auth.*required", "weight": 10.0}
+          ]
+        },
+        {
+          "name": "required_input_validation",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 10.0,
+          "patterns": [
+            {"pattern": "@Valid", "weight": 10.0, "technology": "java"},
+            {"pattern": "validation", "weight": 10.0},
+            {"pattern": "validate.*input", "weight": 10.0}
+          ]
+        },
+        {
+          "name": "optional_monitoring",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 3.0,
+          "patterns": [
+            {"pattern": "security.*monitoring", "weight": 3.0},
+            {"pattern": "audit.*log", "weight": 3.0},
+            {"pattern": "security.*alert", "weight": 3.0}
+          ]
+        }
+      ]
+    }
+  },
+  "LOGGING_WEIGHT_BASED": {
+    "display_name": "Logging (Weight-Based Required/Optional)",
+    "description": "Ensure logging is implemented (required) with optional structured format",
+    "category": "Logging",
+    "priority": "Medium",
+    "weight": 10.0,
+    "expected_coverage": {
+      "percentage": 30,
+      "reasoning": "Logging should be implemented throughout the application",
+      "confidence": "High",
+      "max_files_expected": 60
+    },
+    "scoring": {
+      "pass_threshold": 20.0,
+      "perfect_threshold": 80.0,
+      "criteria_weight": 0.8,
+      "coverage_weight": 0.2
+    },
+    "criteria": {
+      "operator": "AND",
+      "conditions": [
+        {
+          "name": "required_logging_framework",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 8.0,
+          "patterns": [
+            {"pattern": "import.*logging", "weight": 8.0},
+            {"pattern": "import.*slf4j", "weight": 8.0, "technology": "java"},
+            {"pattern": "import.*winston", "weight": 8.0, "technology": "javascript"}
+          ]
+        },
+        {
+          "name": "required_logging_usage",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 8.0,
+          "patterns": [
+            {"pattern": "logger\\.(info|debug|warn|error)", "weight": 8.0},
+            {"pattern": "logging\\.(info|debug|warning|error)", "weight": 8.0},
+            {"pattern": "console\\.(log|warn|error)", "weight": 8.0}
+          ]
+        },
+        {
+          "name": "optional_structured_logging",
+          "type": "pattern",
+          "operator": "OR",
+          "weight": 2.0,
+          "patterns": [
+            {"pattern": "structured.*log", "weight": 2.0},
+            {"pattern": "json.*log", "weight": 2.0},
+            {"pattern": "log.*format", "weight": 2.0}
+          ]
+        }
+      ]
+    }
+  }
+} 
