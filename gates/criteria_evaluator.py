@@ -115,6 +115,7 @@ class CriteriaEvaluator:
         technology = condition.get("technology")
         
         matches = []
+        pattern_results = []  # Track results for each pattern separately
         
         for pattern_config in patterns:
             pattern = pattern_config["pattern"]
@@ -130,9 +131,20 @@ class CriteriaEvaluator:
                 technology or pattern_technology
             )
             matches.extend(pattern_matches)
+            pattern_results.append(len(pattern_matches) > 0)  # True if pattern has matches
         
         # Determine if condition passed based on operator
-        passed = self._apply_logic_operator(operator, matches)
+        if operator == "AND":
+            # All patterns must have at least one match
+            passed = all(pattern_results)
+        elif operator == "OR":
+            # At least one pattern must have matches
+            passed = any(pattern_results)
+        elif operator == "NOT":
+            # No patterns should have matches
+            passed = not any(pattern_results)
+        else:
+            raise ValueError(f"Unknown operator: {operator}")
         
         return ConditionResult(
             condition_name=name,

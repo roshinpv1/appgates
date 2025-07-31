@@ -1118,28 +1118,24 @@
         "coverage_weight": 0.2
       },
       "criteria": {
-        "operator": "OR",
+        "operator": "AND",
         "conditions": [
           {
             "name": "http_status_codes",
             "type": "pattern",
-            "operator": "OR",
+            "operator": "AND",
             "weight": 4.0,
             "patterns": [
-              {"pattern": "HttpStatus", "weight": 3.0, "file_context": "source_files"},
-              {"pattern": "ResponseEntity", "weight": 3.0, "file_context": "source_files"},
-              {"pattern": "status.*code", "weight": 3.0, "file_context": "source_files"},
-              {"pattern": "res\\.status", "weight": 3.0, "file_context": "source_files"}
-            ]
-          },
-          {
-            "name": "status_code_usage",
-            "type": "pattern",
-            "operator": "OR",
-            "weight": 3.0,
-            "patterns": [
-              {"pattern": "200|201|400|401|403|404|500", "weight": 2.0, "file_context": "source_files"},
-              {"pattern": "OK|CREATED|BAD_REQUEST|UNAUTHORIZED|FORBIDDEN|NOT_FOUND|INTERNAL_SERVER_ERROR", "weight": 2.0, "file_context": "source_files"}
+              {
+                "pattern": "(HttpStatus|StatusCode)\\s*\\.\\s*(\\w+|\\d{3})",
+                "weight": 3.0,
+                "description": "Detects direct references to HTTP status code enums or constants"
+              },
+              {
+                "pattern": "(?i)\\bimport\\s+[\\w.]+\\s*\\.\\s*(HttpStatus|StatusCode|HttpStatusCodes)\\s*(?:\\s|;|$)",
+                "weight": 5.0,
+                "description": "Detects imports of HTTP status code classes from any package"
+              }
             ]
           }
         ]
