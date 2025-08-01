@@ -2093,8 +2093,21 @@ class ValidateGatesNode(Node):
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         scoring_config = gate.get("scoring", {})
         is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
+        
+        # Check for enhanced data with violation matches
+        enhanced_data = gate.get("enhanced_data", {})
+        violation_matches = enhanced_data.get("violation_matches", [])
+        
+        # Use violation_matches for security gates if available
+        if is_security_gate and violation_matches:
+            actual_matches = violation_matches
+            files_with_violations = len(set(m.file for m in violation_matches)) if violation_matches else 0
+        else:
+            actual_matches = matches
+            files_with_violations = files_with_matches
+        
         if is_security_gate:
-            if len(matches) == 0:
+            if len(actual_matches) == 0:
                 details.append(f"✅ No security violations found - perfect implementation")
             else:
                 details.append(f"❌ Security violations found - immediate attention required")
@@ -2116,15 +2129,19 @@ class ValidateGatesNode(Node):
         if relevant_files != total_files:
             details.append(f"Technology Filter: Using {relevant_files} relevant files (from {total_files} total files)")
         details.append(f"Confidence: {confidence}")
-        if matches:
+        if actual_matches:
             if is_security_gate:
-                details.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+                details.append(f"Found {len(actual_matches)} security violations across {files_with_violations} files")
             else:
-                details.append(f"Found {len(matches)} matches across {files_with_matches} files")
-            for match in matches[:3]:
-                details.append(f"  {match['file']}:{match['line']} - {match['match'][:50]}")
-            if len(matches) > 3:
-                details.append(f"  ... and {len(matches) - 3} more matches")
+                details.append(f"Found {len(actual_matches)} matches across {files_with_matches} files")
+            # Show first few matches
+            for match in actual_matches[:3]:
+                if hasattr(match, 'file'):  # Enhanced match object
+                    details.append(f"  {match.file}:{match.line_number or 0} - {match.context or match.pattern}")
+                else:  # Legacy match object
+                    details.append(f"  {match['file']}:{match['line']} - {match['match'][:50]}")
+            if len(actual_matches) > 3:
+                details.append(f"  ... and {len(actual_matches) - 3} more matches")
         else:
             if is_security_gate:
                 details.append(f"No security violations found for {gate['display_name']}")
@@ -2152,25 +2169,37 @@ class ValidateGatesNode(Node):
         scoring_config = gate.get("scoring", {})
         is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
         
+        # Check for enhanced data with violation matches
+        enhanced_data = gate.get("enhanced_data", {})
+        violation_matches = enhanced_data.get("violation_matches", [])
+        
+        # Use violation_matches for security gates if available
+        if is_security_gate and violation_matches:
+            actual_matches = violation_matches
+            files_with_violations = len(set(m.file for m in violation_matches)) if violation_matches else 0
+        else:
+            actual_matches = matches
+            files_with_violations = files_with_matches
+        
         if is_security_gate:
             # For security gates, focus on violations rather than coverage
-            if len(matches) == 0:
+            if len(actual_matches) == 0:
                 recommendations.append(f"✅ {gate['display_name']} is well implemented")
                 recommendations.append(f"No security violations found - perfect implementation")
             else:
                 recommendations.append(f"❌ Critical: {gate['display_name']} violations found")
-                recommendations.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+                recommendations.append(f"Found {len(actual_matches)} security violations across {files_with_violations} files")
                 recommendations.append(f"Immediate action required: {coverage_reasoning}")
                 
                 # Provide specific guidance based on violation count
-                if len(matches) > 100:
-                    recommendations.append(f"Major Security Issue: {len(matches)} violations require immediate remediation")
-                elif len(matches) > 50:
-                    recommendations.append(f"Significant Security Issue: {len(matches)} violations need urgent attention")
-                elif len(matches) > 10:
-                    recommendations.append(f"Security Issue: {len(matches)} violations should be addressed")
+                if len(actual_matches) > 100:
+                    recommendations.append(f"Major Security Issue: {len(actual_matches)} violations require immediate remediation")
+                elif len(actual_matches) > 50:
+                    recommendations.append(f"Significant Security Issue: {len(actual_matches)} violations need urgent attention")
+                elif len(actual_matches) > 10:
+                    recommendations.append(f"Security Issue: {len(actual_matches)} violations should be addressed")
                 else:
-                    recommendations.append(f"Minor Security Issue: {len(matches)} violations to fix")
+                    recommendations.append(f"Minor Security Issue: {len(actual_matches)} violations to fix")
         else:
             # Calculate coverage using maximum files expected for more accurate assessment
             actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
@@ -2499,17 +2528,29 @@ class ValidateGatesNode(Node):
         matches = enhanced_result.get("matches", [])
         condition_results = enhanced_result.get("condition_results", [])
         
-        # Convert matches to legacy format
-        legacy_matches = []
-        for match in matches:
-            legacy_matches.append({
-                "file": match.file,
-                "pattern": match.pattern,
-                "match": match.context or f"Pattern: {match.pattern}",
-                "line": match.line_number or 0,
-                "language": self._detect_language_from_file(match.file),
-                "source": "enhanced_criteria"
-            })
+        # Check if this is a security gate with NOT operators
+        gate_name = enhanced_result.get("gate_name", legacy_gate["name"])
+        is_security_gate = gate_name == "AVOID_LOGGING_SECRETS"
+        
+        # For security gates with NOT operators, matches represent violations
+        # If the gate passed (status == "PASS"), there should be no violations
+        if is_security_gate and status == "PASS":
+            # Gate passed means no violations found, so clear matches
+            legacy_matches = []
+            violation_matches = matches  # Keep original matches for violation reporting
+        else:
+            # Convert matches to legacy format
+            legacy_matches = []
+            for match in matches:
+                legacy_matches.append({
+                    "file": match.file,
+                    "pattern": match.pattern,
+                    "match": match.context or f"Pattern: {match.pattern}",
+                    "line": match.line_number or 0,
+                    "language": self._detect_language_from_file(match.file),
+                    "source": "enhanced_criteria"
+                })
+            violation_matches = matches
         
         # Generate details from condition results
         details = []
@@ -2534,7 +2575,7 @@ class ValidateGatesNode(Node):
             "score": score,
             "status": status,
             "details": details,
-            "evidence": f"Enhanced criteria evaluation: {len(matches)} matches found",
+            "evidence": f"Enhanced criteria evaluation: {len(legacy_matches)} matches found",
             "recommendations": recommendations,
             "pattern_description": legacy_gate.get("description", "Enhanced criteria-based analysis"),
             "pattern_significance": legacy_gate.get("significance", "Important for code quality"),
@@ -2564,7 +2605,8 @@ class ValidateGatesNode(Node):
                         "matches_count": len(condition.matches)
                     }
                     for condition in condition_results
-                ]
+                ],
+                "violation_matches": violation_matches  # Keep original matches for violation reporting
             }
         }
     
@@ -3712,8 +3754,21 @@ class GenerateReportNode(Node):
         files_with_matches = len(set(m['file'] for m in matches)) if matches else 0
         scoring_config = gate.get("scoring", {})
         is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
+        
+        # Check for enhanced data with violation matches
+        enhanced_data = gate.get("enhanced_data", {})
+        violation_matches = enhanced_data.get("violation_matches", [])
+        
+        # Use violation_matches for security gates if available
+        if is_security_gate and violation_matches:
+            actual_matches = violation_matches
+            files_with_violations = len(set(m.file for m in violation_matches)) if violation_matches else 0
+        else:
+            actual_matches = matches
+            files_with_violations = files_with_matches
+        
         if is_security_gate:
-            if len(matches) == 0:
+            if len(actual_matches) == 0:
                 details.append(f"✅ No security violations found - perfect implementation")
             else:
                 details.append(f"❌ Security violations found - immediate attention required")
@@ -3735,15 +3790,19 @@ class GenerateReportNode(Node):
         if relevant_files != total_files:
             details.append(f"Technology Filter: Using {relevant_files} relevant files (from {total_files} total files)")
         details.append(f"Confidence: {confidence}")
-        if matches:
+        if actual_matches:
             if is_security_gate:
-                details.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+                details.append(f"Found {len(actual_matches)} security violations across {files_with_violations} files")
             else:
-                details.append(f"Found {len(matches)} matches across {files_with_matches} files")
-            for match in matches[:3]:
-                details.append(f"  {match['file']}:{match['line']} - {match['match'][:50]}")
-            if len(matches) > 3:
-                details.append(f"  ... and {len(matches) - 3} more matches")
+                details.append(f"Found {len(actual_matches)} matches across {files_with_matches} files")
+            # Show first few matches
+            for match in actual_matches[:3]:
+                if hasattr(match, 'file'):  # Enhanced match object
+                    details.append(f"  {match.file}:{match.line_number or 0} - {match.context or match.pattern}")
+                else:  # Legacy match object
+                    details.append(f"  {match['file']}:{match['line']} - {match['match'][:50]}")
+            if len(actual_matches) > 3:
+                details.append(f"  ... and {len(actual_matches) - 3} more matches")
         else:
             if is_security_gate:
                 details.append(f"No security violations found for {gate['display_name']}")
@@ -3771,25 +3830,37 @@ class GenerateReportNode(Node):
         scoring_config = gate.get("scoring", {})
         is_security_gate = scoring_config.get("is_security_gate", False) or gate["name"] == "AVOID_LOGGING_SECRETS"
         
+        # Check for enhanced data with violation matches
+        enhanced_data = gate.get("enhanced_data", {})
+        violation_matches = enhanced_data.get("violation_matches", [])
+        
+        # Use violation_matches for security gates if available
+        if is_security_gate and violation_matches:
+            actual_matches = violation_matches
+            files_with_violations = len(set(m.file for m in violation_matches)) if violation_matches else 0
+        else:
+            actual_matches = matches
+            files_with_violations = files_with_matches
+        
         if is_security_gate:
             # For security gates, focus on violations rather than coverage
-            if len(matches) == 0:
+            if len(actual_matches) == 0:
                 recommendations.append(f"✅ {gate['display_name']} is well implemented")
                 recommendations.append(f"No security violations found - perfect implementation")
             else:
                 recommendations.append(f"❌ Critical: {gate['display_name']} violations found")
-                recommendations.append(f"Found {len(matches)} security violations across {files_with_matches} files")
+                recommendations.append(f"Found {len(actual_matches)} security violations across {files_with_violations} files")
                 recommendations.append(f"Immediate action required: {coverage_reasoning}")
                 
                 # Provide specific guidance based on violation count
-                if len(matches) > 100:
-                    recommendations.append(f"Major Security Issue: {len(matches)} violations require immediate remediation")
-                elif len(matches) > 50:
-                    recommendations.append(f"Significant Security Issue: {len(matches)} violations need urgent attention")
-                elif len(matches) > 10:
-                    recommendations.append(f"Security Issue: {len(matches)} violations should be addressed")
+                if len(actual_matches) > 100:
+                    recommendations.append(f"Major Security Issue: {len(actual_matches)} violations require immediate remediation")
+                elif len(actual_matches) > 50:
+                    recommendations.append(f"Significant Security Issue: {len(actual_matches)} violations need urgent attention")
+                elif len(actual_matches) > 10:
+                    recommendations.append(f"Security Issue: {len(actual_matches)} violations should be addressed")
                 else:
-                    recommendations.append(f"Minor Security Issue: {len(matches)} violations to fix")
+                    recommendations.append(f"Minor Security Issue: {len(actual_matches)} violations to fix")
         else:
             # Calculate coverage using maximum files expected for more accurate assessment
             actual_percentage = (files_with_matches / max_files_expected) * 100 if max_files_expected > 0 else 0
