@@ -2495,8 +2495,8 @@ class ValidateGatesNode(Node):
         doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
         
         def is_doc_file(file_info):
-            file_name = file_info.get("name", "").upper()
-            file_ext = file_info.get("extension", "").lower()
+            file_name = file_info.get("relative_path", "").upper()
+            file_ext = Path(file_name).suffix.lower()
             
             # Check for documentation extensions
             if file_ext in doc_extensions:
@@ -2541,9 +2541,10 @@ class ValidateGatesNode(Node):
         language_stats = metadata.get("language_stats", {})
         total_files = sum(stats.get("files", 0) for stats in language_stats.values())
         
+        # If no language statistics available, use all files (less aggressive filtering)
         if not language_stats or total_files == 0:
-            print(f"   No language statistics available, using all {len(all_files)} {file_type.lower()} files")
-            return all_files
+            print(f"   No language statistics available, using all {len(relevant_files)} {file_type.lower()} files")
+            return relevant_files
         
         # Get technology categories from global config
         primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
@@ -2587,56 +2588,27 @@ class ValidateGatesNode(Node):
                 if language in primary_languages and percentage >= test_threshold:
                     relevant_languages.add(language)
         else:
-            # Other gates: include primary languages with configurable threshold
+            # Default: include all languages that meet the primary threshold
             for language, percentage in language_percentages.items():
                 if language in primary_languages and percentage >= primary_threshold:
                     relevant_languages.add(language)
-                elif language in script_languages and percentage >= config_threshold * 2:
+                elif language in config_languages and percentage >= config_threshold:
                     relevant_languages.add(language)
         
-        # If no languages meet the threshold, include the most dominant ones
-        if not relevant_languages:
-            sorted_languages = sorted(language_percentages.items(), key=lambda x: x[1], reverse=True)
-            
-            # Include top languages or languages with >2% representation
-            min_languages = config.get("min_languages", 1)
-            for language, percentage in sorted_languages[:max(min_languages, 3)]:
-                if language in primary_languages or percentage >= 2.0:
-                    relevant_languages.add(language)
-        
-        # Always include the dominant language if it's a primary language
-        if language_percentages:
-            dominant_language = max(language_percentages.items(), key=lambda x: x[1])[0]
-            if dominant_language in primary_languages:
-                relevant_languages.add(dominant_language)
-        
-        # Filter files to include relevant languages
+        # Filter files based on relevant languages
         if relevant_languages:
-            relevant_files = [f for f in all_files 
-                             if f["language"] in relevant_languages]
+            filtered_files = []
+            for file_info in relevant_files:
+                file_language = file_info.get("language", "").lower()
+                if file_language in relevant_languages:
+                    filtered_files.append(file_info)
+            
+            print(f"   Filtered to {len(filtered_files)} files in relevant languages: {', '.join(relevant_languages)}")
+            return filtered_files
         else:
-            # Fallback: use all files if no relevant languages found
-            relevant_files = all_files
-        
-        # Sort files by relevance (prioritize larger files and common patterns)
-        relevant_files.sort(key=lambda f: (
-            f["language"] in primary_languages,  # Primary languages first
-            f["size"],  # Larger files first
-            not f["relative_path"].startswith("test"),  # Non-test files first (except for test gates)
-            f["relative_path"]  # Alphabetical as tiebreaker
-        ), reverse=True)
-        
-        # Report filtering results
-        relevant_langs_str = ", ".join(sorted(relevant_languages))
-        print(f"   Relevant languages: {relevant_langs_str}")
-        print(f"   Filtered to {len(relevant_files)} relevant files (from {len(all_files)} total {file_type.lower()} files)")
-        
-        # Show percentage breakdown
-        if len(all_files) > 0:
-            coverage_percentage = (len(relevant_files) / len(all_files)) * 100
-            print(f"   Coverage: {coverage_percentage:.1f}% of {file_type.lower()} files")
-        
-        return relevant_files
+            # If no relevant languages found, return all files (fallback)
+            print(f"   No relevant languages found, using all {len(relevant_files)} files")
+            return relevant_files
 
     def _get_min_expected_implementation(self, gate_name: str, primary_technologies: list) -> int:
         """Get minimum expected implementation count for a gate"""
@@ -4226,8 +4198,8 @@ class GenerateReportNode(Node):
         doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
         
         def is_doc_file(file_info):
-            file_name = file_info.get("name", "").upper()
-            file_ext = file_info.get("extension", "").lower()
+            file_name = file_info.get("relative_path", "").upper()
+            file_ext = Path(file_name).suffix.lower()
             
             # Check for documentation extensions
             if file_ext in doc_extensions:
@@ -4272,9 +4244,10 @@ class GenerateReportNode(Node):
         language_stats = metadata.get("language_stats", {})
         total_files = sum(stats.get("files", 0) for stats in language_stats.values())
         
+        # If no language statistics available, use all files (less aggressive filtering)
         if not language_stats or total_files == 0:
-            print(f"   No language statistics available, using all {len(all_files)} {file_type.lower()} files")
-            return all_files
+            print(f"   No language statistics available, using all {len(relevant_files)} {file_type.lower()} files")
+            return relevant_files
         
         # Get technology categories from global config
         primary_languages = set(tech_config.get("primary_languages", ["java", "python", "javascript", "typescript", "csharp", "go", "rust"]))
@@ -4318,56 +4291,27 @@ class GenerateReportNode(Node):
                 if language in primary_languages and percentage >= test_threshold:
                     relevant_languages.add(language)
         else:
-            # Other gates: include primary languages with configurable threshold
+            # Default: include all languages that meet the primary threshold
             for language, percentage in language_percentages.items():
                 if language in primary_languages and percentage >= primary_threshold:
                     relevant_languages.add(language)
-                elif language in script_languages and percentage >= config_threshold * 2:
+                elif language in config_languages and percentage >= config_threshold:
                     relevant_languages.add(language)
         
-        # If no languages meet the threshold, include the most dominant ones
-        if not relevant_languages:
-            sorted_languages = sorted(language_percentages.items(), key=lambda x: x[1], reverse=True)
-            
-            # Include top languages or languages with >2% representation
-            min_languages = config.get("min_languages", 1)
-            for language, percentage in sorted_languages[:max(min_languages, 3)]:
-                if language in primary_languages or percentage >= 2.0:
-                    relevant_languages.add(language)
-        
-        # Always include the dominant language if it's a primary language
-        if language_percentages:
-            dominant_language = max(language_percentages.items(), key=lambda x: x[1])[0]
-            if dominant_language in primary_languages:
-                relevant_languages.add(dominant_language)
-        
-        # Filter files to include relevant languages
+        # Filter files based on relevant languages
         if relevant_languages:
-            relevant_files = [f for f in all_files 
-                             if f["language"] in relevant_languages]
+            filtered_files = []
+            for file_info in relevant_files:
+                file_language = file_info.get("language", "").lower()
+                if file_language in relevant_languages:
+                    filtered_files.append(file_info)
+            
+            print(f"   Filtered to {len(filtered_files)} files in relevant languages: {', '.join(relevant_languages)}")
+            return filtered_files
         else:
-            # Fallback: use all files if no relevant languages found
-            relevant_files = all_files
-        
-        # Sort files by relevance (prioritize larger files and common patterns)
-        relevant_files.sort(key=lambda f: (
-            f["language"] in primary_languages,  # Primary languages first
-            f["size"],  # Larger files first
-            not f["relative_path"].startswith("test"),  # Non-test files first (except for test gates)
-            f["relative_path"]  # Alphabetical as tiebreaker
-        ), reverse=True)
-        
-        # Report filtering results
-        relevant_langs_str = ", ".join(sorted(relevant_languages))
-        print(f"   Relevant languages: {relevant_langs_str}")
-        print(f"   Filtered to {len(relevant_files)} relevant files (from {len(all_files)} total {file_type.lower()} files)")
-        
-        # Show percentage breakdown
-        if len(all_files) > 0:
-            coverage_percentage = (len(relevant_files) / len(all_files)) * 100
-            print(f"   Coverage: {coverage_percentage:.1f}% of {file_type.lower()} files")
-        
-        return relevant_files
+            # If no relevant languages found, return all files (fallback)
+            print(f"   No relevant languages found, using all {len(relevant_files)} files")
+            return relevant_files
 
     def _generate_gates_table_html_from_new_data(self, gate_results: List[Dict[str, Any]]) -> str:
         """Generate gates table HTML from new data structure with proper categories and table format"""
