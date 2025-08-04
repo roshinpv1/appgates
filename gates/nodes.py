@@ -3009,18 +3009,11 @@ class GenerateReportNode(Node):
             try:
                 html_path = os.path.join(output_dir, f"codegates_report_{scan_id}.html")
                 
-                # Add timeout for HTML generation
-                import signal
-                import threading
+                # Add platform-independent timeout for HTML generation
+                from utils.timeout_utils import safe_timeout, TimeoutError
                 
-                def timeout_handler(signum, frame):
-                    raise TimeoutError("HTML report generation timed out")
-                
-                # Set timeout to 5 minutes
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(300)  # 5 minutes timeout
-                
-                try:
+                def generate_html_report():
+                    """Generate HTML report with timeout protection"""
                     print(f"🔍 Debug: Generating HTML report...")
                     html_content = self._generate_html_report(params)
                     print(f"🔍 Debug: HTML content length: {len(html_content)}")
@@ -3042,13 +3035,20 @@ class GenerateReportNode(Node):
                         print(f"✅ HTML report generated: {html_path}")
                     else:
                         print("⚠️ Warning: HTML content is empty!")
-                        
-                finally:
-                    signal.alarm(0)  # Cancel the alarm
                     
-            except TimeoutError:
-                print("⚠️ HTML report generation timed out after 5 minutes")
-                print("💡 Consider reducing the amount of data or using JSON format only")
+                    return html_content
+                
+                try:
+                    # Use platform-independent timeout (5 minutes)
+                    safe_timeout(generate_html_report, 300)
+                    
+                except TimeoutError:
+                    print("⚠️ HTML report generation timed out after 5 minutes")
+                    print("💡 Consider reducing the amount of data or using JSON format only")
+                except Exception as e:
+                    print(f"❌ Failed to generate HTML report: {e}")
+                    import traceback
+                    traceback.print_exc()
             except Exception as e:
                 print(f"❌ Failed to generate HTML report: {e}")
                 import traceback
