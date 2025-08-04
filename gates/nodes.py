@@ -1444,6 +1444,101 @@ class ValidateGatesNode(Node):
                 print(f"   🔍 Evaluating {gate_name} with enhanced criteria-based system... ({i+1}/{len(legacy_gates)})")
                 enhanced_gate_config = enhanced_gates[gate_name]
                 
+                # Special handling for ALERTING_ACTIONABLE - use database integration
+                if gate_name == "ALERTING_ACTIONABLE":
+                    print(f"   🔗 Using database integration for {gate_name}")
+                    # Use fetch_alerting_integrations_status to determine status
+                    from utils.db_integration import fetch_alerting_integrations_status
+                    # Try to get app_id from params, else extract from repo URL
+                    app_id = params.get('shared', {}).get('request', {}).get('app_id')
+                    if not app_id:
+                        repo_url = params.get('shared', {}).get('request', {}).get('repository_url', '')
+                        from utils.db_integration import extract_app_id_from_url
+                        app_id = extract_app_id_from_url(repo_url) or '<APP ID>'
+                    print(f"   [DEBUG] Calling fetch_alerting_integrations_status for app_id={app_id}")
+                    try:
+                        integration_status = fetch_alerting_integrations_status(app_id)
+                        print(f"   [DEBUG] Integration status: {integration_status}")
+                    except Exception as ex:
+                        print(f"   [ERROR] fetch_alerting_integrations_status failed: {ex}")
+                        integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
+                    present = [k for k, v in integration_status.items() if v]
+                    missing = [k for k, v in integration_status.items() if not v]
+                    all_present = all(integration_status.values())
+                    # Only include App ID in evidence/details if it is not '<APP ID>' or empty
+                    app_id_str = f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else ""
+                    evidence_str = f"Present: {', '.join(present) if present else 'None'}; Missing: {', '.join(missing) if missing else 'None'}{app_id_str}"
+                    
+                    # Create enhanced result format for ALERTING_ACTIONABLE
+                    enhanced_result = {
+                        "gate_name": gate_name,
+                        "score": 100.0 if all_present else 0.0,
+                        "status": "PASS" if all_present else "FAIL",
+                        "evidence": evidence_str,
+                        "details": [
+                            f"Present: {', '.join(present) if present else 'None'}",
+                            f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
+                        ],
+                        "recommendations": [
+                            "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
+                        ],
+                        "condition_results": [
+                            {
+                                "name": "database_integration",
+                                "type": "database",
+                                "status": "PASS" if all_present else "FAIL",
+                                "weight": 1.0,
+                                "details": evidence_str
+                            }
+                        ],
+                        "coverage_score": 100.0 if all_present else 0.0,
+                        "criteria_score": 100.0 if all_present else 0.0,
+                        "matches_found": 1 if all_present else 0,
+                        "total_files": metadata.get("total_files", 1),
+                        "relevant_files": 1
+                    }
+                    
+                    # Create legacy result directly for ALERTING_ACTIONABLE (avoid conversion issues)
+                    legacy_result = {
+                        "gate": gate_name,
+                        "display_name": legacy_gate["display_name"],
+                        "description": legacy_gate["description"],
+                        "category": legacy_gate["category"],
+                        "priority": legacy_gate["priority"],
+                        "patterns_used": 0,
+                        "matches_found": 1 if all_present else 0,
+                        "matches": [],
+                        "patterns": [],
+                        "score": 100.0 if all_present else 0.0,
+                        "status": "PASS" if all_present else "FAIL",
+                        "details": [
+                            f"Present: {', '.join(present) if present else 'None'}",
+                            f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
+                        ],
+                        "evidence": evidence_str,
+                        "recommendations": [
+                            "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
+                        ],
+                        "pattern_description": legacy_gate.get("description", "Database integration analysis"),
+                        "pattern_significance": "Critical for monitoring and alerting",
+                        "expected_coverage": {
+                            "percentage": 100,
+                            "reasoning": "All integrations should be present",
+                            "confidence": "high"
+                        },
+                        "total_files": metadata.get("total_files", 1),
+                        "relevant_files": 1,
+                        "validation_sources": {
+                            "llm_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
+                            "static_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
+                            "combined_confidence": "high"
+                        }
+                    }
+                    
+                    gate_results.append(legacy_result)
+                    print(f"   ✅ {gate_name} evaluation complete: {legacy_result.get('status', 'UNKNOWN')} ({legacy_result.get('score', 0):.1f}%)")
+                    continue
+                
                 try:
                     # Evaluate using enhanced system
                     enhanced_result = evaluator.evaluate_gate(gate_name, enhanced_gate_config)
@@ -1461,7 +1556,6 @@ class ValidateGatesNode(Node):
                     # Fall back to legacy evaluation for this gate
                     legacy_result = self._evaluate_single_gate_legacy(legacy_gate, params)
                     gate_results.append(legacy_result)
-                
             else:
                 print(f"   ⚠️ Enhanced config not found for {gate_name}, using legacy evaluation... ({i+1}/{len(legacy_gates)})")
                 # Fall back to legacy evaluation for this gate
