@@ -1938,7 +1938,7 @@ class ValidateGatesNode(Node):
         return stats
     
     def _find_pattern_matches_with_config(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any], config: Dict[str, Any], source: str = "LLM") -> List[Dict[str, Any]]:
-        """Find pattern matches in appropriate files with improved coverage and error handling"""
+        """Find pattern matches in appropriate files with streaming processing for improved performance"""
         matches = []
         # Add timeout protection for file processing
         import time
@@ -1946,6 +1946,7 @@ class ValidateGatesNode(Node):
         # Timeout configuration for file processing
         FILE_PROCESSING_TIMEOUT = int(os.getenv("CODEGATES_FILE_PROCESSING_TIMEOUT", "300"))  # 5 minutes default
         print(f"   ⏱️ File processing timeout set to {FILE_PROCESSING_TIMEOUT} seconds")
+        
         # Filter files based on gate type with improved logic
         gate_name = gate.get("name", "")
         if gate_name == "AUTOMATED_TESTS":
@@ -1956,6 +1957,7 @@ class ValidateGatesNode(Node):
             # For all other gates, look at source code files with more inclusive filtering
             target_files = self._get_improved_relevant_files(metadata, file_type="Source Code", gate_name=gate_name, config=config)
             print(f"   Looking at {len(target_files)} relevant source code files for {gate_name}")
+        
         # Pre-compile patterns for efficiency (fix pattern recompilation issue)
         compiled_patterns = []
         invalid_patterns = []
@@ -1966,17 +1968,22 @@ class ValidateGatesNode(Node):
             except re.error as e:
                 invalid_patterns.append((pattern, str(e)))
                 print(f"   ⚠️ Invalid regex pattern skipped: {pattern} - {e}")
+        
         # Report pattern compilation results
         if invalid_patterns:
             print(f"   ⚠️ Skipped {len(invalid_patterns)} invalid patterns out of {len(patterns)} total")
+        
         # Process files with improved limits and error handling
         files_processed = 0
         files_skipped = 0
         files_too_large = 0
         files_read_errors = 0
-        # Configurable limits (remove hard-coded 100 file limit)
+        
+        # Configurable limits with performance optimizations
         max_files = min(len(target_files), config["max_files"])
         max_file_size = config["max_file_size_mb"] * 1024 * 1024  # Convert MB to bytes
+        max_matches_per_file = config.get("max_matches_per_file", 50)  # New limit for matches per file
+        
         # Use threading with timeout to prevent hanging
         processing_result = {
             "matches": [],
@@ -1986,6 +1993,7 @@ class ValidateGatesNode(Node):
             "files_read_errors": 0,
             "error": None
         }
+        
         def process_files_with_timeout():
             try:
                 local_matches = []
@@ -1993,15 +2001,18 @@ class ValidateGatesNode(Node):
                 local_files_skipped = 0
                 local_files_too_large = 0
                 local_files_read_errors = 0
+                
                 for i, file_info in enumerate(target_files[:max_files]):
                     # Add progress logging every 10 files
                     if i % 10 == 0 and i > 0:
                         actual_files_to_process = min(len(target_files), max_files)
                         print(f"   📊 Processing file {i}/{actual_files_to_process} for {gate_name}...")
+                    
                     file_path = repo_path / file_info["relative_path"]
                     if not file_path.exists():
                         local_files_skipped += 1
                         continue
+                    
                     try:
                         file_size = file_path.stat().st_size
                         if file_size > max_file_size:
@@ -2009,28 +2020,29 @@ class ValidateGatesNode(Node):
                             if config.get("enable_detailed_logging", True):
                                 print(f"   ⚠️ Skipping large file ({file_size/1024/1024:.1f}MB): {file_info['relative_path']}")
                             continue
-                        content = file_path.read_text(encoding='utf-8', errors='ignore')
-                        # Apply all compiled patterns to this file
-                        for pattern, compiled_pattern in compiled_patterns:
-                            try:
-                                for match in compiled_pattern.finditer(content):
-                                    local_matches.append({
-                                        "file": file_info["relative_path"],
-                                        "pattern": pattern,
-                                        "match": match.group(),
-                                        "line": content[:match.start()].count('\n') + 1,
-                                        "language": file_info["language"],
-                                        "source": source
-                                    })
-                            except Exception as e:
-                                if config.get("enable_detailed_logging", True):
-                                    print(f"   ⚠️ Pattern matching error in {file_info['relative_path']}: {e}")
+                        
+                        # Use streaming processing instead of loading entire file
+                        file_matches = self._process_file_streaming(
+                            file_path, 
+                            compiled_patterns, 
+                            file_info, 
+                            source, 
+                            max_matches_per_file
+                        )
+                        local_matches.extend(file_matches)
                         local_files_processed += 1
+                        
+                        # Early termination if we have enough matches
+                        if len(local_matches) >= max_matches_per_file * 10:  # 10x files worth of matches
+                            print(f"   ✅ Early termination: Found sufficient matches for {gate_name}")
+                            break
+                            
                     except Exception as e:
                         local_files_read_errors += 1
                         if config.get("enable_detailed_logging", True):
                             print(f"   ⚠️ Error reading file {file_info['relative_path']}: {e}")
                         continue
+                
                 # Update result
                 processing_result["matches"] = local_matches
                 processing_result["files_processed"] = local_files_processed
@@ -2039,25 +2051,67 @@ class ValidateGatesNode(Node):
                 processing_result["files_read_errors"] = local_files_read_errors
             except Exception as e:
                 processing_result["error"] = str(e)
+        
         # Start file processing in a separate thread
         processing_thread = threading.Thread(target=process_files_with_timeout)
         processing_thread.daemon = True
         processing_thread.start()
+        
         # Wait for completion with timeout
         processing_thread.join(timeout=FILE_PROCESSING_TIMEOUT)
         if processing_thread.is_alive():
             print(f"   ⚠️ File processing timed out after {FILE_PROCESSING_TIMEOUT} seconds for {gate_name}")
             processing_result["error"] = f"File processing timed out after {FILE_PROCESSING_TIMEOUT} seconds"
+        
         if processing_result["error"]:
             print(f"   ⚠️ File processing failed for {gate_name}: {processing_result['error']}")
             return []
+        
         # Report processing statistics
         if config.get("enable_detailed_logging", True):
             actual_files_to_process = min(len(target_files), max_files)
             print(f"   📊 File processing stats for {gate_name}: {processing_result['files_processed']} processed, {processing_result['files_skipped']} skipped, {processing_result['files_too_large']} too large, {processing_result['files_read_errors']} read errors (out of {actual_files_to_process} eligible files)")
+            print(f"   🎯 Found {len(processing_result['matches'])} matches using streaming processing")
+        
         if len(target_files) > max_files:
             print(f"   ⚠️ File limit reached: processed {max_files} out of {len(target_files)} eligible files for {gate_name}")
+        
         return processing_result["matches"]
+    
+    def _process_file_streaming(self, file_path: Path, compiled_patterns: List[tuple], file_info: Dict[str, Any], source: str, max_matches_per_file: int = 50) -> List[Dict[str, Any]]:
+        """Process a single file using streaming to avoid loading entire content into memory"""
+        matches = []
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line_num, line in enumerate(f, 1):
+                    # Check if we've reached the match limit
+                    if len(matches) >= max_matches_per_file:
+                        break
+                    
+                    # Apply all patterns to this line
+                    for pattern, compiled_pattern in compiled_patterns:
+                        if len(matches) >= max_matches_per_file:
+                            break
+                        
+                        try:
+                            # Use search() instead of finditer() for single line
+                            if compiled_pattern.search(line):
+                                matches.append({
+                                    "file": file_info["relative_path"],
+                                    "pattern": pattern,
+                                    "match": line.strip(),
+                                    "line": line_num,
+                                    "language": file_info["language"],
+                                    "source": source
+                                })
+                        except Exception as e:
+                            # Skip problematic patterns
+                            continue
+        except Exception as e:
+            # File read error - return empty matches
+            pass
+        
+        return matches
     
     def _get_technology_relevant_files(self, metadata: Dict[str, Any], file_type: str = "Source Code") -> List[Dict[str, Any]]:
         """Get files that are relevant to the primary technology stack"""
@@ -2370,17 +2424,23 @@ class ValidateGatesNode(Node):
             return "low"
 
     def _get_pattern_matching_config(self, shared: Dict[str, Any]) -> Dict[str, Any]:
-        """Get configurable pattern matching parameters"""
-        # Default configuration
+        """Get configurable pattern matching parameters with streaming optimizations"""
+        # Default configuration with performance optimizations
         default_config = {
-            "max_files": 500,
-            "max_file_size_mb": 5,
+            "max_files": 100,  # Reduced from 500 for better performance
+            "max_file_size_mb": 2,  # Reduced from 5 for better performance
+            "max_matches_per_file": 50,  # New limit for matches per file
             "language_threshold_percent": 5.0,
             "config_threshold_percent": 1.0,
             "min_languages": 1,
             "enable_detailed_logging": True,
             "skip_binary_files": True,
-            "process_large_files": False
+            "process_large_files": False,
+            # New streaming performance settings
+            "enable_streaming": True,
+            "enable_early_termination": True,
+            "max_matches_before_termination": 500,  # Stop processing after 500 total matches
+            "chunk_size_kb": 64,  # For future chunked processing
         }
         
         # Override with request-specific config if available
@@ -2390,6 +2450,7 @@ class ValidateGatesNode(Node):
         # Validate configuration
         config["max_files"] = max(50, min(config["max_files"], 2000))  # Between 50-2000
         config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 50))  # Between 1-50 MB
+        config["max_matches_per_file"] = max(10, min(config["max_matches_per_file"], 200))  # Between 10-200
         config["language_threshold_percent"] = max(0.5, min(config["language_threshold_percent"], 50.0))  # Between 0.5-50%
         
         return config
@@ -4034,14 +4095,20 @@ class GenerateReportNode(Node):
         """Get configurable pattern matching parameters"""
         # Default configuration
         default_config = {
-            "max_files": 500,
-            "max_file_size_mb": 5,
+            "max_files": 100,  # Reduced from 500 for better performance
+            "max_file_size_mb": 2,  # Reduced from 5 for better performance
+            "max_matches_per_file": 50,  # New limit for matches per file
             "language_threshold_percent": 5.0,
             "config_threshold_percent": 1.0,
             "min_languages": 1,
             "enable_detailed_logging": True,
             "skip_binary_files": True,
-            "process_large_files": False
+            "process_large_files": False,
+            # New streaming performance settings
+            "enable_streaming": True,
+            "enable_early_termination": True,
+            "max_matches_before_termination": 500,  # Stop processing after 500 total matches
+            "chunk_size_kb": 64,  # For future chunked processing
         }
         
         # Override with request-specific config if available
@@ -4051,6 +4118,7 @@ class GenerateReportNode(Node):
         # Validate configuration
         config["max_files"] = max(50, min(config["max_files"], 2000))  # Between 50-2000
         config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 50))  # Between 1-50 MB
+        config["max_matches_per_file"] = max(10, min(config["max_matches_per_file"], 200))  # Between 10-200
         config["language_threshold_percent"] = max(0.5, min(config["language_threshold_percent"], 50.0))  # Between 0.5-50%
         
         return config
