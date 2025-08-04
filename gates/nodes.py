@@ -1669,10 +1669,8 @@ class ValidateGatesNode(Node):
         # Get relevant files once (shared across all gates)
         print(f"   📁 Getting relevant files for all gates...")
         relevant_files = self._get_improved_relevant_files(metadata, file_type="Source Code", config=config)
-        max_files = min(len(relevant_files), config["max_files"])
-        relevant_files = relevant_files[:max_files]
-        
-        print(f"   📊 Processing {len(relevant_files)} files for {len(gates)} gates...")
+        # Process ALL files - no artificial limits
+        print(f"   📊 Processing ALL {len(relevant_files)} files for {len(gates)} gates...")
         
         # Initialize results storage for each gate
         gate_matches = {gate["name"]: [] for gate in gates}
@@ -1683,7 +1681,7 @@ class ValidateGatesNode(Node):
         max_matches_per_file = config.get("max_matches_per_file", 50)
         
         for file_idx, file_info in enumerate(relevant_files):
-            if file_idx % 10 == 0 and file_idx > 0:
+            if file_idx % 50 == 0 and file_idx > 0:
                 print(f"   📊 Processing file {file_idx}/{len(relevant_files)}...")
             
             file_path = repo_path / file_info["relative_path"]
@@ -2455,21 +2453,21 @@ class ValidateGatesNode(Node):
 
     def _get_pattern_matching_config(self, shared: Dict[str, Any]) -> Dict[str, Any]:
         """Get configurable pattern matching parameters with streaming optimizations"""
-        # Default configuration with performance optimizations
+        # Default configuration with performance optimizations - NO FILE LIMITS
         default_config = {
-            "max_files": 100,  # Reduced from 500 for better performance
-            "max_file_size_mb": 2,  # Reduced from 5 for better performance
-            "max_matches_per_file": 50,  # New limit for matches per file
+            "max_files": 999999,  # Effectively unlimited - process all files
+            "max_file_size_mb": 10,  # Increased from 2 for larger files
+            "max_matches_per_file": 100,  # Increased from 50 for more matches
             "language_threshold_percent": 5.0,
             "config_threshold_percent": 1.0,
             "min_languages": 1,
             "enable_detailed_logging": True,
             "skip_binary_files": True,
-            "process_large_files": False,
+            "process_large_files": True,  # Enable processing of large files
             # New streaming performance settings
             "enable_streaming": True,
             "enable_early_termination": True,
-            "max_matches_before_termination": 500,  # Stop processing after 500 total matches
+            "max_matches_before_termination": 1000,  # Increased from 500 for more matches
             "chunk_size_kb": 64,  # For future chunked processing
         }
         
@@ -2477,10 +2475,10 @@ class ValidateGatesNode(Node):
         request_config = shared.get("request", {}).get("pattern_matching", {})
         config = {**default_config, **request_config}
         
-        # Validate configuration
-        config["max_files"] = max(50, min(config["max_files"], 2000))  # Between 50-2000
-        config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 50))  # Between 1-50 MB
-        config["max_matches_per_file"] = max(10, min(config["max_matches_per_file"], 200))  # Between 10-200
+        # Validate configuration - NO UPPER LIMITS on files
+        config["max_files"] = max(1, config["max_files"])  # Minimum 1 file, no upper limit
+        config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 100))  # Between 1-100 MB
+        config["max_matches_per_file"] = max(10, min(config["max_matches_per_file"], 500))  # Between 10-500
         config["language_threshold_percent"] = max(0.5, min(config["language_threshold_percent"], 50.0))  # Between 0.5-50%
         
         return config
