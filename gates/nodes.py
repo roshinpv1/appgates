@@ -1566,7 +1566,7 @@ class ValidateGatesNode(Node):
         return gate_results
     
     def _evaluate_with_legacy_system(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Evaluate gates using the legacy pattern matching system"""
+        """Evaluate gates using the legacy pattern matching system with file-centric optimization"""
         repo_path = Path(params["repo_path"])
         llm_patterns = params["patterns"]
         pattern_data = params["pattern_data"]
@@ -1579,15 +1579,12 @@ class ValidateGatesNode(Node):
         # Get primary technologies for pattern selection
         primary_technologies = self._get_primary_technologies(metadata)
         
-        gate_results = []
+        # Check gate applicability first
+        applicable_gates = []
+        not_applicable_results = []
         
-        # Validate each gate (Map phase)
         for gate in params["hard_gates"]:
             gate_name = gate["name"]
-            llm_gate_patterns = llm_patterns.get(gate_name, [])
-            gate_pattern_info = pattern_data.get(gate_name, {})
-            
-            print(f"   Validating {gate_name} with weighted patterns...")
             
             # Check gate applicability using the applicability analyzer
             from utils.gate_applicability import gate_applicability_analyzer
@@ -1626,31 +1623,129 @@ class ValidateGatesNode(Node):
                     }
                 }
                 print(f"   {gate_name} marked as NOT_APPLICABLE: {applicability['reason']}")
-                gate_results.append(gate_result)
+                not_applicable_results.append(gate_result)
+            else:
+                applicable_gates.append(gate)
+        
+        print(f"   🎯 Processing {len(applicable_gates)} applicable gates with file-centric optimization...")
+        
+        # Use file-centric processing for applicable gates
+        gate_results = self._process_gates_file_centric(
+            applicable_gates, llm_patterns, pattern_data, metadata, 
+            repo_path, config, params
+        )
+        
+        # Combine results
+        all_results = not_applicable_results + gate_results
+        return all_results
+
+    def _process_gates_file_centric(self, gates: List[Dict[str, Any]], llm_patterns: Dict[str, List[str]], 
+                                   pattern_data: Dict[str, Any], metadata: Dict[str, Any], 
+                                   repo_path: Path, config: Dict[str, Any], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Process all gates using file-centric approach for maximum performance"""
+        
+        # Pre-compile all patterns for all gates
+        gate_patterns = {}
+        all_compiled_patterns = {}
+        
+        print(f"   🔧 Pre-compiling patterns for {len(gates)} gates...")
+        
+        for gate in gates:
+            gate_name = gate["name"]
+            patterns = llm_patterns.get(gate_name, [])
+            
+            # Compile patterns for this gate
+            compiled_patterns = []
+            for pattern in patterns:
+                try:
+                    compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
+                    compiled_patterns.append((pattern, compiled_pattern))
+                except re.error as e:
+                    print(f"   ⚠️ Invalid regex pattern for {gate_name}: {pattern} - {e}")
+            
+            gate_patterns[gate_name] = patterns
+            all_compiled_patterns[gate_name] = compiled_patterns
+        
+        # Get relevant files once (shared across all gates)
+        print(f"   📁 Getting relevant files for all gates...")
+        relevant_files = self._get_improved_relevant_files(metadata, file_type="Source Code", config=config)
+        max_files = min(len(relevant_files), config["max_files"])
+        relevant_files = relevant_files[:max_files]
+        
+        print(f"   📊 Processing {len(relevant_files)} files for {len(gates)} gates...")
+        
+        # Initialize results storage for each gate
+        gate_matches = {gate["name"]: [] for gate in gates}
+        gate_stats = {gate["name"]: {"files_processed": 0, "files_skipped": 0, "files_too_large": 0, "files_read_errors": 0} for gate in gates}
+        
+        # Process each file once, applying all gates/patterns
+        max_file_size = config["max_file_size_mb"] * 1024 * 1024
+        max_matches_per_file = config.get("max_matches_per_file", 50)
+        
+        for file_idx, file_info in enumerate(relevant_files):
+            if file_idx % 10 == 0 and file_idx > 0:
+                print(f"   📊 Processing file {file_idx}/{len(relevant_files)}...")
+            
+            file_path = repo_path / file_info["relative_path"]
+            if not file_path.exists():
+                for gate_name in gate_matches:
+                    gate_stats[gate_name]["files_skipped"] += 1
                 continue
             
-            # --- SPLUNK INTEGRATION: gates to include Splunk matches ---
-            gates_with_splunk = {"STRUCTURED_LOGS", "CORRELATION_ID", "LOG_APPLICATION_MESSAGES"}
+            try:
+                file_size = file_path.stat().st_size
+                if file_size > max_file_size:
+                    for gate_name in gate_matches:
+                        gate_stats[gate_name]["files_too_large"] += 1
+                    continue
+                
+                # Process this file for all gates using streaming
+                file_matches = self._process_file_for_all_gates(
+                    file_path, file_info, all_compiled_patterns, 
+                    max_matches_per_file, gates
+                )
+                
+                # Distribute matches to respective gates
+                for gate_name, matches in file_matches.items():
+                    gate_matches[gate_name].extend(matches)
+                    gate_stats[gate_name]["files_processed"] += 1
+                
+            except Exception as e:
+                for gate_name in gate_matches:
+                    gate_stats[gate_name]["files_read_errors"] += 1
+                continue
+        
+        # Generate results for each gate
+        gate_results = []
+        for gate in gates:
+            gate_name = gate["name"]
+            matches = gate_matches[gate_name]
+            stats = gate_stats[gate_name]
+            
+            print(f"   📊 {gate_name}: {len(matches)} matches from {stats['files_processed']} files")
+            
+            # Process Splunk integration if applicable
             splunk_matches = []
             splunk_reference = None
+            gates_with_splunk = {"STRUCTURED_LOGS", "CORRELATION_ID", "LOG_APPLICATION_MESSAGES"}
+            
             if gate_name in gates_with_splunk:
                 splunk_data = params.get("shared", {}).get("splunk", {})
                 if splunk_data and splunk_data.get("status") == "success":
-                    # Filter Splunk events to only those matching the gate's patterns
-                    gate_patterns = llm_gate_patterns  # Use only LLM patterns since pattern_loader is removed
+                    # Filter Splunk events for this gate
+                    gate_patterns_list = gate_patterns[gate_name]
                     filtered_events = []
                     for event in splunk_data.get("results", []):
                         match_text = event.get("_raw") or event.get("message") or str(event)
-                        for pattern in gate_patterns:
+                        for pattern in gate_patterns_list:
                             try:
                                 if re.search(pattern, match_text, re.IGNORECASE):
                                     file_hint = event.get("source") or event.get("host") or "SplunkEvent"
                                     line_hint = event.get("line") or 0
                                     language_hint = event.get("sourcetype") or "Splunk"
-                                    pattern_hint = pattern
                                     filtered_events.append({
                                         "file": file_hint,
-                                        "pattern": pattern_hint,
+                                        "pattern": pattern,
                                         "match": match_text,
                                         "line": line_hint,
                                         "language": language_hint,
@@ -1664,138 +1759,73 @@ class ValidateGatesNode(Node):
                         splunk_reference = {
                             "query": splunk_data.get("query", ""),
                             "job_id": splunk_data.get("job_id", ""),
-                            "message": splunk_data.get("message", ""),
-                            "influenced": True
+                            "message": splunk_data.get("message", "")
                         }
-
-            if gate_name == "ALERTING_ACTIONABLE":
-                # Use fetch_alerting_integrations_status to determine status
-                from utils.db_integration import fetch_alerting_integrations_status
-                # Try to get app_id from params, else extract from repo URL
-                app_id = params.get('shared', {}).get('request', {}).get('app_id')
-                if not app_id:
-                    repo_url = params.get('shared', {}).get('request', {}).get('repository_url', '')
-                    from utils.db_integration import extract_app_id_from_url
-                    app_id = extract_app_id_from_url(repo_url) or '<APP ID>'
-                print(f"   [DEBUG] Calling fetch_alerting_integrations_status for app_id={app_id}")
-                try:
-                    integration_status = fetch_alerting_integrations_status(app_id)
-                    print(f"   [DEBUG] Integration status: {integration_status}")
-                except Exception as ex:
-                    print(f"   [ERROR] fetch_alerting_integrations_status failed: {ex}")
-                    integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
-                present = [k for k, v in integration_status.items() if v]
-                missing = [k for k, v in integration_status.items() if not v]
-                all_present = all(integration_status.values())
-                # Only include App ID in evidence/details if it is not '<APP ID>' or empty
-                app_id_str = f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else ""
-                evidence_str = f"Present: {', '.join(present) if present else 'None'}; Missing: {', '.join(missing) if missing else 'None'}{app_id_str}"
-                gate_result = {
-                    "gate": gate_name,
-                    "display_name": gate["display_name"],
-                    "description": gate["description"],
-                    "category": gate["category"],
-                    "priority": gate["priority"],
-                    "patterns_used": 0,
-                    "matches_found": 0,
-                    "matches": [],
-                    "patterns": [],
-                    "score": 100.0 if all_present else 0.0,
-                    "status": "PASS" if all_present else "FAIL",
-                    "details": [
-                        f"Present: {', '.join(present) if present else 'None'}",
-                        f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
-                    ],
-                    "evidence": evidence_str,
-                    "recommendations": [
-                        "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
-                    ],
-                    "pattern_description": gate.get("description", "Pattern analysis for this gate"),
-                    "pattern_significance": gate.get("significance", "Important for code quality and compliance"),
-                    "expected_coverage": gate.get("expected_coverage", {
-                        "percentage": 100,
-                        "reasoning": "All integrations should be present",
-                        "confidence": "high"
-                    }),
-                    "total_files": metadata.get("total_files", 1),
-                    "relevant_files": 1,
-                    "validation_sources": {
-                        "llm_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
-                        "static_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
-                        "combined_confidence": "high",
-                        "splunk_reference": splunk_reference
-                    }
-                }
-                gate_results.append(gate_result)
-                continue
-
-            # Get relevant files for this gate
-            relevant_files = self._get_improved_relevant_files(metadata, "Source Code", gate_name, config)
             
-            # Get static patterns for this gate (using fallback since pattern_loader is removed)
-            static_patterns = []  # Empty since pattern_loader is removed
+            # Combine file matches with Splunk matches
+            all_matches = matches + splunk_matches
             
-            # Combine LLM and static patterns
-            all_patterns = llm_gate_patterns + static_patterns
-            
-            # Find matches using both LLM and static patterns
-            llm_matches = self._find_pattern_matches_with_config(repo_path, llm_gate_patterns, metadata, gate, config, "LLM")
-            static_matches = self._find_pattern_matches_with_config(repo_path, static_patterns, metadata, gate, config, "Static")
-            
-            # Deduplicate matches
-            all_matches = self._deduplicate_matches(llm_matches + static_matches + splunk_matches)
-            
-            # Calculate gate score
-            score = self._calculate_gate_score(gate, all_matches, metadata)
-            
-            # Determine status
-            status = self._determine_status(score, gate)
-            
-            # Generate details and recommendations
-            details = self._generate_gate_details(gate, all_matches)
-            recommendations = self._generate_gate_recommendations(gate, all_matches, score)
-            
-            # Calculate combined confidence
-            combined_confidence = self._calculate_combined_confidence(
-                len(llm_matches), len(static_matches), len(all_matches)
-            )
-            
-            # Create gate result
-            gate_result = {
-                "gate": gate_name,
-                "display_name": gate["display_name"],
-                "description": gate["description"],
-                "category": gate["category"],
-                "priority": gate["priority"],
-                "patterns_used": len(all_patterns),
-                "matches_found": len(all_matches),
+            # Calculate gate score and generate result
+            gate_result = self._evaluate_single_gate_legacy(gate, {
+                **params,
                 "matches": all_matches,
-                "patterns": all_patterns,
-                "score": score,
-                "status": status,
-                "details": details,
-                "evidence": f"Found {len(all_matches)} matches across {len(relevant_files)} relevant files",
-                "recommendations": recommendations,
-                "pattern_description": gate_pattern_info.get("description", gate.get("description", "Pattern analysis for this gate")),
-                "pattern_significance": gate_pattern_info.get("significance", gate.get("significance", "Important for code quality and compliance")),
-                "expected_coverage": gate_pattern_info.get("expected_coverage", gate.get("expected_coverage", {
-                    "percentage": 10,
-                    "reasoning": "Standard expectation for this gate type",
-                    "confidence": "medium"
-                })),
-                "total_files": metadata.get("total_files", 1),
-                "relevant_files": len(relevant_files),
-                "validation_sources": {
-                    "llm_patterns": {"count": len(llm_gate_patterns), "matches": len(llm_matches), "source": "LLM"},
-                    "static_patterns": {"count": len(static_patterns), "matches": len(static_matches), "source": "Static"},
-                    "combined_confidence": combined_confidence,
-                    "splunk_reference": splunk_reference
-                }
-            }
+                "splunk_reference": splunk_reference,
+                "stats": stats
+            })
             
             gate_results.append(gate_result)
         
         return gate_results
+
+    def _process_file_for_all_gates(self, file_path: Path, file_info: Dict[str, Any], 
+                                   all_compiled_patterns: Dict[str, List[tuple]], 
+                                   max_matches_per_file: int, gates: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Process a single file for all gates using streaming"""
+        
+        file_matches = {gate["name"]: [] for gate in gates}
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line_num, line in enumerate(f, 1):
+                    # Check if any gate has reached its match limit
+                    all_gates_at_limit = all(
+                        len(file_matches[gate["name"]]) >= max_matches_per_file 
+                        for gate in gates
+                    )
+                    if all_gates_at_limit:
+                        break
+                    
+                    # Apply all patterns for all gates to this line
+                    for gate in gates:
+                        gate_name = gate["name"]
+                        
+                        # Skip if this gate has reached its match limit
+                        if len(file_matches[gate_name]) >= max_matches_per_file:
+                            continue
+                        
+                        # Apply patterns for this gate
+                        compiled_patterns = all_compiled_patterns[gate_name]
+                        for pattern, compiled_pattern in compiled_patterns:
+                            if len(file_matches[gate_name]) >= max_matches_per_file:
+                                break
+                            
+                            try:
+                                if compiled_pattern.search(line):
+                                    file_matches[gate_name].append({
+                                        "file": file_info["relative_path"],
+                                        "pattern": pattern,
+                                        "match": line.strip(),
+                                        "line": line_num,
+                                        "language": file_info["language"],
+                                        "source": "file_centric"
+                                    })
+                            except Exception:
+                                continue
+        except Exception:
+            # File read error - return empty matches for all gates
+            pass
+        
+        return file_matches
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: List[Dict[str, Any]]) -> str:
         """Store validation results and calculate overall weighted score with enhanced statistics"""
@@ -2766,56 +2796,112 @@ class ValidateGatesNode(Node):
         }
     
     def _evaluate_single_gate_legacy(self, gate: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate a single gate using legacy pattern matching"""
+        """Evaluate a single gate using legacy pattern matching with file-centric results"""
         gate_name = gate["name"]
-        print(f"   🔍 Evaluating {gate_name} with legacy system...")
-        
-        # Check gate applicability using the applicability analyzer
-        from utils.gate_applicability import gate_applicability_analyzer
         metadata = params["metadata"]
-        characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
-        applicability = gate_applicability_analyzer._check_gate_applicability(gate_name, characteristics)
+        matches = params.get("matches", [])
+        splunk_reference = params.get("splunk_reference")
+        stats = params.get("stats", {})
         
-        # Check if gate is not applicable
-        is_not_applicable = not applicability["is_applicable"]
+        print(f"   🔍 Processing results for {gate_name}...")
         
-        if is_not_applicable:
-            # Handle Not Applicable gate
-            gate_result = {
-                "gate": gate_name,
-                "display_name": gate["display_name"],
-                "description": gate["description"],
-                "category": gate["category"],
-                "priority": gate["priority"],
-                "patterns_used": 0,
-                "matches_found": 0,
-                "matches": [],
-                "patterns": [],
-                "score": 0.0,
-                "status": "NOT_APPLICABLE",
-                "details": [f"This gate is not applicable: {applicability['reason']}"],
-                "evidence": f"Not applicable: {applicability['reason']}",
-                "recommendations": [f"Not applicable to this technology stack: {applicability['reason']}"],
-                "pattern_description": f"Not applicable: {applicability['reason']}",
-                "pattern_significance": applicability["reason"],
-                "expected_coverage": {
-                    "percentage": 0,
-                    "reasoning": applicability["reason"],
-                    "confidence": "high"
-                },
-                "total_files": metadata.get("total_files", 1),
-                "relevant_files": 0,
-                "validation_sources": {
-                    "llm_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
-                    "static_patterns": {"count": 0, "matches": 0, "source": "not_applicable"},
-                    "combined_confidence": "high"
-                }
+        # Handle ALERTING_ACTIONABLE gate specially
+        if gate_name == "ALERTING_ACTIONABLE":
+            return self._evaluate_alerting_actionable_gate(gate, params)
+        
+        # Get pattern information
+        llm_patterns = params.get("patterns", {})
+        pattern_data = params.get("pattern_data", {})
+        llm_gate_patterns = llm_patterns.get(gate_name, [])
+        gate_pattern_info = pattern_data.get(gate_name, {})
+        
+        # Deduplicate matches
+        all_matches = self._deduplicate_matches(matches)
+        
+        # Calculate gate score
+        score = self._calculate_gate_score(gate, all_matches, metadata)
+        
+        # Determine status
+        status = self._determine_status(score, gate)
+        
+        # Generate details and recommendations
+        details = self._generate_gate_details(gate, all_matches)
+        recommendations = self._generate_gate_recommendations(gate, all_matches, score)
+        
+        # Calculate combined confidence
+        combined_confidence = self._calculate_combined_confidence(
+            len(llm_gate_patterns), 0, len(all_matches)  # No static patterns in file-centric approach
+        )
+        
+        # Get relevant files count from stats
+        relevant_files = stats.get("files_processed", 0)
+        
+        # Create gate result
+        gate_result = {
+            "gate": gate_name,
+            "display_name": gate["display_name"],
+            "description": gate["description"],
+            "category": gate["category"],
+            "priority": gate["priority"],
+            "patterns_used": len(llm_gate_patterns),
+            "matches_found": len(all_matches),
+            "matches": all_matches,
+            "patterns": llm_gate_patterns,
+            "score": score,
+            "status": status,
+            "details": details,
+            "evidence": f"Found {len(all_matches)} matches across {relevant_files} relevant files",
+            "recommendations": recommendations,
+            "pattern_description": gate_pattern_info.get("description", gate.get("description", "Pattern analysis for this gate")),
+            "pattern_significance": gate_pattern_info.get("significance", gate.get("significance", "Important for code quality and compliance")),
+            "expected_coverage": gate_pattern_info.get("expected_coverage", gate.get("expected_coverage", {
+                "percentage": 10,
+                "reasoning": "Standard expectation for this gate type",
+                "confidence": "medium"
+            })),
+            "total_files": metadata.get("total_files", 1),
+            "relevant_files": relevant_files,
+            "validation_sources": {
+                "llm_patterns": {"count": len(llm_gate_patterns), "matches": len(all_matches), "source": "file_centric"},
+                "static_patterns": {"count": 0, "matches": 0, "source": "file_centric"},
+                "combined_confidence": combined_confidence,
+                "splunk_reference": splunk_reference
             }
-            print(f"   {gate_name} marked as NOT_APPLICABLE: {applicability['reason']}")
-            return gate_result
+        }
         
-        # Simplified legacy evaluation - in practice, you'd copy the full legacy logic here
-        return {
+        return gate_result
+
+    def _evaluate_alerting_actionable_gate(self, gate: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
+        """Special evaluation for ALERTING_ACTIONABLE gate using database integration"""
+        gate_name = gate["name"]
+        
+        # Use fetch_alerting_integrations_status to determine status
+        from utils.db_integration import fetch_alerting_integrations_status
+        # Try to get app_id from params, else extract from repo URL
+        app_id = params.get('shared', {}).get('request', {}).get('app_id')
+        if not app_id:
+            repo_url = params.get('shared', {}).get('request', {}).get('repository_url', '')
+            from utils.db_integration import extract_app_id_from_url
+            app_id = extract_app_id_from_url(repo_url) or '<APP ID>'
+        
+        print(f"   🔗 Using database integration for {gate_name} (app_id={app_id})")
+        
+        try:
+            integration_status = fetch_alerting_integrations_status(app_id)
+            print(f"   [DEBUG] Integration status: {integration_status}")
+        except Exception as ex:
+            print(f"   [ERROR] fetch_alerting_integrations_status failed: {ex}")
+            integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
+        
+        present = [k for k, v in integration_status.items() if v]
+        missing = [k for k, v in integration_status.items() if not v]
+        all_present = all(integration_status.values())
+        
+        # Only include App ID in evidence/details if it is not '<APP ID>' or empty
+        app_id_str = f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else ""
+        evidence_str = f"Present: {', '.join(present) if present else 'None'}; Missing: {', '.join(missing) if missing else 'None'}{app_id_str}"
+        
+        gate_result = {
             "gate": gate_name,
             "display_name": gate["display_name"],
             "description": gate["description"],
@@ -2825,26 +2911,33 @@ class ValidateGatesNode(Node):
             "matches_found": 0,
             "matches": [],
             "patterns": [],
-            "score": 0.0,
-            "status": "FAIL",
-            "details": ["Legacy evaluation - enhanced system recommended"],
-            "evidence": "Legacy pattern matching",
-            "recommendations": ["Upgrade to enhanced criteria-based evaluation"],
-            "pattern_description": gate.get("description", "Legacy pattern analysis"),
-            "pattern_significance": gate.get("significance", "Important for code quality"),
+            "score": 100.0 if all_present else 0.0,
+            "status": "PASS" if all_present else "FAIL",
+            "details": [
+                f"Present: {', '.join(present) if present else 'None'}",
+                f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
+            ],
+            "evidence": evidence_str,
+            "recommendations": [
+                "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
+            ],
+            "pattern_description": gate.get("description", "Pattern analysis for this gate"),
+            "pattern_significance": gate.get("significance", "Important for code quality and compliance"),
             "expected_coverage": gate.get("expected_coverage", {
-                "percentage": 10,
-                "reasoning": "Standard expectation",
-                "confidence": "medium"
+                "percentage": 100,
+                "reasoning": "All integrations should be present",
+                "confidence": "high"
             }),
-            "total_files": metadata.get("total_files", 1),
+            "total_files": params["metadata"].get("total_files", 1),
             "relevant_files": 1,
             "validation_sources": {
-                "llm_patterns": {"count": 0, "matches": 0, "source": "legacy"},
-                "static_patterns": {"count": 0, "matches": 0, "source": "legacy"},
-                "combined_confidence": "low"
+                "llm_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
+                "static_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
+                "combined_confidence": "high"
             }
         }
+        
+        return gate_result
     
     def _detect_language_from_file(self, file_path: str) -> str:
         """Detect programming language from file extension"""
