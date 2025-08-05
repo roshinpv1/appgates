@@ -1,0 +1,504 @@
+================================================================================
+CODEGATES LLM RESPONSE LOG
+================================================================================
+Timestamp: 2025-08-05T15:48:41.837695
+Scan ID: 2f090f5a-4b64-4747-8ead-e21c7a4f04aa
+Repository: https://github.com/facebook/react
+Branch: main
+LLM Source: fallback
+LLM Model: built-in
+Response Length: 58 characters
+Patterns Generated: 290
+Gates Processed: 17
+================================================================================
+
+RAW LLM RESPONSE:
+----------------------------------------
+Generated fallback patterns based on hard gate definitions
+
+----------------------------------------
+PARSED PATTERN DATA:
+----------------------------------------
+{
+  "ALERTING_ACTIONABLE": {
+    "patterns": [
+      "alerting_actionable",
+      "alerting.*actionable"
+    ],
+    "description": "Fallback patterns for ALERTING_ACTIONABLE - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "STRUCTURED_LOGS": {
+    "patterns": [
+      "logger.info",
+      "logging.info",
+      "log.info",
+      "structured.*log",
+      "json.*log"
+    ],
+    "description": "Fallback patterns for STRUCTURED_LOGS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "AVOID_LOGGING_SECRETS": {
+    "patterns": [
+      "password",
+      "secret",
+      "token",
+      "api_key",
+      "private_key",
+      "credential"
+    ],
+    "description": "Fallback patterns for AVOID_LOGGING_SECRETS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "AUDIT_TRAIL": {
+    "patterns": [
+      "audit.*log",
+      "audit_trail",
+      "business.*log",
+      "transaction.*log"
+    ],
+    "description": "Fallback patterns for AUDIT_TRAIL - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "CORRELATION_ID": {
+    "patterns": [
+      "correlation_id",
+      "request_id",
+      "trace_id",
+      "tracking.*id"
+    ],
+    "description": "Fallback patterns for CORRELATION_ID - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "LOG_API_CALLS": {
+    "patterns": [
+      "api.*log",
+      "request.*log",
+      "response.*log",
+      "endpoint.*log"
+    ],
+    "description": "Fallback patterns for LOG_API_CALLS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "LOG_APPLICATION_MESSAGES": {
+    "patterns": [
+      "application.*log",
+      "app.*log",
+      "business.*event",
+      "state.*change"
+    ],
+    "description": "Fallback patterns for LOG_APPLICATION_MESSAGES - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "UI_ERRORS": {
+    "patterns": [
+      "ui.*error",
+      "frontend.*error",
+      "client.*error",
+      "javascript.*error"
+    ],
+    "description": "Fallback patterns for UI_ERRORS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "RETRY_LOGIC": {
+    "patterns": [
+      "retry",
+      "@retry",
+      "backoff",
+      "exponential.*backoff",
+      "max_retries"
+    ],
+    "description": "Fallback patterns for RETRY_LOGIC - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "TIMEOUTS": {
+    "patterns": [
+      "timeout",
+      "connection.*timeout",
+      "read.*timeout",
+      "socket.*timeout"
+    ],
+    "description": "Fallback patterns for TIMEOUTS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "THROTTLING": {
+    "patterns": [
+      "throttle",
+      "rate.*limit",
+      "rate_limit",
+      "rate.*limiter"
+    ],
+    "description": "Fallback patterns for THROTTLING - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "CIRCUIT_BREAKERS": {
+    "patterns": [
+      "circuit.*breaker",
+      "circuit_breaker",
+      "@circuit_breaker",
+      "hystrix",
+      "resilience4j"
+    ],
+    "description": "Fallback patterns for CIRCUIT_BREAKERS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "ERROR_LOGS": {
+    "patterns": [
+      "error.*log",
+      "exception.*log",
+      "try.*catch",
+      "error.*handler"
+    ],
+    "description": "Fallback patterns for ERROR_LOGS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "HTTP_CODES": {
+    "patterns": [
+      "http.*status",
+      "status.*code",
+      "400",
+      "401",
+      "403",
+      "404",
+      "500"
+    ],
+    "description": "Fallback patterns for HTTP_CODES - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "UI_ERROR_TOOLS": {
+    "patterns": [
+      "sentry",
+      "bugsnag",
+      "rollbar",
+      "error.*tracking",
+      "crash.*analytics"
+    ],
+    "description": "Fallback patterns for UI_ERROR_TOOLS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "AUTOMATED_TESTS": {
+    "patterns": [
+      "test",
+      "@test",
+      "junit",
+      "pytest",
+      "jest",
+      "mocha",
+      "assert"
+    ],
+    "description": "Fallback patterns for AUTOMATED_TESTS - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  },
+  "AUTO_SCALE": {
+    "patterns": [
+      "auto.*scale",
+      "scale.*up",
+      "scale.*down",
+      "load.*balancer",
+      "auto.*scaling",
+      "replicas:",
+      "replicas\\s*:",
+      "replicaCount:",
+      "replicaCount\\s*:",
+      "minReplicas:",
+      "maxReplicas:",
+      "targetCPUUtilizationPercentage:",
+      "targetMemoryUtilizationPercentage:",
+      "HorizontalPodAutoscaler",
+      "HPA",
+      "autoscaling/v2",
+      "autoscaling/v1",
+      "scaleTargetRef:",
+      "metrics:",
+      "resource:",
+      "type: Resource",
+      "type: ResourcePods",
+      "type: Object",
+      "type: External",
+      "type: Pods",
+      "type: ContainerResource",
+      "scale.*policy",
+      "scaling.*policy",
+      "elastic.*scaling",
+      "auto.*scaling.*group",
+      "ASG",
+      "AutoScalingGroup",
+      "desired.*capacity",
+      "min.*size",
+      "max.*size",
+      "target.*tracking.*scaling.*policy",
+      "step.*scaling.*policy",
+      "simple.*scaling.*policy",
+      "cloudformation.*autoscaling",
+      "terraform.*autoscaling",
+      "kubernetes.*autoscaler",
+      "cluster.*autoscaler",
+      "node.*autoscaler",
+      "pod.*autoscaler",
+      "vertical.*pod.*autoscaler",
+      "VPA",
+      "horizontal.*pod.*autoscaler",
+      "hpa.*spec",
+      "hpa.*status",
+      "scaling.*algorithm",
+      "scaling.*behavior",
+      "scaling.*rules",
+      "scaling.*triggers",
+      "scaling.*metrics",
+      "scaling.*targets",
+      "scaling.*policies",
+      "scaling.*schedules",
+      "scaling.*conditions",
+      "scaling.*thresholds",
+      "scaling.*cooldown",
+      "scaling.*warmup",
+      "scaling.*grace.*period",
+      "scaling.*stabilization",
+      "scaling.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp",
+      "scaling.*behavior.*scaleDown",
+      "scaling.*behavior.*scaleUp.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies",
+      "scaling.*behavior.*scaleDown.*policies",
+      "scaling.*behavior.*scaleUp.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type",
+      "scaling.*behavior.*scaleDown.*policies.*type",
+      "scaling.*behavior.*scaleUp.*policies.*value",
+      "scaling.*behavior.*scaleDown.*policies.*value",
+      "scaling.*behavior.*scaleUp.*policies.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*period",
+      "scaling.*behavior.*scaleDown.*policies.*period",
+      "scaling.*behavior.*scaleUp.*policies.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*value",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*value",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*periodSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*periodSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*percent",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*percent",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*pods",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*pods",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*seconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*seconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*period",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*period",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*stabilizationWindowSeconds",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Pods.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Pods.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Percent.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Percent.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Periodic.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Periodic.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Resource.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Resource.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*Object.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*Object.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*External.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*External.*selectPolicy",
+      "scaling.*behavior.*scaleUp.*policies.*type.*ContainerResource.*selectPolicy",
+      "scaling.*behavior.*scaleDown.*policies.*type.*ContainerResource.*selectPolicy"
+    ],
+    "description": "Fallback patterns for AUTO_SCALE - basic implementation patterns",
+    "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+    "expected_coverage": {
+      "percentage": 10,
+      "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+      "confidence": "low"
+    }
+  }
+}
+
+================================================================================
+END OF RESPONSE
+================================================================================

@@ -1910,16 +1910,67 @@ class ValidateGatesNode(Node):
         }
         shared["validation"]["pattern_statistics"] = pattern_stats
         
-        print(f"✅ Enhanced validation complete: {overall_score:.1f}% overall (based on {len(applicable_gates)} applicable gates)")
-        print(f"   Passed: {passed}, Failed: {failed}, Warnings: {warnings}, Not Applicable: {not_applicable}")
-        print(f"   Pattern Sources: Enhanced criteria-based evaluation")
-        print(f"   Total Gate Weight: {scoring_summary.get('total_weight', 0):.1f}")
+        print(f"✅ Simple compliance validation complete: {overall_score:.1f}% compliance")
+        print(f"   📊 Total Gates: {total_gates}")
+        print(f"   ✅ Gates Met: {passed}")
+        print(f"   ❌ Gates Failed: {failed}")
+        print(f"   ⚠️ Gates Warning: {warnings}")
+        print(f"   🔍 Gates Not Applicable: {not_applicable}")
+        print(f"   🎯 Compliance Score: {overall_score:.1f}% (Met + Not Applicable) / Total")
         
         # Print applicability summary
         print(f"🔍 Applicability Summary:")
         print(f"   📊 Codebase Type: {characteristics['primary_technology']}")
-        print(f"   ✅ Applicable Gates: {applicable_gates}/{total_gates}")
+        print(f"   ✅ Applicable Gates: {len(applicable_gates)}/{total_gates}")
         print(f"   ❌ Not Applicable Gates: {non_applicable_gates}")
+        
+        # Calculate simple compliance score: (Gates Met + Gates Not Applicable) / Total Gates × 100
+        total_gates = len(exec_res)
+        gates_met = len([r for r in exec_res if r["status"] == "PASS"])
+        gates_failed = len([r for r in exec_res if r["status"] == "FAIL"])
+        gates_warning = len([r for r in exec_res if r["status"] == "WARNING"])
+        gates_not_applicable = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
+        
+        # Simple compliance score calculation
+        compliance_score = ((gates_met + gates_not_applicable) / total_gates * 100) if total_gates > 0 else 0.0
+        
+        # Store the simple compliance score
+        shared["validation"]["overall_score"] = compliance_score
+        shared["validation"]["compliance_summary"] = {
+            "total_gates": total_gates,
+            "gates_met": gates_met,
+            "gates_not_applicable": gates_not_applicable,
+            "gates_failed": gates_failed,
+            "gates_warning": gates_warning,
+            "compliance_score": compliance_score
+        }
+        
+        # Calculate hybrid validation statistics
+        hybrid_stats = self._calculate_hybrid_validation_stats(exec_res)
+        shared["validation"]["hybrid_stats"] = hybrid_stats
+        
+        # Add simple pattern statistics
+        applicable_gates = [result for result in exec_res if result["status"] != "NOT_APPLICABLE"]
+        pattern_stats = {
+            "total_patterns": sum(len(gate.get("patterns", [])) for gate in applicable_gates),
+            "total_matches": sum(gate.get("matches_found", 0) for gate in applicable_gates),
+            "average_patterns_per_gate": sum(len(gate.get("patterns", [])) for gate in applicable_gates) / len(applicable_gates) if applicable_gates else 0
+        }
+        shared["validation"]["pattern_statistics"] = pattern_stats
+        
+        print(f"✅ Simple compliance validation complete: {compliance_score:.1f}% compliance")
+        print(f"   📊 Total Gates: {total_gates}")
+        print(f"   ✅ Gates Met: {gates_met}")
+        print(f"   ❌ Gates Failed: {gates_failed}")
+        print(f"   ⚠️ Gates Warning: {gates_warning}")
+        print(f"   🔍 Gates Not Applicable: {gates_not_applicable}")
+        print(f"   🎯 Compliance Score: {compliance_score:.1f}% (Met + Not Applicable) / Total")
+        
+        # Print applicability summary
+        print(f"🔍 Applicability Summary:")
+        print(f"   📊 Codebase Type: {characteristics['primary_technology']}")
+        print(f"   ✅ Applicable Gates: {len(applicable_gates)}/{total_gates}")
+        print(f"   ❌ Not Applicable Gates: {gates_not_applicable}")
         
         return "default"
     

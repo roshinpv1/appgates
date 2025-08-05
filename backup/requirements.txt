@@ -1,14 +1,70 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-pydantic==2.5.0
-requests==2.31.0
-urllib3==2.1.0
-python-multipart==0.0.6
-jinja2==3.1.2
-markdown==3.5.1
-pyyaml==6.0.1
-gitpython==3.1.40
-pocketflow==0.1.0
-sqlalchemy==2.0.23
-pymssql==2.2.8
-pandas==2.1.4
+# Core CodeGates Dependencies
+click>=8.0.0
+requests>=2.31.0
+gitpython>=3.1.0
+pyyaml>=6.0
+jinja2>=3.1.0
+python-dotenv>=1.0.0
+pathlib2>=2.3.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+pandas>=2.0.0
+pymssql>=2.1.0
+
+# LLM Integration Dependencies
+openai>=1.0.0
+anthropic>=0.25.0
+google-generativeai>=0.3.0
+ollama>=0.1.0
+httpx>=0.24.0
+
+# Database and Integration Dependencies
+sqlalchemy>=2.0.0
+pymssql>=2.1.0
+
+# Web and API Dependencies
+aiohttp>=3.8.0
+websockets>=11.0.0
+
+# File Processing and Utilities
+pathlib2>=2.3.0
+python-magic>=0.4.27
+chardet>=5.0.0
+
+# Testing and Development
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# AI Agent Dependencies
+asyncio
+aiohttp>=3.8.0
+
+# LangGraph Agent Dependencies
+langgraph>=0.2.0
+langchain>=0.2.0
+langchain-core>=0.2.0
+
+# Optional: Advanced AI/ML Dependencies
+# Uncomment if using advanced AI features
+# torch>=2.0.0
+# transformers>=4.30.0
+# sentence-transformers>=2.2.0
+
+# Optional: Monitoring and Observability
+# Uncomment if using monitoring features
+# prometheus-client>=0.17.0
+# structlog>=23.0.0
+
+# Optional: Additional Security Libraries
+# Uncomment if using additional security features
+# cryptography>=41.0.0
+# bcrypt>=4.0.0
+# passlib>=1.7.0
+
+# Development and Documentation
+sphinx>=7.0.0
+sphinx-rtd-theme>=1.3.0 
