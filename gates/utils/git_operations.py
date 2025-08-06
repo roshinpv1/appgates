@@ -14,13 +14,70 @@ import zipfile
 from urllib.parse import urlparse
 import time
 import urllib3
+import subprocess
+import signal
+import threading
+from contextlib import contextmanager
+
+# Configuration for git operation timeouts
+GIT_CLONE_TIMEOUT = int(os.getenv("CODEGATES_GIT_CLONE_TIMEOUT", "300"))  # 5 minutes default
+GIT_FETCH_TIMEOUT = int(os.getenv("CODEGATES_GIT_FETCH_TIMEOUT", "180"))  # 3 minutes default
+GITHUB_API_TIMEOUT = int(os.getenv("CODEGATES_GITHUB_API_TIMEOUT", "120"))  # 2 minutes default
+
+class GitTimeoutError(Exception):
+    """Custom exception for git operation timeouts"""
+    pass
+
+@contextmanager
+def timeout_context(seconds: int, operation_name: str = "Git operation"):
+    """Context manager for timing out git operations"""
+    def timeout_handler(signum, frame):
+        raise GitTimeoutError(f"{operation_name} timed out after {seconds} seconds")
+    
+    # Set the signal handler and alarm
+    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(seconds)
+    
+    try:
+        yield
+    finally:
+        # Restore the old signal handler and cancel the alarm
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+def run_git_command_with_timeout(cmd: list, timeout: int, cwd: str = None, env: dict = None) -> subprocess.CompletedProcess:
+    """Run git command with timeout using subprocess"""
+    try:
+        print(f"🔄 Running git command with {timeout}s timeout: {' '.join(cmd)}")
+        
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            env=env,
+            timeout=timeout,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        return result
+        
+    except subprocess.TimeoutExpired as e:
+        print(f"⏰ Git command timed out after {timeout} seconds: {' '.join(cmd)}")
+        raise GitTimeoutError(f"Git command timed out after {timeout} seconds")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Git command failed: {e.stderr}")
+        raise Exception(f"Git command failed: {e.stderr}")
+    except Exception as e:
+        print(f"❌ Git command error: {e}")
+        raise Exception(f"Git command error: {e}")
 
 
 def clone_repository(repo_url: str, branch: str = "main", 
                     github_token: Optional[str] = None,
                     target_dir: Optional[str] = None) -> str:
     """
-    Clone a repository using Git or GitHub API with enterprise-aware preferences
+    Clone a repository using Git or GitHub API with enterprise-aware preferences and timeout handling
     
     Args:
         repo_url: Repository URL
@@ -30,7 +87,16 @@ def clone_repository(repo_url: str, branch: str = "main",
     
     Returns:
         Path to cloned repository
+        
+    Raises:
+        GitTimeoutError: If git operations exceed configured timeouts
+        Exception: For other git-related errors
     """
+    
+    print(f"🔧 Git timeout configuration:")
+    timeout_status = get_git_timeout_status()
+    for name, config in timeout_status.items():
+        print(f"   {name}: {config['value']}s (env: {config['env_var']})")
     
     if target_dir is None:
         try:
@@ -67,6 +133,12 @@ def clone_repository(repo_url: str, branch: str = "main",
             # Fallback to Git clone
             try:
                 return _clone_with_git(repo_url, branch, github_token, target_dir)
+            except GitTimeoutError as git_timeout_error:
+                print(f"⏰ Git clone timed out: {git_timeout_error}")
+                # Clean up temp directory on timeout
+                if target_dir and target_dir.startswith(tempfile.gettempdir()):
+                    cleanup_repository(target_dir)
+                raise GitTimeoutError(f"Both API and Git clone failed due to timeout. API: {api_error}, Git: {git_timeout_error}")
             except Exception as git_error:
                 print(f"⚠️ Git clone also failed: {git_error}")
                 # Clean up temp directory on failure
@@ -74,24 +146,30 @@ def clone_repository(repo_url: str, branch: str = "main",
                     cleanup_repository(target_dir)
                 raise Exception(f"Both API and Git clone failed. API: {api_error}, Git: {git_error}")
     else:
-        # For GitHub.com or other Git servers: Try Git clone first (unlimited, no rate limits)
-        print(f"🌐 GitHub.com or other Git server detected, trying Git clone first")
+        # For GitHub.com and other Git servers: Try Git clone first
+        print(f"🌐 Public repository detected, trying Git clone first")
         try:
             return _clone_with_git(repo_url, branch, github_token, target_dir)
+        except GitTimeoutError as git_timeout_error:
+            print(f"⏰ Git clone timed out: {git_timeout_error}")
+            # Clean up temp directory on timeout
+            if target_dir and target_dir.startswith(tempfile.gettempdir()):
+                cleanup_repository(target_dir)
+            raise git_timeout_error
         except Exception as git_error:
             print(f"⚠️ Git clone failed: {git_error}")
             
-            # Fallback to GitHub API if it's a GitHub repo
+            # Fallback to GitHub API if it's GitHub.com
             if "github.com" in repo_url:
                 print(f"🔄 Falling back to GitHub API...")
                 try:
                     return _download_with_github_api(repo_url, branch, github_token, target_dir)
                 except Exception as api_error:
-                    print(f"⚠️ GitHub API download failed: {api_error}")
+                    print(f"⚠️ GitHub API also failed: {api_error}")
                     # Clean up temp directory on failure
                     if target_dir and target_dir.startswith(tempfile.gettempdir()):
                         cleanup_repository(target_dir)
-                    raise Exception(f"Both Git clone and API download failed. Git: {git_error}, API: {api_error}")
+                    raise Exception(f"Both Git clone and API failed. Git: {git_error}, API: {api_error}")
             else:
                 # Clean up temp directory on failure
                 if target_dir and target_dir.startswith(tempfile.gettempdir()):
@@ -100,7 +178,7 @@ def clone_repository(repo_url: str, branch: str = "main",
 
 
 def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], target_dir: str) -> str:
-    """Clone repository using Git with enterprise support"""
+    """Clone repository using Git with enterprise support and timeout"""
     
     # Parse repository URL to determine if it's enterprise
     parsed_url = urlparse(repo_url)
@@ -118,7 +196,7 @@ def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], tar
     else:
         auth_url = repo_url
     
-    print(f"🔄 Cloning repository with Git: {repo_url} (branch: {branch})")
+    print(f"🔄 Cloning repository with Git (timeout: {GIT_CLONE_TIMEOUT}s): {repo_url} (branch: {branch})")
     
     # Configure Git environment for enterprise scenarios
     env = os.environ.copy()
@@ -139,24 +217,35 @@ def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], tar
         else:
             print("🔐 Using default SSL verification for Git (set GITHUB_ENTERPRISE_DISABLE_SSL=true if you have certificate issues)")
     
+    # Prepare git clone command
+    git_cmd = [
+        "git", "clone",
+        "--depth", "1",
+        "--branch", branch,
+        "--single-branch",
+        auth_url,
+        target_dir
+    ]
+    
     # First attempt with current SSL settings
     ssl_retry_attempted = False
     
     try:
-        # Clone repository with timeout and proper error handling
-        repo = git.Repo.clone_from(
-            auth_url, 
-            target_dir, 
-            branch=branch, 
-            depth=1,
+        # Clone repository with timeout
+        result = run_git_command_with_timeout(
+            git_cmd, 
+            timeout=GIT_CLONE_TIMEOUT,
             env=env
         )
         
         print(f"✅ Repository cloned successfully to: {target_dir}")
         return target_dir
         
-    except git.exc.GitCommandError as e:
-        # Handle specific Git errors with helpful messages
+    except GitTimeoutError as e:
+        print(f"⏰ Git clone timed out: {e}")
+        raise Exception(f"Git clone operation timed out after {GIT_CLONE_TIMEOUT} seconds. Repository might be too large or network is slow.")
+        
+    except Exception as e:
         error_msg = str(e)
         
         # Handle SSL certificate errors with auto-retry
@@ -170,15 +259,15 @@ def _clone_with_git(repo_url: str, branch: str, github_token: Optional[str], tar
                 ssl_retry_attempted = True
                 
                 try:
-                    repo = git.Repo.clone_from(
-                        auth_url, 
-                        target_dir, 
-                        branch=branch, 
-                        depth=1,
+                    result = run_git_command_with_timeout(
+                        git_cmd,
+                        timeout=GIT_CLONE_TIMEOUT,
                         env=env
                     )
                     print(f"✅ Repository cloned successfully to: {target_dir} (SSL verification disabled)")
                     return target_dir
+                except GitTimeoutError as retry_timeout_error:
+                    raise Exception(f"Git clone timed out even with SSL disabled: {retry_timeout_error}")
                 except Exception as retry_error:
                     raise Exception(f"Git clone failed even with SSL disabled: {retry_error}")
             else:
@@ -234,12 +323,14 @@ def _download_with_github_api(repo_url: str, branch: str, github_token: Optional
     session = requests.Session()
     session.headers.update(headers)
     
-    # Enterprise-specific configurations
+    # Enterprise-specific configurations with configurable timeout
     request_kwargs = {
         "stream": True,
-        "timeout": (30, 300),  # (connect_timeout, read_timeout)
+        "timeout": (30, GITHUB_API_TIMEOUT),  # (connect_timeout, read_timeout) - now configurable
         "allow_redirects": True
     }
+    
+    print(f"🔄 Using GitHub API timeout: {GITHUB_API_TIMEOUT} seconds")
     
     # Handle SSL verification for enterprise environments
     if is_github_enterprise:
@@ -495,6 +586,77 @@ def get_repository_info(repo_path: str) -> dict:
     
     return info
 
+
+def configure_git_timeouts(
+    clone_timeout: Optional[int] = None,
+    fetch_timeout: Optional[int] = None, 
+    api_timeout: Optional[int] = None
+) -> dict:
+    """
+    Configure git operation timeouts dynamically
+    
+    Args:
+        clone_timeout: Timeout for git clone operations (seconds)
+        fetch_timeout: Timeout for git fetch operations (seconds)
+        api_timeout: Timeout for GitHub API operations (seconds)
+    
+    Returns:
+        Dictionary with current timeout values
+    """
+    global GIT_CLONE_TIMEOUT, GIT_FETCH_TIMEOUT, GITHUB_API_TIMEOUT
+    
+    if clone_timeout is not None:
+        GIT_CLONE_TIMEOUT = max(30, min(clone_timeout, 1800))  # Between 30s and 30 minutes
+        print(f"🔧 Git clone timeout set to: {GIT_CLONE_TIMEOUT} seconds")
+    
+    if fetch_timeout is not None:
+        GIT_FETCH_TIMEOUT = max(30, min(fetch_timeout, 900))  # Between 30s and 15 minutes
+        print(f"🔧 Git fetch timeout set to: {GIT_FETCH_TIMEOUT} seconds")
+    
+    if api_timeout is not None:
+        GITHUB_API_TIMEOUT = max(30, min(api_timeout, 600))  # Between 30s and 10 minutes
+        print(f"🔧 GitHub API timeout set to: {GITHUB_API_TIMEOUT} seconds")
+    
+    return get_git_timeout_status()
+
+def get_git_timeout_status() -> dict:
+    """
+    Get current git timeout configuration
+    
+    Returns:
+        Dictionary with current timeout values and their sources
+    """
+    return {
+        "git_clone_timeout": {
+            "value": GIT_CLONE_TIMEOUT,
+            "default": 300,
+            "env_var": "CODEGATES_GIT_CLONE_TIMEOUT",
+            "description": "Timeout for git clone operations"
+        },
+        "git_fetch_timeout": {
+            "value": GIT_FETCH_TIMEOUT,
+            "default": 180,
+            "env_var": "CODEGATES_GIT_FETCH_TIMEOUT", 
+            "description": "Timeout for git fetch operations"
+        },
+        "github_api_timeout": {
+            "value": GITHUB_API_TIMEOUT,
+            "default": 120,
+            "env_var": "CODEGATES_GITHUB_API_TIMEOUT",
+            "description": "Timeout for GitHub API operations"
+        }
+    }
+
+def set_ocp_optimized_timeouts():
+    """
+    Set timeouts optimized for OpenShift Container Platform environments
+    These are conservative values to prevent hanging in resource-constrained environments
+    """
+    return configure_git_timeouts(
+        clone_timeout=180,  # 3 minutes for clone
+        fetch_timeout=120,  # 2 minutes for fetch
+        api_timeout=90      # 1.5 minutes for API
+    )
 
 if __name__ == "__main__":
     # Test the git operations
