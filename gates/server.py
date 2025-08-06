@@ -26,6 +26,14 @@ from utils.hard_gates import HARD_GATES
 from utils.db_integration import extract_app_id_from_url
 from utils.jira_upload import upload_report_to_jira
 
+# Import pattern cache for performance optimization
+try:
+    from utils.pattern_cache import get_pattern_cache, get_cache_stats
+    PATTERN_CACHE_AVAILABLE = True
+except ImportError:
+    print("⚠️ PatternCache not available")
+    PATTERN_CACHE_AVAILABLE = False
+
 # Add server configuration at the top of the file
 import socket
 
@@ -124,13 +132,11 @@ class JiraUploadRequest(BaseModel):
 # Initialize FastAPI app
 app = FastAPI(
     title="CodeGates API",
-    description="Hard Gate Validation API for Code Quality Assessment",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    description="Hard gate validation service for code repositories",
+    version="1.0.0"
 )
 
-# Enhanced CORS configuration with environment variables
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -139,7 +145,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory storage for scan results (in production, use Redis/Database)
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services at startup"""
+    print("🚀 CodeGates server starting up...")
+    
+    # Ensure directories exist
+    ensure_directories()
+    
+    # Pre-compile regex patterns for performance
+    if PATTERN_CACHE_AVAILABLE:
+        print("🔧 Initializing pattern cache...")
+        pattern_cache = get_pattern_cache()
+        
+        # Collect all patterns from hard gates
+        all_patterns = []
+        
+        for gate in HARD_GATES:
+            gate_name = gate.get("name", "Unknown")
+            patterns = gate.get("patterns", [])
+            
+            if isinstance(patterns, list):
+                # Simple list format: patterns: ["pattern1", "pattern2"]
+                all_patterns.extend(patterns)
+                if patterns:
+                    print(f"   📋 {gate_name}: {len(patterns)} patterns (list format)")
+            elif isinstance(patterns, dict):
+                # Dictionary format: patterns: {"positive": [...], "negative": [...]}
+                dict_patterns = []
+                for pattern_type, pattern_list in patterns.items():
+                    if isinstance(pattern_list, list):
+                        dict_patterns.extend(pattern_list)
+                        all_patterns.extend(pattern_list)
+                if dict_patterns:
+                    print(f"   📋 {gate_name}: {len(dict_patterns)} patterns (dict format)")
+        
+        # Add static patterns from static_patterns module if available
+        try:
+            from utils.static_patterns import get_all_static_patterns
+            static_patterns = get_all_static_patterns()
+            if static_patterns:
+                all_patterns.extend(static_patterns)
+                print(f"   📋 Static patterns: {len(static_patterns)} additional patterns")
+        except ImportError:
+            pass  # static_patterns module not available
+        
+        # Pre-compile patterns
+        if all_patterns:
+            print(f"   🔧 Pre-compiling {len(all_patterns)} total patterns...")
+            successful, failed = pattern_cache.pre_compile_patterns(all_patterns)
+            print(f"✅ Pattern cache initialized: {successful} patterns compiled, {failed} failed")
+        else:
+            print("⚠️ No patterns found in HARD_GATES for pre-compilation")
+    else:
+        print("⚠️ Pattern cache not available - patterns will be compiled per request")
+    
+    print("✅ CodeGates server startup complete")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    print("🛑 CodeGates server shutting down...")
+    print("✅ Shutdown complete")
+
+# Store scan results in memory (could be replaced with Redis for production)
 scan_results: Dict[str, Dict[str, Any]] = {}
 
 
@@ -423,15 +492,50 @@ async def list_gates():
 
 @app.get("/api/v1/health")
 async def health_check():
-    """
-    Health check endpoint
-    """
-    return {
+    """Health check endpoint with system information"""
+    
+    health_info = {
         "status": "healthy",
-        "version": "2.0.0",
         "timestamp": datetime.now().isoformat(),
-        "active_scans": len([s for s in scan_results.values() if s["status"] == "running"])
+        "version": "1.0.0",
+        "server": {
+            "host": SERVER_HOST,
+            "port": SERVER_PORT,
+            "url": get_server_url()
+        },
+        "directories": {
+            "reports": REPORTS_DIR,
+            "logs": LOGS_DIR,
+            "temp": TEMP_DIR or "system_default"
+        },
+        "configuration": {
+            "cors_origins": CORS_ORIGINS,
+            "log_level": LOG_LEVEL
+        },
+        "active_scans": len(scan_results)
     }
+    
+    # Add pattern cache information if available
+    if PATTERN_CACHE_AVAILABLE:
+        try:
+            cache_info = get_cache_stats()
+            health_info["pattern_cache"] = cache_info
+        except Exception as e:
+            health_info["pattern_cache"] = {"error": str(e)}
+    else:
+        health_info["pattern_cache"] = {"status": "not_available"}
+    
+    # Add file processor information if available
+    try:
+        from utils.file_processor import get_file_processor_stats
+        processor_stats = get_file_processor_stats()
+        health_info["file_processor"] = processor_stats
+    except ImportError:
+        health_info["file_processor"] = {"status": "not_available"}
+    except Exception as e:
+        health_info["file_processor"] = {"error": str(e)}
+    
+    return health_info
 
 
 async def perform_scan(scan_id: str, request: ScanRequest):

@@ -984,6 +984,29 @@ def get_static_patterns_for_gate(gate_name: str, primary_technologies: list) -> 
     print(f"   ✅ Total unique patterns for {gate_name}: {len(unique_patterns)}")
     return unique_patterns
 
+def get_all_static_patterns() -> list:
+    """
+    Get all static patterns across all gates and technologies
+    
+    Returns:
+        List of all static patterns for pre-compilation
+    """
+    all_patterns = []
+    
+    for gate_name, gate_patterns in STATIC_PATTERN_LIBRARY.items():
+        for tech_name, patterns in gate_patterns.items():
+            all_patterns.extend(patterns)
+    
+    # Remove duplicates while preserving order
+    unique_patterns = []
+    seen = set()
+    for pattern in all_patterns:
+        if pattern not in seen:
+            unique_patterns.append(pattern)
+            seen.add(pattern)
+    
+    return unique_patterns
+
 def get_all_static_patterns_for_gate(gate_name: str) -> dict:
     """
     Get all static patterns for a gate organized by technology

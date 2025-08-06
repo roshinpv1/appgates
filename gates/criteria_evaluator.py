@@ -284,7 +284,7 @@ class CriteriaEvaluator:
         
         matches = []
         processed_files = 0
-        max_files_to_process = 1000  # Limit to prevent hanging
+        max_files_to_process = 5000  # Limit to prevent hanging
         
         for file_path in self.codebase_files:
             # Limit processing to prevent hanging

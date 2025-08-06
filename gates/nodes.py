@@ -21,8 +21,12 @@ try:
     from .utils.hard_gates import HARD_GATES, get_gate_number
     from .utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from .utils.gate_applicability import gate_applicability_analyzer
+    from .utils.pattern_cache import get_cached_compiled_pattern, get_pattern_cache
+    from .utils.file_processor import get_optimized_file_processor, get_file_processor_stats
     # Import enhanced criteria evaluator
     from .criteria_evaluator import EnhancedGateEvaluator, CriteriaEvaluator, migrate_legacy_gate
+    PATTERN_CACHE_AVAILABLE = True
+    FILE_PROCESSOR_AVAILABLE = True
 except ImportError:
     # Fall back to absolute imports (when run directly)
     from utils.git_operations import clone_repository, cleanup_repository
@@ -30,8 +34,19 @@ except ImportError:
     from utils.hard_gates import HARD_GATES, get_gate_number
     from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from utils.gate_applicability import gate_applicability_analyzer
-    # Import enhanced criteria evaluator
     from criteria_evaluator import EnhancedGateEvaluator, CriteriaEvaluator, migrate_legacy_gate
+    try:
+        from utils.pattern_cache import get_cached_compiled_pattern, get_pattern_cache
+        PATTERN_CACHE_AVAILABLE = True
+    except ImportError:
+        print("⚠️ PatternCache not available, falling back to per-request compilation")
+        PATTERN_CACHE_AVAILABLE = False
+    try:
+        from utils.file_processor import get_optimized_file_processor, get_file_processor_stats
+        FILE_PROCESSOR_AVAILABLE = True
+    except ImportError:
+        print("⚠️ OptimizedFileProcessor not available, falling back to line-by-line processing")
+        FILE_PROCESSOR_AVAILABLE = False
 
 
 class FetchRepositoryNode(Node):
@@ -1642,638 +1657,140 @@ class ValidateGatesNode(Node):
     def _process_gates_file_centric(self, gates: List[Dict[str, Any]], llm_patterns: Dict[str, List[str]], 
                                    pattern_data: Dict[str, Any], metadata: Dict[str, Any], 
                                    repo_path: Path, config: Dict[str, Any], params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Process all gates using file-centric approach for maximum performance"""
+        """Process all gates using optimized file-centric approach for maximum performance"""
         
-        # Pre-compile all patterns for all gates
+        # Pre-compile all patterns for all gates (using cache to avoid per-request compilation)
         gate_patterns = {}
         all_compiled_patterns = {}
         
-        print(f"   🔧 Pre-compiling patterns for {len(gates)} gates...")
+        if PATTERN_CACHE_AVAILABLE:
+            print(f"   🔧 Getting cached patterns for {len(gates)} gates...")
+            pattern_cache = get_pattern_cache()
+        else:
+            print(f"   🔧 Pre-compiling patterns for {len(gates)} gates (cache not available)...")
         
         for gate in gates:
             gate_name = gate["name"]
             patterns = llm_patterns.get(gate_name, [])
             
-            # Compile patterns for this gate
+            # Compile patterns for this gate using cache
             compiled_patterns = []
             for pattern in patterns:
                 try:
-                    compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
+                    if PATTERN_CACHE_AVAILABLE:
+                        # Use cached compilation (singleton - compiled once, reused forever)
+                        compiled_pattern = get_cached_compiled_pattern(pattern)
+                    else:
+                        # Fallback to per-request compilation (performance issue)
+                        compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
+                    
                     compiled_patterns.append((pattern, compiled_pattern))
-                except re.error as e:
-                    print(f"   ⚠️ Invalid regex pattern for {gate_name}: {pattern} - {e}")
+                except (re.error, ValueError) as e:
+                    print(f"   ⚠️ Invalid regex pattern for {gate_name}: {pattern[:50]}... - {e}")
             
             gate_patterns[gate_name] = patterns
             all_compiled_patterns[gate_name] = compiled_patterns
         
-        # Get relevant files once (shared across all gates)
-        print(f"   📁 Getting relevant files for all gates...")
-        relevant_files = self._get_improved_relevant_files(metadata, file_type="Source Code", config=config)
-        # Process ALL files - no artificial limits
-        print(f"   📊 Processing ALL {len(relevant_files)} files for {len(gates)} gates...")
+        print(f"   ✅ Pattern compilation complete: {sum(len(patterns) for patterns in all_compiled_patterns.values())} total patterns")
+
+        # Get files to process
+        relevant_files = self._get_improved_relevant_files(metadata, config=config)
+        print(f"   📁 Processing {len(relevant_files)} relevant files...")
         
-        # Initialize results storage for each gate
-        gate_matches = {gate["name"]: [] for gate in gates}
-        gate_stats = {gate["name"]: {"files_processed": 0, "files_skipped": 0, "files_too_large": 0, "files_read_errors": 0} for gate in gates}
-        
-        # Process each file once, applying all gates/patterns
-        max_file_size = config["max_file_size_mb"] * 1024 * 1024
-        max_matches_per_file = config.get("max_matches_per_file", 50)
-        
-        for file_idx, file_info in enumerate(relevant_files):
-            if file_idx % 50 == 0 and file_idx > 0:
-                print(f"   📊 Processing file {file_idx}/{len(relevant_files)}...")
+        # Use optimized file processor if available
+        if FILE_PROCESSOR_AVAILABLE:
+            print(f"   🚀 Using OptimizedFileProcessor for enhanced performance...")
             
-            file_path = repo_path / file_info["relative_path"]
-            if not file_path.exists():
-                for gate_name in gate_matches:
-                    gate_stats[gate_name]["files_skipped"] += 1
-                continue
+            # Configure processor with current settings
+            processor_config = {
+                "max_matches_per_file": config.get("max_matches_per_file", 50),
+                "max_file_size_mb": config.get("max_file_size_mb", 5),
+                "max_parallel_files": min(4, len(relevant_files)),  # Adapt to file count
+                "chunk_size": 8192,
+                "batch_line_count": 100
+            }
             
-            try:
-                file_size = file_path.stat().st_size
-                if file_size > max_file_size:
-                    for gate_name in gate_matches:
-                        gate_stats[gate_name]["files_too_large"] += 1
-                    continue
-                
-                # Process this file for all gates using streaming
-                file_matches = self._process_file_for_all_gates(
-                    file_path, file_info, all_compiled_patterns, 
-                    max_matches_per_file, gates
-                )
-                
-                # Distribute matches to respective gates
-                for gate_name, matches in file_matches.items():
-                    gate_matches[gate_name].extend(matches)
-                    gate_stats[gate_name]["files_processed"] += 1
-                
-            except Exception as e:
-                for gate_name in gate_matches:
-                    gate_stats[gate_name]["files_read_errors"] += 1
-                continue
-        
-        # Generate results for each gate
-        gate_results = []
+            processor = get_optimized_file_processor(processor_config)
+            
+            # Process all files with optimized strategies
+            all_file_matches = processor.process_files_optimized(relevant_files, all_compiled_patterns, repo_path)
+            
+            # Get performance statistics
+            perf_stats = get_file_processor_stats()
+            print(f"   📊 Processing performance:")
+            print(f"      • Files processed: {perf_stats['performance_stats']['files_processed']}")
+            print(f"      • Files skipped: {perf_stats['performance_stats']['files_skipped']}")
+            print(f"      • Processing time: {perf_stats['performance_stats']['total_processing_time_seconds']}s")
+            print(f"      • Throughput: {perf_stats['performance_stats']['throughput_files_per_second']} files/sec")
+            print(f"      • Memory mapped files: {perf_stats['performance_stats']['memory_mapped_files']}")
+            print(f"      • Parallel threads used: {perf_stats['performance_stats']['parallel_threads_used']}")
+            
+        else:
+            print(f"   🐌 Falling back to line-by-line processing (optimized processor not available)...")
+            # Fallback to original file processing
+            all_file_matches = self._process_files_legacy(relevant_files, all_compiled_patterns, repo_path, config)
+
+        # Build gate results from matches
+        results = []
         for gate in gates:
             gate_name = gate["name"]
-            matches = gate_matches[gate_name]
-            stats = gate_stats[gate_name]
+            matches = all_file_matches.get(gate_name, [])
             
-            print(f"   📊 {gate_name}: {len(matches)} matches from {stats['files_processed']} files")
+            # Calculate gate score and status
+            score = self._calculate_gate_score(gate, matches, metadata)
+            status = self._determine_status(score, gate)
             
-            # Process Splunk integration if applicable
-            splunk_matches = []
-            splunk_reference = None
-            gates_with_splunk = {"STRUCTURED_LOGS", "CORRELATION_ID", "LOG_APPLICATION_MESSAGES"}
+            # Generate detailed information
+            details = self._generate_gate_details(gate, matches)
+            recommendations = self._generate_gate_recommendations(gate, matches, score)
             
-            if gate_name in gates_with_splunk:
-                splunk_data = params.get("shared", {}).get("splunk", {})
-                if splunk_data and splunk_data.get("status") == "success":
-                    # Filter Splunk events for this gate
-                    gate_patterns_list = gate_patterns[gate_name]
-                    filtered_events = []
-                    for event in splunk_data.get("results", []):
-                        match_text = event.get("_raw") or event.get("message") or str(event)
-                        for pattern in gate_patterns_list:
-                            try:
-                                if re.search(pattern, match_text, re.IGNORECASE):
-                                    file_hint = event.get("source") or event.get("host") or "SplunkEvent"
-                                    line_hint = event.get("line") or 0
-                                    language_hint = event.get("sourcetype") or "Splunk"
-                                    filtered_events.append({
-                                        "file": file_hint,
-                                        "pattern": pattern,
-                                        "match": match_text,
-                                        "line": line_hint,
-                                        "language": language_hint,
-                                        "source": "Splunk"
-                                    })
-                                    break
-                            except Exception:
-                                continue
-                    splunk_matches = filtered_events
-                    if splunk_matches:
-                        splunk_reference = {
-                            "query": splunk_data.get("query", ""),
-                            "job_id": splunk_data.get("job_id", ""),
-                            "message": splunk_data.get("message", "")
-                        }
+            # Create result entry
+            gate_result = {
+                "name": gate_name,
+                "description": gate.get("description", ""),
+                "category": gate.get("category", "General"),
+                "status": status,
+                "score": score,
+                "matches": matches,
+                "pattern_count": len(gate_patterns.get(gate_name, [])),
+                "files_with_matches": len(set(match["file"] for match in matches)),
+                "details": details,
+                "recommendations": recommendations,
+                "confidence": self._calculate_combined_confidence(
+                    len([m for m in matches if m.get("source") == "LLM"]),
+                    len([m for m in matches if m.get("source") == "static"]),
+                    len(set((m["file"], m["line"]) for m in matches))
+                )
+            }
             
-            # Combine file matches with Splunk matches
-            all_matches = matches + splunk_matches
+            results.append(gate_result)
             
-            # Calculate gate score and generate result
-            gate_result = self._evaluate_single_gate_legacy(gate, {
-                **params,
-                "matches": all_matches,
-                "splunk_reference": splunk_reference,
-                "stats": stats
-            })
-            
-            gate_results.append(gate_result)
-        
-        return gate_results
+            print(f"   ✅ {gate_name}: {status} (score: {score:.1f}%, matches: {len(matches)})")
 
-    def _process_file_for_all_gates(self, file_path: Path, file_info: Dict[str, Any], 
-                                   all_compiled_patterns: Dict[str, List[tuple]], 
-                                   max_matches_per_file: int, gates: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-        """Process a single file for all gates using streaming"""
-        
-        file_matches = {gate["name"]: [] for gate in gates}
-        
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line_num, line in enumerate(f, 1):
-                    # Check if any gate has reached its match limit
-                    all_gates_at_limit = all(
-                        len(file_matches[gate["name"]]) >= max_matches_per_file 
-                        for gate in gates
-                    )
-                    if all_gates_at_limit:
-                        break
-                    
-                    # Apply all patterns for all gates to this line
-                    for gate in gates:
-                        gate_name = gate["name"]
-                        
-                        # Skip if this gate has reached its match limit
-                        if len(file_matches[gate_name]) >= max_matches_per_file:
-                            continue
-                        
-                        # Apply patterns for this gate
-                        compiled_patterns = all_compiled_patterns[gate_name]
-                        for pattern, compiled_pattern in compiled_patterns:
-                            if len(file_matches[gate_name]) >= max_matches_per_file:
-                                break
-                            
-                            try:
+        return results
+
+    def _process_files_legacy(self, files: List[Dict[str, Any]], compiled_patterns: Dict[str, List[tuple]], 
+                             repo_path: Path, config: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+        """Process files using legacy method (line-by-line processing)"""
+        matches = {}
+        for gate_name, patterns in compiled_patterns.items():
+            matches[gate_name] = []
+            for pattern, compiled_pattern in patterns:
+                for file_path in files:
+                    if file_path["type"] == "Source Code":
+                        with open(repo_path / file_path["relative_path"], 'r', encoding='utf-8', errors='ignore') as f:
+                            for line_num, line in enumerate(f, 1):
                                 if compiled_pattern.search(line):
-                                    file_matches[gate_name].append({
-                                        "file": file_info["relative_path"],
+                                    matches[gate_name].append({
+                                        "file": file_path["relative_path"],
                                         "pattern": pattern,
                                         "match": line.strip(),
                                         "line": line_num,
-                                        "language": file_info["language"],
-                                        "source": "file_centric"
+                                        "language": file_path["language"],
+                                        "source": "static"
                                     })
-                            except Exception:
-                                continue
-        except Exception:
-            # File read error - return empty matches for all gates
-            pass
-        
-        return file_matches
-    
-    def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: List[Dict[str, Any]]) -> str:
-        """Store validation results and calculate overall weighted score with enhanced statistics"""
-        shared["validation"]["gate_results"] = exec_res
-        
-        # Store applicability information
-        applicability_summary = prep_res.get("applicability_summary", {})
-        shared["validation"]["applicability_summary"] = applicability_summary
-        
-        # Recalculate applicability summary from actual gate results for consistency
-        total_gates = len(exec_res)
-        applicable_gates = len([r for r in exec_res if r["status"] != "NOT_APPLICABLE"])
-        non_applicable_gates = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
-        
-        # Get codebase characteristics from metadata
-        metadata = shared["repository"]["metadata"]
-        from utils.gate_applicability import gate_applicability_analyzer
-        characteristics = gate_applicability_analyzer.analyze_codebase_type(metadata)
-        
-        # Create consistent applicability summary
-        applicability_summary = {
-            "codebase_characteristics": characteristics,
-            "total_gates": total_gates,
-            "applicable_gates": applicable_gates,
-            "non_applicable_gates": non_applicable_gates,
-            "applicable_gate_names": [r["gate"] for r in exec_res if r["status"] != "NOT_APPLICABLE"],
-            "non_applicable_details": [
-                {
-                    "name": r["gate"],
-                    "display_name": r["display_name"],
-                    "category": r["category"],
-                    "reason": "Not applicable to this technology stack"
-                }
-                for r in exec_res if r["status"] == "NOT_APPLICABLE"
-            ]
-        }
-        
-        shared["validation"]["applicability_summary"] = applicability_summary
-        
-        # Calculate overall weighted score (Reduce phase) - exclude NOT_APPLICABLE gates
-        applicable_gates = [result for result in exec_res if result["status"] != "NOT_APPLICABLE"]
-        
-        if applicable_gates:
-            # Simple weighted scoring calculation
-            total_score = 0.0
-            total_weight = 0.0
-            
-            for gate in applicable_gates:
-                score = gate.get("score", 0.0)
-                weight = gate.get("weight", 1.0)
-                total_score += score * weight
-                total_weight += weight
-            
-            overall_score = total_score / total_weight if total_weight > 0 else 0.0
-            
-            scoring_summary = {
-                "total_weight": total_weight,
-                "weighted_score": total_score,
-                "average_score": overall_score
-            }
-            
-            shared["validation"]["overall_score"] = overall_score
-            shared["validation"]["weighted_scoring_summary"] = scoring_summary
-        else:
-            overall_score = 0.0
-            shared["validation"]["overall_score"] = overall_score
-            shared["validation"]["weighted_scoring_summary"] = {}
-        
-        # Count status distribution
-        passed = len([r for r in exec_res if r["status"] == "PASS"])
-        failed = len([r for r in exec_res if r["status"] == "FAIL"])
-        warnings = len([r for r in exec_res if r["status"] == "WARNING"])
-        not_applicable = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
-        
-        # Calculate hybrid validation statistics
-        hybrid_stats = self._calculate_hybrid_validation_stats(exec_res)
-        shared["validation"]["hybrid_stats"] = hybrid_stats
-        
-        # Add simple pattern statistics
-        pattern_stats = {
-            "total_patterns": sum(len(gate.get("patterns", [])) for gate in applicable_gates),
-            "total_matches": sum(gate.get("matches_found", 0) for gate in applicable_gates),
-            "average_patterns_per_gate": sum(len(gate.get("patterns", [])) for gate in applicable_gates) / len(applicable_gates) if applicable_gates else 0
-        }
-        shared["validation"]["pattern_statistics"] = pattern_stats
-        
-        print(f"✅ Simple compliance validation complete: {overall_score:.1f}% compliance")
-        print(f"   📊 Total Gates: {total_gates}")
-        print(f"   ✅ Gates Met: {passed}")
-        print(f"   ❌ Gates Failed: {failed}")
-        print(f"   ⚠️ Gates Warning: {warnings}")
-        print(f"   🔍 Gates Not Applicable: {not_applicable}")
-        print(f"   🎯 Compliance Score: {overall_score:.1f}% (Met + Not Applicable) / Total")
-        
-        # Print applicability summary
-        print(f"🔍 Applicability Summary:")
-        print(f"   📊 Codebase Type: {characteristics['primary_technology']}")
-        print(f"   ✅ Applicable Gates: {len(applicable_gates)}/{total_gates}")
-        print(f"   ❌ Not Applicable Gates: {non_applicable_gates}")
-        
-        # Calculate simple compliance score: (Gates Met + Gates Not Applicable) / Total Gates × 100
-        total_gates = len(exec_res)
-        gates_met = len([r for r in exec_res if r["status"] == "PASS"])
-        gates_failed = len([r for r in exec_res if r["status"] == "FAIL"])
-        gates_warning = len([r for r in exec_res if r["status"] == "WARNING"])
-        gates_not_applicable = len([r for r in exec_res if r["status"] == "NOT_APPLICABLE"])
-        
-        # Simple compliance score calculation
-        compliance_score = ((gates_met + gates_not_applicable) / total_gates * 100) if total_gates > 0 else 0.0
-        
-        # Store the simple compliance score
-        shared["validation"]["overall_score"] = compliance_score
-        shared["validation"]["compliance_summary"] = {
-            "total_gates": total_gates,
-            "gates_met": gates_met,
-            "gates_not_applicable": gates_not_applicable,
-            "gates_failed": gates_failed,
-            "gates_warning": gates_warning,
-            "compliance_score": compliance_score
-        }
-        
-        # Calculate hybrid validation statistics
-        hybrid_stats = self._calculate_hybrid_validation_stats(exec_res)
-        shared["validation"]["hybrid_stats"] = hybrid_stats
-        
-        # Add simple pattern statistics
-        applicable_gates = [result for result in exec_res if result["status"] != "NOT_APPLICABLE"]
-        pattern_stats = {
-            "total_patterns": sum(len(gate.get("patterns", [])) for gate in applicable_gates),
-            "total_matches": sum(gate.get("matches_found", 0) for gate in applicable_gates),
-            "average_patterns_per_gate": sum(len(gate.get("patterns", [])) for gate in applicable_gates) / len(applicable_gates) if applicable_gates else 0
-        }
-        shared["validation"]["pattern_statistics"] = pattern_stats
-        
-        print(f"✅ Simple compliance validation complete: {compliance_score:.1f}% compliance")
-        print(f"   📊 Total Gates: {total_gates}")
-        print(f"   ✅ Gates Met: {gates_met}")
-        print(f"   ❌ Gates Failed: {gates_failed}")
-        print(f"   ⚠️ Gates Warning: {gates_warning}")
-        print(f"   🔍 Gates Not Applicable: {gates_not_applicable}")
-        print(f"   🎯 Compliance Score: {compliance_score:.1f}% (Met + Not Applicable) / Total")
-        
-        # Print applicability summary
-        print(f"🔍 Applicability Summary:")
-        print(f"   📊 Codebase Type: {characteristics['primary_technology']}")
-        print(f"   ✅ Applicable Gates: {len(applicable_gates)}/{total_gates}")
-        print(f"   ❌ Not Applicable Gates: {gates_not_applicable}")
-        
-        return "default"
-    
-    def _calculate_hybrid_validation_stats(self, gate_results: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calculate statistics for enhanced validation"""
-        stats = {
-            "total_enhanced_patterns": 0,
-            "total_enhanced_matches": 0,
-            "total_criteria_evaluations": 0,
-            "total_condition_results": 0,
-            "coverage_improvement": 0.0,
-            "confidence_distribution": {"high": 0, "medium": 0, "low": 0}
-        }
-        
-        applicable_gates = [g for g in gate_results if g["status"] != "NOT_APPLICABLE"]
-        
-        for gate in applicable_gates:
-            # Count enhanced evaluation results
-            condition_results = gate.get("condition_results", [])
-            matches = gate.get("matches", [])
-            
-            stats["total_criteria_evaluations"] += 1
-            stats["total_condition_results"] += len(condition_results)
-            stats["total_enhanced_matches"] += len(matches)
-            
-            # Count patterns from condition results
-            for condition in condition_results:
-                if condition.get("type") == "pattern":
-                    stats["total_enhanced_patterns"] += 1
-            
-            # Determine confidence based on score
-            score = gate.get("score", 0.0)
-            if score >= 80:
-                stats["confidence_distribution"]["high"] += 1
-            elif score >= 50:
-                stats["confidence_distribution"]["medium"] += 1
-            else:
-                stats["confidence_distribution"]["low"] += 1
-        
-        # Calculate coverage improvement (simplified)
-        if stats["total_enhanced_matches"] > 0:
-            stats["coverage_improvement"] = 15.0  # Assume 15% improvement from enhanced evaluation
-        
-        return stats
-    
-    def _find_pattern_matches_with_config(self, repo_path: Path, patterns: List[str], metadata: Dict[str, Any], gate: Dict[str, Any], config: Dict[str, Any], source: str = "LLM") -> List[Dict[str, Any]]:
-        """Find pattern matches in appropriate files with streaming processing for improved performance"""
-        matches = []
-        # Add timeout protection for file processing
-        import time
-        import threading
-        # Timeout configuration for file processing
-        FILE_PROCESSING_TIMEOUT = int(os.getenv("CODEGATES_FILE_PROCESSING_TIMEOUT", "300"))  # 5 minutes default
-        print(f"   ⏱️ File processing timeout set to {FILE_PROCESSING_TIMEOUT} seconds")
-        
-        # Filter files based on gate type with improved logic
-        gate_name = gate.get("name", "")
-        if gate_name == "AUTOMATED_TESTS":
-            # For automated tests gate, look at test files across all languages
-            target_files = self._get_improved_relevant_files(metadata, file_type="Test Code", gate_name=gate_name, config=config)
-            print(f"   Looking at {len(target_files)} relevant test files for {gate_name}")
-        else:
-            # For all other gates, look at source code files with more inclusive filtering
-            target_files = self._get_improved_relevant_files(metadata, file_type="Source Code", gate_name=gate_name, config=config)
-            print(f"   Looking at {len(target_files)} relevant source code files for {gate_name}")
-        
-        # Pre-compile patterns for efficiency (fix pattern recompilation issue)
-        compiled_patterns = []
-        invalid_patterns = []
-        for pattern in patterns:
-            try:
-                compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
-                compiled_patterns.append((pattern, compiled_pattern))
-            except re.error as e:
-                invalid_patterns.append((pattern, str(e)))
-                print(f"   ⚠️ Invalid regex pattern skipped: {pattern} - {e}")
-        
-        # Report pattern compilation results
-        if invalid_patterns:
-            print(f"   ⚠️ Skipped {len(invalid_patterns)} invalid patterns out of {len(patterns)} total")
-        
-        # Process files with improved limits and error handling
-        files_processed = 0
-        files_skipped = 0
-        files_too_large = 0
-        files_read_errors = 0
-        
-        # Configurable limits with performance optimizations
-        max_files = min(len(target_files), config["max_files"])
-        max_file_size = config["max_file_size_mb"] * 1024 * 1024  # Convert MB to bytes
-        max_matches_per_file = config.get("max_matches_per_file", 50)  # New limit for matches per file
-        
-        # Use threading with timeout to prevent hanging
-        processing_result = {
-            "matches": [],
-            "files_processed": 0,
-            "files_skipped": 0,
-            "files_too_large": 0,
-            "files_read_errors": 0,
-            "error": None
-        }
-        
-        def process_files_with_timeout():
-            try:
-                local_matches = []
-                local_files_processed = 0
-                local_files_skipped = 0
-                local_files_too_large = 0
-                local_files_read_errors = 0
-                
-                for i, file_info in enumerate(target_files[:max_files]):
-                    # Add progress logging every 10 files
-                    if i % 10 == 0 and i > 0:
-                        actual_files_to_process = min(len(target_files), max_files)
-                        print(f"   📊 Processing file {i}/{actual_files_to_process} for {gate_name}...")
-                    
-                    file_path = repo_path / file_info["relative_path"]
-                    if not file_path.exists():
-                        local_files_skipped += 1
-                        continue
-                    
-                    try:
-                        file_size = file_path.stat().st_size
-                        if file_size > max_file_size:
-                            local_files_too_large += 1
-                            if config.get("enable_detailed_logging", True):
-                                print(f"   ⚠️ Skipping large file ({file_size/1024/1024:.1f}MB): {file_info['relative_path']}")
-                            continue
-                        
-                        # Use streaming processing instead of loading entire file
-                        file_matches = self._process_file_streaming(
-                            file_path, 
-                            compiled_patterns, 
-                            file_info, 
-                            source, 
-                            max_matches_per_file
-                        )
-                        local_matches.extend(file_matches)
-                        local_files_processed += 1
-                        
-                        # Early termination if we have enough matches
-                        if len(local_matches) >= max_matches_per_file * 10:  # 10x files worth of matches
-                            print(f"   ✅ Early termination: Found sufficient matches for {gate_name}")
-                            break
-                            
-                    except Exception as e:
-                        local_files_read_errors += 1
-                        if config.get("enable_detailed_logging", True):
-                            print(f"   ⚠️ Error reading file {file_info['relative_path']}: {e}")
-                        continue
-                
-                # Update result
-                processing_result["matches"] = local_matches
-                processing_result["files_processed"] = local_files_processed
-                processing_result["files_skipped"] = local_files_skipped
-                processing_result["files_too_large"] = local_files_too_large
-                processing_result["files_read_errors"] = local_files_read_errors
-            except Exception as e:
-                processing_result["error"] = str(e)
-        
-        # Start file processing in a separate thread
-        processing_thread = threading.Thread(target=process_files_with_timeout)
-        processing_thread.daemon = True
-        processing_thread.start()
-        
-        # Wait for completion with timeout
-        processing_thread.join(timeout=FILE_PROCESSING_TIMEOUT)
-        if processing_thread.is_alive():
-            print(f"   ⚠️ File processing timed out after {FILE_PROCESSING_TIMEOUT} seconds for {gate_name}")
-            processing_result["error"] = f"File processing timed out after {FILE_PROCESSING_TIMEOUT} seconds"
-        
-        if processing_result["error"]:
-            print(f"   ⚠️ File processing failed for {gate_name}: {processing_result['error']}")
-            return []
-        
-        # Report processing statistics
-        if config.get("enable_detailed_logging", True):
-            actual_files_to_process = min(len(target_files), max_files)
-            print(f"   📊 File processing stats for {gate_name}: {processing_result['files_processed']} processed, {processing_result['files_skipped']} skipped, {processing_result['files_too_large']} too large, {processing_result['files_read_errors']} read errors (out of {actual_files_to_process} eligible files)")
-            print(f"   🎯 Found {len(processing_result['matches'])} matches using streaming processing")
-        
-        if len(target_files) > max_files:
-            print(f"   ⚠️ File limit reached: processed {max_files} out of {len(target_files)} eligible files for {gate_name}")
-        
-        return processing_result["matches"]
-    
-    def _process_file_streaming(self, file_path: Path, compiled_patterns: List[tuple], file_info: Dict[str, Any], source: str, max_matches_per_file: int = 50) -> List[Dict[str, Any]]:
-        """Process a single file using streaming to avoid loading entire content into memory"""
-        matches = []
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line_num, line in enumerate(f, 1):
-                    # Check if we've reached the match limit
-                    if len(matches) >= max_matches_per_file:
-                        break
-                    
-                    # Apply all patterns to this line
-                    for pattern, compiled_pattern in compiled_patterns:
-                        if len(matches) >= max_matches_per_file:
-                            break
-                        
-                        try:
-                            # Use search() instead of finditer() for single line
-                            if compiled_pattern.search(line):
-                                matches.append({
-                                    "file": file_info["relative_path"],
-                                    "pattern": pattern,
-                                    "match": line.strip(),
-                                    "line": line_num,
-                                    "language": file_info["language"],
-                                    "source": source
-                                })
-                        except Exception as e:
-                            # Skip problematic patterns
-                            continue
-        except Exception as e:
-            # File read error - return empty matches
-            pass
-        
         return matches
-    
-    def _get_technology_relevant_files(self, metadata: Dict[str, Any], file_type: str = "Source Code") -> List[Dict[str, Any]]:
-        """Get files that are relevant to the primary technology stack"""
-        all_files = [f for f in metadata.get("file_list", []) 
-                    if f["type"] == file_type and not f["is_binary"]]
-        
-        # Additional filter to exclude documentation files
-        doc_extensions = ['.md', '.txt', '.rst', '.adoc', '.asciidoc', '.doc', '.docx', '.pdf', '.rtf']
-        doc_patterns = ['README', 'CHANGELOG', 'LICENSE', 'CONTRIBUTING', 'CONTRIBUTE']
-        
-        def is_doc_file(file_info):
-            file_name = file_info.get("name", "").upper()
-            file_ext = file_info.get("extension", "").lower()
-            
-            # Check for documentation extensions
-            if file_ext in doc_extensions:
-                return True
-            
-            # Check for documentation file names
-            if any(pattern in file_name for pattern in doc_patterns):
-                return True
-            
-            return False
-        
-        # Filter out documentation files
-        relevant_files = [f for f in all_files if not is_doc_file(f)]
-        
-        # Determine primary technologies from language distribution
-        primary_technologies = self._get_primary_technologies(metadata)
-        
-        if not primary_technologies:
-            # Fallback to all files if no primary technology detected
-            print(f"   No primary technology detected, using all {len(relevant_files)} {file_type.lower()} files")
-            return relevant_files
-        
-        # Filter files to only include primary technology files
-        technology_relevant_files = [f for f in relevant_files 
-                                   if f["language"] in primary_technologies]
-        
-        primary_tech_str = ", ".join(primary_technologies)
-        print(f"   Primary technologies: {primary_tech_str}")
-        print(f"   Filtered to {len(technology_relevant_files)} relevant files (from {len(relevant_files)} total {file_type.lower()} files)")
-        
-        return technology_relevant_files
-    
-    def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
-        """Get primary technologies from metadata"""
-        language_stats = metadata.get("language_stats", {})
-        total_files = metadata.get("total_files", 1)
-        
-        # Use hardcoded defaults since pattern_loader is removed
-        primary_languages = set(["java", "python", "javascript", "typescript", "csharp", "go", "rust"])
-        primary_threshold = 20.0
-        secondary_threshold = 10.0
-        
-        primary_technologies = []
-        
-        # Find languages that make up significant portion of the codebase
-        for language, stats in language_stats.items():
-            file_count = stats.get("files", 0)
-            percentage = (file_count / total_files) * 100
-            
-            if language in primary_languages and percentage >= primary_threshold:
-                primary_technologies.append(language)
-        
-        # If no primary technology found, take the most dominant
-        if not primary_technologies:
-            dominant_primary = None
-            max_percentage = 0
-            
-            for language, stats in language_stats.items():
-                if language in primary_languages:
-                    file_count = stats.get("files", 0)
-                    percentage = (file_count / total_files) * 100
-                    if percentage > max_percentage and percentage >= secondary_threshold:
-                        max_percentage = percentage
-                        dominant_primary = language
-            
-            if dominant_primary:
-                primary_technologies.append(dominant_primary)
-        
-        return primary_technologies
-    
+
     def _calculate_gate_score(self, gate: Dict[str, Any], matches: List[Dict[str, Any]], metadata: Dict[str, Any]) -> float:
         """
         Simplified scoring: score = min(actual / expected, 1.0) * 100
@@ -2503,22 +2020,22 @@ class ValidateGatesNode(Node):
             return "low"
 
     def _get_pattern_matching_config(self, shared: Dict[str, Any]) -> Dict[str, Any]:
-        """Get configurable pattern matching parameters with streaming optimizations"""
-        # Default configuration with performance optimizations - NO FILE LIMITS
+        """Get configurable pattern matching parameters"""
+        # Default configuration
         default_config = {
-            "max_files": 999999,  # Effectively unlimited - process all files
-            "max_file_size_mb": 10,  # Increased from 2 for larger files
-            "max_matches_per_file": 100,  # Increased from 50 for more matches
+            "max_files": 100,  # Reduced from 500 for better performance
+            "max_file_size_mb": 2,  # Reduced from 5 for better performance
+            "max_matches_per_file": 50,  # New limit for matches per file
             "language_threshold_percent": 5.0,
             "config_threshold_percent": 1.0,
             "min_languages": 1,
             "enable_detailed_logging": True,
             "skip_binary_files": True,
-            "process_large_files": True,  # Enable processing of large files
+            "process_large_files": False,
             # New streaming performance settings
             "enable_streaming": True,
             "enable_early_termination": True,
-            "max_matches_before_termination": 1000,  # Increased from 500 for more matches
+            "max_matches_before_termination": 500,  # Stop processing after 500 total matches
             "chunk_size_kb": 64,  # For future chunked processing
         }
         
@@ -2526,10 +2043,10 @@ class ValidateGatesNode(Node):
         request_config = shared.get("request", {}).get("pattern_matching", {})
         config = {**default_config, **request_config}
         
-        # Validate configuration - NO UPPER LIMITS on files
-        config["max_files"] = max(1, config["max_files"])  # Minimum 1 file, no upper limit
-        config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 100))  # Between 1-100 MB
-        config["max_matches_per_file"] = max(10, min(config["max_matches_per_file"], 500))  # Between 10-500
+        # Validate configuration
+        config["max_files"] = max(50, min(config["max_files"], 2000))  # Between 50-2000
+        config["max_file_size_mb"] = max(1, min(config["max_file_size_mb"], 50))  # Between 1-50 MB
+        config["max_matches_per_file"] = max(10, min(config["max_matches_per_file"], 200))  # Between 10-200
         config["language_threshold_percent"] = max(0.5, min(config["language_threshold_percent"], 50.0))  # Between 0.5-50%
         
         return config
@@ -2743,7 +2260,7 @@ class ValidateGatesNode(Node):
         if is_security_gate and status == "PASS":
             # Gate passed means no violations found, so clear matches
             legacy_matches = []
-            violation_matches = matches  # Keep original matches for violation reporting
+            violation_matches_dict = [self._convert_pattern_match_to_dict(match) for match in matches]
         else:
             # Convert matches to legacy format
             legacy_matches = []
@@ -2756,7 +2273,7 @@ class ValidateGatesNode(Node):
                     "language": self._detect_language_from_file(match.file),
                     "source": "enhanced_criteria"
                 })
-            violation_matches = matches
+            violation_matches_dict = [self._convert_pattern_match_to_dict(match) for match in matches]
         
         # Generate details from condition results
         details = []
@@ -2812,8 +2329,19 @@ class ValidateGatesNode(Node):
                     }
                     for condition in condition_results
                 ],
-                "violation_matches": violation_matches  # Keep original matches for violation reporting
+                "violation_matches": violation_matches_dict  # Store as dictionaries for JSON serialization
             }
+        }
+
+    def _convert_pattern_match_to_dict(self, match) -> Dict[str, Any]:
+        """Convert a PatternMatch object to a JSON-serializable dictionary"""
+        return {
+            "file": match.file,
+            "pattern": match.pattern,
+            "weight": match.weight,
+            "type": getattr(match, 'type', 'pattern'),
+            "line_number": match.line_number,
+            "context": match.context
         }
     
     def _evaluate_single_gate_legacy(self, gate: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
@@ -3009,6 +2537,45 @@ class ValidateGatesNode(Node):
         
         return recommendations
 
+    def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: List[Dict[str, Any]]) -> str:
+        """Store validation results and calculate overall score"""
+        # Ensure validation section exists
+        if "validation" not in shared:
+            shared["validation"] = {}
+        
+        # Store gate results
+        shared["validation"]["gate_results"] = exec_res
+        
+        # Store applicability information
+        applicability_summary = prep_res.get("applicability_summary", {})
+        shared["validation"]["applicability_summary"] = applicability_summary
+        
+        # Calculate overall score using the simple compliance formula
+        # (Gates Met + Gates Not Applicable) / Total Gates × 100
+        total_gates = len(exec_res)
+        passed_gates = len([r for r in exec_res if r.get("status") == "PASS"])
+        not_applicable_gates = len([r for r in exec_res if r.get("status") == "NOT_APPLICABLE"])
+        
+        if total_gates > 0:
+            overall_score = ((passed_gates + not_applicable_gates) / total_gates) * 100
+        else:
+            overall_score = 0.0
+        
+        shared["validation"]["overall_score"] = overall_score
+        
+        # Count status distribution for summary
+        failed = len([r for r in exec_res if r.get("status") == "FAIL"])
+        warnings = len([r for r in exec_res if r.get("status") == "WARNING"])
+        
+        print(f"✅ Gate validation complete: {overall_score:.1f}% overall score")
+        print(f"   📊 Total gates: {total_gates}")
+        print(f"   ✅ Passed: {passed_gates}")
+        print(f"   ❌ Failed: {failed}")
+        print(f"   ⚠️ Warnings: {warnings}")
+        print(f"   ➖ Not Applicable: {not_applicable_gates}")
+        
+        return "default"
+
 
 class GenerateReportNode(Node):
     """Node to generate HTML and JSON reports using the same template as original report.py"""
@@ -3162,7 +2729,7 @@ class GenerateReportNode(Node):
             "scan_timestamp_formatted": self._get_timestamp_formatted(),
             "overall_score": validation["overall_score"],
             "threshold": params["request"]["threshold"],
-            "status": "PASS" if validation["overall_score"] >= params["request"]["threshold"] else "FAIL",
+            "status": "PASS" if validation["overall_score"] >= (params["request"]["threshold"] or 70) else "FAIL",
             
             # Summary statistics
             "summary": {
