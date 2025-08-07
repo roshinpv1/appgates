@@ -35,7 +35,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeGates Security Scanner</title>
+    <title>XYXY Scanner</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -267,6 +267,61 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             padding: 1rem 1.25rem;
             margin-bottom: 1rem;
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+
+        .gates-summary-container {
+            background: white;
+            border-radius: 0.5rem;
+            border: 1px solid #dee2e6;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .gates-summary-table {
+            background: white;
+            border-radius: 0.5rem;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            border-top: none;
+            font-weight: 600;
+            color: #495057;
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table td {
+            vertical-align: middle;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.65rem;
+        }
+
+        .gates-detailed-view {
+            border-top: 2px solid #dee2e6;
+            padding-top: 1.5rem;
+        }
+
+        .btn-outline-secondary {
+            border-color: #dee2e6;
+            color: #495057;
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+            color: #495057;
         }
     </style>
 </head>
@@ -712,6 +767,15 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 const response = await apiCall(`${API_BASE}/scan/${currentScanId}/results`);
                 const data = await response.json();
                 
+                // Debug logging to see what data we're actually receiving
+                console.log('🔍 Debug: Full response data:', data);
+                console.log('🔍 Debug: Overall score:', data.overall_score);
+                console.log('🔍 Debug: Total gates:', data.total_gates);
+                console.log('🔍 Debug: Passed gates:', data.passed_gates);
+                console.log('🔍 Debug: Failed gates:', data.failed_gates);
+                console.log('🔍 Debug: Warning gates:', data.warning_gates);
+                console.log('🔍 Debug: Gate results length:', data.gate_results?.length || 0);
+                
                 scanResults = data;
                 displayReport(data);
                 resetScanButton();
@@ -736,15 +800,32 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             displaySecurityGates(data);
         }
 
-        // Display metrics grid
+        // Display metrics grid - Updated to match executive summary format
         function displayMetrics(data) {
             const metricsGrid = document.getElementById('metricsGrid');
             
+            // Handle both UI format and JSON report format
             const overallScore = data.overall_score || 0;
-            const totalGates = data.total_gates || 0;
-            const passedGates = data.passed_gates || 0;
-            const failedGates = data.failed_gates || 0;
-            const warningGates = data.warning_gates || 0;
+            
+            // Try UI format first, then JSON report format
+            let totalGates = data.total_gates || data.summary?.total_gates || 0;
+            let passedGates = data.passed_gates || data.summary?.passed_gates || 0;
+            let failedGates = data.failed_gates || data.summary?.failed_gates || 0;
+            let warningGates = data.warning_gates || data.summary?.warning_gates || 0;
+            let notApplicableGates = data.summary?.not_applicable_gates || 0;
+            
+            // Calculate partially met (assuming warnings are partially met)
+            let partiallyMet = warningGates;
+            
+            // Debug logging for metrics parsing
+            console.log('📊 Debug: Executive Summary Metrics:');
+            console.log('   Overall Score:', overallScore, '(type:', typeof overallScore, ')');
+            console.log('   Total Gates:', totalGates, '(type:', typeof totalGates, ')');
+            console.log('   Gates Met (Passed):', passedGates, '(type:', typeof passedGates, ')');
+            console.log('   Partially Met (Warnings):', partiallyMet, '(type:', typeof partiallyMet, ')');
+            console.log('   Not Met (Failed):', failedGates, '(type:', typeof failedGates, ')');
+            console.log('   Not Applicable:', notApplicableGates, '(type:', typeof notApplicableGates, ')');
+            console.log('   Data structure:', data.summary ? 'JSON report format' : 'UI format');
             
             metricsGrid.innerHTML = `
                 <div class="metric-card">
@@ -753,27 +834,36 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 </div>
                 <div class="metric-card">
                     <div class="metric-value" style="color: #17a2b8">${totalGates}</div>
-                    <div class="metric-label">Total Gates</div>
+                    <div class="metric-label">Total Gates Evaluated</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-value" style="color: #28a745">${passedGates}</div>
-                    <div class="metric-label">Passed</div>
+                    <div class="metric-label">Gates Met</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #ffc107">${partiallyMet}</div>
+                    <div class="metric-label">Partially Met</div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-value" style="color: #dc3545">${failedGates}</div>
-                    <div class="metric-label">Failed</div>
+                    <div class="metric-label">Not Met</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value" style="color: #ffc107">${warningGates}</div>
-                    <div class="metric-label">Warnings</div>
+                    <div class="metric-value" style="color: #6c757d">${notApplicableGates}</div>
+                    <div class="metric-label">Not Applicable</div>
                 </div>
             `;
         }
 
-        // Display security gates
+        // Display security gates with expandable summary
         function displaySecurityGates(data) {
             const gatesContainer = document.getElementById('gatesContainer');
-            const gateResults = data.gate_results || [];
+            
+            // Handle both UI format and JSON report format
+            let gateResults = data.gate_results || data.gates || [];
+            
+            console.log('🔍 Debug: Gate results format:', gateResults.length > 0 ? 'Found gates' : 'No gates');
+            console.log('   Using field:', data.gate_results ? 'gate_results' : data.gates ? 'gates' : 'none');
             
             if (gateResults.length === 0) {
                 gatesContainer.innerHTML = `
@@ -785,13 +875,87 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 return;
             }
 
-            gatesContainer.innerHTML = gateResults.map((gate, index) => createGateCard(gate, index + 1)).join('');
+            // Create expandable summary
+            gatesContainer.innerHTML = `
+                <div class="gates-summary-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">Security Gates Summary</h4>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="toggleGateDetails()" id="toggleDetailsBtn">
+                            <i class="fas fa-chevron-down me-2"></i>Show Details
+                        </button>
+                    </div>
+                    
+                    <div class="gates-summary-table">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Gate Name</th>
+                                        <th>Category</th>
+                                        <th>Status</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${gateResults.map((gate, index) => createGateSummaryRow(gate, index + 1)).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="gates-detailed-view hidden mt-4" id="gatesDetailedView">
+                        <h5 class="mb-3">
+                            <i class="fas fa-list-ul me-2"></i>Detailed Gate Analysis
+                        </h5>
+                        ${gateResults.map((gate, index) => createDetailedGateCard(gate, index + 1)).join('')}
+                    </div>
+                </div>
+            `;
         }
 
-        // Create individual gate card
-        function createGateCard(gate, gateNumber) {
+        // Create gate summary row for the table
+        function createGateSummaryRow(gate, gateNumber) {
             const status = gate.status || 'UNKNOWN';
             const statusClass = `status-${status.toLowerCase().replace('_', '-')}`;
+            const statusText = status === 'NOT_APPLICABLE' ? 'Not Applicable' : 
+                             status === 'PASS' ? 'Met' : 
+                             status === 'WARNING' ? 'Partially Met' : 
+                             status === 'FAIL' ? 'Not Met' : status;
+            
+            // Use display_name if available, otherwise fall back to gate name
+            const gateName = gate.display_name || gate.name || gate.gate || `Gate ${gateNumber}`;
+            
+            return `
+                <tr>
+                    <td>
+                        <strong>${gateName}</strong>
+                        <br>
+                        <small class="text-muted">${gate.description || 'No description available'}</small>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">${gate.category || 'General'}</span>
+                    </td>
+                    <td>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </td>
+                    <td>
+                        <strong>${(gate.score || 0).toFixed(1)}%</strong>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Create detailed gate card (same as before but updated gate name)
+        function createDetailedGateCard(gate, gateNumber) {
+            const status = gate.status || 'UNKNOWN';
+            const statusClass = `status-${status.toLowerCase().replace('_', '-')}`;
+            const statusText = status === 'NOT_APPLICABLE' ? 'Not Applicable' : 
+                             status === 'PASS' ? 'Met' : 
+                             status === 'WARNING' ? 'Partially Met' : 
+                             status === 'FAIL' ? 'Not Met' : status;
+            
+            // Use display_name if available, otherwise fall back to gate name
+            const gateName = gate.display_name || gate.name || gate.gate || `Gate ${gateNumber}`;
             
             const matches = gate.matches || [];
             const matchesHtml = matches.length > 0 ? `
@@ -812,8 +976,8 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                     <div class="gate-header">
                         <div>
                             <h4 class="mb-1">
-                                Gate ${gateNumber}: ${gate.name || 'Unknown Gate'}
-                                <span class="status-badge ${statusClass} ms-2">${status}</span>
+                                ${gateName}
+                                <span class="status-badge ${statusClass} ms-2">${statusText}</span>
                             </h4>
                             <p class="text-muted mb-0">${gate.description || 'No description available'}</p>
                         </div>
@@ -868,6 +1032,20 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             `;
         }
 
+        // Toggle gate details visibility
+        function toggleGateDetails() {
+            const detailsView = document.getElementById('gatesDetailedView');
+            const toggleBtn = document.getElementById('toggleDetailsBtn');
+            
+            if (detailsView.classList.contains('hidden')) {
+                detailsView.classList.remove('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-chevron-up me-2"></i>Hide Details';
+            } else {
+                detailsView.classList.add('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-2"></i>Show Details';
+            }
+        }
+
         // Upload gate report to JIRA
         async function uploadToJira(gateNumber) {
             const comment = document.getElementById(`comment-${gateNumber}`).value;
@@ -886,9 +1064,11 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             const uploadBtn = event.target;
             const originalText = uploadBtn.innerHTML;
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="loading-indicator me-1"></span>Uploading...';
+            uploadBtn.innerHTML = '<span class="loading-indicator me-1"></span>Generating PDF...';
             
             try {
+                // Step 1: Generate individual gate PDF
+                console.log(`🔄 Generating PDF for Gate ${gateNumber}...`);
                 const pdfResponse = await apiCall(`${API_BASE}/scan/${currentScanId}/generate-jira-pdfs`, {
                     method: 'POST',
                     body: JSON.stringify({
@@ -900,24 +1080,61 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                     })
                 });
                 
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const pdfData = await pdfResponse.json();
+                console.log('📄 PDF generated successfully:', pdfData);
                 
-                showAlert(`Successfully uploaded Gate ${gateNumber} PDF to JIRA ticket ${jiraId}`, 'success');
+                // Update status
+                uploadBtn.innerHTML = '<span class="loading-indicator me-1"></span>Uploading to JIRA...';
                 
-                uploadBtn.innerHTML = '<i class="fas fa-check me-1"></i>Uploaded!';
-                uploadBtn.classList.remove('btn-primary');
-                uploadBtn.classList.add('btn-success');
+                // Step 2: Get the APP ID for JIRA upload
+                const appId = scanResults?.app_id || document.getElementById('applicationId')?.value || 'unknown';
                 
+                // Step 3: Upload to JIRA
+                console.log(`🔄 Uploading to JIRA ticket ${jiraId}...`);
+                try {
+                    const jiraResponse = await apiCall(`${API_BASE}/jira/upload`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            app_id: appId,
+                            scan_id: currentScanId,
+                            report_type: 'html',  // or 'pdf' if we want to upload the PDF
+                            jira_ticket_id: jiraId,
+                            gate_number: gateNumber,
+                            comment: comment
+                        })
+                    });
+                    
+                    const jiraResult = await jiraResponse.json();
+                    console.log('✅ JIRA upload result:', jiraResult);
+                    
+                    if (jiraResult.success) {
+                        showAlert(`Successfully uploaded Gate ${gateNumber} to JIRA ticket ${jiraId}`, 'success');
+                        uploadBtn.innerHTML = '<i class="fas fa-check me-1"></i>Uploaded to JIRA!';
+                        uploadBtn.classList.remove('btn-primary');
+                        uploadBtn.classList.add('btn-success');
+                    } else {
+                        throw new Error(jiraResult.message || 'JIRA upload failed');
+                    }
+                    
+                } catch (jiraError) {
+                    console.warn('⚠️ JIRA upload failed, but PDF was generated:', jiraError);
+                    showAlert(`PDF generated successfully, but JIRA upload failed: ${jiraError.message}. Check JIRA configuration.`, 'warning');
+                    uploadBtn.innerHTML = '<i class="fas fa-file-pdf me-1"></i>PDF Generated';
+                    uploadBtn.classList.remove('btn-primary');
+                    uploadBtn.classList.add('btn-warning');
+                }
+                
+                // Reset button after 3 seconds
                 setTimeout(() => {
                     uploadBtn.innerHTML = originalText;
-                    uploadBtn.classList.remove('btn-success');
+                    uploadBtn.classList.remove('btn-success', 'btn-warning');
                     uploadBtn.classList.add('btn-primary');
                     uploadBtn.disabled = false;
                 }, 3000);
                 
             } catch (error) {
-                console.error('Error uploading to JIRA:', error);
-                showAlert(`Failed to upload to JIRA: ${error.message}`, 'danger');
+                console.error('❌ Error in upload process:', error);
+                showAlert(`Failed to upload: ${error.message}`, 'danger');
                 
                 uploadBtn.innerHTML = originalText;
                 uploadBtn.disabled = false;

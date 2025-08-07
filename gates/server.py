@@ -145,7 +145,10 @@ class GateInfo(BaseModel):
 class JiraUploadRequest(BaseModel):
     app_id: str
     scan_id: str
-    report_type: str = Field(default="html", description="Report type: html or json")
+    report_type: str = Field(default="html", description="Report type: html, json, or pdf")
+    jira_ticket_id: Optional[str] = Field(None, description="Specific JIRA ticket ID to upload to")
+    gate_number: Optional[int] = Field(None, description="Specific gate number for individual upload")
+    comment: Optional[str] = Field(None, description="Additional comment for the JIRA ticket")
 
 # ============================================
 # STREAMLIT INTEGRATION FUNCTIONS
@@ -563,49 +566,44 @@ async def get_scan_results(scan_id: str):
         # Try to get detailed results from the stored scan data
         detailed_results = {}
         
-        # First try to get from JSON report if available
-        json_path = result.get("json_report_path")
-        if json_path and os.path.exists(json_path):
-            try:
-                import json
-                with open(json_path, 'r', encoding='utf-8') as f:
-                    detailed_results = json.load(f)
-            except Exception as e:
-                print(f"Error reading JSON report: {e}")
+        # Start with the stored scan data (same as status endpoint)
+        detailed_results = {
+            "scan_id": scan_id,
+            "repository_url": result["request"].get("repository_url", ""),
+            "branch": result["request"].get("branch", ""),
+            "overall_score": result.get("overall_score", 0),
+            "total_gates": result.get("total_gates", 0),
+            "passed_gates": result.get("passed_gates", 0),
+            "failed_gates": result.get("failed_gates", 0),
+            "warning_gates": result.get("warning_gates", 0),
+            "gate_results": result.get("gate_results", []),  # Try stored first
+            "scan_timestamp": result.get("completed_at", result.get("created_at", "")),
+            "app_id": result["request"].get("app_id", "")
+        }
         
-        # If no JSON report, try to construct from stored data
-        if not detailed_results:
-            detailed_results = {
-                "scan_id": scan_id,
-                "repository_url": result["request"].get("repository_url", ""),
-                "branch": result["request"].get("branch", ""),
-                "overall_score": result.get("overall_score", 0),
-                "total_gates": result.get("total_gates", 0),
-                "passed_gates": result.get("passed_gates", 0),
-                "failed_gates": result.get("failed_gates", 0),
-                "warning_gates": result.get("warning_gates", 0),
-                "gate_results": result.get("gate_results", []),
-                "scan_timestamp": result.get("completed_at", result.get("created_at", "")),
-                "app_id": result["request"].get("app_id", "")
-            }
+        # If no detailed gate_results in stored data, get from JSON report
+        if not detailed_results["gate_results"] or len(detailed_results["gate_results"]) == 0:
+            json_path = result.get("json_report_path")
+            if json_path and os.path.exists(json_path):
+                try:
+                    import json
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        json_data = json.load(f)
+                    
+                    # Get detailed gates from JSON report
+                    gates = json_data.get("gates", [])
+                    if gates:
+                        detailed_results["gate_results"] = gates
+                        print(f"📄 Loaded {len(gates)} detailed gate results from JSON report")
+                    else:
+                        print("⚠️ No gates found in JSON report")
+                        
+                except Exception as e:
+                    print(f"Error reading JSON report: {e}")
+                    
+        print(f"📊 Results endpoint returning: {detailed_results['total_gates']} total gates, {len(detailed_results['gate_results'])} detailed gates")
         
-        # Fallback: return basic information
-        if not detailed_results:
-            detailed_results = {
-                "scan_id": scan_id,
-                "repository_url": result["request"].get("repository_url", ""),
-                "branch": result["request"].get("branch", ""),
-                "overall_score": result.get("overall_score", 0),
-                "total_gates": result.get("total_gates", 0),
-                "passed_gates": result.get("passed_gates", 0),
-                "failed_gates": result.get("failed_gates", 0),
-                "warning_gates": result.get("warning_gates", 0),
-                "gate_results": [],
-                "scan_timestamp": result.get("completed_at", result.get("created_at", "")),
-                "app_id": result["request"].get("app_id", ""),
-                "message": "Detailed gate results not available. Please check scan logs."
-            }
-        
+        # Return the detailed results
         return detailed_results
         
     except Exception as e:
@@ -728,27 +726,65 @@ async def jira_upload(request: JiraUploadRequest, background_tasks: BackgroundTa
     jira_token = os.getenv("JIRA_TOKEN")
     if not jira_url or not jira_user or not jira_token:
         raise HTTPException(status_code=400, detail="JIRA_URL, JIRA_USER, and JIRA_TOKEN must be set in the environment.")
+    
     # Find report file
     import glob
     import os
     report_dir = os.path.join(REPORTS_DIR, request.scan_id)
-    if request.report_type == "html":
-        pattern = os.path.join(report_dir, f"codegates_report_{request.scan_id}.html")
+    report_path = None
+    
+    # Determine report type and find the appropriate file
+    if request.report_type == "pdf":
+        # For individual gate PDFs, we need to find the specific gate PDF
+        if request.gate_number is not None:
+            # Find the gate PDF filename based on gate number  
+            pdf_dir = os.path.join("./reports/pdfs", request.scan_id)
+            gate_pdf_pattern = os.path.join(pdf_dir, f"Gate_{request.gate_number}_*_{request.scan_id}.pdf")
+            matches = glob.glob(gate_pdf_pattern)
+            if not matches:
+                raise HTTPException(status_code=404, detail=f"Gate PDF for gate number {request.gate_number} not found.")
+            report_path = matches[0]
+        else:
+            # For summary PDF
+            pdf_dir = os.path.join("./reports/pdfs", request.scan_id)
+            summary_pdf_pattern = os.path.join(pdf_dir, f"SUMMARY_{request.scan_id}.pdf")
+            matches = glob.glob(summary_pdf_pattern)
+            if not matches:
+                raise HTTPException(status_code=404, detail=f"Summary PDF not found.")
+            report_path = matches[0]
     else:
-        pattern = os.path.join(report_dir, f"codegates_report_{request.scan_id}.json")
-    matches = glob.glob(pattern)
-    if not matches:
-        raise HTTPException(status_code=404, detail=f"Report file not found: {pattern}")
-    report_path = matches[0]
+        # For HTML or JSON reports
+        if request.report_type == "html":
+            pattern = os.path.join(report_dir, f"codegates_report_{request.scan_id}.html")
+        elif request.report_type == "json":
+            pattern = os.path.join(report_dir, f"codegates_report_{request.scan_id}.json")
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported report_type: {request.report_type}")
+            
+        matches = glob.glob(pattern)
+        if not matches:
+            raise HTTPException(status_code=404, detail=f"Report file not found: {pattern}")
+        report_path = matches[0]
+    
     # Start background upload
     results = {}
     def upload_all():
         nonlocal results
         results = upload_report_to_jira(
-            jira_url, jira_user, jira_token, request.app_id, report_path, request.report_type
+            jira_url, jira_user, jira_token, request.app_id, report_path, request.report_type,
+            jira_ticket_id=request.jira_ticket_id,
+            gate_number=request.gate_number,
+            comment=request.comment
         )
     background_tasks.add_task(upload_all)
-    return {"success": True, "message": f"Upload started for app_id {request.app_id}.", "results": []}
+    
+    return {
+        "success": True, 
+        "message": f"Upload started for app_id {request.app_id}" + (f" to JIRA ticket {request.jira_ticket_id}" if request.jira_ticket_id else ""), 
+        "report_path": report_path,
+        "report_type": request.report_type,
+        "results": []
+    }
 
 
 @app.get("/api/v1/gates", response_model=List[GateInfo])
@@ -976,9 +1012,19 @@ async def perform_scan(scan_id: str, request: ScanRequest):
         # Run the flow with progress tracking
         validation_flow.run(shared)
         
-        # Update scan results
-        if shared["validation"]["gate_results"]:
-            gate_results = shared["validation"]["gate_results"]
+        # Update scan results with data consistency checks
+        gate_results = shared["validation"].get("gate_results", [])
+        overall_score = shared["validation"].get("overall_score", 0.0)
+        
+        # Ensure data consistency: if no gate results, overall score should be 0
+        if not gate_results or len(gate_results) == 0:
+            if overall_score > 0:
+                print(f"⚠️ Data inconsistency detected: overall_score={overall_score} but no gate_results. Resetting to 0.")
+            overall_score = 0.0
+            shared["validation"]["overall_score"] = 0.0
+        
+        # Check if we have valid results
+        if gate_results and len(gate_results) > 0:
             passed = len([g for g in gate_results if g.get("status") == "PASS"])
             failed = len([g for g in gate_results if g.get("status") == "FAIL"])
             warnings = len([g for g in gate_results if g.get("status") == "WARNING"])
@@ -989,7 +1035,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             
             scan_results[scan_id].update({
                 "status": "completed",
-                "overall_score": shared["validation"]["overall_score"],
+                "overall_score": overall_score,
                 "total_files": shared["repository"]["metadata"].get("total_files", 0),
                 "total_lines": shared["repository"]["metadata"].get("total_lines", 0),
                 "passed_gates": passed,
@@ -1010,18 +1056,32 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             
             # Print report URLs to logs
             print(f"📄 Scan {scan_id} completed successfully!")
+            print(f"📊 Results: {overall_score:.1f}% overall score, {len(gate_results)} gates analyzed")
+            print(f"   ✅ Passed: {passed}, ❌ Failed: {failed}, ⚠️ Warnings: {warnings}")
             if html_report_url:
                 print(f"🌐 HTML Report URL: {html_report_url}")
             if json_report_url:
                 print(f"🌐 JSON Report URL: {json_report_url}")
         else:
+            # No valid gate results - mark as failed
+            error_msg = "No gate validation results generated"
+            if overall_score > 0:
+                error_msg += f" (inconsistent state: overall_score={overall_score} with no gate results)"
+            
             scan_results[scan_id].update({
                 "status": "failed",
-                "errors": shared["errors"] + ["No validation results generated"],
+                "overall_score": 0.0,
+                "total_gates": 0,
+                "passed_gates": 0,
+                "failed_gates": 0,
+                "warning_gates": 0,
+                "gate_results": [],
+                "errors": shared["errors"] + [error_msg],
                 "current_step": "Failed",
                 "progress_percentage": 0,
-                "step_details": "Scan failed - no validation results generated"
+                "step_details": f"Scan failed - {error_msg}"
             })
+            print(f"❌ Scan {scan_id} failed: {error_msg}")
     
     except Exception as e:
         scan_results[scan_id].update({

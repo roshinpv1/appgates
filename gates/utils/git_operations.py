@@ -682,11 +682,41 @@ class EnhancedGitIntegration:
         }
     
     def search_repositories(self, keywords: list, git_endpoint: str = "github.com", limit: int = 10, github_token: Optional[str] = None) -> list:
-        """Search repositories across different Git platforms"""
+        """Search repositories across different Git platforms with enhanced private repository support"""
         if git_endpoint == "github.com":
-            return self._search_github_repositories(keywords, limit, github_token)
+            repositories = self._search_github_repositories(keywords, limit, github_token)
+            
+            # If token provided, enhance with user's accessible repositories
+            if github_token and len(repositories) < limit:
+                additional_repos = self._search_user_accessible_repositories(keywords, limit - len(repositories), github_token)
+                # Merge and deduplicate based on full_name
+                existing_full_names = {f"{repo['owner']}/{repo['name']}" for repo in repositories}
+                for repo in additional_repos:
+                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                    if repo_full_name not in existing_full_names:
+                        repositories.append(repo)
+                        if len(repositories) >= limit:
+                            break
+            
+            return repositories[:limit]
+            
         elif git_endpoint in ["github.abc.com", "github.XYXY.com"]:
-            return self._search_github_enterprise_repositories(keywords, limit, git_endpoint, github_token)
+            repositories = self._search_github_enterprise_repositories(keywords, limit, git_endpoint, github_token)
+            
+            # For enterprise, also try user accessible repositories
+            if github_token and len(repositories) < limit:
+                additional_repos = self._search_enterprise_user_accessible_repositories(keywords, limit - len(repositories), git_endpoint, github_token)
+                # Merge and deduplicate
+                existing_full_names = {f"{repo['owner']}/{repo['name']}" for repo in repositories}
+                for repo in additional_repos:
+                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                    if repo_full_name not in existing_full_names:
+                        repositories.append(repo)
+                        if len(repositories) >= limit:
+                            break
+            
+            return repositories[:limit]
+            
         elif git_endpoint == "gitlab.com":
             return self._search_gitlab_repositories(keywords, limit)
         elif git_endpoint == "bitbucket.org":
@@ -712,13 +742,27 @@ class EnhancedGitIntegration:
             raise ValueError(f"Unsupported Git endpoint: {git_endpoint}")
     
     def _search_github_repositories(self, keywords: list, limit: int, github_token: Optional[str] = None) -> list:
-        """Search GitHub repositories"""
+        """Search GitHub repositories including private ones the token has access to"""
         try:
-            query = " ".join(keywords)
+            # Build search query - include both public and private repositories
+            base_query = " ".join(keywords)
+            
+            # When token is provided, modify query to include private repositories
+            if github_token:
+                # GitHub Search API: include private repositories user has access to
+                # Use 'in:name,description,readme' to search in multiple fields
+                # Don't restrict by visibility to include both public and private
+                query = f"{base_query} in:name,description,readme"
+                print(f"🔍 Searching GitHub with token - including private repositories accessible to token")
+            else:
+                # Without token, only public repositories
+                query = f"{base_query} is:public in:name,description,readme"
+                print(f"🔍 Searching GitHub without token - public repositories only")
+            
             url = f"https://api.github.com/search/repositories"
             params = {
                 "q": query,
-                "sort": "stars",
+                "sort": "updated",  # Changed from "stars" to "updated" for better private repo results
                 "order": "desc",
                 "per_page": min(limit, 100)
             }
@@ -726,6 +770,8 @@ class EnhancedGitIntegration:
             headers = {"Accept": "application/vnd.github.v3+json"}
             if github_token:
                 headers["Authorization"] = f"token {github_token}"
+            
+            print(f"🔍 GitHub search query: '{query}'")
             
             # Use requests timeout instead of signal-based timeout
             response = requests.get(
@@ -739,7 +785,16 @@ class EnhancedGitIntegration:
             data = response.json()
             repositories = []
             
+            public_count = 0
+            private_count = 0
+            
             for repo in data.get("items", []):
+                is_private = repo.get("private", False)
+                if is_private:
+                    private_count += 1
+                else:
+                    public_count += 1
+                    
                 repositories.append({
                     "name": repo["name"],
                     "owner": repo["owner"]["login"],
@@ -750,29 +805,173 @@ class EnhancedGitIntegration:
                     "html_url": repo["html_url"],
                     "clone_url": repo["clone_url"],
                     "git_endpoint": "github.com",
-                    "private": repo.get("private", False)
+                    "private": is_private
                 })
             
+            print(f"✅ Found {len(repositories)} repositories: {public_count} public, {private_count} private")
             return repositories
             
         except Exception as e:
             print(f"Error searching GitHub repositories: {e}")
             return []
+
+    def _search_user_accessible_repositories(self, keywords: list, limit: int, github_token: str) -> list:
+        """Search through user's accessible repositories (public and private) for keyword matches"""
+        try:
+            print(f"🔍 Searching user's accessible repositories for additional matches...")
+            
+            # Get user's repositories with different affiliation types
+            repositories = []
+            
+            # Search through user's own repositories, collaborations, and organization repos
+            for affiliation in ['owner', 'collaborator', 'organization_member']:
+                if len(repositories) >= limit:
+                    break
+                    
+                url = "https://api.github.com/user/repos"
+                params = {
+                    "affiliation": affiliation,
+                    "sort": "updated",
+                    "direction": "desc",
+                    "per_page": min(100, limit * 2),  # Get more to filter
+                    "type": "all"  # Include all repository types
+                }
+                
+                headers = {
+                    "Accept": "application/vnd.github.v3+json",
+                    "Authorization": f"token {github_token}"
+                }
+                
+                response = requests.get(
+                    url,
+                    params=params,
+                    headers=headers,
+                    timeout=self.api_timeouts["github.com"]
+                )
+                
+                if response.status_code == 200:
+                    repos_data = response.json()
+                    
+                    # Filter repositories that match keywords
+                    for repo in repos_data:
+                        if len(repositories) >= limit:
+                            break
+                            
+                        if self._repo_matches_keywords(repo, keywords):
+                            repositories.append({
+                                "name": repo["name"],
+                                "owner": repo["owner"]["login"],
+                                "description": repo.get("description", ""),
+                                "stars": repo.get("stargazers_count", 0),
+                                "forks": repo.get("forks_count", 0),
+                                "language": repo.get("language", ""),
+                                "html_url": repo["html_url"],
+                                "clone_url": repo["clone_url"],
+                                "git_endpoint": "github.com",
+                                "private": repo.get("private", False)
+                            })
+                
+            print(f"✅ Found {len(repositories)} additional repositories from user's accessible repos")
+            return repositories
+            
+        except Exception as e:
+            print(f"Error searching user accessible repositories: {e}")
+            return []
+
+    def _search_enterprise_user_accessible_repositories(self, keywords: list, limit: int, git_endpoint: str, github_token: str) -> list:
+        """Search through user's accessible enterprise repositories for keyword matches"""
+        try:
+            print(f"🔍 Searching user's accessible repositories on {git_endpoint} for additional matches...")
+            
+            repositories = []
+            
+            # Search through user's repositories on enterprise GitHub
+            for affiliation in ['owner', 'collaborator', 'organization_member']:
+                if len(repositories) >= limit:
+                    break
+                    
+                api_url = f"https://{git_endpoint}/api/v3/user/repos"
+                params = {
+                    "affiliation": affiliation,
+                    "sort": "updated", 
+                    "direction": "desc",
+                    "per_page": min(100, limit * 2),
+                    "type": "all"
+                }
+                
+                headers = {
+                    "Accept": "application/vnd.github.v3+json",
+                    "Authorization": f"token {github_token}"
+                }
+                
+                # Enterprise-specific SSL handling
+                verify_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() != 'true'
+                if git_endpoint == 'github.XYXY.com':
+                    verify_ssl = False
+                
+                response = requests.get(
+                    api_url,
+                    params=params,
+                    headers=headers,
+                    timeout=self.api_timeouts.get(git_endpoint, 180),
+                    verify=verify_ssl
+                )
+                
+                if response.status_code == 200:
+                    repos_data = response.json()
+                    
+                    # Filter repositories that match keywords
+                    for repo in repos_data:
+                        if len(repositories) >= limit:
+                            break
+                            
+                        if self._repo_matches_keywords(repo, keywords):
+                            repositories.append({
+                                "name": repo["name"],
+                                "owner": repo["owner"]["login"],
+                                "description": repo.get("description", ""),
+                                "stars": repo.get("stargazers_count", 0),
+                                "forks": repo.get("forks_count", 0),
+                                "language": repo.get("language", ""),
+                                "html_url": repo["html_url"],
+                                "clone_url": repo["clone_url"],
+                                "git_endpoint": git_endpoint,
+                                "private": repo.get("private", False)
+                            })
+            
+            print(f"✅ Found {len(repositories)} additional repositories from user's accessible repos on {git_endpoint}")
+            return repositories
+            
+        except Exception as e:
+            print(f"Error searching enterprise user accessible repositories: {e}")
+            return []
+
+    def _repo_matches_keywords(self, repo: dict, keywords: list) -> bool:
+        """Check if a repository matches the given keywords"""
+        try:
+            # Create searchable text from repo metadata
+            searchable_text = " ".join([
+                repo.get("name", ""),
+                repo.get("description", ""),
+                repo.get("language", ""),
+                " ".join(repo.get("topics", [])) if repo.get("topics") else ""
+            ]).lower()
+            
+            # Check if any keyword matches
+            for keyword in keywords:
+                if keyword.lower() in searchable_text:
+                    return True
+            
+            return False
+            
+        except Exception:
+            return False
     
     def _search_github_enterprise_repositories(self, keywords: list, limit: int, git_endpoint: str, github_token: Optional[str] = None) -> list:
-        """Search GitHub Enterprise repositories"""
+        """Search GitHub Enterprise repositories including private ones the token has access to"""
         try:
-            query = " ".join(keywords)
-            # Use the full git_endpoint for API URL construction
-            api_url = f"https://{git_endpoint}/api/v3/search/repositories"
-            params = {
-                "q": query,
-                "sort": "stars",
-                "order": "desc",
-                "per_page": min(limit, 100)
-            }
-            
-            headers = {"Accept": "application/vnd.github.v3+json"}
+            # Build search query - include both public and private repositories
+            base_query = " ".join(keywords)
             
             # Try multiple token sources for GitHub Enterprise
             token = (
@@ -782,6 +981,29 @@ class EnhancedGitIntegration:
                 os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN") or
                 os.getenv("GH_TOKEN")
             )
+            
+            # Build query based on token availability
+            if token:
+                # With token: include private repositories user has access to
+                # Use 'in:name,description,readme' to search in multiple fields
+                # Don't restrict by visibility to include both public and private
+                query = f"{base_query} in:name,description,readme"
+                print(f"🔍 Searching {git_endpoint} with token - including private repositories accessible to token")
+            else:
+                # Without token: only public repositories
+                query = f"{base_query} is:public in:name,description,readme"
+                print(f"🔍 Searching {git_endpoint} without token - public repositories only")
+            
+            # Use the full git_endpoint for API URL construction
+            api_url = f"https://{git_endpoint}/api/v3/search/repositories"
+            params = {
+                "q": query,
+                "sort": "updated",  # Changed from "stars" to "updated" for better private repo results
+                "order": "desc",
+                "per_page": min(limit, 100)
+            }
+            
+            headers = {"Accept": "application/vnd.github.v3+json"}
             
             if token:
                 headers["Authorization"] = f"token {token}"
@@ -795,7 +1017,7 @@ class EnhancedGitIntegration:
             if git_endpoint == 'github.XYXY.com':
                 verify_ssl = False  # Wells Fargo specific
             
-            print(f"🔍 Searching {git_endpoint} with query: '{query}' (SSL verify: {verify_ssl})")
+            print(f"🔍 Enterprise search query: '{query}' (SSL verify: {verify_ssl})")
             
             response = requests.get(
                 api_url, 
@@ -813,7 +1035,16 @@ class EnhancedGitIntegration:
             data = response.json()
             repositories = []
             
+            public_count = 0
+            private_count = 0
+            
             for repo in data.get("items", []):
+                is_private = repo.get("private", False)
+                if is_private:
+                    private_count += 1
+                else:
+                    public_count += 1
+                    
                 repositories.append({
                     "name": repo["name"],
                     "owner": repo["owner"]["login"],
@@ -824,10 +1055,10 @@ class EnhancedGitIntegration:
                     "html_url": repo["html_url"],
                     "clone_url": repo["clone_url"],
                     "git_endpoint": git_endpoint,
-                    "private": repo.get("private", False)
+                    "private": is_private
                 })
             
-            print(f"✅ Found {len(repositories)} repositories on {git_endpoint}")
+            print(f"✅ Found {len(repositories)} repositories on {git_endpoint}: {public_count} public, {private_count} private")
             return repositories
             
         except requests.exceptions.SSLError as e:
