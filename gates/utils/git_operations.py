@@ -337,6 +337,7 @@ def _download_with_github_api(repo_url: str, branch: str, github_token: Optional
         print(f"🏢 Configuring SSL settings for GitHub Enterprise: {hostname}")
         
         # Check multiple environment variables for SSL bypass
+        # Default to disabled SSL for enterprise instances due to common certificate issues
         disable_ssl = (
             os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() == 'true' or
             os.getenv('CODEGATES_DISABLE_SSL', 'true').lower() == 'true' or
@@ -344,12 +345,16 @@ def _download_with_github_api(repo_url: str, branch: str, github_token: Optional
         )
         ca_bundle = os.getenv('GITHUB_ENTERPRISE_CA_BUNDLE') or os.getenv('SSL_CA_BUNDLE')
         
+        # Special handling for known enterprise instances
+        if hostname in ['github.XYXY.com']:
+            print(f"🏢 Detected Wells Fargo GitHub Enterprise - using enterprise-optimized settings")
+            disable_ssl = True  # Wells Fargo typically has SSL certificate issues
+        
         if disable_ssl:
             request_kwargs["verify"] = False
             print("⚠️ SSL verification disabled for GitHub Enterprise")
-            print("   Set via: GITHUB_ENTERPRISE_DISABLE_SSL=true")
-            print("   Or: CODEGATES_DISABLE_SSL=true")
-            print("   Or: DISABLE_SSL_VERIFICATION=true")
+            print("   Default for enterprise instances due to certificate issues")
+            print("   To enable SSL: export GITHUB_ENTERPRISE_DISABLE_SSL=false")
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         elif ca_bundle and os.path.exists(ca_bundle):
             request_kwargs["verify"] = ca_bundle
@@ -666,22 +671,22 @@ class EnhancedGitIntegration:
     """
     
     def __init__(self):
+        # Define API timeouts for different platforms
         self.api_timeouts = {
-            "github.com": GITHUB_API_TIMEOUT,
-            "github.abc.com": GITHUB_API_TIMEOUT,
-            "gitlab.com": GITHUB_API_TIMEOUT,
-            "bitbucket.org": GITHUB_API_TIMEOUT,
-            "dev.azure.com": GITHUB_API_TIMEOUT
+            "github.com": 120,
+            "github.abc.com": 180,  # Enterprise might be slower
+            "github.XYXY.com": 180,  # Wells Fargo Enterprise
+            "gitlab.com": 120,
+            "bitbucket.org": 120,
+            "dev.azure.com": 120
         }
     
-    def search_repositories_by_keywords(self, keywords: list, git_endpoint: str = "github.com", limit: int = 10) -> list:
-        """
-        Search repositories by keywords across different Git platforms
-        """
+    def search_repositories(self, keywords: list, git_endpoint: str = "github.com", limit: int = 10, github_token: Optional[str] = None) -> list:
+        """Search repositories across different Git platforms"""
         if git_endpoint == "github.com":
-            return self._search_github_repositories(keywords, limit)
-        elif git_endpoint == "github.abc.com":
-            return self._search_github_enterprise_repositories(keywords, limit, git_endpoint)
+            return self._search_github_repositories(keywords, limit, github_token)
+        elif git_endpoint in ["github.abc.com", "github.XYXY.com"]:
+            return self._search_github_enterprise_repositories(keywords, limit, git_endpoint, github_token)
         elif git_endpoint == "gitlab.com":
             return self._search_gitlab_repositories(keywords, limit)
         elif git_endpoint == "bitbucket.org":
@@ -691,14 +696,12 @@ class EnhancedGitIntegration:
         else:
             raise ValueError(f"Unsupported Git endpoint: {git_endpoint}")
     
-    def list_repository_branches(self, repository_url: str, git_endpoint: str, owner: str, name: str) -> list:
-        """
-        List branches for a specific repository across different Git platforms
-        """
+    def list_branches(self, owner: str, name: str, git_endpoint: str = "github.com", github_token: Optional[str] = None) -> list:
+        """List repository branches across different Git platforms"""
         if git_endpoint == "github.com":
-            return self._list_github_branches(owner, name)
-        elif git_endpoint == "github.abc.com":
-            return self._list_github_enterprise_branches(owner, name, git_endpoint)
+            return self._list_github_branches(owner, name, github_token)
+        elif git_endpoint in ["github.abc.com", "github.XYXY.com"]:
+            return self._list_github_enterprise_branches(owner, name, git_endpoint, github_token)
         elif git_endpoint == "gitlab.com":
             return self._list_gitlab_branches(owner, name)
         elif git_endpoint == "bitbucket.org":
@@ -708,7 +711,7 @@ class EnhancedGitIntegration:
         else:
             raise ValueError(f"Unsupported Git endpoint: {git_endpoint}")
     
-    def _search_github_repositories(self, keywords: list, limit: int) -> list:
+    def _search_github_repositories(self, keywords: list, limit: int, github_token: Optional[str] = None) -> list:
         """Search GitHub repositories"""
         try:
             query = " ".join(keywords)
@@ -721,9 +724,8 @@ class EnhancedGitIntegration:
             }
             
             headers = {"Accept": "application/vnd.github.v3+json"}
-            token = os.getenv("GITHUB_TOKEN")
-            if token:
-                headers["Authorization"] = f"token {token}"
+            if github_token:
+                headers["Authorization"] = f"token {github_token}"
             
             # Use requests timeout instead of signal-based timeout
             response = requests.get(
@@ -757,7 +759,7 @@ class EnhancedGitIntegration:
             print(f"Error searching GitHub repositories: {e}")
             return []
     
-    def _search_github_enterprise_repositories(self, keywords: list, limit: int, git_endpoint: str) -> list:
+    def _search_github_enterprise_repositories(self, keywords: list, limit: int, git_endpoint: str, github_token: Optional[str] = None) -> list:
         """Search GitHub Enterprise repositories"""
         try:
             query = " ".join(keywords)
@@ -771,17 +773,41 @@ class EnhancedGitIntegration:
             }
             
             headers = {"Accept": "application/vnd.github.v3+json"}
-            token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_ENTERPRISE_TOKEN")
+            
+            # Try multiple token sources for GitHub Enterprise
+            token = (
+                github_token or 
+                os.getenv("GITHUB_TOKEN") or 
+                os.getenv("GITHUB_ENTERPRISE_TOKEN") or
+                os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN") or
+                os.getenv("GH_TOKEN")
+            )
+            
             if token:
                 headers["Authorization"] = f"token {token}"
+                print(f"🔑 Using GitHub token for {git_endpoint} authentication")
+            else:
+                print(f"⚠️ No GitHub token found - may have limited access to {git_endpoint}")
+                print("   Set via: GITHUB_TOKEN, GITHUB_ENTERPRISE_TOKEN, or GH_TOKEN environment variable")
+            
+            # Enterprise-specific SSL and timeout handling
+            verify_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() != 'true'
+            if git_endpoint == 'github.XYXY.com':
+                verify_ssl = False  # Wells Fargo specific
+            
+            print(f"🔍 Searching {git_endpoint} with query: '{query}' (SSL verify: {verify_ssl})")
             
             response = requests.get(
                 api_url, 
                 params=params, 
                 headers=headers, 
-                timeout=self.api_timeouts.get(git_endpoint, 120),
-                verify=os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() != 'true'
+                timeout=self.api_timeouts.get(git_endpoint, 180),
+                verify=verify_ssl
             )
+            
+            if not verify_ssl:
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            
             response.raise_for_status()
             
             data = response.json()
@@ -801,10 +827,29 @@ class EnhancedGitIntegration:
                     "private": repo.get("private", False)
                 })
             
+            print(f"✅ Found {len(repositories)} repositories on {git_endpoint}")
             return repositories
             
+        except requests.exceptions.SSLError as e:
+            print(f"🔒 SSL Error for {git_endpoint}: {e}")
+            print(f"💡 Try setting: export GITHUB_ENTERPRISE_DISABLE_SSL=true")
+            return []
+        except requests.exceptions.ConnectionError as e:
+            print(f"🌐 Connection Error for {git_endpoint}: {e}")
+            print(f"💡 Check VPN connection and enterprise network access")
+            return []
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                print(f"🔑 Authentication failed for {git_endpoint}")
+                print(f"💡 Check your GitHub Enterprise token permissions")
+            elif e.response.status_code == 403:
+                print(f"🚫 Access forbidden for {git_endpoint}")
+                print(f"💡 Token may lack repository search permissions")
+            else:
+                print(f"🚨 HTTP Error {e.response.status_code} for {git_endpoint}: {e}")
+            return []
         except Exception as e:
-            print(f"Error searching GitHub Enterprise repositories on {git_endpoint}: {e}")
+            print(f"❌ Error searching GitHub Enterprise repositories on {git_endpoint}: {e}")
             return []
     
     def _search_gitlab_repositories(self, keywords: list, limit: int) -> list:
@@ -906,13 +951,15 @@ class EnhancedGitIntegration:
         print("Azure DevOps search requires organization-specific configuration")
         return []
     
-    def _list_github_branches(self, owner: str, name: str) -> list:
+    def _list_github_branches(self, owner: str, name: str, github_token: Optional[str] = None) -> list:
         """List GitHub repository branches"""
         try:
             url = f"https://api.github.com/repos/{owner}/{name}/branches"
             
             headers = {"Accept": "application/vnd.github.v3+json"}
-            token = os.getenv("GITHUB_TOKEN")
+            
+            # Use provided token or fall back to environment
+            token = github_token or os.getenv("GITHUB_TOKEN")
             if token:
                 headers["Authorization"] = f"token {token}"
             
@@ -947,23 +994,46 @@ class EnhancedGitIntegration:
             print(f"Error listing GitHub branches: {e}")
             return []
     
-    def _list_github_enterprise_branches(self, owner: str, name: str, git_endpoint: str) -> list:
+    def _list_github_enterprise_branches(self, owner: str, name: str, git_endpoint: str, github_token: Optional[str] = None) -> list:
         """List GitHub Enterprise repository branches"""
         try:
             # Use the full git_endpoint for API URL construction
             url = f"https://{git_endpoint}/api/v3/repos/{owner}/{name}/branches"
             
             headers = {"Accept": "application/vnd.github.v3+json"}
-            token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_ENTERPRISE_TOKEN")
+            
+            # Try multiple token sources for GitHub Enterprise
+            token = (
+                github_token or 
+                os.getenv("GITHUB_TOKEN") or 
+                os.getenv("GITHUB_ENTERPRISE_TOKEN") or
+                os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN") or
+                os.getenv("GH_TOKEN")
+            )
+            
             if token:
                 headers["Authorization"] = f"token {token}"
+                print(f"🔑 Using GitHub token for {git_endpoint} branch listing")
+            else:
+                print(f"⚠️ No GitHub token found - may have limited access to {git_endpoint}")
+            
+            # Enterprise-specific SSL and timeout handling
+            verify_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() != 'true'
+            if git_endpoint == 'github.XYXY.com':
+                verify_ssl = False  # Wells Fargo specific
+            
+            print(f"📋 Listing branches for {owner}/{name} on {git_endpoint} (SSL verify: {verify_ssl})")
             
             response = requests.get(
                 url, 
                 headers=headers, 
-                timeout=self.api_timeouts.get(git_endpoint, 120),
-                verify=os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() != 'true'
+                timeout=self.api_timeouts.get(git_endpoint, 180),
+                verify=verify_ssl
             )
+            
+            if not verify_ssl:
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            
             response.raise_for_status()
             
             data = response.json()
@@ -975,7 +1045,7 @@ class EnhancedGitIntegration:
                 repo_url, 
                 headers=headers, 
                 timeout=30,
-                verify=os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() != 'true'
+                verify=verify_ssl
             )
             default_branch = None
             if repo_response.status_code == 200:
@@ -989,10 +1059,32 @@ class EnhancedGitIntegration:
                     "protected": branch.get("protected", False)
                 })
             
+            print(f"✅ Found {len(branches)} branches for {owner}/{name}")
             return branches
             
+        except requests.exceptions.SSLError as e:
+            print(f"🔒 SSL Error listing branches for {git_endpoint}: {e}")
+            print(f"💡 Try setting: export GITHUB_ENTERPRISE_DISABLE_SSL=true")
+            return []
+        except requests.exceptions.ConnectionError as e:
+            print(f"🌐 Connection Error listing branches for {git_endpoint}: {e}")
+            print(f"💡 Check VPN connection and enterprise network access")
+            return []
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                print(f"🔑 Authentication failed for {git_endpoint}")
+                print(f"💡 Check your GitHub Enterprise token permissions")
+            elif e.response.status_code == 403:
+                print(f"🚫 Access forbidden for {git_endpoint}")
+                print(f"💡 Token may lack repository access permissions")
+            elif e.response.status_code == 404:
+                print(f"🔍 Repository {owner}/{name} not found on {git_endpoint}")
+                print(f"💡 Check repository name and permissions")
+            else:
+                print(f"🚨 HTTP Error {e.response.status_code} for {git_endpoint}: {e}")
+            return []
         except Exception as e:
-            print(f"Error listing GitHub Enterprise branches on {git_endpoint}: {e}")
+            print(f"❌ Error listing GitHub Enterprise branches on {git_endpoint}: {e}")
             return []
     
     def _list_gitlab_branches(self, owner: str, name: str) -> list:

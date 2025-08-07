@@ -99,12 +99,14 @@ class GitSearchRequest(BaseModel):
     keywords: List[str] = Field(..., description="Keywords to search for")
     git_endpoint: str = Field(..., description="Git endpoint (github.com, gitlab.com, etc.)")
     limit: int = Field(default=10, description="Maximum number of repositories to return")
+    github_token: Optional[str] = Field(None, description="GitHub token for authentication")
 
 class GitBranchRequest(BaseModel):
     repository_url: str = Field(..., description="Repository URL")
     git_endpoint: str = Field(..., description="Git endpoint")
     owner: str = Field(..., description="Repository owner")
     name: str = Field(..., description="Repository name")
+    github_token: Optional[str] = Field(None, description="GitHub token for authentication")
 
 
 class ScanResponse(BaseModel):
@@ -777,13 +779,14 @@ async def search_repositories(request: GitSearchRequest):
     try:
         git_integration = EnhancedGitIntegration()
         
-        # Search repositories using the Git integration
+        # Search repositories using the Git integration with GitHub token
         repositories = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: git_integration.search_repositories_by_keywords(
+            lambda: git_integration.search_repositories(
                 keywords=request.keywords,
                 git_endpoint=request.git_endpoint,
-                limit=request.limit
+                limit=request.limit,
+                github_token=request.github_token
             )
         )
         
@@ -811,14 +814,14 @@ async def list_branches(request: GitBranchRequest):
     try:
         git_integration = EnhancedGitIntegration()
         
-        # Get branches using the Git integration
+        # Get branches using the Git integration with GitHub token
         branches = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: git_integration.list_repository_branches(
-                repository_url=request.repository_url,
-                git_endpoint=request.git_endpoint,
+            lambda: git_integration.list_branches(
                 owner=request.owner,
-                name=request.name
+                name=request.name,
+                git_endpoint=request.git_endpoint,
+                github_token=request.github_token
             )
         )
         

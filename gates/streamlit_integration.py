@@ -295,6 +295,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                             <label for="gitEndpoint" class="form-label">Git Endpoint</label>
                             <select class="form-select" id="gitEndpoint" onchange="resetRepositorySelection()">
                                 <option value="github.com">GitHub.com (Public)</option>
+                                <option value="github.XYXY.com">GitHub Enterprise (github.XYXY.com)</option>
                                 <option value="github.abc.com">GitHub Enterprise (github.abc.com)</option>
                             </select>
                         </div>
@@ -475,6 +476,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
         async function loadRepositoriesForApp() {
             const appId = document.getElementById('applicationId').value;
             const gitEndpoint = document.getElementById('gitEndpoint').value;
+            const githubToken = document.getElementById('githubToken').value;
             const repositorySelect = document.getElementById('repositorySelect');
             const branchSelect = document.getElementById('branch');
             
@@ -491,13 +493,20 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             
             try {
                 const appConfig = APP_CONFIG[appId];
+                const requestBody = {
+                    keywords: appConfig.keywords,
+                    git_endpoint: gitEndpoint,
+                    limit: 20
+                };
+                
+                // Add GitHub token if provided
+                if (githubToken && githubToken.trim()) {
+                    requestBody.github_token = githubToken.trim();
+                }
+                
                 const response = await apiCall(`${API_BASE}/git/search-repositories`, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        keywords: appConfig.keywords,
-                        git_endpoint: gitEndpoint,
-                        limit: 20
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 const data = await response.json();
@@ -531,6 +540,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             const branchSelect = document.getElementById('branch');
             const repositoryUrlInput = document.getElementById('repositoryUrl');
             const gitEndpoint = document.getElementById('gitEndpoint').value;
+            const githubToken = document.getElementById('githubToken').value;
             
             if (!repositorySelect.value) {
                 branchSelect.innerHTML = '<option value="">First select a repository</option>';
@@ -544,14 +554,21 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 const repositoryUrl = `https://${gitEndpoint}/${repoData.owner}/${repoData.name}`;
                 repositoryUrlInput.value = repositoryUrl;
                 
+                const requestBody = {
+                    repository_url: repositoryUrl,
+                    git_endpoint: gitEndpoint,
+                    owner: repoData.owner,
+                    name: repoData.name
+                };
+                
+                // Add GitHub token if provided
+                if (githubToken && githubToken.trim()) {
+                    requestBody.github_token = githubToken.trim();
+                }
+                
                 const response = await apiCall(`${API_BASE}/git/list-branches`, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        repository_url: repositoryUrl,
-                        git_endpoint: gitEndpoint,
-                        owner: repoData.owner,
-                        name: repoData.name
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 const data = await response.json();
