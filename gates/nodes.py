@@ -2576,6 +2576,44 @@ class ValidateGatesNode(Node):
         
         return "default"
 
+    def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
+        """Get primary technologies from metadata"""
+        language_stats = metadata.get("language_stats", {})
+        total_files = metadata.get("total_files", 1)
+        
+        # Use hardcoded defaults since pattern_loader is removed
+        primary_languages = set(["java", "python", "javascript", "typescript", "csharp", "go", "rust"])
+        primary_threshold = 20.0
+        secondary_threshold = 10.0
+        
+        primary_technologies = []
+        
+        # Find languages that make up significant portion of the codebase
+        for language, stats in language_stats.items():
+            file_count = stats.get("files", 0)
+            percentage = (file_count / total_files) * 100
+            
+            if language in primary_languages and percentage >= primary_threshold:
+                primary_technologies.append(language)
+        
+        # If no primary technology found, take the most dominant
+        if not primary_technologies:
+            dominant_primary = None
+            max_percentage = 0
+            
+            for language, stats in language_stats.items():
+                if language in primary_languages:
+                    file_count = stats.get("files", 0)
+                    percentage = (file_count / total_files) * 100
+                    if percentage > max_percentage and percentage >= secondary_threshold:
+                        max_percentage = percentage
+                        dominant_primary = language
+            
+            if dominant_primary:
+                primary_technologies.append(dominant_primary)
+        
+        return primary_technologies
+
 
 class GenerateReportNode(Node):
     """Node to generate HTML and JSON reports using the same template as original report.py"""
