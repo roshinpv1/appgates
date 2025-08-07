@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # CodeGates Server with JIRA Integration
@@ -12,7 +13,7 @@ else
     echo "⚠️ jira.env not found, using fallback values..."
     export JIRA_URL="https://roshin.atlassian.net"
     export JIRA_USER="roshin"
-    export JIRA_TOKEN="ATATT3xFfGF0Ht6W_d_B_J9DFZO_f2GiFb_N1-6oJgUtt0o5Mc03a_RjMBVbxzSSdKnsWYkxk4s02kjvExSrovHbsP1zCZ_XMYChfLIqifLgJTxBDMNtC0ncLA3Qg4aFP3dDejptSI7NLuHJ05u4UYknncEtJTUPMFzxyDpLGd1D0D4ieHIeOb8=A538893F"
+    export JIRA_TOKEN="F"
 fi
 
 echo "🔧 Starting CodeGates Server with JIRA Integration..."
