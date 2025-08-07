@@ -12,8 +12,8 @@ else
     # Fallback to hardcoded values
     echo "⚠️ jira.env not found, using fallback values..."
     export JIRA_URL="https://roshin.atlassian.net"
-    export JIRA_USER="roshin"
-    export JIRA_TOKEN="F"
+    export JIRA_USER="ss"
+    export JIRA_TOKEN=""
 fi
 
 echo "🔧 Starting CodeGates Server with JIRA Integration..."
