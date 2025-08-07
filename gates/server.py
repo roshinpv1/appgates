@@ -572,7 +572,7 @@ async def get_scan_results(scan_id: str):
                 print(f"Error reading JSON report: {e}")
         
         # If no JSON report, try to construct from stored data
-        if not detailed_results and "gate_results" in result:
+        if not detailed_results:
             detailed_results = {
                 "scan_id": scan_id,
                 "repository_url": result["request"].get("repository_url", ""),
