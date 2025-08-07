@@ -304,13 +304,11 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                     <div class="col-md-6">
                         <div class="form-group mb-3">
                             <label for="applicationId" class="form-label">Application ID</label>
-                            <select class="form-select" id="applicationId" onchange="loadRepositoriesForApp()">
-                                <option value="">Select Application Category</option>
-                                <option value="FRONTEND_REACT">Frontend - React Applications</option>
-                                <option value="BACKEND_PYTHON">Backend - Python Services</option>
-                                <option value="BACKEND_JAVA">Backend - Java Applications</option>
-                                <option value="API_MICROSERVICES">API - Microservices</option>
-                            </select>
+                            <input type="text" class="form-control" id="applicationId" 
+                                   placeholder="Enter APP ID (e.g., mobile-app, web-service, data-pipeline)"
+                                   onchange="loadRepositoriesForApp()" 
+                                   onkeyup="handleAppIdKeyup(event)">
+                            <div class="form-text">Enter the application identifier to search for related repositories</div>
                         </div>
                     </div>
                 </div>
@@ -431,29 +429,12 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
         let currentScanId = null;
         let scanResults = null;
 
-        // Application configuration mapping
-        const APP_CONFIG = {
-            'FRONTEND_REACT': {
-                name: 'Frontend - React Applications',
-                keywords: ['react', 'nextjs', 'gatsby', 'frontend'],
-                git_endpoints: ['github.com', 'gitlab.com']
-            },
-            'BACKEND_PYTHON': {
-                name: 'Backend - Python Services',
-                keywords: ['python', 'django', 'flask', 'fastapi'],
-                git_endpoints: ['github.com', 'gitlab.com']
-            },
-            'BACKEND_JAVA': {
-                name: 'Backend - Java Applications',
-                keywords: ['java', 'spring', 'springboot'],
-                git_endpoints: ['github.com', 'gitlab.com']
-            },
-            'API_MICROSERVICES': {
-                name: 'API - Microservices',
-                keywords: ['microservices', 'api', 'rest'],
-                git_endpoints: ['github.com', 'gitlab.com']
-            }
-        };
+        // Application configuration - now simplified for flexible APP IDs
+        // No longer needed for predefined categories, but kept for potential future use
+        const EXAMPLE_APP_IDS = [
+            'mobile-app', 'web-service', 'data-pipeline', 'auth-service', 
+            'api-gateway', 'user-portal', 'payment-service', 'analytics-dashboard'
+        ];
 
         // Global API call function
         async function apiCall(url, options = {}) {
@@ -472,16 +453,16 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             return response;
         }
 
-        // Load repositories based on selected app
+        // Load repositories based on entered app ID
         async function loadRepositoriesForApp() {
-            const appId = document.getElementById('applicationId').value;
+            const appId = document.getElementById('applicationId').value.trim();
             const gitEndpoint = document.getElementById('gitEndpoint').value;
             const githubToken = document.getElementById('githubToken').value;
             const repositorySelect = document.getElementById('repositorySelect');
             const branchSelect = document.getElementById('branch');
             
             if (!appId) {
-                repositorySelect.innerHTML = '<option value="">First select an Application ID</option>';
+                repositorySelect.innerHTML = '<option value="">Enter an Application ID first</option>';
                 repositorySelect.disabled = true;
                 branchSelect.innerHTML = '<option value="">First select a repository</option>';
                 branchSelect.disabled = true;
@@ -492,9 +473,10 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             repositorySelect.disabled = true;
             
             try {
-                const appConfig = APP_CONFIG[appId];
+                // Generate search keywords from APP ID
+                const keywords = generateKeywordsFromAppId(appId);
                 const requestBody = {
-                    keywords: appConfig.keywords,
+                    keywords: keywords,
                     git_endpoint: gitEndpoint,
                     limit: 20
                 };
@@ -521,16 +503,46 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                         repositorySelect.appendChild(option);
                     });
                     repositorySelect.disabled = false;
-                    showAlert(`Found ${data.repositories.length} repositories`, 'success');
+                    showAlert(`Found ${data.repositories.length} repositories for "${appId}"`, 'success');
                 } else {
                     repositorySelect.innerHTML = '<option value="">No repositories found</option>';
-                    showAlert('No repositories found', 'warning');
+                    showAlert(`No repositories found for APP ID "${appId}"`, 'warning');
                 }
                 
             } catch (error) {
                 console.error('Error loading repositories:', error);
                 repositorySelect.innerHTML = '<option value="">Error loading repositories</option>';
                 showAlert(`Failed to load repositories: ${error.message}`, 'danger');
+            }
+        }
+
+        // Generate search keywords from APP ID
+        function generateKeywordsFromAppId(appId) {
+            // Convert APP ID to search keywords
+            const keywords = [];
+            
+            // Add the APP ID itself
+            keywords.push(appId);
+            
+            // Split by common separators and add parts
+            const parts = appId.split(/[-_\s]+/).filter(part => part.length > 2);
+            keywords.push(...parts);
+            
+            // Add common variations
+            if (appId.includes('mobile')) keywords.push('app', 'ios', 'android');
+            if (appId.includes('web')) keywords.push('frontend', 'react', 'angular', 'vue');
+            if (appId.includes('api')) keywords.push('service', 'rest', 'microservice');
+            if (appId.includes('data')) keywords.push('pipeline', 'etl', 'analytics');
+            if (appId.includes('auth')) keywords.push('authentication', 'security', 'oauth');
+            
+            // Remove duplicates and return
+            return [...new Set(keywords)];
+        }
+
+        // Handle keyup events for APP ID input (search on Enter key)
+        function handleAppIdKeyup(event) {
+            if (event.key === 'Enter') {
+                loadRepositoriesForApp();
             }
         }
 
@@ -603,7 +615,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             const branchSelect = document.getElementById('branch');
             const repositoryUrlInput = document.getElementById('repositoryUrl');
             
-            repositorySelect.innerHTML = '<option value="">First select an Application ID</option>';
+            repositorySelect.innerHTML = '<option value="">Enter an Application ID first</option>';
             repositorySelect.disabled = true;
             branchSelect.innerHTML = '<option value="">First select a repository</option>';
             branchSelect.disabled = true;
@@ -612,13 +624,13 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
 
         // Start scan
         async function startScan() {
-            const applicationId = document.getElementById('applicationId').value;
+            const applicationId = document.getElementById('applicationId').value.trim();
             const repositoryUrl = document.getElementById('repositoryUrl').value;
             const branch = document.getElementById('branch').value;
             const githubToken = document.getElementById('githubToken').value;
             
             if (!applicationId || !repositoryUrl || !branch) {
-                showAlert('Please fill in all required fields', 'warning');
+                showAlert('Please fill in all required fields: Application ID, Repository, and Branch', 'warning');
                 return;
             }
             
