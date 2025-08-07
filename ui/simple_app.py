@@ -49,6 +49,21 @@ except ImportError:
 # Configuration
 API_BASE = "http://localhost:8000/api/v1"
 
+# Auto-detect if running in integrated mode
+try:
+    import requests
+    # Try to connect to the main server
+    response = requests.get("http://localhost:8000/api/v1/health", timeout=2)
+    if response.status_code == 200:
+        API_BASE = "http://localhost:8000/api/v1"
+        print("🔗 Connected to integrated CodeGates server")
+    else:
+        # Fallback to standalone mode
+        API_BASE = "http://localhost:8000/api/v1"
+except:
+    # Default to localhost
+    API_BASE = "http://localhost:8000/api/v1"
+
 # Page configuration
 st.set_page_config(
     page_title="CodeGates Scanner",
@@ -254,6 +269,507 @@ def get_report_content(scan_id: str, report_type: str) -> Optional[str]:
             
     except Exception as e:
         return None
+
+def show_scan_results(scan_id):
+    """Display scan results with comprehensive PDF generation interface"""
+    try:
+        # Get scan results
+        response = requests.get(f"{API_BASE}/scan/{scan_id}/results", timeout=30)
+        if response.status_code == 200:
+            results = response.json()
+            
+            # Display basic results
+            overall_score = results.get("overall_score", 0)
+            gate_results = results.get("gate_results", [])
+            
+            # Main results display
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Overall Score", f"{overall_score:.1f}%")
+            with col2:
+                st.metric("Total Gates", len(gate_results))
+            with col3:
+                passed_gates = len([g for g in gate_results if g.get("status") == "PASS"])
+                st.metric("Passed Gates", passed_gates)
+            
+            st.divider()
+            
+            # ========================================
+            # COMPREHENSIVE PDF GENERATION INTERFACE
+            # ========================================
+            
+            st.header("📄 PDF Generation for JIRA Integration")
+            st.markdown("""
+            Generate individual PDF documents for each gate with complete HTML report data. 
+            Perfect for creating individual JIRA tickets with detailed analysis.
+            """)
+            
+            # Create tabs for different PDF operations
+            tab1, tab2, tab3, tab4 = st.tabs([
+                "🔄 Quick Generate", 
+                "🎯 Filtered Generate", 
+                "📋 Manage Downloads", 
+                "📊 PDF Status"
+            ])
+            
+            # ========================================
+            # TAB 1: QUICK GENERATE
+            # ========================================
+            with tab1:
+                st.subheader("Quick PDF Generation")
+                st.markdown("Generate PDFs quickly with common options.")
+                
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    # Quick generation options
+                    st.markdown("**Choose Generation Type:**")
+                    
+                    if st.button("🚀 Generate All Individual Gate PDFs", 
+                                type="primary", 
+                                use_container_width=True,
+                                help="Generate one PDF per gate (recommended for JIRA)"):
+                        with st.spinner("Generating all gate PDFs..."):
+                            try:
+                                response = requests.get(f"{API_BASE}/scan/{scan_id}/pdfs", timeout=120)
+                                if response.status_code == 200:
+                                    pdf_data = response.json()
+                                    st.success(f"✅ Generated {pdf_data['total_files']} PDF files!")
+                                    st.info(f"📋 {pdf_data.get('individual_gates', 0)} individual gate PDFs created")
+                                    st.session_state.pdf_generated = True
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Generation failed: {response.status_code}")
+                            except Exception as e:
+                                st.error(f"❌ Error: {e}")
+                    
+                    if st.button("⚡ Generate Only Failed Gates", 
+                                use_container_width=True,
+                                help="Generate PDFs only for FAIL status gates"):
+                        with st.spinner("Generating failed gate PDFs..."):
+                            try:
+                                filter_data = {"status_filter": ["FAIL"]}
+                                response = requests.post(
+                                    f"{API_BASE}/scan/{scan_id}/generate-jira-pdfs",
+                                    json=filter_data,
+                                    timeout=120
+                                )
+                                if response.status_code == 200:
+                                    pdf_data = response.json()
+                                    st.success(f"✅ Generated {pdf_data['total_files']} PDF files for failed gates!")
+                                    st.session_state.pdf_generated = True
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Generation failed: {response.status_code}")
+                            except Exception as e:
+                                st.error(f"❌ Error: {e}")
+                    
+                    if st.button("⚠️ Generate Problem Gates (FAIL + WARNING)", 
+                                use_container_width=True,
+                                help="Generate PDFs for gates that need attention"):
+                        with st.spinner("Generating problem gate PDFs..."):
+                            try:
+                                filter_data = {"status_filter": ["FAIL", "WARNING"]}
+                                response = requests.post(
+                                    f"{API_BASE}/scan/{scan_id}/generate-jira-pdfs",
+                                    json=filter_data,
+                                    timeout=120
+                                )
+                                if response.status_code == 200:
+                                    pdf_data = response.json()
+                                    st.success(f"✅ Generated {pdf_data['total_files']} PDF files for problem gates!")
+                                    st.session_state.pdf_generated = True
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Generation failed: {response.status_code}")
+                            except Exception as e:
+                                st.error(f"❌ Error: {e}")
+                
+                with col2:
+                    # Status summary
+                    st.markdown("**Gate Status Summary:**")
+                    
+                    fail_count = len([g for g in gate_results if g.get("status") == "FAIL"])
+                    warning_count = len([g for g in gate_results if g.get("status") == "WARNING"])
+                    pass_count = len([g for g in gate_results if g.get("status") == "PASS"])
+                    na_count = len([g for g in gate_results if g.get("status") == "NOT_APPLICABLE"])
+                    
+                    st.metric("❌ Failed", fail_count)
+                    st.metric("⚠️ Warnings", warning_count)
+                    st.metric("✅ Passed", pass_count)
+                    st.metric("➖ N/A", na_count)
+            
+            # ========================================
+            # TAB 2: FILTERED GENERATE
+            # ========================================
+            with tab2:
+                st.subheader("Advanced Filtered Generation")
+                st.markdown("Generate PDFs with custom filters and options.")
+                
+                # Filter controls
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Filter by Status:**")
+                    status_filter = st.multiselect(
+                        "Select Statuses",
+                        ["FAIL", "WARNING", "PASS", "NOT_APPLICABLE"],
+                        default=[],
+                        help="Choose which gate statuses to include"
+                    )
+                    
+                    st.markdown("**Filter by Gate Numbers:**")
+                    gate_numbers_input = st.text_input(
+                        "Gate Numbers (comma-separated)",
+                        placeholder="1,3,5,7",
+                        help="Enter specific gate numbers to generate (e.g., 1,3,5)"
+                    )
+                
+                with col2:
+                    st.markdown("**Filter by Category:**")
+                    categories = list(set([g.get("category", "Unknown") for g in gate_results]))
+                    category_filter = st.multiselect(
+                        "Select Categories",
+                        categories,
+                        default=[],
+                        help="Choose which categories to include"
+                    )
+                    
+                    st.markdown("**Filter by Gate Names:**")
+                    gate_names = [g.get("gate", "Unknown") for g in gate_results]
+                    gate_name_filter = st.multiselect(
+                        "Select Specific Gates",
+                        gate_names,
+                        default=[],
+                        help="Choose specific gates by name"
+                    )
+                
+                # Generate with filters
+                if st.button("🎯 Generate Filtered PDFs", 
+                            type="primary", 
+                            use_container_width=True):
+                    
+                    # Prepare filter data
+                    filter_data = {}
+                    
+                    if status_filter:
+                        filter_data["status_filter"] = status_filter
+                    if category_filter:
+                        filter_data["category_filter"] = category_filter
+                    if gate_name_filter:
+                        filter_data["gate_names"] = gate_name_filter
+                    
+                    # Parse gate numbers
+                    if gate_numbers_input.strip():
+                        try:
+                            gate_numbers = [int(x.strip()) for x in gate_numbers_input.split(",") if x.strip()]
+                            if gate_numbers:
+                                filter_data["gate_numbers"] = gate_numbers
+                        except ValueError:
+                            st.error("❌ Invalid gate numbers. Use format: 1,3,5")
+                            st.stop()
+                    
+                    if not filter_data:
+                        st.warning("⚠️ Please select at least one filter option")
+                        st.stop()
+                    
+                    with st.spinner("Generating filtered PDFs..."):
+                        try:
+                            response = requests.post(
+                                f"{API_BASE}/scan/{scan_id}/generate-jira-pdfs",
+                                json=filter_data,
+                                timeout=120
+                            )
+                            if response.status_code == 200:
+                                pdf_data = response.json()
+                                st.success(f"✅ Generated {pdf_data['total_files']} filtered PDF files!")
+                                
+                                # Show filter summary
+                                with st.expander("📊 Filter Applied"):
+                                    st.json(filter_data)
+                                
+                                st.session_state.pdf_generated = True
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Generation failed: {response.status_code}")
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
+                
+                # Preview what will be generated
+                if status_filter or category_filter or gate_name_filter or gate_numbers_input.strip():
+                    st.markdown("**Preview: Gates that match your filters:**")
+                    
+                    preview_gates = gate_results.copy()
+                    
+                    if status_filter:
+                        preview_gates = [g for g in preview_gates if g.get("status") in status_filter]
+                    if category_filter:
+                        preview_gates = [g for g in preview_gates if g.get("category") in category_filter]
+                    if gate_name_filter:
+                        preview_gates = [g for g in preview_gates if g.get("gate") in gate_name_filter]
+                    
+                    if gate_numbers_input.strip():
+                        try:
+                            gate_numbers = [int(x.strip()) for x in gate_numbers_input.split(",") if x.strip()]
+                            if gate_numbers:
+                                filtered_gates = []
+                                for gate_num in gate_numbers:
+                                    if 1 <= gate_num <= len(gate_results):
+                                        filtered_gates.append(gate_results[gate_num - 1])
+                                preview_gates = filtered_gates
+                        except ValueError:
+                            pass
+                    
+                    if preview_gates:
+                        st.info(f"📋 Will generate {len(preview_gates)} PDFs")
+                        for i, gate in enumerate(preview_gates[:5]):  # Show first 5
+                            st.write(f"• Gate {i+1}: {gate.get('display_name', gate.get('gate', 'Unknown'))} ({gate.get('status', 'UNKNOWN')})")
+                        if len(preview_gates) > 5:
+                            st.write(f"... and {len(preview_gates) - 5} more gates")
+                    else:
+                        st.warning("⚠️ No gates match your current filters")
+            
+            # ========================================
+            # TAB 3: MANAGE DOWNLOADS
+            # ========================================
+            with tab3:
+                st.subheader("Download Generated PDFs")
+                st.markdown("Download and manage your generated PDF files.")
+                
+                # Check for existing PDFs
+                try:
+                    response = requests.get(f"{API_BASE}/scan/{scan_id}/pdfs", timeout=10)
+                    if response.status_code == 200:
+                        pdf_data = response.json()
+                        
+                        if pdf_data["total_files"] > 0:
+                            individual_gates = pdf_data.get('individual_gates', 0)
+                            
+                            # Summary
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Total PDFs", pdf_data["total_files"])
+                            with col2:
+                                st.metric("Individual Gates", individual_gates)
+                            with col3:
+                                st.metric("Summary PDFs", pdf_data["total_files"] - individual_gates)
+                            
+                            st.divider()
+                            
+                            # Organized download interface
+                            st.markdown("**📋 Individual Gate PDFs:**")
+                            
+                            # Group by status for better organization
+                            status_groups = {"FAIL": [], "WARNING": [], "PASS": [], "NOT_APPLICABLE": [], "OTHER": []}
+                            
+                            for file_info in pdf_data["pdf_files"]:
+                                if file_info["type"] == "individual_gate":
+                                    # Get gate info to determine status
+                                    gate_number = file_info.get("gate_number")
+                                    if gate_number and gate_number <= len(gate_results):
+                                        gate_data = gate_results[gate_number - 1]
+                                        status = gate_data.get("status", "OTHER")
+                                        if status in status_groups:
+                                            status_groups[status].append((file_info, gate_data))
+                                        else:
+                                            status_groups["OTHER"].append((file_info, gate_data))
+                            
+                            # Display by status groups
+                            for status, items in status_groups.items():
+                                if items:
+                                    status_emoji = {"FAIL": "❌", "WARNING": "⚠️", "PASS": "✅", "NOT_APPLICABLE": "➖", "OTHER": "❓"}
+                                    
+                                    with st.expander(f"{status_emoji[status]} {status} Gates ({len(items)} files)", expanded=(status in ["FAIL", "WARNING"])):
+                                        for file_info, gate_data in items:
+                                            col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+                                            
+                                            with col1:
+                                                st.write(f"**Gate {file_info.get('gate_number', '?')}**")
+                                            with col2:
+                                                st.write(gate_data.get('display_name', file_info.get('gate_name', 'Unknown')))
+                                            with col3:
+                                                file_size_kb = file_info["file_size"] // 1024
+                                                st.write(f"{file_size_kb} KB")
+                                            with col4:
+                                                download_url = f"{API_BASE}{file_info['download_url']}"
+                                                st.link_button("⬇️", download_url, key=f"download_gate_{file_info.get('gate_number', 'unknown')}")
+                            
+                            # Summary PDFs
+                            summary_files = [f for f in pdf_data["pdf_files"] if f["type"] == "summary"]
+                            if summary_files:
+                                st.markdown("**📊 Summary PDFs:**")
+                                for file_info in summary_files:
+                                    col1, col2, col3 = st.columns([4, 1, 1])
+                                    with col1:
+                                        st.write(f"📄 {file_info['filename']}")
+                                    with col2:
+                                        file_size_kb = file_info["file_size"] // 1024
+                                        st.write(f"{file_size_kb} KB")
+                                    with col3:
+                                        download_url = f"{API_BASE}{file_info['download_url']}"
+                                        st.link_button("⬇️", download_url, key="download_summary")
+                        
+                        else:
+                            st.info("📋 No PDFs generated yet. Use the generation tabs above to create PDFs.")
+                    
+                    else:
+                        st.warning("⚠️ Unable to check for existing PDFs. Generate new ones using the tabs above.")
+                
+                except Exception as e:
+                    st.error(f"❌ Error checking PDFs: {e}")
+            
+            # ========================================
+            # TAB 4: PDF STATUS & JIRA INTEGRATION
+            # ========================================
+            with tab4:
+                st.subheader("PDF Status & JIRA Integration Guide")
+                
+                # Check current PDF status
+                try:
+                    response = requests.get(f"{API_BASE}/scan/{scan_id}/pdfs", timeout=10)
+                    if response.status_code == 200:
+                        pdf_data = response.json()
+                        
+                        col1, col2 = st.columns([1, 1])
+                        
+                        with col1:
+                            st.markdown("**📊 Current PDF Status:**")
+                            if pdf_data["total_files"] > 0:
+                                st.success(f"✅ {pdf_data['total_files']} PDFs available")
+                                st.info(f"📋 {pdf_data.get('individual_gates', 0)} individual gate PDFs")
+                                
+                                # Get status breakdown if using organized files
+                                if hasattr(st.session_state, 'last_pdf_data'):
+                                    last_data = st.session_state.last_pdf_data
+                                    if "status_summary" in last_data:
+                                        status_summary = last_data["status_summary"]
+                                        st.markdown("**Status Breakdown:**")
+                                        for status, count in status_summary.items():
+                                            emoji = {"FAIL": "❌", "WARNING": "⚠️", "PASS": "✅", "NOT_APPLICABLE": "➖"}.get(status, "❓")
+                                            st.write(f"{emoji} {status}: {count}")
+                            else:
+                                st.warning("⚠️ No PDFs generated yet")
+                        
+                        with col2:
+                            st.markdown("**🎯 JIRA Integration Strategy:**")
+                            
+                            fail_count = len([g for g in gate_results if g.get("status") == "FAIL"])
+                            warning_count = len([g for g in gate_results if g.get("status") == "WARNING"])
+                            pass_count = len([g for g in gate_results if g.get("status") == "PASS"])
+                            
+                            if fail_count > 0:
+                                st.error(f"🐛 Create {fail_count} BUG tickets for FAIL gates")
+                            if warning_count > 0:
+                                st.warning(f"📋 Create {warning_count} TASK tickets for WARNING gates")
+                            if pass_count > 0:
+                                st.success(f"✅ {pass_count} PASS gates for reference")
+                            
+                            st.info("💡 Use individual gate PDFs as attachments for each JIRA ticket")
+                    
+                    # JIRA Integration Instructions
+                    st.markdown("**📝 JIRA Ticket Creation Guide:**")
+                    
+                    with st.expander("🐛 For FAIL Gates (Bug Tickets)", expanded=True):
+                        st.markdown("""
+                        **Title Format:** `[CodeGates] Gate XX - Fix {Gate Display Name}`  
+                        **Priority:** High/Critical  
+                        **Labels:** `codegates, gate-XX, {category}, compliance-fail`  
+                        **Description Template:**
+                        ```
+                        CodeGates Gate XX scan identified critical compliance violations
+                        - See attached PDF for detailed analysis and remediation steps
+                        - Gate Score: X.X% (Critical - needs immediate attention)
+                        - Files Affected: X files with X violations
+                        
+                        Attachment: Gate_XX_{GATE_NAME}_{SCAN_ID}.pdf
+                        ```
+                        """)
+                    
+                    with st.expander("📋 For WARNING Gates (Task Tickets)"):
+                        st.markdown("""
+                        **Title Format:** `[CodeGates] Gate XX - Improve {Gate Display Name}`  
+                        **Priority:** Medium  
+                        **Labels:** `codegates, gate-XX, {category}, enhancement`  
+                        **Description Template:**
+                        ```
+                        CodeGates Gate XX scan identified improvement opportunities
+                        - See attached PDF for recommendations and implementation guide
+                        - Current Score: X.X% (Needs enhancement)
+                        - Enhancement potential: {Specific recommendations}
+                        
+                        Attachment: Gate_XX_{GATE_NAME}_{SCAN_ID}.pdf
+                        ```
+                        """)
+                    
+                    with st.expander("✅ For PASS Gates (Reference)"):
+                        st.markdown("""
+                        **Usage:** Attach to main epic/story for documentation  
+                        **Purpose:** Show compliance evidence and current implementation  
+                        **Note:** No action required, use for reference and audit trail  
+                        """)
+                
+                except Exception as e:
+                    st.error(f"❌ Error checking PDF status: {e}")
+            
+            st.divider()
+            
+            # ========================================
+            # GATE RESULTS TABLE (existing functionality)
+            # ========================================
+            if gate_results:
+                st.subheader("🎯 Gate Results Summary")
+                
+                # Create a summary table
+                gate_data = []
+                for i, gate in enumerate(gate_results):
+                    gate_data.append({
+                        "Gate #": i + 1,
+                        "Gate": gate.get("display_name", gate.get("gate", "Unknown")),
+                        "Status": gate.get("status", "UNKNOWN"),
+                        "Score": f"{gate.get('score', 0):.1f}%",
+                        "Category": gate.get("category", "Unknown"),
+                        "Matches": gate.get("matches_found", 0)
+                    })
+                
+                # Display as dataframe
+                df = pd.DataFrame(gate_data)
+                st.dataframe(df, use_container_width=True)
+            
+            # Report Links (existing functionality)
+            st.divider()
+            st.subheader("📄 Full Reports")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("📄 View HTML Report"):
+                    try:
+                        html_response = requests.get(f"{API_BASE}/scan/{scan_id}/report/html", timeout=30)
+                        if html_response.status_code == 200:
+                            st.components.v1.html(html_response.text, height=600, scrolling=True)
+                        else:
+                            st.error(f"❌ HTML Report Failed: {html_response.status_code}")
+                    except Exception as e:
+                        st.error(f"❌ HTML Report Error: {e}")
+            
+            with col2:
+                if st.button("📋 View JSON Report"):
+                    try:
+                        json_response = requests.get(f"{API_BASE}/scan/{scan_id}/report/json", timeout=30)
+                        if json_response.status_code == 200:
+                            json_data = json_response.json()
+                            st.json(json_data)
+                        else:
+                            st.error(f"❌ JSON Report Failed: {json_response.status_code}")
+                    except Exception as e:
+                        st.error(f"❌ JSON Report Error: {e}")
+            
+        else:
+            st.error(f"❌ Failed to get scan results: {response.status_code}")
+    
+    except requests.exceptions.Timeout:
+        st.error("❌ Request timed out. The scan might still be processing.")
+    except Exception as e:
+        st.error(f"❌ Results Error: {e}")
 
 def main():
     """Main application"""

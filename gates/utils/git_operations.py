@@ -658,6 +658,416 @@ def set_ocp_optimized_timeouts():
         api_timeout=90      # 1.5 minutes for API
     )
 
+
+class EnhancedGitIntegration:
+    """
+    Enhanced Git integration for enterprise environments
+    Supports multiple Git platforms: GitHub, GitLab, Bitbucket, Azure DevOps
+    """
+    
+    def __init__(self):
+        self.api_timeouts = {
+            "github.com": GITHUB_API_TIMEOUT,
+            "github.abc.com": GITHUB_API_TIMEOUT,
+            "gitlab.com": GITHUB_API_TIMEOUT,
+            "bitbucket.org": GITHUB_API_TIMEOUT,
+            "dev.azure.com": GITHUB_API_TIMEOUT
+        }
+    
+    def search_repositories_by_keywords(self, keywords: list, git_endpoint: str = "github.com", limit: int = 10) -> list:
+        """
+        Search repositories by keywords across different Git platforms
+        """
+        if git_endpoint == "github.com":
+            return self._search_github_repositories(keywords, limit)
+        elif git_endpoint == "github.abc.com":
+            return self._search_github_enterprise_repositories(keywords, limit, git_endpoint)
+        elif git_endpoint == "gitlab.com":
+            return self._search_gitlab_repositories(keywords, limit)
+        elif git_endpoint == "bitbucket.org":
+            return self._search_bitbucket_repositories(keywords, limit)
+        elif git_endpoint == "dev.azure.com":
+            return self._search_azure_repositories(keywords, limit)
+        else:
+            raise ValueError(f"Unsupported Git endpoint: {git_endpoint}")
+    
+    def list_repository_branches(self, repository_url: str, git_endpoint: str, owner: str, name: str) -> list:
+        """
+        List branches for a specific repository across different Git platforms
+        """
+        if git_endpoint == "github.com":
+            return self._list_github_branches(owner, name)
+        elif git_endpoint == "github.abc.com":
+            return self._list_github_enterprise_branches(owner, name, git_endpoint)
+        elif git_endpoint == "gitlab.com":
+            return self._list_gitlab_branches(owner, name)
+        elif git_endpoint == "bitbucket.org":
+            return self._list_bitbucket_branches(owner, name)
+        elif git_endpoint == "dev.azure.com":
+            return self._list_azure_branches(owner, name)
+        else:
+            raise ValueError(f"Unsupported Git endpoint: {git_endpoint}")
+    
+    def _search_github_repositories(self, keywords: list, limit: int) -> list:
+        """Search GitHub repositories"""
+        try:
+            query = " ".join(keywords)
+            url = f"https://api.github.com/search/repositories"
+            params = {
+                "q": query,
+                "sort": "stars",
+                "order": "desc",
+                "per_page": min(limit, 100)
+            }
+            
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            token = os.getenv("GITHUB_TOKEN")
+            if token:
+                headers["Authorization"] = f"token {token}"
+            
+            # Use requests timeout instead of signal-based timeout
+            response = requests.get(
+                url, 
+                params=params, 
+                headers=headers, 
+                timeout=self.api_timeouts["github.com"]
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            repositories = []
+            
+            for repo in data.get("items", []):
+                repositories.append({
+                    "name": repo["name"],
+                    "owner": repo["owner"]["login"],
+                    "description": repo.get("description", ""),
+                    "stars": repo.get("stargazers_count", 0),
+                    "forks": repo.get("forks_count", 0),
+                    "language": repo.get("language", ""),
+                    "html_url": repo["html_url"],
+                    "clone_url": repo["clone_url"],
+                    "git_endpoint": "github.com",
+                    "private": repo.get("private", False)
+                })
+            
+            return repositories
+            
+        except Exception as e:
+            print(f"Error searching GitHub repositories: {e}")
+            return []
+    
+    def _search_github_enterprise_repositories(self, keywords: list, limit: int, git_endpoint: str) -> list:
+        """Search GitHub Enterprise repositories"""
+        try:
+            query = " ".join(keywords)
+            # Use the full git_endpoint for API URL construction
+            api_url = f"https://{git_endpoint}/api/v3/search/repositories"
+            params = {
+                "q": query,
+                "sort": "stars",
+                "order": "desc",
+                "per_page": min(limit, 100)
+            }
+            
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_ENTERPRISE_TOKEN")
+            if token:
+                headers["Authorization"] = f"token {token}"
+            
+            response = requests.get(
+                api_url, 
+                params=params, 
+                headers=headers, 
+                timeout=self.api_timeouts.get(git_endpoint, 120),
+                verify=os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() != 'true'
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            repositories = []
+            
+            for repo in data.get("items", []):
+                repositories.append({
+                    "name": repo["name"],
+                    "owner": repo["owner"]["login"],
+                    "description": repo.get("description", ""),
+                    "stars": repo.get("stargazers_count", 0),
+                    "forks": repo.get("forks_count", 0),
+                    "language": repo.get("language", ""),
+                    "html_url": repo["html_url"],
+                    "clone_url": repo["clone_url"],
+                    "git_endpoint": git_endpoint,
+                    "private": repo.get("private", False)
+                })
+            
+            return repositories
+            
+        except Exception as e:
+            print(f"Error searching GitHub Enterprise repositories on {git_endpoint}: {e}")
+            return []
+    
+    def _search_gitlab_repositories(self, keywords: list, limit: int) -> list:
+        """Search GitLab repositories"""
+        try:
+            query = " ".join(keywords)
+            url = f"https://gitlab.com/api/v4/projects"
+            params = {
+                "search": query,
+                "order_by": "star_count",
+                "sort": "desc",
+                "per_page": min(limit, 100),
+                "visibility": "public"
+            }
+            
+            headers = {"Accept": "application/json"}
+            token = os.getenv("GITLAB_TOKEN")
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            
+            response = requests.get(
+                url, 
+                params=params, 
+                headers=headers, 
+                timeout=self.api_timeouts["gitlab.com"]
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            repositories = []
+            
+            for repo in data:
+                repositories.append({
+                    "name": repo["name"],
+                    "owner": repo["namespace"]["name"],
+                    "description": repo.get("description", ""),
+                    "stars": repo.get("star_count", 0),
+                    "forks": repo.get("forks_count", 0),
+                    "language": "",  # GitLab API doesn't return primary language in search
+                    "html_url": repo["web_url"],
+                    "clone_url": repo["http_url_to_repo"],
+                    "git_endpoint": "gitlab.com",
+                    "private": repo.get("visibility", "public") != "public"
+                })
+            
+            return repositories
+            
+        except Exception as e:
+            print(f"Error searching GitLab repositories: {e}")
+            return []
+    
+    def _search_bitbucket_repositories(self, keywords: list, limit: int) -> list:
+        """Search Bitbucket repositories"""
+        try:
+            query = " ".join(keywords)
+            url = f"https://api.bitbucket.org/2.0/repositories"
+            params = {
+                "q": f'name ~ "{query}"',
+                "sort": "-updated_on",
+                "pagelen": min(limit, 100)
+            }
+            
+            headers = {"Accept": "application/json"}
+            
+            response = requests.get(
+                url, 
+                params=params, 
+                headers=headers, 
+                timeout=self.api_timeouts["bitbucket.org"]
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            repositories = []
+            
+            for repo in data.get("values", []):
+                repositories.append({
+                    "name": repo["name"],
+                    "owner": repo["owner"]["display_name"],
+                    "description": repo.get("description", ""),
+                    "stars": 0,  # Bitbucket doesn't have stars
+                    "forks": 0,  # Would need separate API call
+                    "language": repo.get("language", ""),
+                    "html_url": repo["links"]["html"]["href"],
+                    "clone_url": repo["links"]["clone"][0]["href"],
+                    "git_endpoint": "bitbucket.org",
+                    "private": repo.get("is_private", False)
+                })
+            
+            return repositories
+            
+        except Exception as e:
+            print(f"Error searching Bitbucket repositories: {e}")
+            return []
+    
+    def _search_azure_repositories(self, keywords: list, limit: int) -> list:
+        """Search Azure DevOps repositories (placeholder - requires organization context)"""
+        # Azure DevOps requires organization context, so this is a basic implementation
+        print("Azure DevOps search requires organization-specific configuration")
+        return []
+    
+    def _list_github_branches(self, owner: str, name: str) -> list:
+        """List GitHub repository branches"""
+        try:
+            url = f"https://api.github.com/repos/{owner}/{name}/branches"
+            
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            token = os.getenv("GITHUB_TOKEN")
+            if token:
+                headers["Authorization"] = f"token {token}"
+            
+            response = requests.get(
+                url, 
+                headers=headers, 
+                timeout=self.api_timeouts["github.com"]
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            branches = []
+            
+            # Get default branch info
+            repo_url = f"https://api.github.com/repos/{owner}/{name}"
+            repo_response = requests.get(repo_url, headers=headers, timeout=30)
+            default_branch = None
+            if repo_response.status_code == 200:
+                default_branch = repo_response.json().get("default_branch")
+            
+            for branch in data:
+                branches.append({
+                    "name": branch["name"],
+                    "commit_sha": branch["commit"]["sha"],
+                    "is_default": branch["name"] == default_branch,
+                    "protected": branch.get("protected", False)
+                })
+            
+            return branches
+            
+        except Exception as e:
+            print(f"Error listing GitHub branches: {e}")
+            return []
+    
+    def _list_github_enterprise_branches(self, owner: str, name: str, git_endpoint: str) -> list:
+        """List GitHub Enterprise repository branches"""
+        try:
+            # Use the full git_endpoint for API URL construction
+            url = f"https://{git_endpoint}/api/v3/repos/{owner}/{name}/branches"
+            
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_ENTERPRISE_TOKEN")
+            if token:
+                headers["Authorization"] = f"token {token}"
+            
+            response = requests.get(
+                url, 
+                headers=headers, 
+                timeout=self.api_timeouts.get(git_endpoint, 120),
+                verify=os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() != 'true'
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            branches = []
+            
+            # Get default branch info
+            repo_url = f"https://{git_endpoint}/api/v3/repos/{owner}/{name}"
+            repo_response = requests.get(
+                repo_url, 
+                headers=headers, 
+                timeout=30,
+                verify=os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'false').lower() != 'true'
+            )
+            default_branch = None
+            if repo_response.status_code == 200:
+                default_branch = repo_response.json().get("default_branch")
+            
+            for branch in data:
+                branches.append({
+                    "name": branch["name"],
+                    "commit_sha": branch["commit"]["sha"],
+                    "is_default": branch["name"] == default_branch,
+                    "protected": branch.get("protected", False)
+                })
+            
+            return branches
+            
+        except Exception as e:
+            print(f"Error listing GitHub Enterprise branches on {git_endpoint}: {e}")
+            return []
+    
+    def _list_gitlab_branches(self, owner: str, name: str) -> list:
+        """List GitLab repository branches"""
+        try:
+            # GitLab uses project ID or URL encoding
+            project_id = f"{owner}%2F{name}"
+            url = f"https://gitlab.com/api/v4/projects/{project_id}/repository/branches"
+            
+            headers = {"Accept": "application/json"}
+            token = os.getenv("GITLAB_TOKEN")
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            
+            response = requests.get(
+                url, 
+                headers=headers, 
+                timeout=self.api_timeouts["gitlab.com"]
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            branches = []
+            
+            for branch in data:
+                branches.append({
+                    "name": branch["name"],
+                    "commit_sha": branch["commit"]["id"],
+                    "is_default": branch.get("default", False),
+                    "protected": branch.get("protected", False)
+                })
+            
+            return branches
+            
+        except Exception as e:
+            print(f"Error listing GitLab branches: {e}")
+            return []
+    
+    def _list_bitbucket_branches(self, owner: str, name: str) -> list:
+        """List Bitbucket repository branches"""
+        try:
+            url = f"https://api.bitbucket.org/2.0/repositories/{owner}/{name}/refs/branches"
+            
+            headers = {"Accept": "application/json"}
+            
+            response = requests.get(
+                url, 
+                headers=headers, 
+                timeout=self.api_timeouts["bitbucket.org"]
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            branches = []
+            
+            for branch in data.get("values", []):
+                branches.append({
+                    "name": branch["name"],
+                    "commit_sha": branch["target"]["hash"],
+                    "is_default": branch["name"] == "main" or branch["name"] == "master",  # Heuristic
+                    "protected": False  # Bitbucket doesn't easily expose this
+                })
+            
+            return branches
+            
+        except Exception as e:
+            print(f"Error listing Bitbucket branches: {e}")
+            return []
+    
+    def _list_azure_branches(self, owner: str, name: str) -> list:
+        """List Azure DevOps repository branches (placeholder)"""
+        print("Azure DevOps branch listing requires organization-specific configuration")
+        return []
+
+
 if __name__ == "__main__":
     # Test the git operations
     test_repo = "https://github.com/octocat/Hello-World"

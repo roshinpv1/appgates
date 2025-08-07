@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CodeGates Server - FastAPI Web Server
+CodeGates Server - FastAPI Web Server with Integrated Streamlit UI
 """
 
 import sys
@@ -8,12 +8,15 @@ import os
 import uuid
 import tempfile
 import asyncio
+import subprocess
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 load_dotenv()
@@ -25,6 +28,14 @@ from flow import create_static_only_flow
 from utils.hard_gates import HARD_GATES
 from utils.db_integration import extract_app_id_from_url
 from utils.jira_upload import upload_report_to_jira
+
+# Import Git operations for enterprise integration
+try:
+    from utils.git_operations import EnhancedGitIntegration
+    GIT_INTEGRATION_AVAILABLE = True
+except ImportError:
+    print("⚠️ Git integration not available")
+    GIT_INTEGRATION_AVAILABLE = False
 
 # Import pattern cache for performance optimization
 try:
@@ -45,6 +56,10 @@ LOGS_DIR = os.getenv("CODEGATES_LOGS_DIR", "./logs")
 TEMP_DIR = os.getenv("CODEGATES_TEMP_DIR", None)  # None means use system temp
 CORS_ORIGINS = os.getenv("CODEGATES_CORS_ORIGINS", "*").split(",")
 LOG_LEVEL = os.getenv("CODEGATES_LOG_LEVEL", "info")
+
+# Streamlit integration configuration
+STREAMLIT_PORT = SERVER_PORT + 1  # Run Streamlit on adjacent port
+STREAMLIT_PROCESS = None  # Global reference to Streamlit process
 
 def get_server_url():
     """Get the server URL for report access"""
@@ -67,28 +82,29 @@ def ensure_directories():
         print(f"📁 Ensured directory exists: {directory}")
 
 
-# Pydantic Models
+# Pydantic Models for API
 class ScanRequest(BaseModel):
-    repository_url: str = Field(..., description="Git repository URL")
+    repository_url: str = Field(..., description="Repository URL to scan")
     branch: str = Field(default="main", description="Branch to scan")
-    github_token: Optional[str] = Field(default=None, description="GitHub token for private repos")
-    threshold: int = Field(default=None, ge=0, le=100, description="Quality threshold percentage (uses global config default if not specified)")
-    report_format: str = Field(default="both", description="Report format: html, json, or both")
-    llm_url: Optional[str] = Field(default=None, description="Custom LLM service URL")
-    llm_api_key: Optional[str] = Field(default=None, description="LLM API key")
-    splunk_query: Optional[str] = Field(default=None, description="Optional Splunk query to execute during scan")
-    
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Set default threshold from global config if not provided
-        if self.threshold is None:
-            try:
-                # Only keep enhanced pattern library logic
-                # Remove fallback/legacy pattern loader logic
-                # Remove lines: 77, 78, 79
-                pass # No pattern loader to get UI config
-            except Exception:
-                self.threshold = 70  # Fallback to hardcoded value
+    github_token: Optional[str] = Field(None, description="GitHub token for private repos")
+    threshold: int = Field(default=70, description="Compliance threshold percentage")
+    report_format: str = Field(default="both", description="Report format: 'html', 'json', or 'both'")
+    max_files: int = Field(default=1000, description="Maximum files to process")
+    app_id: Optional[str] = Field(None, description="Application ID for categorization")
+    splunk_query: Optional[str] = Field(None, description="Optional Splunk query to execute during scan")
+    llm_url: Optional[str] = Field(None, description="Custom LLM service URL")
+    llm_api_key: Optional[str] = Field(None, description="LLM API key")
+
+class GitSearchRequest(BaseModel):
+    keywords: List[str] = Field(..., description="Keywords to search for")
+    git_endpoint: str = Field(..., description="Git endpoint (github.com, gitlab.com, etc.)")
+    limit: int = Field(default=10, description="Maximum number of repositories to return")
+
+class GitBranchRequest(BaseModel):
+    repository_url: str = Field(..., description="Repository URL")
+    git_endpoint: str = Field(..., description="Git endpoint")
+    owner: str = Field(..., description="Repository owner")
+    name: str = Field(..., description="Repository name")
 
 
 class ScanResponse(BaseModel):
@@ -129,6 +145,29 @@ class JiraUploadRequest(BaseModel):
     scan_id: str
     report_type: str = Field(default="html", description="Report type: html or json")
 
+# ============================================
+# STREAMLIT INTEGRATION FUNCTIONS
+# ============================================
+
+def start_streamlit_app():
+    """Start Streamlit app in a separate process"""
+    global STREAMLIT_PROCESS
+    try:
+        # Skip Streamlit process startup for direct integration
+        print(f"🎨 Using direct UI integration on port {SERVER_PORT}...")
+        print(f"✅ Direct UI integration ready")
+        return None
+            
+    except Exception as e:
+        print(f"❌ Error in UI integration: {e}")
+        return None
+
+def stop_streamlit_app():
+    """Stop Streamlit app"""
+    global STREAMLIT_PROCESS
+    # No process to stop in direct integration
+    print("🎨 Direct UI integration - no process to stop")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="CodeGates API",
@@ -152,6 +191,10 @@ async def startup_event():
     
     # Ensure directories exist
     ensure_directories()
+    
+    # Initialize direct UI integration (no separate process needed)
+    print("🎨 Initializing direct UI integration...")
+    start_streamlit_app()
     
     # Pre-compile regex patterns for performance
     if PATTERN_CACHE_AVAILABLE:
@@ -177,8 +220,6 @@ async def startup_event():
                     if isinstance(pattern_list, list):
                         dict_patterns.extend(pattern_list)
                         all_patterns.extend(pattern_list)
-                if dict_patterns:
-                    print(f"   📋 {gate_name}: {len(dict_patterns)} patterns (dict format)")
         
         # Add static patterns from static_patterns module if available
         try:
@@ -201,62 +242,222 @@ async def startup_event():
         print("⚠️ Pattern cache not available - patterns will be compiled per request")
     
     print("✅ CodeGates server startup complete")
+    print(f"🎯 Direct UI available at: http://localhost:{SERVER_PORT}/ui/")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
     print("🛑 CodeGates server shutting down...")
+    
+    # Clean up direct UI integration (no process to stop)
+    print("🎨 Cleaning up direct UI integration...")
+    stop_streamlit_app()
+    
     print("✅ Shutdown complete")
 
 # Store scan results in memory (could be replaced with Redis for production)
 scan_results: Dict[str, Dict[str, Any]] = {}
 
+# ============================================
+# UI INTEGRATION ROUTES
+# ============================================
+
+@app.get("/ui", response_class=HTMLResponse)
+async def ui_redirect():
+    """Redirect to the main UI"""
+    return RedirectResponse(url="/ui/")
+
+@app.get("/ui/", response_class=HTMLResponse)
+async def serve_ui():
+    """Serve the Streamlit UI through FastAPI"""
+    try:
+        # Import and use direct UI integration
+        import sys
+        import os
+        from pathlib import Path
+        
+        # Add the gates directory to Python path for imports
+        gates_dir = Path(__file__).parent
+        if str(gates_dir) not in sys.path:
+            sys.path.insert(0, str(gates_dir))
+        
+        from streamlit_integration import get_integrated_ui_html
+        
+        # Get the current server URL for API base
+        server_url = f"http://localhost:{SERVER_PORT}"
+        api_base = f"{server_url}/api/v1"
+        
+        # Get the integrated UI HTML
+        html_content = get_integrated_ui_html(api_base)
+        
+        return HTMLResponse(content=html_content)
+            
+    except Exception as e:
+        print(f"❌ Error serving UI: {e}")
+        
+        # Fallback error page
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>CodeGates Scanner - UI Error</title>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                    margin: 0;
+                    padding: 40px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    text-align: center;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 40px;
+                    border-radius: 15px;
+                    backdrop-filter: blur(10px);
+                }}
+                .error {{
+                    font-size: 48px;
+                    margin-bottom: 20px;
+                }}
+                .message {{
+                    font-size: 18px;
+                    margin-bottom: 30px;
+                    line-height: 1.6;
+                }}
+                .solution {{
+                    background: rgba(255, 255, 255, 0.2);
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin-bottom: 20px;
+                    text-align: left;
+                }}
+                .refresh-btn {{
+                    background: white;
+                    color: #667eea;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 25px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    text-decoration: none;
+                    display: inline-block;
+                    transition: transform 0.2s;
+                }}
+                .refresh-btn:hover {{
+                    transform: translateY(-2px);
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error">🚫</div>
+                <div class="message">
+                    <strong>UI Service Error</strong><br>
+                    Failed to load the integrated UI interface.
+                </div>
+                <div class="solution">
+                    <strong>📋 Error Details:</strong><br>
+                    {str(e)}<br><br>
+                    <strong>🔧 Solution:</strong><br>
+                    Check server logs for details and restart the server.
+                </div>
+                <a href="/ui/" class="refresh-btn">🔄 Refresh Page</a>
+                <br><br>
+                <a href="/docs" class="refresh-btn">📊 API Documentation</a>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=error_html, status_code=500)
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Root endpoint with basic information"""
-    html_content = """
+    html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <title>CodeGates API</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .header { color: #2c3e50; }
-            .endpoint { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; }
-            .code { background: #e9ecef; padding: 5px; border-radius: 3px; font-family: monospace; }
+            body {{ font-family: Arial, sans-serif; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }}
+            .header {{ color: white; text-align: center; margin-bottom: 40px; }}
+            .container {{ max-width: 800px; margin: 0 auto; background: rgba(255, 255, 255, 0.1); padding: 40px; border-radius: 15px; backdrop-filter: blur(10px); }}
+            .endpoint {{ background: rgba(255, 255, 255, 0.2); padding: 15px; margin: 10px 0; border-radius: 5px; }}
+            .code {{ background: rgba(0, 0, 0, 0.3); padding: 5px; border-radius: 3px; font-family: monospace; }}
+            .ui-link {{ background: white; color: #667eea; padding: 15px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; display: inline-block; margin: 20px 0; transition: transform 0.2s; }}
+            .ui-link:hover {{ transform: translateY(-2px); }}
+            .integration-badge {{ background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; margin-left: 10px; }}
         </style>
     </head>
     <body>
-        <h1 class="header">🚀 CodeGates API v2.0.0</h1>
-        <p>Hard Gate Validation System with AI-powered pattern generation</p>
-        
-        <h2>Quick Start</h2>
-        <div class="endpoint">
-            <h3>Start a Scan</h3>
-            <p><strong>POST</strong> <span class="code">/api/v1/scan</span></p>
-            <pre class="code">{
-  "repository_url": "https://github.com/owner/repo",
-  "branch": "main",
-  "threshold": 70
-}</pre>
+        <div class="container">
+            <div class="header">
+                <h1>🔍 CodeGates API Server</h1>
+                <p>Hard gate validation service with integrated UI on single port</p>
+                <span class="integration-badge">✅ True Same-Port Integration</span>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="/ui/" class="ui-link">🎨 Open Integrated UI</a>
+                <br>
+                <small style="color: #ffeb3b;">Complete scanning interface with PDF generation - all on port {SERVER_PORT}</small>
+            </div>
+            
+            <div class="endpoint">
+                <h3>🚀 Quick Start</h3>
+                <p><strong>Integrated UI:</strong> <a href="/ui/" style="color: #ffeb3b;">/ui/</a> - Complete scanning interface with PDF generation</p>
+                <p><strong>API Documentation:</strong> <a href="/docs" style="color: #ffeb3b;">/docs</a> - Interactive API documentation</p>
+                <p><strong>Health Check:</strong> <a href="/api/v1/health" style="color: #ffeb3b;">/api/v1/health</a> - Server status and performance metrics</p>
+            </div>
+            
+            <div class="endpoint">
+                <h3>📄 PDF Generation Features</h3>
+                <p>✅ Individual gate PDFs with complete HTML report data</p>
+                <p>✅ Status-based filtering (FAIL, WARNING, PASS, N/A)</p>
+                <p>✅ Advanced filtering by category, gate numbers, and names</p>
+                <p>✅ JIRA integration templates and workflows</p>
+                <p>✅ Organized download management</p>
+            </div>
+            
+            <div class="endpoint">
+                <h3>🔧 System Status</h3>
+                <p><strong>Server:</strong> Running on port {SERVER_PORT}</p>
+                <p><strong>UI Integration:</strong> <span style="color: #28a745;">✅ Direct HTML Integration</span></p>
+                <p><strong>Architecture:</strong> Single-port FastAPI + Direct UI rendering</p>
+                <p><strong>PDF Engine:</strong> ReportLab integration</p>
+                <p><strong>Pattern Cache:</strong> {"✅ Available" if PATTERN_CACHE_AVAILABLE else "❌ Not Available"}</p>
+            </div>
+            
+            <div class="endpoint">
+                <h3>🏗️ Architecture Benefits</h3>
+                <p>🎯 <strong>True Same-Port:</strong> No iframe, no separate processes</p>
+                <p>⚡ <strong>Fast Loading:</strong> Direct HTML rendering without external dependencies</p>
+                <p>🔒 <strong>Secure:</strong> No cross-origin issues or port management</p>
+                <p>📦 <strong>Simple Deployment:</strong> Single service, single port, single process</p>
+                <p>🔧 <strong>Easy Maintenance:</strong> No Streamlit subprocess management</p>
+            </div>
+            
+            <div class="endpoint">
+                <h3>📋 API Endpoints</h3>
+                <p><span class="code">POST /api/v1/scan</span> - Start a new code scan</p>
+                <p><span class="code">GET /api/v1/scan/{{scan_id}}</span> - Get scan status</p>
+                <p><span class="code">GET /api/v1/scan/{{scan_id}}/results</span> - Get scan results</p>
+                <p><span class="code">GET /api/v1/scan/{{scan_id}}/pdfs</span> - Generate all gate PDFs</p>
+                <p><span class="code">POST /api/v1/scan/{{scan_id}}/generate-jira-pdfs</span> - Generate filtered PDFs</p>
+            </div>
+            
+            <div class="endpoint">
+                <h3>🚀 How to Run</h3>
+                <p><strong>Option 1 (Integrated):</strong> <span class="code">python run_integrated_server.py</span></p>
+                <p><strong>Option 2 (Direct):</strong> <span class="code">python gates/server.py</span></p>
+                <p><strong>Access:</strong> <a href="http://localhost:{SERVER_PORT}/ui/" style="color: #ffeb3b;">http://localhost:{SERVER_PORT}/ui/</a></p>
+            </div>
         </div>
-        
-        <div class="endpoint">
-            <h3>Get Scan Status</h3>
-            <p><strong>GET</strong> <span class="code">/api/v1/scan/{scan_id}</span></p>
-        </div>
-        
-        <div class="endpoint">
-            <h3>List Available Gates</h3>
-            <p><strong>GET</strong> <span class="code">/api/v1/gates</span></p>
-        </div>
-        
-        <h2>Documentation</h2>
-        <ul>
-            <li><a href="/docs">Interactive API Documentation (Swagger)</a></li>
-            <li><a href="/redoc">ReDoc Documentation</a></li>
-        </ul>
     </body>
     </html>
     """
@@ -334,6 +535,79 @@ async def get_scan_status(scan_id: str):
         step_details=result.get("step_details"),
         app_id=result["request"].get("app_id") if "request" in result else None
     )
+
+
+@app.get("/api/v1/scan/{scan_id}/results")
+async def get_scan_results(scan_id: str):
+    """
+    Get detailed scan results with gate results for UI display
+    """
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    try:
+        result = scan_results[scan_id]
+        
+        # Check if scan is completed
+        if result["status"] != "completed":
+            return {
+                "scan_id": scan_id,
+                "status": result["status"],
+                "message": f"Scan is {result['status']}. Results not available yet.",
+                "gate_results": [],
+                "overall_score": 0
+            }
+        
+        # Try to get detailed results from the stored scan data
+        detailed_results = {}
+        
+        # First try to get from JSON report if available
+        json_path = result.get("json_report_path")
+        if json_path and os.path.exists(json_path):
+            try:
+                import json
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    detailed_results = json.load(f)
+            except Exception as e:
+                print(f"Error reading JSON report: {e}")
+        
+        # If no JSON report, try to construct from stored data
+        if not detailed_results and "gate_results" in result:
+            detailed_results = {
+                "scan_id": scan_id,
+                "repository_url": result["request"].get("repository_url", ""),
+                "branch": result["request"].get("branch", ""),
+                "overall_score": result.get("overall_score", 0),
+                "total_gates": result.get("total_gates", 0),
+                "passed_gates": result.get("passed_gates", 0),
+                "failed_gates": result.get("failed_gates", 0),
+                "warning_gates": result.get("warning_gates", 0),
+                "gate_results": result.get("gate_results", []),
+                "scan_timestamp": result.get("completed_at", result.get("created_at", "")),
+                "app_id": result["request"].get("app_id", "")
+            }
+        
+        # Fallback: return basic information
+        if not detailed_results:
+            detailed_results = {
+                "scan_id": scan_id,
+                "repository_url": result["request"].get("repository_url", ""),
+                "branch": result["request"].get("branch", ""),
+                "overall_score": result.get("overall_score", 0),
+                "total_gates": result.get("total_gates", 0),
+                "passed_gates": result.get("passed_gates", 0),
+                "failed_gates": result.get("failed_gates", 0),
+                "warning_gates": result.get("warning_gates", 0),
+                "gate_results": [],
+                "scan_timestamp": result.get("completed_at", result.get("created_at", "")),
+                "app_id": result["request"].get("app_id", ""),
+                "message": "Detailed gate results not available. Please check scan logs."
+            }
+        
+        return detailed_results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get scan results: {str(e)}")
 
 
 @app.get("/api/v1/scan/{scan_id}/report/html", response_class=HTMLResponse)
@@ -488,6 +762,77 @@ async def list_gates():
         )
         for gate in HARD_GATES
     ]
+
+
+# Git Integration Endpoints for Enterprise Support
+@app.post("/api/v1/git/search-repositories")
+async def search_repositories(request: GitSearchRequest):
+    """
+    Search repositories across different Git endpoints (GitHub, GitLab, Bitbucket, etc.)
+    based on keywords and application category
+    """
+    if not GIT_INTEGRATION_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Git integration not available")
+    
+    try:
+        git_integration = EnhancedGitIntegration()
+        
+        # Search repositories using the Git integration
+        repositories = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: git_integration.search_repositories_by_keywords(
+                keywords=request.keywords,
+                git_endpoint=request.git_endpoint,
+                limit=request.limit
+            )
+        )
+        
+        return {
+            "success": True,
+            "repositories": repositories,
+            "count": len(repositories),
+            "git_endpoint": request.git_endpoint,
+            "keywords": request.keywords
+        }
+        
+    except Exception as e:
+        print(f"Error searching repositories: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to search repositories: {str(e)}")
+
+
+@app.post("/api/v1/git/list-branches")
+async def list_branches(request: GitBranchRequest):
+    """
+    List branches for a specific repository across different Git endpoints
+    """
+    if not GIT_INTEGRATION_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Git integration not available")
+    
+    try:
+        git_integration = EnhancedGitIntegration()
+        
+        # Get branches using the Git integration
+        branches = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: git_integration.list_repository_branches(
+                repository_url=request.repository_url,
+                git_endpoint=request.git_endpoint,
+                owner=request.owner,
+                name=request.name
+            )
+        )
+        
+        return {
+            "success": True,
+            "branches": branches,
+            "count": len(branches),
+            "repository": f"{request.owner}/{request.name}",
+            "git_endpoint": request.git_endpoint
+        }
+        
+    except Exception as e:
+        print(f"Error listing branches: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list branches: {str(e)}")
 
 
 @app.get("/api/v1/health")
@@ -648,6 +993,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "failed_gates": failed,
                 "warning_gates": warnings,
                 "total_gates": len(gate_results),
+                "gate_results": gate_results,  # Store detailed gate results for UI
                 "html_report_path": shared["reports"]["html_path"],
                 "json_report_path": shared["reports"]["json_path"],
                 "html_report_url": html_report_url,
@@ -743,6 +1089,263 @@ def create_progress_aware_flow(scan_id: str):
     original_flow.run = progress_aware_run
     
     return original_flow
+
+
+# Add PDF generation import
+try:
+    from gates.pdf_generator import CodeGatesPDFGenerator, generate_gate_pdfs_from_scan_id
+    PDF_GENERATION_AVAILABLE = True
+except ImportError:
+    PDF_GENERATION_AVAILABLE = False
+    print("⚠️ PDF generation not available. Install ReportLab with: pip install reportlab")
+
+@app.get("/api/v1/scan/{scan_id}/pdfs")
+async def generate_scan_pdfs(scan_id: str):
+    """Generate individual PDF documents for each gate in the scan"""
+    if not PDF_GENERATION_AVAILABLE:
+        raise HTTPException(
+            status_code=501, 
+            detail="PDF generation not available. Install ReportLab with: pip install reportlab"
+        )
+    
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    try:
+        # Generate PDFs from the scan results
+        pdf_files = generate_gate_pdfs_from_scan_id(scan_id, "./reports")
+        
+        if not pdf_files:
+            raise HTTPException(status_code=500, detail="Failed to generate PDF files")
+        
+        # Return information about generated files
+        pdf_info = []
+        for pdf_path in pdf_files:
+            filename = os.path.basename(pdf_path)
+            file_size = os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0
+            
+            # Determine file type and gate info from filename
+            if filename.startswith("SUMMARY_"):
+                file_type = "summary"
+                gate_name = "All Gates Summary"
+                gate_number = None
+            elif filename.startswith("Gate_"):
+                # Parse: Gate_{number}_{gate_name}_{scan_id}.pdf
+                parts = filename.split("_", 3)
+                file_type = "individual_gate"
+                gate_number = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+                gate_name = parts[2] if len(parts) > 2 else "unknown"
+            else:
+                # Legacy format for backwards compatibility
+                parts = filename.split("_", 2)
+                file_type = "individual_gate"
+                gate_number = None
+                gate_name = parts[1] if len(parts) > 1 else "unknown"
+            
+            pdf_info.append({
+                "filename": filename,
+                "filepath": pdf_path,
+                "file_size": file_size,
+                "type": file_type,
+                "gate_name": gate_name,
+                "gate_number": gate_number,
+                "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
+            })
+        
+        # Sort by gate number for better organization
+        pdf_info.sort(key=lambda x: (x["type"] != "individual_gate", x.get("gate_number", 999)))
+        
+        return {
+            "scan_id": scan_id,
+            "total_files": len(pdf_files),
+            "individual_gates": len([p for p in pdf_info if p["type"] == "individual_gate"]),
+            "pdf_files": pdf_info,
+            "message": f"Generated {len(pdf_files)} individual gate PDF files for JIRA upload"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+@app.get("/api/v1/scan/{scan_id}/pdf/{filename}")
+async def download_pdf_file(scan_id: str, filename: str):
+    """Download a specific PDF file"""
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    # Construct file path
+    pdf_dir = os.path.join("./reports/pdfs", scan_id)
+    file_path = os.path.join(pdf_dir, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    
+    # Security check: ensure filename is safe
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    try:
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/pdf"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to serve PDF: {str(e)}")
+
+@app.post("/api/v1/scan/{scan_id}/generate-jira-pdfs")
+async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
+    """Generate PDFs specifically formatted for JIRA upload with optional filtering"""
+    if not PDF_GENERATION_AVAILABLE:
+        raise HTTPException(
+            status_code=501, 
+            detail="PDF generation not available. Install ReportLab with: pip install reportlab"
+        )
+    
+    if scan_id not in scan_results:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    
+    try:
+        # Get scan results directly from the scan_results structure
+        result_data = scan_results[scan_id]
+        
+        # Check if scan is completed
+        if result_data.get("status") != "completed":
+            raise HTTPException(status_code=400, detail="Scan not completed yet")
+        
+        # Extract gate results
+        gate_results = result_data.get("gate_results", [])
+        if not gate_results:
+            # Try to get from JSON report if available
+            json_path = result_data.get("json_report_path")
+            if json_path and os.path.exists(json_path):
+                try:
+                    import json
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        json_data = json.load(f)
+                        gate_results = json_data.get("gate_results", [])
+                except Exception as e:
+                    print(f"Error reading JSON report for PDF generation: {e}")
+        
+        if not gate_results:
+            raise HTTPException(status_code=404, detail="No gate results found for PDF generation")
+        
+        # Apply filters if requested
+        if request:
+            status_filter = request.get("status_filter", [])  # e.g., ["FAIL", "WARNING"]
+            category_filter = request.get("category_filter", [])  # e.g., ["Security", "Performance"]
+            gate_numbers = request.get("gate_numbers", [])  # e.g., [1, 3, 5] - specific gate numbers
+            gate_names = request.get("gate_names", [])  # e.g., ["AVOID_LOGGING_SECRETS", "RETRY_LOGIC"]
+            
+            if status_filter:
+                gate_results = [g for g in gate_results if g.get("status") in status_filter]
+            
+            if category_filter:
+                gate_results = [g for g in gate_results if g.get("category") in category_filter]
+            
+            if gate_numbers:
+                # Filter by specific gate numbers (1-based)
+                filtered_results = []
+                for gate_num in gate_numbers:
+                    if 1 <= gate_num <= len(gate_results):
+                        filtered_results.append(gate_results[gate_num - 1])
+                gate_results = filtered_results
+            
+            if gate_names:
+                gate_results = [g for g in gate_results if g.get("gate") in gate_names]
+        
+        # Prepare scan results for PDF generation
+        scan_data = {
+            "scan_id": scan_id,
+            "repository_url": result_data["request"].get("repository_url", "unknown"),
+            "branch": result_data["request"].get("branch", "unknown"),
+            "scan_timestamp_formatted": result_data.get("completed_at", result_data.get("created_at", "unknown")),
+            "overall_score": result_data.get("overall_score", 0),
+            "gate_results": gate_results
+        }
+        
+        # Generate PDFs
+        pdf_generator = CodeGatesPDFGenerator()
+        pdf_dir = os.path.join("./reports/pdfs", scan_id)
+        
+        # Generate individual gate PDFs
+        pdf_files = pdf_generator.generate_individual_gate_pdfs(scan_data, pdf_dir)
+        
+        # Generate summary PDF
+        summary_pdf = pdf_generator.generate_summary_pdf(scan_data, pdf_dir)
+        if summary_pdf:
+            pdf_files.append(summary_pdf)
+        
+        # Organize by gate number and status for JIRA upload
+        organized_files = {
+            "individual_gates": [],
+            "summary": []
+        }
+        
+        status_counts = {"FAIL": 0, "WARNING": 0, "PASS": 0, "NOT_APPLICABLE": 0}
+        
+        for pdf_path in pdf_files:
+            filename = os.path.basename(pdf_path)
+            file_size = os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0
+            
+            if filename.startswith("SUMMARY_"):
+                organized_files["summary"].append({
+                    "filename": filename,
+                    "filepath": pdf_path,
+                    "file_size": file_size,
+                    "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
+                })
+            elif filename.startswith("Gate_"):
+                # Parse gate number and find corresponding gate data
+                parts = filename.split("_", 3)
+                gate_number = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+                
+                # Find gate data to get status
+                gate_data = None
+                if gate_number and gate_number <= len(gate_results):
+                    gate_data = gate_results[gate_number - 1]
+                
+                gate_status = gate_data.get("status", "UNKNOWN") if gate_data else "UNKNOWN"
+                gate_name = gate_data.get("gate", parts[2] if len(parts) > 2 else "unknown") if gate_data else (parts[2] if len(parts) > 2 else "unknown")
+                gate_display_name = gate_data.get("display_name", gate_name) if gate_data else gate_name
+                
+                if gate_status in status_counts:
+                    status_counts[gate_status] += 1
+                
+                organized_files["individual_gates"].append({
+                    "filename": filename,
+                    "filepath": pdf_path,
+                    "file_size": file_size,
+                    "gate_number": gate_number,
+                    "gate_name": gate_name,
+                    "gate_display_name": gate_display_name,
+                    "status": gate_status,
+                    "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
+                })
+        
+        # Sort individual gates by gate number
+        organized_files["individual_gates"].sort(key=lambda x: x.get("gate_number", 999))
+        
+        return {
+            "scan_id": scan_id,
+            "total_files": len(pdf_files),
+            "individual_gates_count": len(organized_files["individual_gates"]),
+            "organized_files": organized_files,
+            "status_summary": status_counts,
+            "jira_upload_instructions": {
+                "individual_gates": f"Upload {len(organized_files['individual_gates'])} individual gate PDFs as separate JIRA tickets",
+                "failed_gates": f"{status_counts['FAIL']} FAIL gates - create as Bug tickets",
+                "warning_gates": f"{status_counts['WARNING']} WARNING gates - create as Task tickets",
+                "passed_gates": f"{status_counts['PASS']} PASS gates - attach for reference",
+                "not_applicable_gates": f"{status_counts['NOT_APPLICABLE']} NOT_APPLICABLE gates - skip or attach for documentation",
+                "summary": "Upload SUMMARY PDF as overall scan report",
+                "recommendation": "Create individual JIRA tickets for each gate PDF. Use gate number and name for ticket titles."
+            },
+            "message": f"Generated {len(pdf_files)} PDFs organized for individual JIRA ticket upload"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"JIRA PDF generation failed: {str(e)}")
 
 
 if __name__ == "__main__":
