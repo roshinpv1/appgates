@@ -18,6 +18,30 @@ import subprocess
 import signal
 import threading
 from contextlib import contextmanager
+from datetime import datetime
+
+def _sort_repositories_by_priority(repositories: list) -> list:
+    """
+    Sort repositories by private status first, then by updated date
+    Handles string dates safely
+    """
+    def sort_key(repo):
+        # Private repos come first (False < True, so we negate)
+        is_private = repo.get('private', False)
+        
+        # Handle updated_at date - provide fallback for missing or invalid dates
+        updated_at = repo.get('updated_at', '')
+        if not updated_at:
+            updated_at = '1970-01-01T00:00:00Z'  # Very old date as fallback
+        
+        # Return tuple: (private_priority, updated_date)
+        # We want private repos first, so we use 'not is_private'
+        # We want recent dates first, so we'll reverse the sort
+        return (not is_private, updated_at)
+    
+    # Sort with reverse=True to get recent dates first
+    repositories.sort(key=sort_key, reverse=True)
+    return repositories
 
 # Configuration for git operation timeouts
 GIT_CLONE_TIMEOUT = int(os.getenv("CODEGATES_GIT_CLONE_TIMEOUT", "300"))  # 5 minutes default
@@ -710,7 +734,7 @@ class EnhancedGitIntegration:
                             break
             
             # Sort results: private first, then by updated date
-            repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
+            _sort_repositories_by_priority(repositories)
             return repositories[:limit]
             
         elif git_endpoint in ["github.abc.com", "github.XYXY.com"]:
@@ -740,7 +764,7 @@ class EnhancedGitIntegration:
                             break
             
             # Sort results: private first, then by updated date
-            repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
+            _sort_repositories_by_priority(repositories)
             return repositories[:limit]
             
         elif git_endpoint == "gitlab.com":
@@ -952,7 +976,7 @@ class EnhancedGitIntegration:
             
             # Final sort if prioritizing private
             if prioritize_private:
-                repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
+                _sort_repositories_by_priority(repositories)
             
             private_count = len([r for r in repositories if r.get('private', False)])
             public_count = len([r for r in repositories if not r.get('private', False)])
@@ -1080,7 +1104,7 @@ class EnhancedGitIntegration:
             
             # Final sort if prioritizing private
             if prioritize_private:
-                repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
+                _sort_repositories_by_priority(repositories)
             
             private_count = len([r for r in repositories if r.get('private', False)])
             public_count = len([r for r in repositories if not r.get('private', False)])
