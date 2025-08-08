@@ -1486,7 +1486,7 @@ class ValidateGatesNode(Node):
                     
                     # Create enhanced result format for ALERTING_ACTIONABLE
                     enhanced_result = {
-                        "gate_name": gate_name,
+                        "gate": gate_name,
                         "score": 100.0 if all_present else 0.0,
                         "status": "PASS" if all_present else "FAIL",
                         "evidence": evidence_str,
@@ -1754,6 +1754,8 @@ class ValidateGatesNode(Node):
                 "score": score,
                 "matches": matches,
                 "pattern_count": len(gate_patterns.get(gate_name, [])),
+                "patterns_used": len(gate_patterns.get(gate_name, [])),  # Add for UI consistency
+                "patterns": gate_patterns.get(gate_name, []),  # Add actual patterns array
                 "files_with_matches": len(set(match["file"] for match in matches)),
                 "details": details,
                 "recommendations": recommendations,
@@ -2633,6 +2635,35 @@ class ValidateGatesNode(Node):
             
             print(f"✅ Generated LLM recommendations for {len(problematic_gates)} gates")
             
+            # Filter gates that can benefit from recommendations (including successful ones for positive insights)
+            gates_for_recommendations = [
+                gate for gate in gate_results 
+                if gate.get("status") in ["FAIL", "WARNING", "PASS"]
+            ]
+            
+            if not gates_for_recommendations:
+                return
+            
+            failed_count = len([g for g in gates_for_recommendations if g.get("status") == "FAIL"])
+            warning_count = len([g for g in gates_for_recommendations if g.get("status") == "WARNING"])  
+            pass_count = len([g for g in gates_for_recommendations if g.get("status") == "PASS"])
+            
+            print(f"🤖 Generating LLM recommendations for {len(gates_for_recommendations)} gates:")
+            print(f"   • {failed_count} failed gates (improvement recommendations)")
+            print(f"   • {warning_count} warning gates (enhancement recommendations)")
+            print(f"   • {pass_count} passed gates (best practice insights)")
+            
+            # Process each gate individually for better recommendations
+            for gate in gates_for_recommendations:
+                recommendation = self._get_gate_recommendation(
+                    gate, shared, llm_url, llm_api_key, llm_model
+                )
+                if recommendation:
+                    gate["llm_recommendation"] = recommendation
+                    gate["recommendation_generated"] = True
+            
+            print(f"✅ Generated LLM recommendations for {len(gates_for_recommendations)} gates")
+            
         except Exception as e:
             print(f"❌ Error generating LLM recommendations: {e}")
     
@@ -2645,6 +2676,38 @@ class ValidateGatesNode(Node):
             gate_status = gate.get("status", "UNKNOWN")
             patterns = gate.get("patterns", [])
             matches = gate.get("matches", [])
+            
+            # Extract additional evaluation details for failed gates
+            evaluation_details = {}
+            if gate_status in ["FAIL", "WARNING"]:
+                evaluation_details = {
+                    "details": gate.get("details", []),
+                    "evidence": gate.get("evidence", ""),
+                    "condition_results": gate.get("condition_results", []),
+                    "score": gate.get("score", 0),
+                    "coverage_score": gate.get("coverage_score", 0),
+                    "criteria_score": gate.get("criteria_score", 0),
+                    "validation_sources": gate.get("validation_sources", {}),
+                    "failed_patterns": [],
+                    "failed_conditions": []
+                }
+                
+                # Extract failed conditions from condition_results
+                for condition in evaluation_details["condition_results"]:
+                    if condition.get("status") in ["FAIL", "WARNING"]:
+                        evaluation_details["failed_conditions"].append({
+                            "name": condition.get("name", "unknown"),
+                            "type": condition.get("type", "unknown"), 
+                            "details": condition.get("details", ""),
+                            "weight": condition.get("weight", 0)
+                        })
+                
+                # Extract patterns that had matches (indicating violations)
+                if matches:
+                    for match in matches:
+                        pattern = match.get("pattern", "")
+                        if pattern and pattern not in evaluation_details["failed_patterns"]:
+                            evaluation_details["failed_patterns"].append(pattern)
             
             # Get repository context
             repo_metadata = shared.get("repository", {}).get("metadata", {})
@@ -2666,13 +2729,14 @@ class ValidateGatesNode(Node):
                 match_examples.append({
                     "file": match.get("file", "unknown"),
                     "line": match.get("line", "unknown"),
-                    "code": match.get("code", match.get("content", ""))[:200]  # Limit code length
+                    "code": match.get("code", match.get("content", ""))[:200],  # Limit code length
+                    "pattern": match.get("pattern", "")  # Include which pattern matched
                 })
             
-            # Create the LLM prompt
+            # Create the LLM prompt with enhanced details for failed gates
             prompt = self._create_recommendation_prompt(
                 gate_name, gate_description, gate_status, pattern_info, 
-                match_examples, primary_languages, repo_url
+                match_examples, primary_languages, repo_url, evaluation_details
             )
             
             # Try to create LLM client from environment first
@@ -2729,52 +2793,79 @@ class ValidateGatesNode(Node):
             return None
     
     def _create_recommendation_prompt(self, gate_name, description, status, patterns, 
-                                    matches, languages, repo_url):
-        """Create a structured prompt for LLM recommendations"""
+                                    matches, languages, repo_url, evaluation_details=None):
+        """Create a structured prompt for LLM recommendations - different approach for PASS vs FAIL gates"""
         
-        prompt = f"""You are a senior security engineer and code quality expert. Provide practical, actionable recommendations for fixing security and code quality issues.
+        if status == "PASS":
+            # Success gate prompt using exact template structure
+            programming_languages = ', '.join(languages) if languages else 'Not detected'
+            patterns_text = '\n'.join([f"{pattern}" for pattern in patterns[:5]]) if patterns else "No patterns available"
+            
+            # Build success condition message
+            success_condition_message = f"Gate {gate_name} PASSED with score {evaluation_details.get('score', 0) if evaluation_details else 0}%"
+            
+            if evaluation_details:
+                if evaluation_details.get("evidence"):
+                    success_condition_message += f"\nEvidence: {evaluation_details['evidence']}"
+                
+                if evaluation_details.get("details"):
+                    success_condition_message += "\nSuccess Details:"
+                    for detail in evaluation_details["details"][:3]:
+                        success_condition_message += f"\n{detail}"
+            
+            prompt = f"""You are a Quality Hardgate Analyst. Analyze the provided logs and deliver insights and recommendations for each successful condition, referencing the names and patterns from the patterns file.
+Identify programming language from Logs file and For each successful condition, include:
+- Insights on the pattern used for scanning (100 words)
+- Relevant libraries (100 words)
+- Required code changes (100 words)
 
-## Security Gate Analysis & Recommendation Request
+Logs:
+{success_condition_message}
 
-**Gate Name:** {gate_name}
-**Status:** {status}
-**Description:** {description}
+Names and Patterns:
+{patterns_text}"""
 
-**Repository Context:**
-- URL: {repo_url}
-- Primary Languages: {', '.join(languages) if languages else 'Not detected'}
+        else:
+            # Failed gate prompt using exact template structure
+            programming_languages = ', '.join(languages) if languages else 'Not detected'
+            patterns_text = '\n'.join([f"{pattern}" for pattern in patterns[:5]]) if patterns else "No patterns available"
+            
+            # Build failed condition message from evaluation details
+            failed_condition_message = f"Gate {gate_name} FAILED with score {evaluation_details.get('score', 0) if evaluation_details else 0}%"
+            
+            if evaluation_details:
+                if evaluation_details.get("evidence"):
+                    failed_condition_message += f"\nEvidence: {evaluation_details['evidence']}"
+                
+                if evaluation_details.get("failed_conditions"):
+                    failed_condition_message += "\nFailed Conditions:"
+                    for condition in evaluation_details["failed_conditions"][:3]:
+                        failed_condition_message += f"\n{condition['name']} ({condition['type']}): {condition.get('details', 'No details')}"
+                
+                if evaluation_details.get("details"):
+                    failed_condition_message += "\nAdditional Details:"
+                    for detail in evaluation_details["details"][:3]:
+                        failed_condition_message += f"\n{detail}"
+            
+            if matches:
+                failed_condition_message += f"\nSecurity Issues Found ({len(matches)} violations):"
+                for i, match in enumerate(matches[:3], 1):
+                    failed_condition_message += f"\nIssue {i}: Found in {match.get('file', 'unknown file')} at line {match.get('line', 'unknown')}"
 
-**Pattern Analysis:**
-The following patterns were used to detect this issue:
-"""
-        
-        for i, pattern in enumerate(patterns[:3], 1):
-            prompt += f"\n{i}. `{pattern}`"
-        
-        if matches:
-            prompt += f"\n\n**Code Matches Found ({len(matches)} examples):**"
-            for i, match in enumerate(matches, 1):
-                prompt += f"\n\n**Match {i}:**"
-                prompt += f"\n- File: {match.get('file', 'unknown')}"
-                prompt += f"\n- Line: {match.get('line', 'unknown')}"
-                prompt += f"\n- Code: ```\n{match.get('code', '')}\n```"
-        
-        prompt += f"""
+            prompt = f"""You are a Quality Hardgate Analyst. Analyze the provided logs and deliver insights and recommendations for each failed condition, referencing the names and patterns from the patterns file.
+Identify programming language from Logs file and For each failed condition, include:
+- Insights on the pattern used for scanning (100 words)
+- Relevant libraries (100 words)
+- Required code changes (100 words)
 
-**Request:**
-Based on the gate description, patterns, and code matches above, please provide:
+Logs:
+{failed_condition_message}
 
-1. **Root Cause Analysis**: What specific security/quality issue does this gate detect?
-2. **Immediate Actions**: 2-3 specific, actionable steps to fix the detected issues
-3. **Best Practices**: Long-term recommendations to prevent this issue
-4. **Code Examples**: If applicable, show a "before/after" code example
-5. **Priority Level**: How critical is fixing this issue (High/Medium/Low)?
-
-Please keep the response practical and focused on actionable solutions for a development team.
-"""
+Names and Patterns:
+{patterns_text}"""
         
         return prompt
-
+    
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
         """Get primary technologies from metadata"""
         language_stats = metadata.get("language_stats", {})
@@ -4554,20 +4645,34 @@ class GenerateReportNode(Node):
         recommendations_html = ""
         # Non-LLM recommendations removed - using only AI recommendations below
 
-        # 6.5. LLM Recommendations (AI-powered)
+        # 6.5. LLM Recommendations (AI-powered) - Now for all gate types
         llm_recommendations_html = ""
         llm_recommendation = gate.get("llm_recommendation")
-        if llm_recommendation and (status == "FAIL" or status == "WARNING"):
+        if llm_recommendation:
+            # Different styling and titles based on gate status
+            if status == "PASS":
+                bg_color = "#d4edda"
+                border_color = "#28a745"
+                text_color = "#28a745"
+                icon = "fa-check-circle"
+                title = "AI Best Practice Insights"
+            else:  # FAIL, WARNING, etc.
+                bg_color = "#e7f3ff"
+                border_color = "#2563eb"
+                text_color = "#2563eb"
+                icon = "fa-robot"
+                title = "AI Recommendations"
+            
             llm_recommendations_html = f'''
-            <div class="details-section" style="background: #e7f3ff; border-left: 4px solid #2563eb; margin-top: 10px;">
-                <div class="details-section-title" style="color: #2563eb;">
-                    <i class="fas fa-robot" style="margin-right: 8px;"></i>AI Recommendations
+            <div class="details-section" style="background: {bg_color}; border-left: 4px solid {border_color}; margin-top: 10px;">
+                <div class="details-section-title" style="color: {text_color};">
+                    <i class="fas {icon}" style="margin-right: 8px;"></i>{title}
                 </div>
                 <div style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; color: #374151;">
                     {llm_recommendation}
                 </div>
                 <div style="margin-top: 8px; font-size: 12px; color: #6b7280; font-style: italic;">
-                    <i class="fas fa-check-circle" style="margin-right: 4px;"></i>
+                    <i class="fas fa-check-circle" style="margin-right: 4px;"></i>Generated by AI Assistant
                 </div>
             </div>'''
 
