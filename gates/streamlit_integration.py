@@ -331,7 +331,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
         <div class="app-header">
             <h1 class="app-title">
                 <i class="fas fa-shield-alt"></i>
-                CodeGates Security Scanner
+                Hard Gates Analyzer
             </h1>
             <p class="text-muted">Enterprise-grade code security analysis with JIRA integration</p>
         </div>
@@ -400,64 +400,6 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                         <div class="form-group mb-3">
                             <label for="githubToken" class="form-label">GitHub Token (Optional)</label>
                             <input type="password" class="form-control" id="githubToken" placeholder="ghp_xxxxxxxxxxxx">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- LLM Configuration Section -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" id="enableLlmRecommendations">
-                            <label class="form-check-label" for="enableLlmRecommendations">
-                                <i class="fas fa-robot me-2"></i>Enable AI-Powered Recommendations for Failed Gates
-                            </label>
-                            <div class="form-text">Get intelligent recommendations from AI to fix security and code quality issues</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="llmConfigSection" class="row" style="display: none;">
-                    <div class="col-md-6">
-                        <div class="form-group mb-3">
-                            <label for="llmUrl" class="form-label">LLM API URL</label>
-                            <input type="text" class="form-control" id="llmUrl" 
-                                   placeholder="https://api.openai.com/v1/chat/completions"
-                                   value="https://api.openai.com/v1/chat/completions">
-                            <div class="form-text">OpenAI API endpoint or custom LLM service URL</div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="form-group mb-3">
-                            <label for="llmApiKey" class="form-label">LLM API Key</label>
-                            <input type="password" class="form-control" id="llmApiKey" placeholder="sk-xxxxxxxxxxxx">
-                            <div class="form-text">API key for authentication with the LLM service</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="llmModelSection" class="row" style="display: none;">
-                    <div class="col-md-6">
-                        <div class="form-group mb-3">
-                            <label for="llmModel" class="form-label">LLM Model</label>
-                            <select class="form-select" id="llmModel">
-                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                <option value="gpt-4">GPT-4</option>
-                                <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="form-group mb-3">
-                            <label class="form-label">AI Recommendation Features</label>
-                            <div class="small text-muted">
-                                • Root cause analysis<br>
-                                • Actionable fix recommendations<br>
-                                • Code examples and best practices<br>
-                                • Priority assessment
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -742,23 +684,9 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             const branch = document.getElementById('branch').value;
             const githubToken = document.getElementById('githubToken').value;
             
-            // Get LLM configuration
-            const enableLlmRecommendations = document.getElementById('enableLlmRecommendations').checked;
-            const llmUrl = document.getElementById('llmUrl').value.trim();
-            const llmApiKey = document.getElementById('llmApiKey').value.trim();
-            const llmModel = document.getElementById('llmModel').value;
-            
             if (!applicationId || !repositoryUrl || !branch) {
                 showAlert('Please fill in all required fields: Application ID, Repository, and Branch', 'warning');
                 return;
-            }
-            
-            // Validate LLM configuration if enabled
-            if (enableLlmRecommendations) {
-                if (!llmUrl || !llmApiKey) {
-                    showAlert('Please provide LLM URL and API Key when AI recommendations are enabled', 'warning');
-                    return;
-                }
             }
             
             const runScanBtn = document.getElementById('runScanBtn');
@@ -771,16 +699,8 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                     branch: branch,
                     github_token: githubToken || null,
                     threshold: 70,
-                    app_id: applicationId,
-                    enable_llm_recommendations: enableLlmRecommendations
+                    app_id: applicationId
                 };
-                
-                // Add LLM configuration if enabled
-                if (enableLlmRecommendations) {
-                    scanRequest.llm_url = llmUrl;
-                    scanRequest.llm_api_key = llmApiKey;
-                    scanRequest.llm_model = llmModel;
-                }
                 
                 const response = await apiCall(`${API_BASE}/scan`, {
                     method: 'POST',
@@ -790,11 +710,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 const data = await response.json();
                 currentScanId = data.scan_id;
                 
-                if (enableLlmRecommendations) {
-                    showAlert('Scan started successfully with AI recommendations enabled!', 'success');
-                } else {
-                    showAlert('Scan started successfully!', 'success');
-                }
+                showAlert('Scan started successfully! AI recommendations will be included automatically.', 'success');
                 
                 // Show progress section
                 document.getElementById('progressSection').classList.remove('hidden');
@@ -1343,29 +1259,11 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('CodeGates Security Scanner initialized');
-            showAlert('Welcome to CodeGates Security Scanner!', 'info');
+            console.log('Hard Gates Analyzer initialized');
+            showAlert('Welcome to Hard Gates Analyzer!', 'info');
             
-            // Add LLM configuration toggle handler
-            setupLlmConfigurationToggle();
         });
         
-        // Setup LLM configuration toggle functionality
-        function setupLlmConfigurationToggle() {
-            const enableLlmCheckbox = document.getElementById('enableLlmRecommendations');
-            const llmConfigSection = document.getElementById('llmConfigSection');
-            const llmModelSection = document.getElementById('llmModelSection');
-            
-            enableLlmCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    llmConfigSection.style.display = 'flex';
-                    llmModelSection.style.display = 'flex';
-                } else {
-                    llmConfigSection.style.display = 'none';
-                    llmModelSection.style.display = 'none';
-                }
-            });
-        }
     ''' + '''</script>
 </body>
 </html>'''
