@@ -404,6 +404,64 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                     </div>
                 </div>
 
+                <!-- LLM Configuration Section -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="enableLlmRecommendations">
+                            <label class="form-check-label" for="enableLlmRecommendations">
+                                <i class="fas fa-robot me-2"></i>Enable AI-Powered Recommendations for Failed Gates
+                            </label>
+                            <div class="form-text">Get intelligent recommendations from AI to fix security and code quality issues</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="llmConfigSection" class="row" style="display: none;">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="llmUrl" class="form-label">LLM API URL</label>
+                            <input type="text" class="form-control" id="llmUrl" 
+                                   placeholder="https://api.openai.com/v1/chat/completions"
+                                   value="https://api.openai.com/v1/chat/completions">
+                            <div class="form-text">OpenAI API endpoint or custom LLM service URL</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="llmApiKey" class="form-label">LLM API Key</label>
+                            <input type="password" class="form-control" id="llmApiKey" placeholder="sk-xxxxxxxxxxxx">
+                            <div class="form-text">API key for authentication with the LLM service</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="llmModelSection" class="row" style="display: none;">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="llmModel" class="form-label">LLM Model</label>
+                            <select class="form-select" id="llmModel">
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label class="form-label">AI Recommendation Features</label>
+                            <div class="small text-muted">
+                                • Root cause analysis<br>
+                                • Actionable fix recommendations<br>
+                                • Code examples and best practices<br>
+                                • Priority assessment
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex gap-3 mt-4">
                     <button type="button" class="btn btn-primary" id="runScanBtn" onclick="startScan()">
                         <i class="fas fa-play me-2"></i>Run Security Scan
@@ -684,9 +742,23 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             const branch = document.getElementById('branch').value;
             const githubToken = document.getElementById('githubToken').value;
             
+            // Get LLM configuration
+            const enableLlmRecommendations = document.getElementById('enableLlmRecommendations').checked;
+            const llmUrl = document.getElementById('llmUrl').value.trim();
+            const llmApiKey = document.getElementById('llmApiKey').value.trim();
+            const llmModel = document.getElementById('llmModel').value;
+            
             if (!applicationId || !repositoryUrl || !branch) {
                 showAlert('Please fill in all required fields: Application ID, Repository, and Branch', 'warning');
                 return;
+            }
+            
+            // Validate LLM configuration if enabled
+            if (enableLlmRecommendations) {
+                if (!llmUrl || !llmApiKey) {
+                    showAlert('Please provide LLM URL and API Key when AI recommendations are enabled', 'warning');
+                    return;
+                }
             }
             
             const runScanBtn = document.getElementById('runScanBtn');
@@ -694,21 +766,35 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             runScanBtn.innerHTML = '<span class="loading-indicator me-2"></span>Starting scan...';
             
             try {
+                const scanRequest = {
+                    repository_url: repositoryUrl,
+                    branch: branch,
+                    github_token: githubToken || null,
+                    threshold: 70,
+                    app_id: applicationId,
+                    enable_llm_recommendations: enableLlmRecommendations
+                };
+                
+                // Add LLM configuration if enabled
+                if (enableLlmRecommendations) {
+                    scanRequest.llm_url = llmUrl;
+                    scanRequest.llm_api_key = llmApiKey;
+                    scanRequest.llm_model = llmModel;
+                }
+                
                 const response = await apiCall(`${API_BASE}/scan`, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        repository_url: repositoryUrl,
-                        branch: branch,
-                        github_token: githubToken || null,
-                        threshold: 70,
-                        app_id: applicationId
-                    })
+                    body: JSON.stringify(scanRequest)
                 });
                 
                 const data = await response.json();
                 currentScanId = data.scan_id;
                 
-                showAlert('Scan started successfully!', 'success');
+                if (enableLlmRecommendations) {
+                    showAlert('Scan started successfully with AI recommendations enabled!', 'success');
+                } else {
+                    showAlert('Scan started successfully!', 'success');
+                }
                 
                 // Show progress section
                 document.getElementById('progressSection').classList.remove('hidden');
@@ -971,6 +1057,19 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 </div>
             ` : '<div class="alert alert-success mt-3">No issues found for this gate</div>';
             
+            // Add LLM recommendation section for failed/warning gates
+            const llmRecommendationHtml = (status === 'FAIL' || status === 'WARNING') && gate.llm_recommendation ? `
+                <div class="mt-3 p-3 bg-info rounded" style="background-color: #e7f3ff !important;">
+                    <h6><i class="fas fa-robot me-2"></i>AI Recommendations</h6>
+                    <div class="llm-recommendation" style="white-space: pre-wrap; line-height: 1.6;">
+                        ${gate.llm_recommendation}
+                    </div>
+                    ${gate.recommendation_generated ? 
+                        '<small class="text-muted"><i class="fas fa-check-circle"></i></small>' : ''
+                    }
+                </div>
+            ` : '';
+            
             return `
                 <div class="gate-card">
                     <div class="gate-header">
@@ -1008,6 +1107,8 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                         </div>
                         
                         ${matchesHtml}
+                        
+                        ${llmRecommendationHtml}
                         
                         <div class="mt-3 p-3 bg-light rounded">
                             <h6>JIRA Integration</h6>
@@ -1244,7 +1345,27 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
         document.addEventListener('DOMContentLoaded', function() {
             console.log('CodeGates Security Scanner initialized');
             showAlert('Welcome to CodeGates Security Scanner!', 'info');
+            
+            // Add LLM configuration toggle handler
+            setupLlmConfigurationToggle();
         });
+        
+        // Setup LLM configuration toggle functionality
+        function setupLlmConfigurationToggle() {
+            const enableLlmCheckbox = document.getElementById('enableLlmRecommendations');
+            const llmConfigSection = document.getElementById('llmConfigSection');
+            const llmModelSection = document.getElementById('llmModelSection');
+            
+            enableLlmCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    llmConfigSection.style.display = 'flex';
+                    llmModelSection.style.display = 'flex';
+                } else {
+                    llmConfigSection.style.display = 'none';
+                    llmModelSection.style.display = 'none';
+                }
+            });
+        }
     ''' + '''</script>
 </body>
 </html>'''

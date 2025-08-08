@@ -92,8 +92,10 @@ class ScanRequest(BaseModel):
     max_files: int = Field(default=1000, description="Maximum files to process")
     app_id: Optional[str] = Field(None, description="Application ID for categorization")
     splunk_query: Optional[str] = Field(None, description="Optional Splunk query to execute during scan")
-    llm_url: Optional[str] = Field(None, description="Custom LLM service URL")
-    llm_api_key: Optional[str] = Field(None, description="LLM API key")
+    llm_url: Optional[str] = Field(None, description="LLM service URL for AI recommendations (e.g., https://api.openai.com/v1/chat/completions)")
+    llm_api_key: Optional[str] = Field(None, description="LLM API key for authentication")
+    llm_model: Optional[str] = Field(default="gpt-3.5-turbo", description="LLM model to use for recommendations")
+    enable_llm_recommendations: bool = Field(default=True, description="Enable AI-powered recommendations for failed gates")
 
 class GitSearchRequest(BaseModel):
     keywords: List[str] = Field(..., description="Keywords to search for")
@@ -958,7 +960,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "report_format": request.report_format,
                 "verbose": False,
                 "app_id": app_id,
-                "splunk_query": request.splunk_query
+                "splunk_query": request.splunk_query,
+                "enable_llm_recommendations": request.enable_llm_recommendations
             },
             "server": {
                 "url": server_url,
@@ -974,7 +977,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             },
             "llm_config": {
                 "url": request.llm_url,
-                "api_key": request.llm_api_key
+                "api_key": request.llm_api_key,
+                "model": request.llm_model
             },
             "repository": {
                 "local_path": None,

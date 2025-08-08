@@ -1742,7 +1742,8 @@ class ValidateGatesNode(Node):
             
             # Generate detailed information
             details = self._generate_gate_details(gate, matches)
-            recommendations = self._generate_gate_recommendations(gate, matches, score)
+            # Removed non-LLM recommendations - only using AI recommendations now
+            recommendations = []  # Empty - replaced by LLM recommendations in post-processing
             
             # Create result entry
             gate_result = {
@@ -2375,7 +2376,8 @@ class ValidateGatesNode(Node):
         
         # Generate details and recommendations
         details = self._generate_gate_details(gate, all_matches)
-        recommendations = self._generate_gate_recommendations(gate, all_matches, score)
+        # Removed non-LLM recommendations - only using AI recommendations now
+        recommendations = []  # Empty - replaced by LLM recommendations in post-processing
         
         # Calculate combined confidence
         combined_confidence = self._calculate_combined_confidence(
@@ -2550,31 +2552,228 @@ class ValidateGatesNode(Node):
         applicability_summary = prep_res.get("applicability_summary", {})
         shared["validation"]["applicability_summary"] = applicability_summary
         
-        # Calculate overall score using the simple compliance formula
-        # (Gates Met + Gates Not Applicable) / Total Gates × 100
-        total_gates = len(exec_res)
-        passed_gates = len([r for r in exec_res if r.get("status") == "PASS"])
-        not_applicable_gates = len([r for r in exec_res if r.get("status") == "NOT_APPLICABLE"])
+        gate_results = exec_res
         
+        if not gate_results:
+            shared["validation"]["overall_score"] = 0.0
+            return "default"
+        
+        # Calculate counts
+        passed = len([g for g in gate_results if g.get("status") == "PASS"])
+        failed = len([g for g in gate_results if g.get("status") == "FAIL"])
+        warnings = len([g for g in gate_results if g.get("status") == "WARNING"])
+        not_applicable = len([g for g in gate_results if g.get("status") == "NOT_APPLICABLE"])
+        
+        # Calculate overall score using the new formula
+        total_gates = len(gate_results)
         if total_gates > 0:
-            overall_score = ((passed_gates + not_applicable_gates) / total_gates) * 100
+            # (Gates Met + Gates Not Applicable) / Total Gates × 100
+            overall_score = ((passed + not_applicable) / total_gates) * 100
         else:
             overall_score = 0.0
         
         shared["validation"]["overall_score"] = overall_score
         
-        # Count status distribution for summary
-        failed = len([r for r in exec_res if r.get("status") == "FAIL"])
-        warnings = len([r for r in exec_res if r.get("status") == "WARNING"])
-        
         print(f"✅ Gate validation complete: {overall_score:.1f}% overall score")
         print(f"   📊 Total gates: {total_gates}")
-        print(f"   ✅ Passed: {passed_gates}")
+        print(f"   ✅ Passed: {passed}")
         print(f"   ❌ Failed: {failed}")
         print(f"   ⚠️ Warnings: {warnings}")
-        print(f"   ➖ Not Applicable: {not_applicable_gates}")
+        print(f"   ➖ Not Applicable: {not_applicable}")
         
+        # Generate LLM recommendations for failed gates
+        if failed > 0 or warnings > 0:
+            self._generate_llm_recommendations(shared, gate_results)
+            
         return "default"
+    
+    def _generate_llm_recommendations(self, shared, gate_results):
+        """Generate LLM-powered recommendations for failed and warning gates"""
+        try:
+            # Check if LLM recommendations are enabled
+            request_config = shared.get("request", {})
+            if not request_config.get("enable_llm_recommendations", True):
+                print("ℹ️ LLM recommendations disabled, skipping...")
+                return
+                
+            # Check if LLM configuration is available
+            llm_config = shared.get("llm_config", {})
+            llm_url = llm_config.get("url")
+            llm_api_key = llm_config.get("api_key")
+            llm_model = llm_config.get("model", "gpt-3.5-turbo")
+            
+            if not llm_url and not llm_api_key:
+                print("⚠️ LLM configuration not available, trying environment...")
+                # Try to use environment-based LLM client
+                from utils.llm_client import create_llm_client_from_env
+                llm_client = create_llm_client_from_env()
+                if not llm_client:
+                    print("⚠️ No LLM client available, skipping recommendations")
+                    return
+            
+            # Filter failed and warning gates
+            problematic_gates = [
+                gate for gate in gate_results 
+                if gate.get("status") in ["FAIL", "WARNING"]
+            ]
+            
+            if not problematic_gates:
+                return
+            
+            print(f"🤖 Generating LLM recommendations for {len(problematic_gates)} problematic gates...")
+            
+            # Process each gate individually for better recommendations
+            for gate in problematic_gates:
+                recommendation = self._get_gate_recommendation(
+                    gate, shared, llm_url, llm_api_key, llm_model
+                )
+                if recommendation:
+                    gate["llm_recommendation"] = recommendation
+                    gate["recommendation_generated"] = True
+            
+            print(f"✅ Generated LLM recommendations for {len(problematic_gates)} gates")
+            
+        except Exception as e:
+            print(f"❌ Error generating LLM recommendations: {e}")
+    
+    def _get_gate_recommendation(self, gate, shared, llm_url, llm_api_key, llm_model):
+        """Get LLM recommendation for a specific gate using the existing LLM client"""
+        try:
+            # Prepare context for the LLM
+            gate_name = gate.get("gate", "Unknown Gate")
+            gate_description = gate.get("description", "No description available")
+            gate_status = gate.get("status", "UNKNOWN")
+            patterns = gate.get("patterns", [])
+            matches = gate.get("matches", [])
+            
+            # Get repository context
+            repo_metadata = shared.get("repository", {}).get("metadata", {})
+            repo_url = shared.get("request", {}).get("repository_url", "Unknown")
+            primary_languages = repo_metadata.get("primary_languages", [])
+            
+            # Prepare pattern information
+            pattern_info = []
+            if isinstance(patterns, list):
+                pattern_info = patterns[:3]  # Limit to first 3 patterns
+            elif isinstance(patterns, dict):
+                for pattern_type, pattern_list in patterns.items():
+                    if isinstance(pattern_list, list):
+                        pattern_info.extend(pattern_list[:2])  # Limit patterns
+            
+            # Prepare match examples
+            match_examples = []
+            for match in matches[:3]:  # Limit to first 3 matches
+                match_examples.append({
+                    "file": match.get("file", "unknown"),
+                    "line": match.get("line", "unknown"),
+                    "code": match.get("code", match.get("content", ""))[:200]  # Limit code length
+                })
+            
+            # Create the LLM prompt
+            prompt = self._create_recommendation_prompt(
+                gate_name, gate_description, gate_status, pattern_info, 
+                match_examples, primary_languages, repo_url
+            )
+            
+            # Try to create LLM client from environment first
+            llm_client = create_llm_client_from_env()
+            
+            # If no client from env, try to create from request config
+            if not llm_client and llm_url:
+                try:
+                    # Determine provider based on URL
+                    if "apigee" in str(llm_url):
+                        provider = LLMProvider.APIGEE
+                    elif "enterprise" in str(llm_url):
+                        provider = LLMProvider.ENTERPRISE
+                    elif "openai.com" in str(llm_url):
+                        provider = LLMProvider.OPENAI
+                    elif "anthropic.com" in str(llm_url):
+                        provider = LLMProvider.ANTHROPIC
+                    elif "gemini" in str(llm_url) or "google" in str(llm_url):
+                        provider = LLMProvider.GEMINI
+                    else:
+                        provider = LLMProvider.LOCAL  # Default for custom endpoints
+                    
+                    config = LLMConfig(
+                        provider=provider,
+                        model=llm_model,
+                        api_key=llm_api_key,
+                        base_url=llm_url,
+                        temperature=0.3,
+                        max_tokens=500,
+                        timeout=30
+                    )
+                    
+                    llm_client = LLMClient(config)
+                    
+                except Exception as e:
+                    print(f"❌ Failed to create LLM client for recommendations: {e}")
+                    return None
+            
+            # Use the LLM client to get recommendations
+            if llm_client and llm_client.is_available():
+                try:
+                    print(f"🤖 Getting recommendation for {gate_name} using {llm_client.config.provider.value}")
+                    recommendation = llm_client.call_llm(prompt)
+                    return recommendation.strip()
+                except Exception as e:
+                    print(f"❌ LLM client error for {gate_name}: {e}")
+                    return None
+            else:
+                print(f"⚠️ No available LLM client for recommendations")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Error getting LLM recommendation for {gate_name}: {e}")
+            return None
+    
+    def _create_recommendation_prompt(self, gate_name, description, status, patterns, 
+                                    matches, languages, repo_url):
+        """Create a structured prompt for LLM recommendations"""
+        
+        prompt = f"""You are a senior security engineer and code quality expert. Provide practical, actionable recommendations for fixing security and code quality issues.
+
+## Security Gate Analysis & Recommendation Request
+
+**Gate Name:** {gate_name}
+**Status:** {status}
+**Description:** {description}
+
+**Repository Context:**
+- URL: {repo_url}
+- Primary Languages: {', '.join(languages) if languages else 'Not detected'}
+
+**Pattern Analysis:**
+The following patterns were used to detect this issue:
+"""
+        
+        for i, pattern in enumerate(patterns[:3], 1):
+            prompt += f"\n{i}. `{pattern}`"
+        
+        if matches:
+            prompt += f"\n\n**Code Matches Found ({len(matches)} examples):**"
+            for i, match in enumerate(matches, 1):
+                prompt += f"\n\n**Match {i}:**"
+                prompt += f"\n- File: {match.get('file', 'unknown')}"
+                prompt += f"\n- Line: {match.get('line', 'unknown')}"
+                prompt += f"\n- Code: ```\n{match.get('code', '')}\n```"
+        
+        prompt += f"""
+
+**Request:**
+Based on the gate description, patterns, and code matches above, please provide:
+
+1. **Root Cause Analysis**: What specific security/quality issue does this gate detect?
+2. **Immediate Actions**: 2-3 specific, actionable steps to fix the detected issues
+3. **Best Practices**: Long-term recommendations to prevent this issue
+4. **Code Examples**: If applicable, show a "before/after" code example
+5. **Priority Level**: How critical is fixing this issue (High/Medium/Low)?
+
+Please keep the response practical and focused on actionable solutions for a development team.
+"""
+        
+        return prompt
 
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
         """Get primary technologies from metadata"""
@@ -4350,15 +4549,27 @@ class GenerateReportNode(Node):
                 </ul>
             </div>'''
 
-        # 6. Recommendations (actionable)
+        # 6. Recommendations (actionable) - REMOVED non-LLM recommendations
+        # Only keeping LLM-powered recommendations now
         recommendations_html = ""
-        if recommendations:
-            filtered_recommendations = [
-                rec for rec in recommendations
-                if 'Achieved:' not in rec and 'Exceeds expectations' not in rec and 'coverage' not in rec.lower()
-            ]
-            if filtered_recommendations:
-                recommendations_html = f'''<div class=\"details-section\"><div class=\"details-section-title\">Recommendations:</div><ul>{''.join([f'<li>{rec}</li>' for rec in filtered_recommendations[:5]])}</ul></div>'''
+        # Non-LLM recommendations removed - using only AI recommendations below
+
+        # 6.5. LLM Recommendations (AI-powered)
+        llm_recommendations_html = ""
+        llm_recommendation = gate.get("llm_recommendation")
+        if llm_recommendation and (status == "FAIL" or status == "WARNING"):
+            llm_recommendations_html = f'''
+            <div class="details-section" style="background: #e7f3ff; border-left: 4px solid #2563eb; margin-top: 10px;">
+                <div class="details-section-title" style="color: #2563eb;">
+                    <i class="fas fa-robot" style="margin-right: 8px;"></i>AI Recommendations
+                </div>
+                <div style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; color: #374151;">
+                    {llm_recommendation}
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; color: #6b7280; font-style: italic;">
+                    <i class="fas fa-check-circle" style="margin-right: 4px;"></i>
+                </div>
+            </div>'''
 
         # 7. Gate info (category, priority, description)
         gate_info_html = f'''
@@ -4371,13 +4582,13 @@ class GenerateReportNode(Node):
             </ul>
         </div>'''
 
-        # Compose all sections in a logical order, but omit coverage_html and all 0-pattern/match sections
+        # Compose all sections in a logical order, including LLM recommendations
         return (
             summary_html +
             sample_matches_html +
             splunk_html +
             matched_patterns_html +
-            recommendations_html +
+            llm_recommendations_html +
             gate_info_html
         )
 

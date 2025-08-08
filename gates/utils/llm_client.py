@@ -343,20 +343,24 @@ class LLMClient:
         return response.text
     
     def _call_ollama(self, prompt: str) -> str:
-        """Call Ollama API"""
+        """Call Ollama API using native generate endpoint"""
         if not OLLAMA_AVAILABLE:
             raise ImportError("Ollama library not available. Install with: pip install ollama")
         
         if self.config.base_url:
             ollama.base_url = self.config.base_url
         
-        response = ollama.chat(
+        # Use Ollama's native generate API instead of chat
+        response = ollama.generate(
             model=self.config.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.config.temperature
+            prompt=prompt,
+            options={
+                "temperature": self.config.temperature,
+                "num_predict": self.config.max_tokens
+            }
         )
         
-        return response.message.content
+        return response['response']
     
     def _call_local(self, prompt: str) -> str:
         """Call local LLM API"""
@@ -511,7 +515,10 @@ class LLMClient:
 def create_llm_client_from_env() -> Optional[LLMClient]:
     """Create LLM client from environment variables"""
     
-    # Check providers in priority order
+    # Check for custom provider priority
+    preferred_provider = os.getenv("CODEGATES_DEFAULT_LLM_PROVIDER", "").upper()
+    
+    # Default priority order
     providers = [
         (LLMProvider.OPENAI, "OPENAI_API_KEY"),
         (LLMProvider.ANTHROPIC, "ANTHROPIC_API_KEY"),
@@ -521,6 +528,17 @@ def create_llm_client_from_env() -> Optional[LLMClient]:
         (LLMProvider.LOCAL, "LOCAL_LLM_URL"),
         (LLMProvider.OLLAMA, "OLLAMA_HOST")
     ]
+    
+    # If preferred provider is set, move it to the front
+    if preferred_provider:
+        provider_map = {p.value.upper(): p for p in LLMProvider}
+        if preferred_provider in provider_map:
+            preferred_enum = provider_map[preferred_provider]
+            # Find and move preferred provider to front
+            for i, (provider, env_var) in enumerate(providers):
+                if provider == preferred_enum:
+                    providers.insert(0, providers.pop(i))
+                    break
     
     for provider, env_var in providers:
         if os.getenv(env_var):
@@ -576,7 +594,7 @@ def _create_config_for_provider(provider: LLMProvider) -> LLMConfig:
             api_key=os.getenv("LOCAL_LLM_API_KEY", "not-needed"),
             base_url=os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1"),
             temperature=float(os.getenv("LOCAL_LLM_TEMPERATURE", "0.1")),
-            max_tokens=int(os.getenv("LOCAL_LLM_MAX_TOKENS", "4000"))
+            max_tokens=int(os.getenv("LOCAL_LLM_MAX_TOKENS", "40000"))
         )
     
     elif provider == LLMProvider.OLLAMA:

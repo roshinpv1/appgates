@@ -107,7 +107,7 @@ def upload_report_to_jira(jira_url, jira_user, jira_token, app_id, report_path, 
         story_result = {"story": story}
         try:
             # 1. Add comment
-            comment_url = f"{jira_url.rstrip('/')}/rest/api/2/issue/{story}/comment"
+            comment_url = f"{jira_url.rstrip('/')}/rest/api/3/issue/{story}/comment"
             comment_payload = {"body": summary}
             comment_resp = requests.post(
                 comment_url,
@@ -125,7 +125,7 @@ def upload_report_to_jira(jira_url, jira_user, jira_token, app_id, report_path, 
                 print(f"❌ Failed to add comment to JIRA ticket {story}: {story_result['comment']}")
             
             # 2. Attach report
-            attach_url = f"{jira_url.rstrip('/')}/rest/api/2/issue/{story}/attachments"
+            attach_url = f"{jira_url.rstrip('/')}/rest/api/3/issue/{story}/attachments"
             attach_headers = {"X-Atlassian-Token": "no-check"}
             attach_files = {'file': (filename, report_data, 'application/octet-stream')}
             attach_resp = requests.post(
