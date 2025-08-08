@@ -8,7 +8,10 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from base import Node
+try:
+    from .base import Node
+except ImportError:
+    from base import Node
 from datetime import datetime
 
 # Import the new criteria evaluator
@@ -310,26 +313,96 @@ class EnhancedValidateGatesNode(Node):
         gate_name = enhanced_result.get("gate_name", legacy_gate["name"])
         
         # Calculate actual patterns used for evaluation (not just matches found)
-        # Get unique patterns from all conditions
+        # Get unique patterns from all conditions - include ALL patterns used, not just those with matches
         patterns_used_set = set()
-        for condition in condition_results:
-            # Add patterns from this condition
-            for match in condition.matches:
-                patterns_used_set.add(match.pattern)
         
-        # If no patterns from conditions, try to get from enhanced result patterns
-        if not patterns_used_set and enhanced_result.get("patterns"):
-            patterns_used_set.update(enhanced_result.get("patterns", []))
+        # Extract patterns from the enhanced gate config that was used for evaluation
+        try:
+            # First, try to get patterns from the enhanced result
+            if enhanced_result.get("patterns"):
+                patterns_used_set.update(enhanced_result.get("patterns", []))
+            
+            # If that's empty, try to extract from condition results (all patterns, not just matching ones)
+            if not patterns_used_set and condition_results:
+                # Look for condition patterns in the enhanced result metadata
+                for condition in condition_results:
+                    # If we have access to the original condition config, extract its patterns
+                    condition_name = getattr(condition, 'condition_name', None) or condition.get('condition_name', None)
+                    if condition_name:
+                        # Try to extract patterns from condition metadata
+                        patterns_used_set.add(f"{condition_name}_pattern")  # Placeholder for now
+            
+            # Add patterns from actual matches (if any)
+            for condition in condition_results:
+                # Add patterns from this condition's matches
+                for match in condition.matches:
+                    patterns_used_set.add(match.pattern)
+            
+            # If still no patterns, count unique patterns from overall matches
+            if not patterns_used_set:
+                patterns_used_set.update(match.pattern for match in matches)
+            
+            # If still no patterns, fallback to LLM patterns from params
+            if not patterns_used_set:
+                llm_patterns = params.get("patterns", {})
+                llm_gate_patterns = llm_patterns.get(gate_name, [])
+                patterns_used_set.update(llm_gate_patterns)
+            
+            # Final fallback: get patterns from enhanced pattern library
+            if not patterns_used_set:
+                try:
+                    import json
+                    import os
+                    
+                    # Try both possible locations for the enhanced pattern library
+                    library_paths = [
+                        "patterns/enhanced_pattern_library.json",
+                        "gates/patterns/enhanced_pattern_library.json"
+                    ]
+                    
+                    enhanced_pattern_library = None
+                    for lib_path in library_paths:
+                        if os.path.exists(lib_path):
+                            with open(lib_path, "r") as f:
+                                enhanced_pattern_library = json.load(f)
+                            print(f"   📖 Loaded enhanced pattern library from {lib_path}")
+                            break
+                    
+                    if enhanced_pattern_library:
+                        enhanced_gates = enhanced_pattern_library.get("gates", {})
+                        if gate_name in enhanced_gates:
+                            enhanced_gate_config = enhanced_gates[gate_name]
+                            criteria = enhanced_gate_config.get("criteria", {})
+                            conditions = criteria.get("conditions", [])
+                            
+                            # Extract all patterns from all conditions
+                            for condition in conditions:
+                                condition_patterns = condition.get("patterns", [])
+                                for pattern_obj in condition_patterns:
+                                    if isinstance(pattern_obj, dict):
+                                        pattern_text = pattern_obj.get("pattern", "")
+                                        if pattern_text:
+                                            patterns_used_set.add(pattern_text)
+                                    elif isinstance(pattern_obj, str):
+                                        patterns_used_set.add(pattern_obj)
+                            
+                            print(f"   📊 Extracted {len(patterns_used_set)} patterns from enhanced library for {gate_name}")
+                        else:
+                            print(f"   ⚠️ Gate {gate_name} not found in enhanced pattern library")
+                    else:
+                        print(f"   ⚠️ Could not find enhanced pattern library at any location")
+                        
+                except Exception as e:
+                    print(f"   ⚠️ Could not load enhanced patterns for {gate_name}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    
+        except Exception as e:
+            print(f"   ⚠️ Error extracting patterns for {gate_name}: {e}")
         
-        # If still no patterns, count unique patterns from matches
-        if not patterns_used_set:
-            patterns_used_set.update(match.pattern for match in matches)
-        
-        # If still no patterns, fallback to LLM patterns from params
-        if not patterns_used_set:
-            llm_patterns = params.get("patterns", {})
-            llm_gate_patterns = llm_patterns.get(gate_name, [])
-            patterns_used_set.update(llm_gate_patterns)
+        # Remove empty patterns
+        patterns_used_set.discard("")
+        patterns_used_set.discard(None)
         
         # Convert to list for compatibility
         patterns_used_list = list(patterns_used_set)
@@ -453,6 +526,34 @@ class EnhancedValidateGatesNode(Node):
             recommendations.append("🎉 Excellent implementation")
         
         return recommendations
+    
+    def _generate_fallback_patterns(self) -> Dict[str, List[str]]:
+        """Generate fallback patterns from hard gate definitions"""
+        patterns = {}
+        
+        for gate in HARD_GATES:
+            gate_patterns = []
+            
+            # Use patterns from gate definition - handle both dict and list formats
+            if "patterns" in gate:
+                gate_pattern_data = gate["patterns"]
+                
+                if isinstance(gate_pattern_data, dict):
+                    # Dictionary format: {"positive": [...], "violations": [...]}
+                    gate_patterns.extend(gate_pattern_data.get("positive", []))
+                    gate_patterns.extend(gate_pattern_data.get("violations", []))
+                elif isinstance(gate_pattern_data, list):
+                    # List format: [pattern1, pattern2, ...]
+                    gate_patterns.extend(gate_pattern_data)
+            
+            # Add some basic patterns if none exist
+            if not gate_patterns:
+                gate_name_lower = gate["name"].lower()
+                gate_patterns = [gate_name_lower, gate_name_lower.replace("_", ".*")]
+            
+            patterns[gate["name"]] = gate_patterns
+        
+        return patterns
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: List[Dict[str, Any]]) -> str:
         """Store gate validation results in shared store"""

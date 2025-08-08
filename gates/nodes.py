@@ -8,7 +8,10 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from base import Node 
+try:
+    from .base import Node 
+except ImportError:
+    from base import Node
 from datetime import datetime
 import tempfile
 import uuid
@@ -23,30 +26,35 @@ try:
     from .utils.gate_applicability import gate_applicability_analyzer
     from .utils.pattern_cache import get_cached_compiled_pattern, get_pattern_cache
     from .utils.file_processor import get_optimized_file_processor, get_file_processor_stats
-    # Import enhanced criteria evaluator
-    from .criteria_evaluator import EnhancedGateEvaluator, CriteriaEvaluator, migrate_legacy_gate
-    PATTERN_CACHE_AVAILABLE = True
-    FILE_PROCESSOR_AVAILABLE = True
 except ImportError:
-    # Fall back to absolute imports (when run directly)
+    # Absolute imports (when run directly)
     from utils.git_operations import clone_repository, cleanup_repository
     from utils.file_scanner import scan_directory
     from utils.hard_gates import HARD_GATES, get_gate_number
     from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
     from utils.gate_applicability import gate_applicability_analyzer
+    from utils.pattern_cache import get_cached_compiled_pattern, get_pattern_cache
+    from utils.file_processor import get_optimized_file_processor, get_file_processor_stats
+
+try:
+    from .criteria_evaluator import EnhancedGateEvaluator, CriteriaEvaluator, migrate_legacy_gate
+except ImportError:
     from criteria_evaluator import EnhancedGateEvaluator, CriteriaEvaluator, migrate_legacy_gate
-    try:
-        from utils.pattern_cache import get_cached_compiled_pattern, get_pattern_cache
-        PATTERN_CACHE_AVAILABLE = True
-    except ImportError:
-        print("⚠️ PatternCache not available, falling back to per-request compilation")
-        PATTERN_CACHE_AVAILABLE = False
-    try:
-        from utils.file_processor import get_optimized_file_processor, get_file_processor_stats
-        FILE_PROCESSOR_AVAILABLE = True
-    except ImportError:
-        print("⚠️ OptimizedFileProcessor not available, falling back to line-by-line processing")
-        FILE_PROCESSOR_AVAILABLE = False
+
+# Check availability of optional components
+try:
+    get_pattern_cache()
+    PATTERN_CACHE_AVAILABLE = True
+except:
+    print("⚠️ PatternCache not available, falling back to per-request compilation")
+    PATTERN_CACHE_AVAILABLE = False
+
+try:
+    get_optimized_file_processor()
+    FILE_PROCESSOR_AVAILABLE = True
+except:
+    print("⚠️ OptimizedFileProcessor not available, falling back to line-by-line processing")
+    FILE_PROCESSOR_AVAILABLE = False
 
 
 class FetchRepositoryNode(Node):
@@ -1307,12 +1315,36 @@ class ValidateGatesNode(Node):
         # If no LLM patterns are available, use fallback patterns
         if not llm_patterns:
             print("   ⚠️ No LLM patterns available, using static patterns only")
-            # Generate fallback patterns for each gate
+            # Generate fallback patterns from HARD_GATES definitions
             fallback_patterns = {}
             fallback_data = {}
+            
+            # Generate patterns from hard gate definitions
+            for gate in HARD_GATES:
+                gate_name = gate["name"]
+                gate_patterns = []
+                
+                # Use patterns from gate definition - handle both dict and list formats
+                if "patterns" in gate:
+                    gate_pattern_data = gate["patterns"]
+                    
+                    if isinstance(gate_pattern_data, dict):
+                        # Dictionary format: {"positive": [...], "violations": [...]}
+                        gate_patterns.extend(gate_pattern_data.get("positive", []))
+                        gate_patterns.extend(gate_pattern_data.get("violations", []))
+                    elif isinstance(gate_pattern_data, list):
+                        # List format: [pattern1, pattern2, ...]
+                        gate_patterns.extend(gate_pattern_data)
+                
+                # Add some basic patterns if none exist
+                if not gate_patterns:
+                    gate_name_lower = gate_name.lower()
+                    gate_patterns = [gate_name_lower, gate_name_lower.replace("_", ".*")]
+                
+                fallback_patterns[gate_name] = gate_patterns
+                
             for gate in shared["hard_gates"]:
                 gate_name = gate["name"]
-                fallback_patterns[gate_name] = []
                 fallback_data[gate_name] = {
                     "description": f"Static pattern analysis for {gate['display_name']}",
                     "significance": "Important for code quality and compliance",
@@ -1323,8 +1355,7 @@ class ValidateGatesNode(Node):
                     }
                 }
             llm_patterns = fallback_patterns
-            pattern_data = fallback_data
-        
+            pattern_data = fallback_data        
         # Analyze gate applicability based on codebase type
         from utils.gate_applicability import gate_applicability_analyzer
         
