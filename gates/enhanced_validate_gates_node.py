@@ -202,35 +202,40 @@ class EnhancedValidateGatesNode(Node):
         gate_name = gate["name"]
         print(f"   🔍 Evaluating {gate_name} with legacy system...")
         
-        # Simplified legacy evaluation - in practice, you'd copy the full legacy logic
+        # Get pattern information from params
+        llm_patterns = params.get("patterns", {})
+        pattern_data = params.get("pattern_data", {})
+        llm_gate_patterns = llm_patterns.get(gate_name, [])
+        gate_pattern_info = pattern_data.get(gate_name, {})
+        
+        # Calculate actual pattern count
+        patterns_used = len(llm_gate_patterns)
+        
+        # For this simplified fallback, return a basic result with proper pattern counting
         return {
             "gate": gate_name,
             "display_name": gate["display_name"],
             "description": gate["description"],
             "category": gate["category"],
             "priority": gate["priority"],
-            "patterns_used": 0,
+            "patterns_used": patterns_used,  # Use actual pattern count
+            "pattern_count": patterns_used,  # Also set pattern_count for UI consistency
+            "patterns": llm_gate_patterns,  # Include actual patterns array
             "matches_found": 0,
             "matches": [],
-            "patterns": [],
             "score": 0.0,
             "status": "FAIL",
-            "details": ["Legacy evaluation - enhanced system recommended"],
-            "evidence": "Legacy pattern matching",
-            "recommendations": ["Upgrade to enhanced criteria-based evaluation"],
-            "pattern_description": gate.get("description", "Legacy pattern analysis"),
-            "pattern_significance": gate.get("significance", "Important for code quality"),
-            "expected_coverage": gate.get("expected_coverage", {
-                "percentage": 10,
-                "reasoning": "Standard expectation",
-                "confidence": "medium"
-            }),
-            "total_files": params["metadata"].get("total_files", 1),
-            "relevant_files": 1,
+            "details": [f"Legacy evaluation fallback - {patterns_used} patterns available"],
+            "evidence": f"Legacy pattern matching with {patterns_used} patterns",
+            "recommendations": ["Enhanced criteria-based evaluation recommended"],
+            "confidence": 50.0,
+            "files_with_matches": 0,
+            "total_files": 1,
+            "relevant_files": 0,
             "validation_sources": {
-                "llm_patterns": {"count": 0, "matches": 0, "source": "legacy"},
-                "static_patterns": {"count": 0, "matches": 0, "source": "legacy"},
-                "combined_confidence": "low"
+                "llm_patterns": {"count": patterns_used, "matches": 0, "source": "legacy_fallback"},
+                "static_patterns": {"count": 0, "matches": 0, "source": "legacy_fallback"},
+                "combined_confidence": "Medium",
             }
         }
     
