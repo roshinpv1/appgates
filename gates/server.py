@@ -737,9 +737,9 @@ async def jira_upload(request: JiraUploadRequest, background_tasks: BackgroundTa
     if request.report_type == "pdf":
         # For individual gate PDFs, we need to find the specific gate PDF
         if request.gate_number is not None:
-            # Find the gate PDF filename based on gate number  
+            # Find the gate PDF filename based on gate number (using zero-padded format)
             pdf_dir = os.path.join("./reports/pdfs", request.scan_id)
-            gate_pdf_pattern = os.path.join(pdf_dir, f"Gate_{request.gate_number}_*_{request.scan_id}.pdf")
+            gate_pdf_pattern = os.path.join(pdf_dir, f"Gate_{request.gate_number:02d}_*_{request.scan_id}.pdf")
             matches = glob.glob(gate_pdf_pattern)
             if not matches:
                 raise HTTPException(status_code=404, detail=f"Gate PDF for gate number {request.gate_number} not found.")
