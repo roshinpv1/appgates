@@ -157,7 +157,7 @@ class EnhancedValidateGatesNode(Node):
                     
                     # Convert enhanced result to legacy format for compatibility
                     legacy_result = self._convert_enhanced_result_to_legacy_format(
-                        enhanced_result, legacy_gate, metadata
+                        enhanced_result, legacy_gate, metadata, params
                     )
                     
                     gate_results.append(legacy_result)
@@ -299,7 +299,7 @@ class EnhancedValidateGatesNode(Node):
         print(f"   📊 Prepared {len(codebase_files)} files for enhanced evaluation")
         return codebase_files, file_contents
     
-    def _convert_enhanced_result_to_legacy_format(self, enhanced_result: Dict[str, Any], legacy_gate: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def _convert_enhanced_result_to_legacy_format(self, enhanced_result: Dict[str, Any], legacy_gate: Dict[str, Any], metadata: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
         """Convert enhanced evaluation result to legacy format for compatibility"""
         
         # Extract enhanced result data
@@ -307,6 +307,33 @@ class EnhancedValidateGatesNode(Node):
         status = enhanced_result.get("status", "FAIL")
         matches = enhanced_result.get("matches", [])
         condition_results = enhanced_result.get("condition_results", [])
+        gate_name = enhanced_result.get("gate_name", legacy_gate["name"])
+        
+        # Calculate actual patterns used for evaluation (not just matches found)
+        # Get unique patterns from all conditions
+        patterns_used_set = set()
+        for condition in condition_results:
+            # Add patterns from this condition
+            for match in condition.matches:
+                patterns_used_set.add(match.pattern)
+        
+        # If no patterns from conditions, try to get from enhanced result patterns
+        if not patterns_used_set and enhanced_result.get("patterns"):
+            patterns_used_set.update(enhanced_result.get("patterns", []))
+        
+        # If still no patterns, count unique patterns from matches
+        if not patterns_used_set:
+            patterns_used_set.update(match.pattern for match in matches)
+        
+        # If still no patterns, fallback to LLM patterns from params
+        if not patterns_used_set:
+            llm_patterns = params.get("patterns", {})
+            llm_gate_patterns = llm_patterns.get(gate_name, [])
+            patterns_used_set.update(llm_gate_patterns)
+        
+        # Convert to list for compatibility
+        patterns_used_list = list(patterns_used_set)
+        patterns_count = len(patterns_used_list)
         
         # Convert matches to legacy format
         legacy_matches = []
@@ -331,19 +358,20 @@ class EnhancedValidateGatesNode(Node):
         
         # Create legacy format result
         return {
-            "gate": enhanced_result.get("gate_name", legacy_gate["name"]),
+            "gate": gate_name,
             "display_name": enhanced_result.get("display_name", legacy_gate["display_name"]),
             "description": enhanced_result.get("description", legacy_gate.get("description", "")),
             "category": enhanced_result.get("category", legacy_gate.get("category", "Unknown")),
             "priority": legacy_gate.get("priority", "Medium"),
-            "patterns_used": len(matches),
+            "patterns_used": patterns_count,  # Use actual pattern count, not match count
+            "pattern_count": patterns_count,  # Also set for UI consistency
             "matches_found": len(legacy_matches),
             "matches": legacy_matches,
-            "patterns": [match.pattern for match in matches],
+            "patterns": patterns_used_list,  # Use actual patterns list
             "score": score,
             "status": status,
             "details": details,
-            "evidence": f"Enhanced criteria evaluation: {len(matches)} matches found",
+            "evidence": f"Enhanced criteria evaluation: {patterns_count} patterns used, {len(matches)} matches found",
             "recommendations": recommendations,
             "pattern_description": legacy_gate.get("description", "Enhanced criteria-based analysis"),
             "pattern_significance": legacy_gate.get("significance", "Important for code quality"),
@@ -355,7 +383,7 @@ class EnhancedValidateGatesNode(Node):
             "total_files": metadata.get("total_files", 1),
             "relevant_files": len(set(match.file for match in matches)),
             "validation_sources": {
-                "llm_patterns": {"count": len(matches), "matches": len(matches), "source": "enhanced_criteria"},
+                "llm_patterns": {"count": patterns_count, "matches": len(matches), "source": "enhanced_criteria"},
                 "static_patterns": {"count": 0, "matches": 0, "source": "enhanced_criteria"},
                 "combined_confidence": "high"
             },
