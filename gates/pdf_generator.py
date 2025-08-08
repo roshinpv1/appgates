@@ -102,7 +102,12 @@ class CodeGatesPDFGenerator:
         # Create output directory
         os.makedirs(output_dir, exist_ok=True)
         
+        # Handle both gate_results (UI format) and gates (JSON report format)
         gate_results = scan_results.get("gate_results", [])
+        if not gate_results:
+            # Try to get from gates array (JSON report format)
+            gate_results = scan_results.get("gates", [])
+        
         if not gate_results:
             print("❌ No gate results found in scan data")
             return []
@@ -569,7 +574,12 @@ class CodeGatesPDFGenerator:
         
         # Scan overview
         overall_score = scan_results.get("overall_score", 0)
+        
+        # Handle both gate_results (UI format) and gates (JSON report format)
         gate_results = scan_results.get("gate_results", [])
+        if not gate_results:
+            # Try to get from gates array (JSON report format)
+            gate_results = scan_results.get("gates", [])
         
         passed = len([g for g in gate_results if g.get("status") == "PASS"])
         failed = len([g for g in gate_results if g.get("status") == "FAIL"])
@@ -636,8 +646,8 @@ def generate_gate_pdfs_from_scan_id(scan_id: str, base_dir: str = "./reports") -
     Returns:
         List of generated PDF file paths
     """
-    # Look for JSON report
-    json_path = os.path.join(base_dir, f"codegates_report_{scan_id}.json")
+    # Look for JSON report in the correct scan_id subdirectory
+    json_path = os.path.join(base_dir, scan_id, f"codegates_report_{scan_id}.json")
     
     if not os.path.exists(json_path):
         print(f"❌ JSON report not found: {json_path}")
