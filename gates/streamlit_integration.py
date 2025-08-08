@@ -554,7 +554,7 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                     data.repositories.forEach(repo => {
                         const option = document.createElement('option');
                         option.value = JSON.stringify(repo);
-                        option.textContent = `${repo.name} (${repo.owner}) - ⭐ ${repo.stars || 0}`;
+                        option.textContent = `${repo.name} (${repo.owner})`;
                         repositorySelect.appendChild(option);
                     });
                     repositorySelect.disabled = false;

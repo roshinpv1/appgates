@@ -681,40 +681,66 @@ class EnhancedGitIntegration:
             "dev.azure.com": 120
         }
     
-    def search_repositories(self, keywords: list, git_endpoint: str = "github.com", limit: int = 10, github_token: Optional[str] = None) -> list:
-        """Search repositories across different Git platforms with enhanced private repository support"""
+    def search_repositories(self, keywords: list, git_endpoint: str = "github.com", limit: int = 20, github_token: Optional[str] = None) -> list:
+        """Search repositories across different Git platforms with enhanced private repository support and prioritization"""
         if git_endpoint == "github.com":
-            repositories = self._search_github_repositories(keywords, limit, github_token)
+            # Strategy: First get user's private repositories, then fill with search results
+            repositories = []
             
-            # If token provided, enhance with user's accessible repositories
-            if github_token and len(repositories) < limit:
-                additional_repos = self._search_user_accessible_repositories(keywords, limit - len(repositories), github_token)
-                # Merge and deduplicate based on full_name
+            # Step 1: Get user's accessible repositories first (prioritizes private repos)
+            if github_token:
+                print(f"🔒 Step 1: Searching user's accessible private repositories...")
+                private_repos = self._search_user_accessible_repositories(keywords, limit, github_token, prioritize_private=True)
+                repositories.extend(private_repos)
+                print(f"✅ Found {len(private_repos)} private/accessible repositories")
+            
+            # Step 2: Fill remaining slots with public search results
+            remaining_limit = limit - len(repositories)
+            if remaining_limit > 0:
+                print(f"🔍 Step 2: Searching public repositories to fill remaining {remaining_limit} slots...")
+                public_repos = self._search_github_repositories(keywords, remaining_limit, github_token)
+                
+                # Deduplicate and add public repos
                 existing_full_names = {f"{repo['owner']}/{repo['name']}" for repo in repositories}
-                for repo in additional_repos:
+                for repo in public_repos:
                     repo_full_name = f"{repo['owner']}/{repo['name']}"
                     if repo_full_name not in existing_full_names:
                         repositories.append(repo)
                         if len(repositories) >= limit:
                             break
             
+            # Sort results: private first, then by updated date
+            repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
             return repositories[:limit]
             
         elif git_endpoint in ["github.abc.com", "github.XYXY.com"]:
-            repositories = self._search_github_enterprise_repositories(keywords, limit, git_endpoint, github_token)
+            # Strategy: Similar approach for enterprise GitHub
+            repositories = []
             
-            # For enterprise, also try user accessible repositories
-            if github_token and len(repositories) < limit:
-                additional_repos = self._search_enterprise_user_accessible_repositories(keywords, limit - len(repositories), git_endpoint, github_token)
-                # Merge and deduplicate
+            # Step 1: Get user's accessible enterprise repositories first
+            if github_token:
+                print(f"🔒 Step 1: Searching user's accessible enterprise repositories on {git_endpoint}...")
+                private_repos = self._search_enterprise_user_accessible_repositories(keywords, limit, git_endpoint, github_token, prioritize_private=True)
+                repositories.extend(private_repos)
+                print(f"✅ Found {len(private_repos)} private/accessible repositories")
+            
+            # Step 2: Fill remaining slots with enterprise search results
+            remaining_limit = limit - len(repositories)
+            if remaining_limit > 0:
+                print(f"🔍 Step 2: Searching {git_endpoint} to fill remaining {remaining_limit} slots...")
+                enterprise_repos = self._search_github_enterprise_repositories(keywords, remaining_limit, git_endpoint, github_token)
+                
+                # Deduplicate and add enterprise repos
                 existing_full_names = {f"{repo['owner']}/{repo['name']}" for repo in repositories}
-                for repo in additional_repos:
+                for repo in enterprise_repos:
                     repo_full_name = f"{repo['owner']}/{repo['name']}"
                     if repo_full_name not in existing_full_names:
                         repositories.append(repo)
                         if len(repositories) >= limit:
                             break
             
+            # Sort results: private first, then by updated date
+            repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
             return repositories[:limit]
             
         elif git_endpoint == "gitlab.com":
@@ -747,7 +773,7 @@ class EnhancedGitIntegration:
             # Build search query - include both public and private repositories
             base_query = " ".join(keywords)
             
-            # When token is provided, modify query to include private repositories
+            # When token is provided, modify query to include private repositories user has access to
             if github_token:
                 # GitHub Search API: include private repositories user has access to
                 # Use 'in:name,description,readme' to search in multiple fields
@@ -805,7 +831,8 @@ class EnhancedGitIntegration:
                     "html_url": repo["html_url"],
                     "clone_url": repo["clone_url"],
                     "git_endpoint": "github.com",
-                    "private": is_private
+                    "private": is_private,
+                    "updated_at": repo.get("updated_at", "")
                 })
             
             print(f"✅ Found {len(repositories)} repositories: {public_count} public, {private_count} private")
@@ -815,131 +842,250 @@ class EnhancedGitIntegration:
             print(f"Error searching GitHub repositories: {e}")
             return []
 
-    def _search_user_accessible_repositories(self, keywords: list, limit: int, github_token: str) -> list:
+    def _search_user_accessible_repositories(self, keywords: list, limit: int, github_token: str, prioritize_private: bool = False) -> list:
         """Search through user's accessible repositories (public and private) for keyword matches"""
         try:
-            print(f"🔍 Searching user's accessible repositories for additional matches...")
+            print(f"🔍 Searching user's accessible repositories for keyword matches...")
             
-            # Get user's repositories with different affiliation types
             repositories = []
             
-            # Search through user's own repositories, collaborations, and organization repos
-            for affiliation in ['owner', 'collaborator', 'organization_member']:
+            # Search through different types of user repositories with expanded coverage
+            affiliations = ['owner', 'collaborator', 'organization_member']
+            repo_types = ['all']  # Include all types: public, private, forks
+            
+            for affiliation in affiliations:
                 if len(repositories) >= limit:
                     break
                     
-                url = "https://api.github.com/user/repos"
-                params = {
-                    "affiliation": affiliation,
-                    "sort": "updated",
-                    "direction": "desc",
-                    "per_page": min(100, limit * 2),  # Get more to filter
-                    "type": "all"  # Include all repository types
-                }
-                
-                headers = {
-                    "Accept": "application/vnd.github.v3+json",
-                    "Authorization": f"token {github_token}"
-                }
-                
-                response = requests.get(
-                    url,
-                    params=params,
-                    headers=headers,
-                    timeout=self.api_timeouts["github.com"]
-                )
-                
-                if response.status_code == 200:
-                    repos_data = response.json()
-                    
-                    # Filter repositories that match keywords
-                    for repo in repos_data:
+                for repo_type in repo_types:
+                    if len(repositories) >= limit:
+                        break
+                        
+                    # Use pagination to get more repositories
+                    for page in range(1, 4):  # Check up to 3 pages (300 repos max)
                         if len(repositories) >= limit:
                             break
                             
-                        if self._repo_matches_keywords(repo, keywords):
-                            repositories.append({
-                                "name": repo["name"],
-                                "owner": repo["owner"]["login"],
-                                "description": repo.get("description", ""),
-                                "stars": repo.get("stargazers_count", 0),
-                                "forks": repo.get("forks_count", 0),
-                                "language": repo.get("language", ""),
-                                "html_url": repo["html_url"],
-                                "clone_url": repo["clone_url"],
-                                "git_endpoint": "github.com",
-                                "private": repo.get("private", False)
-                            })
-                
-            print(f"✅ Found {len(repositories)} additional repositories from user's accessible repos")
+                        url = "https://api.github.com/user/repos"
+                        params = {
+                            "affiliation": affiliation,
+                            "type": repo_type,
+                            "sort": "updated", 
+                            "direction": "desc",
+                            "per_page": 100,  # Maximum per page
+                            "page": page
+                        }
+                        
+                        headers = {
+                            "Accept": "application/vnd.github.v3+json",
+                            "Authorization": f"token {github_token}"
+                        }
+                        
+                        response = requests.get(
+                            url,
+                            params=params,
+                            headers=headers,
+                            timeout=self.api_timeouts["github.com"]
+                        )
+                        
+                        if response.status_code == 200:
+                            repos_data = response.json()
+                            
+                            # If no repos returned, break pagination
+                            if not repos_data:
+                                break
+                            
+                            # Process repositories
+                            matched_repos = []
+                            for repo in repos_data:
+                                if self._repo_matches_keywords(repo, keywords):
+                                    repo_data = {
+                                        "name": repo["name"],
+                                        "owner": repo["owner"]["login"],
+                                        "description": repo.get("description", ""),
+                                        "stars": repo.get("stargazers_count", 0),
+                                        "forks": repo.get("forks_count", 0),
+                                        "language": repo.get("language", ""),
+                                        "html_url": repo["html_url"],
+                                        "clone_url": repo["clone_url"],
+                                        "git_endpoint": "github.com",
+                                        "private": repo.get("private", False),
+                                        "updated_at": repo.get("updated_at", ""),
+                                        "pushed_at": repo.get("pushed_at", "")
+                                    }
+                                    matched_repos.append(repo_data)
+                            
+                            # If prioritizing private, separate and sort
+                            if prioritize_private:
+                                private_repos = [r for r in matched_repos if r.get('private', False)]
+                                public_repos = [r for r in matched_repos if not r.get('private', False)]
+                                
+                                # Add private repos first
+                                for repo in private_repos:
+                                    if len(repositories) >= limit:
+                                        break
+                                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                                    existing_full_names = {f"{r['owner']}/{r['name']}" for r in repositories}
+                                    if repo_full_name not in existing_full_names:
+                                        repositories.append(repo)
+                                
+                                # Then add public repos
+                                for repo in public_repos:
+                                    if len(repositories) >= limit:
+                                        break
+                                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                                    existing_full_names = {f"{r['owner']}/{r['name']}" for r in repositories}
+                                    if repo_full_name not in existing_full_names:
+                                        repositories.append(repo)
+                            else:
+                                # Add all matched repos
+                                for repo in matched_repos:
+                                    if len(repositories) >= limit:
+                                        break
+                                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                                    existing_full_names = {f"{r['owner']}/{r['name']}" for r in repositories}
+                                    if repo_full_name not in existing_full_names:
+                                        repositories.append(repo)
+                        
+                        else:
+                            break  # Stop pagination on error
+            
+            # Final sort if prioritizing private
+            if prioritize_private:
+                repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
+            
+            private_count = len([r for r in repositories if r.get('private', False)])
+            public_count = len([r for r in repositories if not r.get('private', False)])
+            
+            print(f"✅ Found {len(repositories)} total repositories ({private_count} private, {public_count} public)")
             return repositories
             
         except Exception as e:
             print(f"Error searching user accessible repositories: {e}")
             return []
 
-    def _search_enterprise_user_accessible_repositories(self, keywords: list, limit: int, git_endpoint: str, github_token: str) -> list:
+    def _search_enterprise_user_accessible_repositories(self, keywords: list, limit: int, git_endpoint: str, github_token: str, prioritize_private: bool = False) -> list:
         """Search through user's accessible enterprise repositories for keyword matches"""
         try:
-            print(f"🔍 Searching user's accessible repositories on {git_endpoint} for additional matches...")
+            print(f"🔍 Searching user's accessible repositories on {git_endpoint} for keyword matches...")
             
             repositories = []
             
-            # Search through user's repositories on enterprise GitHub
-            for affiliation in ['owner', 'collaborator', 'organization_member']:
+            # Search through different types of user repositories with expanded coverage
+            affiliations = ['owner', 'collaborator', 'organization_member']
+            repo_types = ['all']  # Include all types: public, private, forks
+            
+            for affiliation in affiliations:
                 if len(repositories) >= limit:
                     break
                     
-                api_url = f"https://{git_endpoint}/api/v3/user/repos"
-                params = {
-                    "affiliation": affiliation,
-                    "sort": "updated", 
-                    "direction": "desc",
-                    "per_page": min(100, limit * 2),
-                    "type": "all"
-                }
-                
-                headers = {
-                    "Accept": "application/vnd.github.v3+json",
-                    "Authorization": f"token {github_token}"
-                }
-                
-                # Enterprise-specific SSL handling
-                verify_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() != 'true'
-                if git_endpoint == 'github.XYXY.com':
-                    verify_ssl = False
-                
-                response = requests.get(
-                    api_url,
-                    params=params,
-                    headers=headers,
-                    timeout=self.api_timeouts.get(git_endpoint, 180),
-                    verify=verify_ssl
-                )
-                
-                if response.status_code == 200:
-                    repos_data = response.json()
-                    
-                    # Filter repositories that match keywords
-                    for repo in repos_data:
+                for repo_type in repo_types:
+                    if len(repositories) >= limit:
+                        break
+                        
+                    # Use pagination to get more repositories
+                    for page in range(1, 4):  # Check up to 3 pages (300 repos max)
                         if len(repositories) >= limit:
                             break
                             
-                        if self._repo_matches_keywords(repo, keywords):
-                            repositories.append({
-                                "name": repo["name"],
-                                "owner": repo["owner"]["login"],
-                                "description": repo.get("description", ""),
-                                "stars": repo.get("stargazers_count", 0),
-                                "forks": repo.get("forks_count", 0),
-                                "language": repo.get("language", ""),
-                                "html_url": repo["html_url"],
-                                "clone_url": repo["clone_url"],
-                                "git_endpoint": git_endpoint,
-                                "private": repo.get("private", False)
-                            })
+                        api_url = f"https://{git_endpoint}/api/v3/user/repos"
+                        params = {
+                            "affiliation": affiliation,
+                            "type": repo_type,
+                            "sort": "updated", 
+                            "direction": "desc",
+                            "per_page": 100,  # Maximum per page
+                            "page": page
+                        }
+                        
+                        headers = {
+                            "Accept": "application/vnd.github.v3+json",
+                            "Authorization": f"token {github_token}"
+                        }
+                        
+                        # Enterprise-specific SSL handling
+                        verify_ssl = os.getenv('GITHUB_ENTERPRISE_DISABLE_SSL', 'true').lower() != 'true'
+                        if git_endpoint == 'github.XYXY.com':
+                            verify_ssl = False
+                        
+                        response = requests.get(
+                            api_url,
+                            params=params,
+                            headers=headers,
+                            timeout=self.api_timeouts.get(git_endpoint, 180),
+                            verify=verify_ssl
+                        )
+                        
+                        if response.status_code == 200:
+                            repos_data = response.json()
+                            
+                            # If no repos returned, break pagination
+                            if not repos_data:
+                                break
+                            
+                            # Process repositories
+                            matched_repos = []
+                            for repo in repos_data:
+                                if self._repo_matches_keywords(repo, keywords):
+                                    repo_data = {
+                                        "name": repo["name"],
+                                        "owner": repo["owner"]["login"],
+                                        "description": repo.get("description", ""),
+                                        "stars": repo.get("stargazers_count", 0),
+                                        "forks": repo.get("forks_count", 0),
+                                        "language": repo.get("language", ""),
+                                        "html_url": repo["html_url"],
+                                        "clone_url": repo["clone_url"],
+                                        "git_endpoint": git_endpoint,
+                                        "private": repo.get("private", False),
+                                        "updated_at": repo.get("updated_at", ""),
+                                        "pushed_at": repo.get("pushed_at", "")
+                                    }
+                                    matched_repos.append(repo_data)
+                            
+                            # If prioritizing private, separate and sort
+                            if prioritize_private:
+                                private_repos = [r for r in matched_repos if r.get('private', False)]
+                                public_repos = [r for r in matched_repos if not r.get('private', False)]
+                                
+                                # Add private repos first
+                                for repo in private_repos:
+                                    if len(repositories) >= limit:
+                                        break
+                                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                                    existing_full_names = {f"{r['owner']}/{r['name']}" for r in repositories}
+                                    if repo_full_name not in existing_full_names:
+                                        repositories.append(repo)
+                                
+                                # Then add public repos
+                                for repo in public_repos:
+                                    if len(repositories) >= limit:
+                                        break
+                                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                                    existing_full_names = {f"{r['owner']}/{r['name']}" for r in repositories}
+                                    if repo_full_name not in existing_full_names:
+                                        repositories.append(repo)
+                            else:
+                                # Add all matched repos
+                                for repo in matched_repos:
+                                    if len(repositories) >= limit:
+                                        break
+                                    repo_full_name = f"{repo['owner']}/{repo['name']}"
+                                    existing_full_names = {f"{r['owner']}/{r['name']}" for r in repositories}
+                                    if repo_full_name not in existing_full_names:
+                                        repositories.append(repo)
+                        
+                        else:
+                            break  # Stop pagination on error
             
-            print(f"✅ Found {len(repositories)} additional repositories from user's accessible repos on {git_endpoint}")
+            # Final sort if prioritizing private
+            if prioritize_private:
+                repositories.sort(key=lambda x: (not x.get('private', False), -x.get('updated_at', 0)))
+            
+            private_count = len([r for r in repositories if r.get('private', False)])
+            public_count = len([r for r in repositories if not r.get('private', False)])
+            
+            print(f"✅ Found {len(repositories)} total repositories on {git_endpoint} ({private_count} private, {public_count} public)")
             return repositories
             
         except Exception as e:
@@ -1055,7 +1201,8 @@ class EnhancedGitIntegration:
                     "html_url": repo["html_url"],
                     "clone_url": repo["clone_url"],
                     "git_endpoint": git_endpoint,
-                    "private": is_private
+                    "private": is_private,
+                    "updated_at": repo.get("updated_at", "")
                 })
             
             print(f"✅ Found {len(repositories)} repositories on {git_endpoint}: {public_count} public, {private_count} private")

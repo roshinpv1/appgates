@@ -98,7 +98,7 @@ class ScanRequest(BaseModel):
 class GitSearchRequest(BaseModel):
     keywords: List[str] = Field(..., description="Keywords to search for")
     git_endpoint: str = Field(..., description="Git endpoint (github.com, gitlab.com, etc.)")
-    limit: int = Field(default=10, description="Maximum number of repositories to return")
+    limit: int = Field(default=20, description="Maximum number of repositories to return (up to 20, prioritizing private repos)")
     github_token: Optional[str] = Field(None, description="GitHub token for authentication")
 
 class GitBranchRequest(BaseModel):
