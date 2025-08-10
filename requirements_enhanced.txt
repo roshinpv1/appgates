@@ -1,0 +1,49 @@
+# Enhanced CodeGates Requirements
+# Additional dependencies for configurable gates and evidence collection
+
+# Core dependencies (already in main requirements)
+# fastapi
+# uvicorn
+# streamlit
+# requests
+# gitpython
+# jinja2
+# python-multipart
+
+# New dependencies for enhanced features
+PyYAML>=6.0
+playwright>=1.40.0
+asyncio-compat>=0.1.2
+requests>=2.31.0
+aiohttp>=3.9.0
+
+# Optional: For better YAML handling
+ruamel.yaml>=0.18.0
+
+# Optional: For enhanced evidence collection
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# Optional: For better async support
+aiofiles>=23.0.0
+
+# Optional: For enhanced database integration
+sqlalchemy>=2.0.0
+pymssql>=2.2.0
+pandas>=2.0.0
+
+# Optional: For enhanced LLM integration
+openai>=1.0.0
+anthropic>=0.7.0
+google-generativeai>=0.3.0
+
+# Optional: For enhanced reporting
+plotly>=5.17.0
+dash>=2.14.0
+
+# Development dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0 

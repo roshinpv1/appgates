@@ -1,0 +1,363 @@
+# CodeGates Configuration File
+# Version: 3.0
+# Description: Unified evidence collection configuration with multiple evidence methods
+
+version: "3.0"
+metadata:
+  author: "CodeGates Team"
+  created: "2024-01-01"
+  description: "Unified evidence collection configuration with pattern, API, database, LLM, website, static, and custom evidence methods"
+
+# Global configuration
+global:
+  default_scoring:
+    pass_threshold: 20.0
+    perfect_threshold: 80.0
+    criteria_weight: 0.8
+    coverage_weight: 0.2
+  
+  evidence_methods:
+    pattern:
+      enabled: true
+      description: "Pattern-based evidence collection from source code"
+    api:
+      enabled: true
+      description: "API-based evidence collection via HTTP requests"
+    database:
+      enabled: true
+      description: "Database-based evidence collection via queries"
+    llm:
+      enabled: true
+      description: "LLM-based evidence collection via AI analysis"
+    website:
+      enabled: true
+      description: "Website-based evidence collection via Playwright"
+    static:
+      enabled: true
+      description: "Static analysis evidence collection"
+    custom:
+      enabled: true
+      description: "Custom evidence collection via user-defined functions"
+
+# Gate definitions
+gates:
+  ALERTING_ACTIONABLE:
+    display_name: "All alerting is actionable"
+    description: "Ensure all alerting integrations are present and actionable"
+    category: "Alerting"
+    priority: "high"
+    weight: 15.0
+    enabled: true
+    
+    validation_types:
+      database:
+        enabled: true
+        query: "fetch_alerting_integrations_status"
+        parameters:
+          - "app_id"
+        expected_result:
+          type: "object"
+          required_fields: ["Splunk", "AppDynamics", "ThousandEyes"]
+          all_required: true
+      
+      pattern:
+        enabled: true
+        patterns:
+          positive:
+            - "alert.*threshold"
+            - "monitoring.*alert"
+            - "prometheus.*alert"
+            - "grafana.*alert"
+          negative: []
+      
+      api:
+        enabled: true
+        api_validation:
+          enabled: true
+          endpoints:
+            - url: "https://{app_domain}/api/alerting/status"
+              method: "GET"
+              expected_status_codes: [200]
+              response_validation:
+                required_fields: ["status", "integrations"]
+                field_patterns:
+                  status: "active|enabled"
+    
+    scoring:
+      pass_threshold: 100.0
+      perfect_threshold: 100.0
+      criteria_weight: 1.0
+      coverage_weight: 0.0
+    
+    expected_coverage:
+      percentage: 100
+      reasoning: "All integrations should be present"
+      confidence: "high"
+
+  STRUCTURED_LOGS:
+    display_name: "Logs Searchable/Available"
+    description: "Ensure structured logging is implemented"
+    category: "Logging"
+    priority: "high"
+    weight: 12.0
+    enabled: true
+    
+    validation_types:
+      pattern:
+        enabled: true
+        patterns:
+          positive:
+            - "logger\\.(info|debug|error|warn)"
+            - "logging\\.(info|debug|error|warn)"
+            - "log\\.(info|debug|error|warn)"
+            - "structured.*log"
+            - "json.*log"
+            - "MDC\\.put"
+            - "StructuredArguments"
+          negative:
+            - "print\\("
+            - "System\\.out\\.print"
+            - "console\\.log"
+      
+      website:
+        enabled: true
+        website_validation:
+          enabled: true
+          urls_to_check:
+            - "https://{app_domain}/health"
+            - "https://{app_domain}/metrics"
+          checks:
+            - type: "text_extraction"
+              selectors: ["body", ".logs", "#logs"]
+              patterns: ["structured", "json", "log"]
+            - type: "screenshot"
+              name: "logging_ui"
+              selectors: [".logs", "#logs"]
+    
+    scoring:
+      pass_threshold: 20.0
+      perfect_threshold: 80.0
+      criteria_weight: 0.8
+      coverage_weight: 0.2
+    
+    expected_coverage:
+      percentage: 25
+      reasoning: "Structured logging should be implemented across core files"
+      confidence: "high"
+
+  UI_ERRORS:
+    display_name: "Client UI Errors Logged"
+    description: "Capture and log client-side UI errors"
+    category: "Frontend"
+    priority: "medium"
+    weight: 8.0
+    enabled: true
+    
+    validation_types:
+      pattern:
+        enabled: true
+        patterns:
+          positive:
+            - "ui.*error"
+            - "frontend.*error"
+            - "client.*error"
+            - "javascript.*error"
+            - "window\\.onerror"
+            - "addEventListener.*error"
+          negative: []
+      
+      website:
+        enabled: true
+        website_validation:
+          enabled: true
+          urls_to_check:
+            - "https://{app_domain}"
+            - "https://{app_domain}/error"
+          checks:
+            - type: "javascript_error_detection"
+              inject_script: true
+              error_triggers:
+                - "console.error"
+                - "window.onerror"
+                - "unhandledrejection"
+            - type: "screenshot"
+              name: "error_page"
+              trigger_error: true
+              error_scenarios:
+                - "404_page"
+                - "500_page"
+                - "javascript_error"
+    
+    scoring:
+      pass_threshold: 15.0
+      perfect_threshold: 70.0
+      criteria_weight: 0.8
+      coverage_weight: 0.2
+    
+    expected_coverage:
+      percentage: 15
+      reasoning: "UI error handling should be present in frontend code"
+      confidence: "medium"
+
+  AUTOMATED_TESTS:
+    display_name: "Automated Tests"
+    description: "Comprehensive automated test coverage"
+    category: "Testing"
+    priority: "high"
+    weight: 10.0
+    enabled: true
+    
+    validation_types:
+      pattern:
+        enabled: true
+        patterns:
+          positive:
+            - "test"
+            - "@test"
+            - "junit"
+            - "pytest"
+            - "jest"
+            - "mocha"
+            - "assert"
+            - "describe\\("
+            - "it\\("
+            - "expect\\("
+          negative: []
+      
+      static:
+        enabled: true
+        static_analysis:
+          enabled: true
+          checks:
+            - type: "file_count"
+              min_files: 1
+              max_files: 10000
+            - type: "language_detection"
+              required_languages: ["Python", "JavaScript", "Java"]
+            - type: "structure_validation"
+              required_directories: ["test", "tests", "spec"]
+    
+    scoring:
+      pass_threshold: 30.0
+      perfect_threshold: 80.0
+      criteria_weight: 0.7
+      coverage_weight: 0.3
+    
+    expected_coverage:
+      percentage: 20
+      reasoning: "Test files should be present and executable"
+      confidence: "high"
+
+  API_MONITORING:
+    display_name: "API Monitoring & Health"
+    description: "Ensure API endpoints are healthy and responding correctly"
+    category: "API"
+    priority: "high"
+    weight: 12.0
+    enabled: true
+    
+    validation_types:
+      pattern:
+        enabled: true
+        patterns:
+          positive:
+            - "health.*check"
+            - "health.*endpoint"
+            - "monitoring.*api"
+            - "api.*health"
+            - "status.*endpoint"
+          negative: []
+      
+      api:
+        enabled: true
+        api_validation:
+          enabled: true
+          endpoints:
+            - url: "https://{app_domain}/health"
+              method: "GET"
+              expected_status_codes: [200]
+              response_validation:
+                required_fields: ["status", "timestamp"]
+                field_patterns:
+                  status: "healthy|ok"
+                max_size: 1000
+                structure:
+                  type: "object"
+            - url: "https://{app_domain}/api/status"
+              method: "GET"
+              expected_status_codes: [200, 201]
+              response_validation:
+                required_fields: ["version", "uptime"]
+                max_size: 2000
+            - url: "https://{app_domain}/metrics"
+              method: "GET"
+              expected_status_codes: [200]
+              response_validation:
+                max_size: 5000
+                structure:
+                  type: "object"
+    
+    scoring:
+      pass_threshold: 60.0
+      perfect_threshold: 90.0
+      criteria_weight: 0.8
+      coverage_weight: 0.2
+    
+    expected_coverage:
+      percentage: 30
+      reasoning: "API health endpoints should be implemented and accessible"
+      confidence: "high"
+
+# Custom gates can be added here
+custom_gates:
+  # Example custom gate
+  CUSTOM_SECURITY_GATE:
+    display_name: "Custom Security Validation"
+    description: "Custom security gate for organization-specific requirements"
+    category: "Security"
+    priority: "high"
+    weight: 10.0
+    enabled: true
+    
+    validation_types:
+      pattern:
+        enabled: true
+        patterns:
+          positive:
+            - "custom.*security.*check"
+            - "org.*specific.*validation"
+          negative: []
+      
+      website:
+        enabled: true
+        website_validation:
+          enabled: true
+          urls_to_check:
+            - "https://{app_domain}/security"
+          checks:
+            - type: "text_extraction"
+              selectors: ["body"]
+              patterns: ["security", "authentication"]
+      
+      custom:
+        enabled: true
+        custom_validation:
+          enabled: true
+          function: |
+            # Custom security validation function
+            def custom_security_check(gate_config, app_domain):
+                # Your custom logic here
+                return {
+                    'success': True,
+                    'score': 85.0,
+                    'data': {
+                        'custom_check': 'passed',
+                        'security_level': 'high'
+                    }
+                }
+    
+    scoring:
+      pass_threshold: 50.0
+      perfect_threshold: 90.0
+      criteria_weight: 0.9
+      coverage_weight: 0.1 
