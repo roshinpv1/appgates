@@ -142,33 +142,58 @@ def test_llm_client_availability():
         else:
             print("⚠️ No environment-based LLM client found")
         
-        # Test manual client creation
-        print("\n🔧 Testing manual client creation...")
+        # Test manual OpenAI client if available
         openai_key = os.getenv("OPENAI_API_KEY")
         
         if openai_key:
+            print("🧪 Testing manual OpenAI client...")
+            
+            # Create manual client
+            manual_config = LLMConfig(
+                provider=LLMProvider.OPENAI,
+                model="gpt-4",
+                api_key=openai_key,
+                temperature=0.1,
+                max_tokens=100,
+                timeout=30
+            )
+            manual_client = LLMClient(manual_config)
+            
+            print(f"✅ Manual OpenAI client created")
+            
+            # Test prompt
+            test_prompt = "Say 'Hello from CodeGates LLM test!'"
+            
+            # Log the test prompt
             try:
-                config = LLMConfig(
-                    provider=LLMProvider.OPENAI,
-                    model="gpt-3.5-turbo",
-                    api_key=openai_key,
-                    temperature=0.3,
-                    max_tokens=100
+                from gates.utils.prompt_logger import prompt_logger
+                
+                context_data = {
+                    "test_type": "manual_openai_test",
+                    "llm_provider": "openai",
+                    "llm_model": "gpt-4",
+                    "prompt_length": len(test_prompt)
+                }
+                
+                metadata = {
+                    "temperature": manual_config.temperature,
+                    "max_tokens": manual_config.max_tokens,
+                    "timeout": manual_config.timeout
+                }
+                
+                prompt_logger.log_general_prompt(
+                    gate_name="MANUAL_TEST",
+                    prompt=test_prompt,
+                    context=context_data,
+                    metadata=metadata
                 )
                 
-                manual_client = LLMClient(config)
-                print(f"✅ Manual OpenAI client created")
-                print(f"   Available: {manual_client.is_available()}")
-                
-                # Test a simple call
-                if manual_client.is_available():
-                    print("🧪 Testing simple LLM call...")
-                    response = manual_client.call_llm("Say 'Hello from CodeGates LLM test!'")
-                    print(f"   Response: {response[:100]}...")
-                    return True
-                    
             except Exception as e:
-                print(f"❌ Manual client test failed: {e}")
+                print(f"⚠️ Failed to log test prompt: {e}")
+            
+            print("🧪 Testing simple LLM call...")
+            response = manual_client.call_llm(test_prompt)
+            print(f"✅ Manual test successful: {response.strip()}")
         else:
             print("⚠️ OPENAI_API_KEY not set, skipping manual test")
         

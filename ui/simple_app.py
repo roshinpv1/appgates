@@ -270,6 +270,86 @@ def get_report_content(scan_id: str, report_type: str) -> Optional[str]:
     except Exception as e:
         return None
 
+def format_recommendation_for_ui(gate: Dict) -> str:
+    """Format recommendation for Streamlit UI display with clean, consistent formatting"""
+    try:
+        # Import the centralized recommendation formatter
+        from gates.utils.recommendation_formatter import recommendation_formatter
+        
+        # Use the centralized formatter for consistent formatting
+        return recommendation_formatter.format_recommendation_for_ui(gate, "streamlit")
+        
+    except ImportError:
+        # Fallback to local formatting if import fails
+        return _format_recommendation_fallback(gate)
+
+
+def _clean_recommendation_text(text: str) -> str:
+    """Clean recommendation text for consistent formatting without bullet points or graphics"""
+    if not text:
+        return ""
+    
+    import re
+    
+    # Remove excessive whitespace
+    text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+    text = re.sub(r' +', ' ', text)
+    
+    # Normalize line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    
+    # Remove all bullet points and convert to plain text
+    text = re.sub(r'^[\s]*[-•*][\s]*', '', text, flags=re.MULTILINE)
+    
+    # Clean up numbered lists
+    text = re.sub(r'^[\s]*(\d+)[\s]*[\.\)][\s]*', r'\1. ', text, flags=re.MULTILINE)
+    
+    # Remove trailing whitespace
+    text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
+    
+    # Remove empty lines that might be left after removing bullets
+    text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+    
+    return text.strip()
+
+
+def _format_recommendation_fallback(gate: Dict) -> str:
+    """Fallback recommendation formatting for Streamlit UI without graphics"""
+    status = gate.get("status", "FAIL")
+    gate_name = gate.get("display_name", gate.get("gate", "Unknown"))
+    
+    # Get recommendation text
+    llm_recommendation = gate.get("llm_recommendation")
+    recommendations = gate.get("recommendations", [])
+    
+    # Use LLM recommendation if available
+    if llm_recommendation and llm_recommendation.strip():
+        recommendation = llm_recommendation.strip()
+        # Clean and truncate if too long
+        recommendation = _clean_recommendation_text(recommendation)
+        if len(recommendation) > 200:
+            recommendation = recommendation[:197] + "..."
+        return recommendation
+    
+    # Use existing recommendations if available
+    if recommendations and isinstance(recommendations, list) and len(recommendations) > 0:
+        recommendation = recommendations[0]
+        recommendation = _clean_recommendation_text(recommendation)
+        if len(recommendation) > 200:
+            recommendation = recommendation[:197] + "..."
+        return recommendation
+    
+    # Default recommendations based on status (without icons)
+    if status == "PASS":
+        return f"Continue maintaining good practices for {gate_name.lower()}"
+    elif status == "WARNING":
+        return f"Expand implementation of {gate_name.lower()}"
+    elif status == "NOT_APPLICABLE":
+        return "Not applicable to this technology stack"
+    else:
+        return f"Implement {gate_name.lower()}"
+
+
 def show_scan_results(scan_id):
     """Display scan results with comprehensive PDF generation interface"""
     try:
@@ -714,26 +794,74 @@ def show_scan_results(scan_id):
             st.divider()
             
             # ========================================
-            # GATE RESULTS TABLE (existing functionality)
+            # GATE RESULTS TABLE (enhanced with recommendations)
             # ========================================
             if gate_results:
                 st.subheader("🎯 Gate Results Summary")
                 
-                # Create a summary table
+                # Create a comprehensive summary table with recommendations
                 gate_data = []
                 for i, gate in enumerate(gate_results):
+                    recommendation = format_recommendation_for_ui(gate)
                     gate_data.append({
                         "Gate #": i + 1,
                         "Gate": gate.get("display_name", gate.get("gate", "Unknown")),
                         "Status": gate.get("status", "UNKNOWN"),
                         "Score": f"{gate.get('score', 0):.1f}%",
                         "Category": gate.get("category", "Unknown"),
-                        "Matches": gate.get("matches_found", 0)
+                        "Matches": gate.get("matches_found", 0),
+                        "Recommendation": recommendation
                     })
                 
-                # Display as dataframe
+                # Display as dataframe with better formatting
                 df = pd.DataFrame(gate_data)
-                st.dataframe(df, use_container_width=True)
+                
+                # Style the dataframe
+                def style_status(val):
+                    if val == "PASS":
+                        return "background-color: #d4edda; color: #155724"
+                    elif val == "FAIL":
+                        return "background-color: #f8d7da; color: #721c24"
+                    elif val == "WARNING":
+                        return "background-color: #fff3cd; color: #856404"
+                    else:
+                        return "background-color: #e2e3e5; color: #383d41"
+                
+                styled_df = df.style.applymap(style_status, subset=['Status'])
+                st.dataframe(styled_df, use_container_width=True, height=400)
+                
+                # Add detailed recommendations section
+                st.subheader("📋 Detailed Recommendations")
+                
+                # Group by status for better organization
+                status_groups = {"FAIL": [], "WARNING": [], "PASS": [], "NOT_APPLICABLE": []}
+                for gate in gate_results:
+                    status = gate.get("status", "UNKNOWN")
+                    if status in status_groups:
+                        status_groups[status].append(gate)
+                
+                # Display recommendations by priority
+                for status, gates in status_groups.items():
+                    if gates:
+                        status_icons = {"FAIL": "❌", "WARNING": "⚠️", "PASS": "✅", "NOT_APPLICABLE": "ℹ️"}
+                        icon = status_icons.get(status, "❓")
+                        
+                        with st.expander(f"{icon} {status} Gates ({len(gates)})"):
+                            for gate in gates:
+                                gate_name = gate.get("display_name", gate.get("gate", "Unknown"))
+                                score = gate.get("score", 0)
+                                recommendation = format_recommendation_for_ui(gate)
+                                
+                                st.markdown(f"**{gate_name}** (Score: {score:.1f}%)")
+                                st.markdown(f"*{recommendation}*")
+                                
+                                # Show LLM recommendation if available
+                                llm_rec = gate.get("llm_recommendation")
+                                if llm_rec and llm_rec.strip():
+                                    with st.expander("🤖 AI Recommendation"):
+                                        st.markdown(llm_rec)
+                                
+                                st.divider()
             
             # Report Links (existing functionality)
             st.divider()

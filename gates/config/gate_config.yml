@@ -52,7 +52,6 @@ gates:
     # Mandatory evidence collectors - if any of these fail, the gate fails
     mandatory_evidence_collectors:
       - "database"  # Database check is mandatory - must have all integrations
-      - "pattern"   # Pattern check is mandatory - must have alerting patterns
     
     validation_types:
       database:

@@ -1223,7 +1223,35 @@ function formatEvidence(gate) {
 }
 
 function getRecommendation(gate, gateName) {
-    switch (gate.status) {
+    // Enhanced recommendation formatting with clean text styling (no graphics)
+    const status = gate.status || 'FAIL';
+    const llmRecommendation = gate.llm_recommendation;
+    const recommendations = gate.recommendations;
+    
+    // Use LLM recommendation if available
+    if (llmRecommendation && llmRecommendation.trim()) {
+        // Clean and format LLM recommendation for table display
+        let cleanRecommendation = cleanRecommendationText(llmRecommendation.trim());
+        
+        // Truncate if too long for table display
+        if (cleanRecommendation.length > 120) {
+            cleanRecommendation = cleanRecommendation.substring(0, 117) + '...';
+        }
+        
+        return cleanRecommendation;
+    }
+    
+    // Use existing recommendations if available
+    if (recommendations && Array.isArray(recommendations) && recommendations.length > 0) {
+        let recommendation = cleanRecommendationText(recommendations[0]);
+        if (recommendation.length > 120) {
+            recommendation = recommendation.substring(0, 117) + '...';
+        }
+        return recommendation;
+    }
+    
+    // Default recommendations based on status (without icons)
+    switch (status) {
         case 'PASS':
             return 'Continue maintaining good practices';
         case 'WARNING':
@@ -1233,6 +1261,42 @@ function getRecommendation(gate, gateName) {
         default:
             return `Implement ${gateName.toLowerCase()}`;
     }
+}
+
+function cleanRecommendationText(text) {
+    if (!text) return '';
+    
+    // Remove excessive whitespace
+    text = text.replace(/\n\s*\n\s*\n+/g, '\n\n');
+    text = text.replace(/ +/g, ' ');
+    
+    // Normalize line endings
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    // Remove all bullet points and convert to plain text
+    text = text.replace(/^[\s]*[-•*][\s]*/gm, '');
+    
+    // Clean up numbered lists
+    text = text.replace(/^[\s]*(\d+)[\s]*[\.\)][\s]*/gm, '$1. ');
+    
+    // Remove trailing whitespace
+    text = text.replace(/[ \t]+$/gm, '');
+    
+    // Remove empty lines that might be left after removing bullets
+    text = text.replace(/\n\s*\n\s*\n+/g, '\n\n');
+    
+    return text.trim();
+}
+
+function getStatusIcon(status) {
+    const icons = {
+        'PASS': '✅',
+        'FAIL': '❌',
+        'WARNING': '⚠️',
+        'NOT_APPLICABLE': 'ℹ️',
+        'UNKNOWN': '❓'
+    };
+    return icons[status] || '❓';
 }
 
 function hideResults() {

@@ -647,46 +647,47 @@ class GeneratePromptNode(Node):
         return "\n".join(yaml_lines)
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: str) -> str:
-        """Store prompt in shared store"""
+        """Store prompt in shared store and log it"""
         shared["llm"]["prompt"] = exec_res
         
-        # Log the final prompt
+        # Log the final prompt using centralized prompt logger
         print(f"✅ Generated LLM prompt ({len(exec_res)} characters)")
         
-        # Save prompt to log file for debugging
         try:
-            import os
-            from datetime import datetime
+            from utils.prompt_logger import prompt_logger
             
-            # Get logs directory from shared context
-            logs_dir = shared.get("directories", {}).get("logs", "./logs")
-            os.makedirs(logs_dir, exist_ok=True)
+            # Prepare context data for logging
+            context_data = {
+                "repository_url": shared["request"].get("repository_url", "unknown"),
+                "branch": shared["request"].get("branch", "unknown"),
+                "scan_id": shared["request"].get("scan_id", "unknown"),
+                "total_files": shared.get("repository", {}).get("metadata", {}).get("total_files", 0),
+                "total_lines": shared.get("repository", {}).get("metadata", {}).get("total_lines", 0),
+                "languages": list(shared.get("repository", {}).get("metadata", {}).get("languages", {}).keys())
+            }
             
-            # Generate timestamp for log file
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            scan_id = shared["request"].get("scan_id", "unknown")
+            # Prepare metadata
+            metadata = {
+                "prompt_length": len(exec_res),
+                "build_files_count": len(shared.get("config", {}).get("build_files", {})),
+                "config_files_count": len(shared.get("config", {}).get("config_files", {})),
+                "dependencies_count": len(shared.get("config", {}).get("dependencies", [])),
+                "hard_gates_count": len(shared.get("hard_gates", []))
+            }
             
-            # Save prompt to file
-            prompt_log_file = os.path.join(logs_dir, f"prompt_{scan_id}_{timestamp}.txt")
-            with open(prompt_log_file, 'w', encoding='utf-8') as f:
-                f.write("=" * 80 + "\n")
-                f.write("CODEGATES LLM PROMPT LOG\n")
-                f.write("=" * 80 + "\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-                f.write(f"Scan ID: {scan_id}\n")
-                f.write(f"Repository: {shared['request'].get('repository_url', 'unknown')}\n")
-                f.write(f"Branch: {shared['request'].get('branch', 'unknown')}\n")
-                f.write(f"Prompt Length: {len(exec_res)} characters\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(exec_res)
-                f.write("\n\n" + "=" * 80 + "\n")
-                f.write("END OF PROMPT\n")
-                f.write("=" * 80 + "\n")
+            # Extract gate names for logging
+            gate_names = [gate.get("name", "Unknown") for gate in shared.get("hard_gates", [])]
+            gate_name_str = "_".join(gate_names[:3])  # Use first 3 gate names
             
-            print(f"📝 Prompt logged to: {prompt_log_file}")
+            prompt_logger.log_pattern_generation_prompt(
+                gate_name=gate_name_str,
+                prompt=exec_res,
+                context=context_data,
+                metadata=metadata
+            )
             
         except Exception as e:
-            print(f"⚠️ Failed to log prompt: {e}")
+            print(f"⚠️ Failed to log pattern generation prompt: {e}")
         
         return "default"
 
@@ -754,12 +755,49 @@ class CallLLMNode(Node):
                 print(f"🔗 Using {llm_client.config.provider.value} LLM provider")
                 print(f"   Model: {llm_client.config.model}")
                 
+                # Log the LLM call prompt
+                try:
+                    from utils.prompt_logger import prompt_logger
+                    
+                    # Prepare context data for logging
+                    context_data = {
+                        "repository_url": params["request"].get("repository_url", "unknown"),
+                        "branch": params["request"].get("branch", "unknown"),
+                        "scan_id": params["request"].get("scan_id", "unknown"),
+                        "llm_provider": llm_client.config.provider.value,
+                        "llm_model": llm_client.config.model,
+                        "prompt_length": len(params["prompt"])
+                    }
+                    
+                    # Prepare metadata
+                    metadata = {
+                        "timeout_seconds": LLM_TIMEOUT,
+                        "temperature": llm_client.config.temperature,
+                        "max_tokens": llm_client.config.max_tokens
+                    }
+                    
+                    prompt_logger.log_pattern_generation_prompt(
+                        gate_name="PATTERN_GENERATION",
+                        prompt=params["prompt"],
+                        context=context_data,
+                        metadata=metadata
+                    )
+                    
+                except Exception as e:
+                    print(f"⚠️ Failed to log LLM prompt: {e}")
+                
                 # Use threading with timeout to prevent hanging
                 result = {"success": False, "response": "", "error": ""}
                 
                 def llm_call_with_timeout():
                     try:
-                        response = llm_client.call_llm(params["prompt"])
+                        response = llm_client.call_llm(
+                            params["prompt"],
+                            gate_name="pattern_generation",
+                            conversation_type="pattern_generation",
+                            context={"prompt_type": "pattern_generation"},
+                            metadata={"model": llm_client.config.model, "provider": llm_client.config.provider.value}
+                        )
                         result["success"] = True
                         result["response"] = response
                     except Exception as e:
@@ -1493,96 +1531,9 @@ class ValidateGatesNode(Node):
                 # Special handling for ALERTING_ACTIONABLE - use database integration
                 if gate_name == "ALERTING_ACTIONABLE":
                     print(f"   🔗 Using database integration for {gate_name}")
-                    # Use fetch_alerting_integrations_status to determine status
-                    from utils.db_integration import fetch_alerting_integrations_status
-                    # Try to get app_id from params, else extract from repo URL
-                    app_id = params.get('shared', {}).get('request', {}).get('app_id')
-                    if not app_id:
-                        repo_url = params.get('shared', {}).get('request', {}).get('repository_url', '')
-                        from utils.db_integration import extract_app_id_from_url
-                        app_id = extract_app_id_from_url(repo_url) or '<APP ID>'
-                    print(f"   [DEBUG] Calling fetch_alerting_integrations_status for app_id={app_id}")
-                    try:
-                        integration_status = fetch_alerting_integrations_status(app_id)
-                        print(f"   [DEBUG] Integration status: {integration_status}")
-                    except Exception as ex:
-                        print(f"   [ERROR] fetch_alerting_integrations_status failed: {ex}")
-                        integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
-                    present = [k for k, v in integration_status.items() if v]
-                    missing = [k for k, v in integration_status.items() if not v]
-                    all_present = all(integration_status.values())
-                    # Only include App ID in evidence/details if it is not '<APP ID>' or empty
-                    app_id_str = f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else ""
-                    evidence_str = f"Present: {', '.join(present) if present else 'None'}; Missing: {', '.join(missing) if missing else 'None'}{app_id_str}"
-                    
-                    # Create enhanced result format for ALERTING_ACTIONABLE
-                    enhanced_result = {
-                        "gate": gate_name,
-                        "score": 100.0 if all_present else 0.0,
-                        "status": "PASS" if all_present else "FAIL",
-                        "evidence": evidence_str,
-                        "details": [
-                            f"Present: {', '.join(present) if present else 'None'}",
-                            f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
-                        ],
-                        "recommendations": [
-                            "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
-                        ],
-                        "condition_results": [
-                            {
-                                "name": "database_integration",
-                                "type": "database",
-                                "status": "PASS" if all_present else "FAIL",
-                                "weight": 1.0,
-                                "details": evidence_str
-                            }
-                        ],
-                        "coverage_score": 100.0 if all_present else 0.0,
-                        "criteria_score": 100.0 if all_present else 0.0,
-                        "matches_found": 1 if all_present else 0,
-                        "total_files": metadata.get("total_files", 1),
-                        "relevant_files": 1
-                    }
-                    
-                    # Create legacy result directly for ALERTING_ACTIONABLE (avoid conversion issues)
-                    legacy_result = {
-                        "gate": gate_name,
-                        "display_name": legacy_gate["display_name"],
-                        "description": legacy_gate["description"],
-                        "category": legacy_gate["category"],
-                        "priority": legacy_gate["priority"],
-                        "patterns_used": 0,
-                        "matches_found": 1 if all_present else 0,
-                        "matches": [],
-                        "patterns": [],
-                        "score": 100.0 if all_present else 0.0,
-                        "status": "PASS" if all_present else "FAIL",
-                        "details": [
-                            f"Present: {', '.join(present) if present else 'None'}",
-                            f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
-                        ],
-                        "evidence": evidence_str,
-                        "recommendations": [
-                            "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
-                        ],
-                        "pattern_description": legacy_gate.get("description", "Database integration analysis"),
-                        "pattern_significance": "Critical for monitoring and alerting",
-                        "expected_coverage": {
-                            "percentage": 100,
-                            "reasoning": "All integrations should be present",
-                            "confidence": "high"
-                        },
-                        "total_files": metadata.get("total_files", 1),
-                        "relevant_files": 1,
-                        "validation_sources": {
-                            "llm_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
-                            "static_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
-                            "combined_confidence": "high"
-                        }
-                    }
-                    
-                    gate_results.append(legacy_result)
-                    print(f"   ✅ {gate_name} evaluation complete: {legacy_result.get('status', 'UNKNOWN')} ({legacy_result.get('score', 0):.1f}%)")
+                    # Use the proper timeout-enabled method
+                    gate_result = self._evaluate_alerting_actionable_gate(legacy_gate, params)
+                    gate_results.append(gate_result)
                     continue
                 
                 try:
@@ -2284,30 +2235,75 @@ class ValidateGatesNode(Node):
         status = enhanced_result.get("status", "FAIL")
         matches = enhanced_result.get("matches", [])
         condition_results = enhanced_result.get("condition_results", [])
-        
-        # Check if this is a security gate with NOT operators
         gate_name = enhanced_result.get("gate_name", legacy_gate["name"])
-        is_security_gate = gate_name == "AVOID_LOGGING_SECRETS"
         
-        # For security gates with NOT operators, matches represent violations
-        # If the gate passed (status == "PASS"), there should be no violations
-        if is_security_gate and status == "PASS":
-            # Gate passed means no violations found, so clear matches
-            legacy_matches = []
-            violation_matches_dict = [self._convert_pattern_match_to_dict(match) for match in matches]
-        else:
-            # Convert matches to legacy format
-            legacy_matches = []
-            for match in matches:
-                legacy_matches.append({
-                    "file": match.file,
-                    "pattern": match.pattern,
-                    "match": match.context or f"Pattern: {match.pattern}",
-                    "line": match.line_number or 0,
-                    "language": self._detect_language_from_file(match.file),
-                    "source": "enhanced_criteria"
-                })
-            violation_matches_dict = [self._convert_pattern_match_to_dict(match) for match in matches]
+        # Calculate actual patterns used for evaluation (not just matches found)
+        # Get unique patterns from all conditions - include ALL patterns used, not just those with matches
+        patterns_used_set = set()
+        
+        # Extract patterns from the enhanced gate config that was used for evaluation
+        try:
+            # Load enhanced pattern library to get the actual patterns used
+            import json
+            import os
+            
+            # Try both possible locations for the enhanced pattern library
+            library_paths = [
+                "patterns/enhanced_pattern_library.json",
+                "gates/patterns/enhanced_pattern_library.json"
+            ]
+            
+            enhanced_pattern_library = None
+            for lib_path in library_paths:
+                if os.path.exists(lib_path):
+                    with open(lib_path, "r") as f:
+                        enhanced_pattern_library = json.load(f)
+                    print(f"   📖 Loaded enhanced pattern library from {lib_path}")
+                    break
+            
+            if enhanced_pattern_library:
+                enhanced_gates = enhanced_pattern_library.get("gates", {})
+                if gate_name in enhanced_gates:
+                    enhanced_gate_config = enhanced_gates[gate_name]
+                    criteria = enhanced_gate_config.get("criteria", {})
+                    conditions = criteria.get("conditions", [])
+                    
+                    # Extract all patterns from all conditions
+                    for condition in conditions:
+                        condition_patterns = condition.get("patterns", [])
+                        for pattern_obj in condition_patterns:
+                            if isinstance(pattern_obj, dict):
+                                pattern_text = pattern_obj.get("pattern", "")
+                                if pattern_text:
+                                    patterns_used_set.add(pattern_text)
+                            elif isinstance(pattern_obj, str):
+                                patterns_used_set.add(pattern_obj)
+                    
+                    print(f"   📊 Extracted {len(patterns_used_set)} patterns from enhanced library for {gate_name}")
+                else:
+                    print(f"   ⚠️ Gate {gate_name} not found in enhanced pattern library")
+            else:
+                print(f"   ⚠️ Enhanced pattern library not found")
+                
+        except Exception as e:
+            print(f"   ⚠️ Error extracting patterns from enhanced library: {e}")
+        
+        # If we couldn't extract patterns from the library, fallback to counting unique patterns from matches
+        if not patterns_used_set:
+            patterns_used_set.update(match.pattern for match in matches)
+            print(f"   📊 Fallback: Using {len(patterns_used_set)} patterns from matches for {gate_name}")
+        
+        # Convert matches to legacy format
+        legacy_matches = []
+        for match in matches:
+            legacy_matches.append({
+                "file": match.file,
+                "pattern": match.pattern,
+                "match": match.context or f"Pattern: {match.pattern}",
+                "line": match.line_number or 0,
+                "language": self._detect_language_from_file(match.file),
+                "source": "enhanced_criteria"
+            })
         
         # Generate details from condition results
         details = []
@@ -2325,14 +2321,14 @@ class ValidateGatesNode(Node):
             "description": enhanced_result.get("description", legacy_gate.get("description", "")),
             "category": enhanced_result.get("category", legacy_gate.get("category", "Unknown")),
             "priority": legacy_gate.get("priority", "Medium"),
-            "patterns_used": len(matches),
+            "patterns_used": len(patterns_used_set),  # Use actual pattern count, not match count
             "matches_found": len(legacy_matches),
             "matches": legacy_matches,
-            "patterns": [match.pattern for match in matches],
+            "patterns": list(patterns_used_set),  # Use actual patterns, not just matching patterns
             "score": score,
             "status": status,
             "details": details,
-            "evidence": f"Enhanced criteria evaluation: {len(legacy_matches)} matches found",
+            "evidence": f"Enhanced criteria evaluation: {len(legacy_matches)} matches found using {len(patterns_used_set)} patterns",
             "recommendations": recommendations,
             "pattern_description": legacy_gate.get("description", "Enhanced criteria-based analysis"),
             "pattern_significance": legacy_gate.get("significance", "Important for code quality"),
@@ -2344,7 +2340,7 @@ class ValidateGatesNode(Node):
             "total_files": metadata.get("total_files", 1),
             "relevant_files": len(set(match.file for match in matches)),
             "validation_sources": {
-                "llm_patterns": {"count": len(matches), "matches": len(matches), "source": "enhanced_criteria"},
+                "llm_patterns": {"count": len(patterns_used_set), "matches": len(matches), "source": "enhanced_criteria"},
                 "static_patterns": {"count": 0, "matches": 0, "source": "enhanced_criteria"},
                 "combined_confidence": "high"
             },
@@ -2363,7 +2359,7 @@ class ValidateGatesNode(Node):
                     }
                     for condition in condition_results
                 ],
-                "violation_matches": violation_matches_dict  # Store as dictionaries for JSON serialization
+                "violation_matches": [self._convert_pattern_match_to_dict(match) for match in matches]  # Store as dictionaries for JSON serialization
             }
         }
 
@@ -2470,12 +2466,55 @@ class ValidateGatesNode(Node):
         
         print(f"   🔗 Using database integration for {gate_name} (app_id={app_id})")
         
-        try:
-            integration_status = fetch_alerting_integrations_status(app_id)
-            print(f"   [DEBUG] Integration status: {integration_status}")
-        except Exception as ex:
-            print(f"   [ERROR] fetch_alerting_integrations_status failed: {ex}")
+        # Add timeout wrapper to prevent hanging using threading
+        import threading
+        import time
+        
+        integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
+        result_container = {"status": None, "exception": None, "completed": False}
+        
+        def fetch_with_timeout():
+            print(f"   [THREAD] Starting database call...")
+            try:
+                result_container["status"] = fetch_alerting_integrations_status(app_id)
+                result_container["completed"] = True
+                print(f"   [THREAD] Database call completed successfully")
+            except Exception as e:
+                result_container["exception"] = e
+                result_container["completed"] = True
+                print(f"   [THREAD] Database call failed with exception: {e}")
+        
+        print(f"   [DEBUG] Calling fetch_alerting_integrations_status for app_id={app_id}")
+        print(f"   [DEBUG] Starting thread at {time.time()}")
+        
+        # Start the database call in a separate thread
+        thread = threading.Thread(target=fetch_with_timeout)
+        thread.daemon = True
+        thread.start()
+        
+        print(f"   [DEBUG] Thread started, waiting for completion...")
+        
+        # Wait for the thread to complete with a 15-second timeout
+        start_time = time.time()
+        thread.join(timeout=15)
+        end_time = time.time()
+        
+        print(f"   [DEBUG] Thread join completed after {end_time - start_time:.2f} seconds")
+        print(f"   [DEBUG] Thread is alive: {thread.is_alive()}")
+        print(f"   [DEBUG] Result container: {result_container}")
+        
+        if thread.is_alive():
+            print(f"   [WARNING] Database connection timed out after 15 seconds, using default values")
             integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
+        else:
+            if result_container["exception"]:
+                print(f"   [ERROR] fetch_alerting_integrations_status failed: {result_container['exception']}")
+                integration_status = {"Splunk": False, "AppDynamics": False, "ThousandEyes": False}
+            else:
+                integration_status = result_container["status"]
+                print(f"   [DEBUG] Integration status: {integration_status}")
+        
+        print(f"   [DEBUG] Processing gate result...")
         
         present = [k for k, v in integration_status.items() if v]
         missing = [k for k, v in integration_status.items() if not v]
@@ -2485,16 +2524,46 @@ class ValidateGatesNode(Node):
         app_id_str = f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else ""
         evidence_str = f"Present: {', '.join(present) if present else 'None'}; Missing: {', '.join(missing) if missing else 'None'}{app_id_str}"
         
+        # Create detailed match information for better LLM context
+        matches = []
+        if not all_present:
+            # Create virtual matches for missing integrations to provide context
+            for missing_integration in missing:
+                matches.append({
+                    "file": "database_integration",
+                    "line": 1,
+                    "pattern": f"missing_{missing_integration.lower()}",
+                    "context": f"Missing {missing_integration} integration",
+                    "severity": "HIGH"
+                })
+        
+        # Create detailed validation sources for better LLM context
+        validation_sources = {
+            "database_integration": {
+                "enabled": True,
+                "count": len(integration_status),
+                "matches": len(present),
+                "source": "database_integration",
+                "details": {
+                    "integrations_checked": list(integration_status.keys()),
+                    "integrations_present": present,
+                    "integrations_missing": missing,
+                    "app_id": app_id if app_id != '<APP ID>' else None
+                }
+            },
+            "combined_confidence": "high"
+        }
+        
         gate_result = {
             "gate": gate_name,
             "display_name": gate["display_name"],
             "description": gate["description"],
             "category": gate["category"],
             "priority": gate["priority"],
-            "patterns_used": 0,
-            "matches_found": 0,
-            "matches": [],
-            "patterns": [],
+            "patterns_used": len(integration_status),  # Number of integrations checked
+            "matches_found": len(matches),
+            "matches": matches,
+            "patterns": [f"integration_{integration}" for integration in integration_status.keys()],
             "score": 100.0 if all_present else 0.0,
             "status": "PASS" if all_present else "FAIL",
             "details": [
@@ -2502,25 +2571,32 @@ class ValidateGatesNode(Node):
                 f"Missing: {', '.join(missing) if missing else 'None'}" + (f"; App ID: {app_id}" if app_id and app_id != '<APP ID>' else "")
             ],
             "evidence": evidence_str,
-            "recommendations": [
-                "All integrations detected and actionable" if all_present else f"Missing integrations: {', '.join(missing)}"
-            ],
-            "pattern_description": gate.get("description", "Pattern analysis for this gate"),
-            "pattern_significance": gate.get("significance", "Important for code quality and compliance"),
+            # Remove hardcoded recommendations to allow LLM to generate them
+            "recommendations": [],
+            "pattern_description": f"Database integration check for {', '.join(integration_status.keys())}",
+            "pattern_significance": "Critical for production monitoring and alerting",
             "expected_coverage": gate.get("expected_coverage", {
                 "percentage": 100,
-                "reasoning": "All integrations should be present",
+                "reasoning": "All integrations should be present for comprehensive alerting",
                 "confidence": "high"
             }),
             "total_files": params["metadata"].get("total_files", 1),
             "relevant_files": 1,
-            "validation_sources": {
-                "llm_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
-                "static_patterns": {"count": 0, "matches": 0, "source": "db_integration"},
-                "combined_confidence": "high"
+            "validation_sources": validation_sources,
+            # Add enhanced data for better LLM context
+            "enhanced_data": {
+                "integration_status": integration_status,
+                "present_integrations": present,
+                "missing_integrations": missing,
+                "app_id": app_id if app_id != '<APP ID>' else None,
+                "database_integration_success": True,
+                "mandatory_failures": missing if not all_present else [],
+                "failed_collectors": []
             }
         }
         
+        print(f"   [DEBUG] Gate result created, returning...")
+        print(f"   ✅ {gate_name} evaluation complete: {gate_result.get('status', 'UNKNOWN')} ({gate_result.get('score', 0):.1f}%)")
         return gate_result
     
     def _detect_language_from_file(self, file_path: str) -> str:
@@ -2621,7 +2697,7 @@ class ValidateGatesNode(Node):
         return "default"
     
     def _generate_llm_recommendations(self, shared, gate_results):
-        """Generate LLM-powered recommendations for failed and warning gates"""
+        """Generate LLM-powered recommendations for failed and warning gates using explainability engine"""
         try:
             # Check if LLM recommendations are enabled
             request_config = shared.get("request", {})
@@ -2644,28 +2720,6 @@ class ValidateGatesNode(Node):
                     print("⚠️ No LLM client available, skipping recommendations")
                     return
             
-            # Filter failed and warning gates
-            problematic_gates = [
-                gate for gate in gate_results 
-                if gate.get("status") in ["FAIL", "WARNING"]
-            ]
-            
-            if not problematic_gates:
-                return
-            
-            print(f"🤖 Generating LLM recommendations for {len(problematic_gates)} problematic gates...")
-            
-            # Process each gate individually for better recommendations
-            for gate in problematic_gates:
-                recommendation = self._get_gate_recommendation(
-                    gate, shared, llm_url, llm_api_key, llm_model
-                )
-                if recommendation:
-                    gate["llm_recommendation"] = recommendation
-                    gate["recommendation_generated"] = True
-            
-            print(f"✅ Generated LLM recommendations for {len(problematic_gates)} gates")
-            
             # Filter gates that can benefit from recommendations (including successful ones for positive insights)
             gates_for_recommendations = [
                 gate for gate in gate_results 
@@ -2679,98 +2733,61 @@ class ValidateGatesNode(Node):
             warning_count = len([g for g in gates_for_recommendations if g.get("status") == "WARNING"])  
             pass_count = len([g for g in gates_for_recommendations if g.get("status") == "PASS"])
             
-            print(f"🤖 Generating LLM recommendations for {len(gates_for_recommendations)} gates:")
+            print(f"🤖 Generating comprehensive LLM recommendations for {len(gates_for_recommendations)} gates:")
             print(f"   • {failed_count} failed gates (improvement recommendations)")
             print(f"   • {warning_count} warning gates (enhancement recommendations)")
             print(f"   • {pass_count} passed gates (best practice insights)")
             
             # Process each gate individually for better recommendations
             for gate in gates_for_recommendations:
-                recommendation = self._get_gate_recommendation(
+                enhanced_recommendation = self._get_gate_recommendation(
                     gate, shared, llm_url, llm_api_key, llm_model
                 )
-                if recommendation:
-                    gate["llm_recommendation"] = recommendation
-                    gate["recommendation_generated"] = True
+                if enhanced_recommendation:
+                    # Handle both old string format and new enhanced format
+                    if isinstance(enhanced_recommendation, dict):
+                        # New enhanced format with explainability context
+                        gate["llm_recommendation"] = enhanced_recommendation.get("recommendation", "")
+                        gate["explainability_context"] = enhanced_recommendation.get("explainability_context", {})
+                        gate["recommendation_generated"] = True
+                        gate["recommendation_enhanced"] = True
+                        
+                        # Log explainability context for debugging
+                        context = enhanced_recommendation.get("explainability_context", {})
+                        print(f"   📊 Enhanced recommendation for {gate.get('gate', 'Unknown')}:")
+                        print(f"      • Status: {context.get('validation_status', 'Unknown')}")
+                        print(f"      • Score: {context.get('validation_score', 0):.1f}%")
+                        print(f"      • Evidence Collectors: {len(context.get('evidence_collectors_used', []))}")
+                        print(f"      • Mandatory Failures: {len(context.get('mandatory_collectors_failed', []))}")
+                        print(f"      • Coverage Gap: {context.get('coverage_gap', 0):.1f}%")
+                        print(f"      • Violations: {context.get('violation_count', 0)}")
+                    else:
+                        # Old string format (fallback)
+                        gate["llm_recommendation"] = enhanced_recommendation
+                        gate["recommendation_generated"] = True
+                        gate["recommendation_enhanced"] = False
             
-            print(f"✅ Generated LLM recommendations for {len(gates_for_recommendations)} gates")
+            print(f"✅ Generated comprehensive LLM recommendations for {len(gates_for_recommendations)} gates")
             
         except Exception as e:
             print(f"❌ Error generating LLM recommendations: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _get_gate_recommendation(self, gate, shared, llm_url, llm_api_key, llm_model):
-        """Get LLM recommendation for a specific gate using the existing LLM client"""
+        """Get LLM recommendation for a specific gate using the new explainability engine"""
         try:
-            # Prepare context for the LLM
-            gate_name = gate.get("gate", "Unknown Gate")
-            gate_description = gate.get("description", "No description available")
-            gate_status = gate.get("status", "UNKNOWN")
-            patterns = gate.get("patterns", [])
-            matches = gate.get("matches", [])
+            # Import the explainability engine
+            from utils.gate_explainability import gate_explainability_engine
             
-            # Extract additional evaluation details for failed gates
-            evaluation_details = {}
-            if gate_status in ["FAIL", "WARNING"]:
-                evaluation_details = {
-                    "details": gate.get("details", []),
-                    "evidence": gate.get("evidence", ""),
-                    "condition_results": gate.get("condition_results", []),
-                    "score": gate.get("score", 0),
-                    "coverage_score": gate.get("coverage_score", 0),
-                    "criteria_score": gate.get("criteria_score", 0),
-                    "validation_sources": gate.get("validation_sources", {}),
-                    "failed_patterns": [],
-                    "failed_conditions": []
-                }
-                
-                # Extract failed conditions from condition_results
-                for condition in evaluation_details["condition_results"]:
-                    if condition.get("status") in ["FAIL", "WARNING"]:
-                        evaluation_details["failed_conditions"].append({
-                            "name": condition.get("name", "unknown"),
-                            "type": condition.get("type", "unknown"), 
-                            "details": condition.get("details", ""),
-                            "weight": condition.get("weight", 0)
-                        })
-                
-                # Extract patterns that had matches (indicating violations)
-                if matches:
-                    for match in matches:
-                        pattern = match.get("pattern", "")
-                        if pattern and pattern not in evaluation_details["failed_patterns"]:
-                            evaluation_details["failed_patterns"].append(pattern)
+            # Create comprehensive validation context
+            context = gate_explainability_engine.create_validation_context(gate, shared)
             
-            # Get repository context
-            repo_metadata = shared.get("repository", {}).get("metadata", {})
-            repo_url = shared.get("request", {}).get("repository_url", "Unknown")
-            primary_languages = repo_metadata.get("primary_languages", [])
-            
-            # Prepare pattern information
-            pattern_info = []
-            if isinstance(patterns, list):
-                pattern_info = patterns[:3]  # Limit to first 3 patterns
-            elif isinstance(patterns, dict):
-                for pattern_type, pattern_list in patterns.items():
-                    if isinstance(pattern_list, list):
-                        pattern_info.extend(pattern_list[:2])  # Limit patterns
-            
-            # Prepare match examples
-            match_examples = []
-            for match in matches[:3]:  # Limit to first 3 matches
-                match_examples.append({
-                    "file": match.get("file", "unknown"),
-                    "line": match.get("line", "unknown"),
-                    "code": match.get("code", match.get("content", ""))[:200],  # Limit code length
-                    "pattern": match.get("pattern", "")  # Include which pattern matched
-                })
-            
-            # Create the LLM prompt with enhanced details for failed gates
-            prompt = self._create_recommendation_prompt(
-                gate_name, gate_description, gate_status, pattern_info, 
-                match_examples, primary_languages, repo_url, evaluation_details
-            )
+            # Generate structured LLM prompt with all required fields
+            prompt = gate_explainability_engine.generate_llm_prompt(context)
             
             # Try to create LLM client from environment first
+            from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, LLMProvider
             llm_client = create_llm_client_from_env()
             
             # If no client from env, try to create from request config
@@ -2796,8 +2813,8 @@ class ValidateGatesNode(Node):
                         api_key=llm_api_key,
                         base_url=llm_url,
                         temperature=0.3,
-                        max_tokens=500,
-                        timeout=30
+                        max_tokens=1000,  # Increased for comprehensive responses
+                        timeout=60  # Increased timeout for detailed analysis
                     )
                     
                     llm_client = LLMClient(config)
@@ -2809,94 +2826,132 @@ class ValidateGatesNode(Node):
             # Use the LLM client to get recommendations
             if llm_client and llm_client.is_available():
                 try:
-                    print(f"🤖 Getting recommendation for {gate_name} using {llm_client.config.provider.value}")
-                    recommendation = llm_client.call_llm(prompt)
-                    return recommendation.strip()
+                    print(f"🤖 Getting comprehensive recommendation for {context.gate_name} using {llm_client.config.provider.value}")
+                    
+                    # Log the recommendation prompt
+                    try:
+                        from utils.prompt_logger import prompt_logger
+                        
+                        # Prepare context data for logging
+                        context_data = {
+                            "repository_url": shared.get("request", {}).get("repository_url", "unknown"),
+                            "branch": shared.get("request", {}).get("branch", "unknown"),
+                            "scan_id": shared.get("request", {}).get("scan_id", "unknown"),
+                            "gate_name": context.gate_name,
+                            "gate_status": context.validation_status,
+                            "gate_score": context.validation_score,
+                            "llm_provider": llm_client.config.provider.value,
+                            "llm_model": llm_client.config.model,
+                            "prompt_length": len(prompt),
+                            "evidence_collectors": context.evidence_collectors_used,
+                            "mandatory_failures": context.mandatory_collectors_failed
+                        }
+                        
+                        # Prepare metadata
+                        metadata = {
+                            "temperature": llm_client.config.temperature,
+                            "max_tokens": llm_client.config.max_tokens,
+                            "timeout": llm_client.config.timeout,
+                            "coverage_gap": context.coverage_gap,
+                            "violation_count": len(context.violation_details)
+                        }
+                        
+                        prompt_logger.log_recommendation_prompt(
+                            gate_name=context.gate_name,
+                            prompt=prompt,
+                            context=context_data,
+                            metadata=metadata
+                        )
+                        
+                    except Exception as e:
+                        print(f"⚠️ Failed to log recommendation prompt: {e}")
+                    
+                    recommendation = llm_client.call_llm(
+                        prompt,
+                        gate_name=context.gate_name,
+                        conversation_type="recommendation",
+                        context=context_data,
+                        metadata=metadata
+                    )
+                    
+                    # Add explainability context to the recommendation
+                    enhanced_recommendation = {
+                        "recommendation": recommendation.strip(),
+                        "explainability_context": {
+                            "gate_name": context.gate_name,
+                            "validation_status": context.validation_status,
+                            "validation_score": context.validation_score,
+                            "evidence_collectors_used": context.evidence_collectors_used,
+                            "mandatory_collectors_failed": context.mandatory_collectors_failed,
+                            "coverage_gap": context.coverage_gap,
+                            "violation_count": len(context.violation_details),
+                            "technology_stack": {
+                                "languages": context.primary_languages,
+                                "frameworks": context.frameworks_detected,
+                                "build_tools": context.build_tools
+                            }
+                        }
+                    }
+                    
+                    return enhanced_recommendation
+                    
                 except Exception as e:
-                    print(f"❌ LLM client error for {gate_name}: {e}")
+                    print(f"❌ LLM client error for {context.gate_name}: {e}")
                     return None
             else:
                 print(f"⚠️ No available LLM client for recommendations")
                 return None
                 
         except Exception as e:
-            print(f"❌ Error getting LLM recommendation for {gate_name}: {e}")
+            print(f"❌ Error getting LLM recommendation for {gate.get('gate', 'Unknown')}: {e}")
             return None
     
-    def _create_recommendation_prompt(self, gate_name, description, status, patterns, 
-                                    matches, languages, repo_url, evaluation_details=None):
-        """Create a structured prompt for LLM recommendations - different approach for PASS vs FAIL gates"""
+    def _generate_applicability_summary_html(self, applicability_summary: Dict[str, Any]) -> str:
+        """Generate applicability summary HTML"""
         
-        if status == "PASS":
-            # Success gate prompt using exact template structure
-            programming_languages = ', '.join(languages) if languages else 'Not detected'
-            patterns_text = '\n'.join([f"{pattern}" for pattern in patterns[:5]]) if patterns else "No patterns available"
-            
-            # Build success condition message
-            success_condition_message = f"Gate {gate_name} PASSED with score {evaluation_details.get('score', 0) if evaluation_details else 0}%"
-            
-            if evaluation_details:
-                if evaluation_details.get("evidence"):
-                    success_condition_message += f"\nEvidence: {evaluation_details['evidence']}"
-                
-                if evaluation_details.get("details"):
-                    success_condition_message += "\nSuccess Details:"
-                    for detail in evaluation_details["details"][:3]:
-                        success_condition_message += f"\n{detail}"
-            
-            prompt = f"""You are a Quality Hardgate Analyst. Analyze the provided logs and deliver insights and recommendations for each successful condition, referencing the names and patterns from the patterns file.
-Identify programming language from Logs file and For each successful condition, include:
-- Insights on the pattern used for scanning (100 words)
-- Relevant libraries (100 words)
-- Required code changes (100 words)
-
-Logs:
-{success_condition_message}
-
-Names and Patterns:
-{patterns_text}"""
-
-        else:
-            # Failed gate prompt using exact template structure
-            programming_languages = ', '.join(languages) if languages else 'Not detected'
-            patterns_text = '\n'.join([f"{pattern}" for pattern in patterns[:5]]) if patterns else "No patterns available"
-            
-            # Build failed condition message from evaluation details
-            failed_condition_message = f"Gate {gate_name} FAILED with score {evaluation_details.get('score', 0) if evaluation_details else 0}%"
-            
-            if evaluation_details:
-                if evaluation_details.get("evidence"):
-                    failed_condition_message += f"\nEvidence: {evaluation_details['evidence']}"
-                
-                if evaluation_details.get("failed_conditions"):
-                    failed_condition_message += "\nFailed Conditions:"
-                    for condition in evaluation_details["failed_conditions"][:3]:
-                        failed_condition_message += f"\n{condition['name']} ({condition['type']}): {condition.get('details', 'No details')}"
-                
-                if evaluation_details.get("details"):
-                    failed_condition_message += "\nAdditional Details:"
-                    for detail in evaluation_details["details"][:3]:
-                        failed_condition_message += f"\n{detail}"
-            
-            if matches:
-                failed_condition_message += f"\nSecurity Issues Found ({len(matches)} violations):"
-                for i, match in enumerate(matches[:3], 1):
-                    failed_condition_message += f"\nIssue {i}: Found in {match.get('file', 'unknown file')} at line {match.get('line', 'unknown')}"
-
-            prompt = f"""You are a Quality Hardgate Analyst. Analyze the provided logs and deliver insights and recommendations for each failed condition, referencing the names and patterns from the patterns file.
-Identify programming language from Logs file and For each failed condition, include:
-- Insights on the pattern used for scanning (100 words)
-- Relevant libraries (100 words)
-- Required code changes (100 words)
-
-Logs:
-{failed_condition_message}
-
-Names and Patterns:
-{patterns_text}"""
+        if not applicability_summary:
+            return ""
         
-        return prompt
-    
+        applicable_gates = applicability_summary.get("applicable_gates", [])
+        not_applicable_gates = applicability_summary.get("not_applicable_gates", [])
+        
+        # Ensure these are lists, not integers
+        if not isinstance(applicable_gates, list):
+            applicable_gates = []
+        if not isinstance(not_applicable_gates, list):
+            not_applicable_gates = []
+        
+        html = """
+        <h3>Gate Applicability</h3>
+        <div class="applicability-summary">
+        """
+        
+        if applicable_gates:
+            html += f"""
+            <div class="applicable-gates">
+                <h4>Applicable Gates ({len(applicable_gates)})</h4>
+                <ul>
+                    {''.join([f'<li>{gate.get("display_name", gate.get("gate", "Unknown"))}</li>' for gate in applicable_gates])}
+                </ul>
+            </div>
+            """
+        
+        if not_applicable_gates:
+            html += f"""
+            <div class="not-applicable-gates">
+                <h4>Not Applicable Gates ({len(not_applicable_gates)})</h4>
+                <ul>
+                    {''.join([f'<li>{gate.get("display_name", gate.get("gate", "Unknown"))}</li>' for gate in not_applicable_gates])}
+                </ul>
+            </div>
+            """
+        
+        html += """
+        </div>
+        """
+        
+        return html
+
     def _get_primary_technologies(self, metadata: Dict[str, Any]) -> List[str]:
         """Get primary technologies from metadata"""
         language_stats = metadata.get("language_stats", {})
@@ -2934,6 +2989,86 @@ Names and Patterns:
                 primary_technologies.append(dominant_primary)
         
         return primary_technologies
+
+    def _extract_app_id(self, repository_url: str) -> str:
+        """Extract App Id from repository URL using /app-XYZ/ pattern. Returns XYZ or <APP> if not found."""
+        import re
+        try:
+            # Remove .git if present
+            if repository_url.endswith('.git'):
+                repository_url = repository_url[:-4]
+            # Find /app-XYZ or /app-XYZ/ in the path
+            match = re.search(r"/app-([A-Za-z0-9_-]+)(/|$)", repository_url)
+            if match:
+                return match.group(1)
+            else:
+                return "APP ID"
+        except Exception:
+            return "APP ID"
+
+    def _format_llm_recommendation_html(self, recommendation: str) -> str:
+        """Format LLM recommendation as HTML with clean, consistent formatting"""
+        if not recommendation:
+            return ""
+        
+        try:
+            # Use the centralized recommendation formatter for consistent formatting
+            from utils.recommendation_formatter import recommendation_formatter
+            
+            # Create a mock gate object for formatting
+            mock_gate = {
+                "llm_recommendation": recommendation,
+                "status": "FAIL"  # Default status for formatting
+            }
+            
+            # Use the centralized formatter for HTML formatting
+            return recommendation_formatter.format_recommendation_html(mock_gate, "details")
+            
+        except ImportError:
+            # Fallback to local formatting if import fails
+            return self._format_llm_recommendation_html_fallback(recommendation)
+    
+    def _format_llm_recommendation_html_fallback(self, recommendation: str) -> str:
+        """Fallback HTML formatting for LLM recommendations without graphics"""
+        if not recommendation:
+            return ""
+        
+        # Clean the recommendation text
+        cleaned_recommendation = self._clean_recommendation_text(recommendation)
+        
+        # Convert to HTML with clean text formatting
+        html = cleaned_recommendation
+        
+        # Convert line breaks with consistent spacing
+        html = html.replace('\n', '<br>')
+        
+        return html
+    
+    def _clean_recommendation_text(self, text: str) -> str:
+        """Clean recommendation text for consistent formatting without bullet points or graphics"""
+        if not text:
+            return ""
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+        text = re.sub(r' +', ' ', text)
+        
+        # Normalize line endings
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        
+        # Remove all bullet points and convert to plain text
+        text = re.sub(r'^[\s]*[-•*][\s]*', '', text, flags=re.MULTILINE)
+        
+        # Clean up numbered lists
+        text = re.sub(r'^[\s]*(\d+)[\s]*[\.\)][\s]*', r'\1. ', text, flags=re.MULTILINE)
+        
+        # Remove trailing whitespace
+        text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
+        
+        # Remove empty lines that might be left after removing bullets
+        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+        
+        return text.strip()
 
 
 class GenerateReportNode(Node):
@@ -3745,34 +3880,9 @@ class GenerateReportNode(Node):
             return 'No relevant patterns found in codebase'
 
     def _get_recommendation_from_new_data(self, gate: Dict[str, Any]) -> str:
-        """Get recommendation for display from new data structure"""
-        matches_found = gate.get("matches_found", 0)
-        status = gate.get("status")
-        display_name = gate.get("display_name", "")
-        
-        # Use existing recommendations if available
-        recommendations = gate.get("recommendations", [])
-        if recommendations:
-            return recommendations[0]  # Use first recommendation
-        
-        # Special handling for NOT_APPLICABLE
-        if status == 'NOT_APPLICABLE':
-            return 'Not applicable to this technology stack'
-        
-        # Special handling for avoid_logging_secrets
-        if matches_found > 0:
-            if gate.get("gate") == 'AVOID_LOGGING_SECRETS':
-                return f"Fix confidential data logging violations in {display_name.lower()}"
-            elif status == 'PASS':
-                return f"Address identified issues in {display_name.lower()}"
-        
-        # Default recommendation mapping
-        if status == 'PASS':
-            return 'Continue maintaining good practices'
-        elif status == 'WARNING':
-            return f"Expand implementation of {display_name.lower()}"
-        else:
-            return f"Implement {display_name.lower()}"
+        """Get recommendation for display from new data structure using centralized formatter"""
+        from utils.recommendation_formatter import recommendation_formatter
+        return recommendation_formatter.format_recommendation_for_table(gate)
     
     def _get_gate_categories(self) -> Dict[str, List[str]]:
         """Get gate categories matching original format"""
@@ -4832,94 +4942,20 @@ class GenerateReportNode(Node):
             return "APP ID"
 
     def _format_llm_recommendation_html(self, recommendation: str) -> str:
-        """Enhanced markdown to HTML formatter for LLM recommendations"""
+        """Enhanced markdown to HTML formatter for LLM recommendations using centralized formatter"""
         if not recommendation:
             return ""
         
-        # Split the recommendation into lines and format them
-        formatted_html = ""
-        lines = recommendation.split('\n')
-        in_list = False
+        from utils.recommendation_formatter import recommendation_formatter
         
-        for line in lines:
-            original_line = line
-            line = line.strip()
-            
-            if not line:
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                formatted_html += "<br>"
-                continue
-            
-            # Check for markdown bold headers (**text**)
-            if line.startswith('**') and line.endswith('**:') or (line.startswith('**') and line.endswith('**')):
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                # Remove markdown formatting and make it a header
-                clean_header = line.replace('**', '').replace(':', '')
-                formatted_html += f'<h6 style="margin-top: 15px; margin-bottom: 8px; font-weight: bold; color: #2563eb;">{clean_header}</h6>'
-            
-            # Check for simple headers (ending with colon)
-            elif line.endswith(':') and 'Language:' not in line:
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                clean_header = line.replace(':', '')
-                formatted_html += f'<h6 style="margin-top: 15px; margin-bottom: 8px; font-weight: bold; color: #2563eb;">{clean_header}</h6>'
-            
-            # Check for bullet points (-, •, *)
-            elif line.startswith('- ') or line.startswith('• ') or line.startswith('* '):
-                if not in_list:
-                    formatted_html += '<ul style="margin-left: 20px; list-style: none; padding: 0;">'
-                    in_list = True
-                content = line[2:]
-                formatted_html += f'<li style="margin-bottom: 8px;"><i class="fas fa-chevron-right" style="color: #2563eb; margin-right: 8px; font-size: 10px;"></i>{content}</li>'
-            
-            # Check for numbered points (1., 2., etc.)
-            elif line.startswith(tuple(f'{i}. ' for i in range(1, 20))):
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                # Extract number and content
-                parts = line.split('. ', 1)
-                if len(parts) == 2:
-                    number = parts[0]
-                    content = parts[1]
-                    formatted_html += f'<div style="margin-left: 20px; margin-bottom: 8px;"><span style="background-color: #2563eb; color: white; padding: 3px 8px; border-radius: 4px; margin-right: 10px; font-size: 11px; font-weight: bold;">{number}</span>{content}</div>'
-                else:
-                    formatted_html += f'<p style="margin-bottom: 8px;">{line}</p>'
-            
-            # Check for programming language detection
-            elif 'programming language:' in line.lower():
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                formatted_html += f'<div style="margin-bottom: 12px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #17a2b8; border-radius: 4px;"><i class="fas fa-code" style="margin-right: 8px; color: #17a2b8;"></i><span style="font-size: 12px; color: #6b7280;">{line}</span></div>'
-            
-            # Check for inline markdown bold (**text**)
-            elif '**' in line:
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                # Replace **text** with <strong>text</strong>
-                import re
-                formatted_line = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', line)
-                formatted_html += f'<p style="margin-bottom: 8px;">{formatted_line}</p>'
-            
-            # Regular paragraph text
-            else:
-                if in_list:
-                    formatted_html += "</ul>"
-                    in_list = False
-                formatted_html += f'<p style="margin-bottom: 8px;">{line}</p>'
+        # Use the centralized formatter for LLM recommendations
+        formatted_recommendation = recommendation_formatter.format_llm_recommendation(recommendation)
         
-        # Close any open list
-        if in_list:
-            formatted_html += "</ul>"
-        
-        return formatted_html
+        # Convert to HTML
+        return recommendation_formatter.format_recommendation_html(
+            {"llm_recommendation": formatted_recommendation}, 
+            "details"
+        )
 
 
 class CleanupNode(Node):

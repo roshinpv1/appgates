@@ -278,57 +278,95 @@ def gates():
 
 @main.command()
 @click.option('--llm-provider', type=click.Choice(['openai', 'anthropic', 'gemini', 'ollama', 'local', 'enterprise', 'apigee']), 
-              help='LLM provider to test')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def test_llm(llm_provider: Optional[str], verbose: bool):
-    """Test LLM integration and availability."""
+              default='openai', help='LLM provider to test')
+@click.option('--llm-model', default='gpt-4', help='LLM model to test')
+@click.option('--llm-url', help='LLM service URL (for local/enterprise providers)')
+@click.option('--llm-api-key', help='LLM API key')
+def test_llm(llm_provider, llm_model, llm_url, llm_api_key):
+    """Test LLM connectivity and basic functionality"""
+    print("🧪 Testing LLM connectivity...")
     
-    from utils.llm_client import create_llm_client_from_env, LLMClient, LLMConfig, _create_config_for_provider
-    
-    click.echo("🧪 Testing LLM Integration")
-    click.echo("=" * 30)
-    
-    if llm_provider:
-        # Test specific provider
+    try:
+        from utils.llm_client import LLMClient, LLMConfig, LLMProvider
+        
+        # Map provider string to enum
+        provider_map = {
+            'openai': LLMProvider.OPENAI,
+            'anthropic': LLMProvider.ANTHROPIC,
+            'gemini': LLMProvider.GEMINI,
+            'ollama': LLMProvider.OLLAMA,
+            'local': LLMProvider.LOCAL,
+            'enterprise': LLMProvider.ENTERPRISE,
+            'apigee': LLMProvider.APIGEE
+        }
+        
+        provider = provider_map.get(llm_provider, LLMProvider.OPENAI)
+        
+        # Create LLM config
+        config = LLMConfig(
+            provider=provider,
+            model=llm_model,
+            api_key=llm_api_key,
+            base_url=llm_url,
+            temperature=0.1,
+            max_tokens=100,
+            timeout=30
+        )
+        
+        # Create LLM client
+        client = LLMClient(config)
+        
+        if not client.is_available():
+            print(f"❌ LLM client not available for provider: {llm_provider}")
+            return
+        
+        print(f"✅ LLM client created successfully")
+        print(f"   Provider: {llm_provider}")
+        print(f"   Model: {llm_model}")
+        print(f"   URL: {llm_url or 'default'}")
+        
+        # Test prompt
+        test_prompt = "Hello! Please respond with 'LLM test successful!'"
+        
+        # Log the test prompt
         try:
-            provider_enum = LLMProvider(llm_provider)
-            config = _create_config_for_provider(provider_enum)
-            client = LLMClient(config)
+            from utils.prompt_logger import prompt_logger
             
-            click.echo(f"Testing {llm_provider} provider:")
-            click.echo(f"  Model: {config.model}")
-            click.echo(f"  Available: {client.is_available()}")
+            context_data = {
+                "test_type": "cli_llm_test",
+                "llm_provider": llm_provider,
+                "llm_model": llm_model,
+                "llm_url": llm_url or "default",
+                "prompt_length": len(test_prompt)
+            }
             
-            if client.is_available():
-                if verbose:
-                    try:
-                        response = client.call_llm("Hello! Please respond with 'LLM test successful!'")
-                        click.echo(f"  Test Response: {response[:100]}...")
-                    except Exception as e:
-                        click.echo(f"  Test Failed: {e}")
+            metadata = {
+                "temperature": config.temperature,
+                "max_tokens": config.max_tokens,
+                "timeout": config.timeout
+            }
+            
+            prompt_logger.log_general_prompt(
+                gate_name="CLI_TEST",
+                prompt=test_prompt,
+                context=context_data,
+                metadata=metadata
+            )
             
         except Exception as e:
-            click.echo(f"❌ Failed to test {llm_provider}: {e}")
-    else:
-        # Test auto-detection
-        client = create_llm_client_from_env()
-        if client:
-            click.echo(f"✅ Auto-detected: {client.config.provider.value}")
-            click.echo(f"  Model: {client.config.model}")
-            click.echo(f"  Available: {client.is_available()}")
-            
-            if verbose and client.is_available():
-                try:
-                    response = client.call_llm("Hello! Please respond with 'LLM test successful!'")
-                    click.echo(f"  Test Response: {response[:100]}...")
-                except Exception as e:
-                    click.echo(f"  Test Failed: {e}")
-        else:
-            click.echo("❌ No LLM provider detected")
-            click.echo("\nAvailable providers:")
-            for provider in LLMProvider:
-                click.echo(f"  - {provider.value}")
-            click.echo("\nSet appropriate environment variables to enable LLM integration.")
+            print(f"⚠️ Failed to log test prompt: {e}")
+        
+        # Make test call
+        print("📞 Making test LLM call...")
+        response = client.call_llm(test_prompt)
+        
+        print(f"✅ LLM test successful!")
+        print(f"   Response: {response.strip()}")
+        
+    except Exception as e:
+        print(f"❌ LLM test failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

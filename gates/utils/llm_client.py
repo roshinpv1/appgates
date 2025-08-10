@@ -259,28 +259,241 @@ class LLMClient:
         elif config.provider == LLMProvider.ENTERPRISE:
             self.enterprise_token_manager = EnterpriseTokenManager()
     
-    def call_llm(self, prompt: str) -> str:
-        """Call LLM with the configured provider"""
+    def call_llm(self, prompt: str, gate_name: str = "unknown", conversation_type: str = "general", 
+                context: Optional[Dict[str, Any]] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """Call LLM with the configured provider and log the conversation"""
         try:
+            # Log the conversation before making the call
+            self._log_conversation_start(gate_name, conversation_type, prompt, context, metadata)
+            
+            # Make the LLM call
             if self.config.provider == LLMProvider.OPENAI:
-                return self._call_openai(prompt)
+                response = self._call_openai(prompt)
             elif self.config.provider == LLMProvider.ANTHROPIC:
-                return self._call_anthropic(prompt)
+                response = self._call_anthropic(prompt)
             elif self.config.provider == LLMProvider.GEMINI:
-                return self._call_gemini(prompt)
+                response = self._call_gemini(prompt)
             elif self.config.provider == LLMProvider.OLLAMA:
-                return self._call_ollama(prompt)
+                response = self._call_ollama(prompt)
             elif self.config.provider == LLMProvider.LOCAL:
-                return self._call_local(prompt)
+                response = self._call_local(prompt)
             elif self.config.provider == LLMProvider.ENTERPRISE:
-                return self._call_enterprise(prompt)
+                response = self._call_enterprise(prompt)
             elif self.config.provider == LLMProvider.APIGEE:
-                return self._call_apigee(prompt)
+                response = self._call_apigee(prompt)
             else:
                 raise ValueError(f"Unsupported LLM provider: {self.config.provider}")
+            
+            # Log the complete conversation with response
+            self._log_conversation_complete(gate_name, conversation_type, prompt, response, context, metadata)
+            print(f"🔍 Prompt=========: {gate_name} : {prompt}")
+            return response
+            
         except Exception as e:
             print(f"⚠️ LLM call failed for provider {self.config.provider}: {e}")
+            # Log the failed conversation
+            self._log_conversation_failed(gate_name, conversation_type, prompt, str(e), context, metadata)
             raise
+    
+    def call_llm_with_messages(self, messages: List[Dict[str, str]], gate_name: str = "unknown", 
+                              conversation_type: str = "general", context: Optional[Dict[str, Any]] = None, 
+                              metadata: Optional[Dict[str, Any]] = None) -> str:
+        """Call LLM with messages format and log the complete conversation"""
+        try:
+            # Extract system and user prompts
+            system_prompt = ""
+            user_prompt = ""
+            
+            for message in messages:
+                role = message.get("role", "").lower()
+                content = message.get("content", "")
+                
+                if role == "system":
+                    system_prompt = content
+                elif role == "user":
+                    user_prompt = content
+            
+            # Log the conversation start
+            self._log_conversation_with_messages_start(gate_name, conversation_type, messages, context, metadata)
+            
+            # Make the LLM call with messages
+            if self.config.provider == LLMProvider.OPENAI:
+                response = self._call_openai_with_messages(messages)
+            elif self.config.provider == LLMProvider.ANTHROPIC:
+                response = self._call_anthropic_with_messages(messages)
+            elif self.config.provider == LLMProvider.GEMINI:
+                response = self._call_gemini_with_messages(messages)
+            elif self.config.provider == LLMProvider.OLLAMA:
+                response = self._call_ollama_with_messages(messages)
+            elif self.config.provider == LLMProvider.LOCAL:
+                response = self._call_local_with_messages(messages)
+            elif self.config.provider == LLMProvider.ENTERPRISE:
+                response = self._call_enterprise_with_messages(messages)
+            elif self.config.provider == LLMProvider.APIGEE:
+                response = self._call_apigee_with_messages(messages)
+            else:
+                raise ValueError(f"Unsupported LLM provider: {self.config.provider}")
+            
+            # Log the complete conversation with response
+            self._log_conversation_with_messages_complete(gate_name, conversation_type, messages, response, context, metadata)
+            
+            return response
+            
+        except Exception as e:
+            print(f"⚠️ LLM call with messages failed for provider {self.config.provider}: {e}")
+            # Log the failed conversation
+            self._log_conversation_with_messages_failed(gate_name, conversation_type, messages, str(e), context, metadata)
+            raise
+    
+    def _log_conversation_start(self, gate_name: str, conversation_type: str, prompt: str, 
+                               context: Optional[Dict[str, Any]], metadata: Optional[Dict[str, Any]]):
+        """Log conversation start (before LLM call)"""
+        try:
+            from .prompt_logger import prompt_logger
+            # Save as single prompt file for easier reading
+            prompt_logger.save_single_prompt_file(
+                gate_name=gate_name,
+                conversation_type=conversation_type,
+                system_prompt="",  # No system prompt in simple call
+                user_prompt=prompt,
+                llm_response=None,  # Not yet available
+                context=context,
+                metadata=metadata
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to log conversation start: {e}")
+    
+    def _log_conversation_complete(self, gate_name: str, conversation_type: str, prompt: str, 
+                                  response: str, context: Optional[Dict[str, Any]], metadata: Optional[Dict[str, Any]]):
+        """Log complete conversation with response"""
+        try:
+            from .prompt_logger import prompt_logger
+            # Save as single prompt file for easier reading
+            prompt_logger.save_single_prompt_file(
+                gate_name=gate_name,
+                conversation_type=conversation_type,
+                system_prompt="",  # No system prompt in simple call
+                user_prompt=prompt,
+                llm_response=response,
+                context=context,
+                metadata=metadata
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to log complete conversation: {e}")
+    
+    def _log_conversation_failed(self, gate_name: str, conversation_type: str, prompt: str, 
+                                error: str, context: Optional[Dict[str, Any]], metadata: Optional[Dict[str, Any]]):
+        """Log failed conversation"""
+        try:
+            from .prompt_logger import prompt_logger
+            # Save as single prompt file for easier reading
+            prompt_logger.save_single_prompt_file(
+                gate_name=gate_name,
+                conversation_type=conversation_type,
+                system_prompt="",  # No system prompt in simple call
+                user_prompt=prompt,
+                llm_response=f"ERROR: {error}",
+                context=context,
+                metadata=metadata
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to log failed conversation: {e}")
+    
+    def _log_conversation_with_messages_start(self, gate_name: str, conversation_type: str, 
+                                             messages: List[Dict[str, str]], context: Optional[Dict[str, Any]], 
+                                             metadata: Optional[Dict[str, Any]]):
+        """Log conversation start with messages (before LLM call)"""
+        try:
+            from .prompt_logger import prompt_logger
+            # Extract system and user prompts
+            system_prompt = ""
+            user_prompt = ""
+            
+            for message in messages:
+                role = message.get("role", "").lower()
+                content = message.get("content", "")
+                
+                if role == "system":
+                    system_prompt = content
+                elif role == "user":
+                    user_prompt = content
+            
+            # Save as single prompt file for easier reading
+            prompt_logger.save_single_prompt_file(
+                gate_name=gate_name,
+                conversation_type=conversation_type,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                llm_response=None,  # Not yet available
+                context=context,
+                metadata=metadata
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to log conversation with messages start: {e}")
+    
+    def _log_conversation_with_messages_complete(self, gate_name: str, conversation_type: str, 
+                                                messages: List[Dict[str, str]], response: str, 
+                                                context: Optional[Dict[str, Any]], metadata: Optional[Dict[str, Any]]):
+        """Log complete conversation with messages and response"""
+        try:
+            from .prompt_logger import prompt_logger
+            # Extract system and user prompts
+            system_prompt = ""
+            user_prompt = ""
+            
+            for message in messages:
+                role = message.get("role", "").lower()
+                content = message.get("content", "")
+                
+                if role == "system":
+                    system_prompt = content
+                elif role == "user":
+                    user_prompt = content
+            
+            # Save as single prompt file for easier reading
+            prompt_logger.save_single_prompt_file(
+                gate_name=gate_name,
+                conversation_type=conversation_type,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                llm_response=response,
+                context=context,
+                metadata=metadata
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to log complete conversation with messages: {e}")
+    
+    def _log_conversation_with_messages_failed(self, gate_name: str, conversation_type: str, 
+                                              messages: List[Dict[str, str]], error: str, 
+                                              context: Optional[Dict[str, Any]], metadata: Optional[Dict[str, Any]]):
+        """Log failed conversation with messages"""
+        try:
+            from .prompt_logger import prompt_logger
+            # Extract system and user prompts
+            system_prompt = ""
+            user_prompt = ""
+            
+            for message in messages:
+                role = message.get("role", "").lower()
+                content = message.get("content", "")
+                
+                if role == "system":
+                    system_prompt = content
+                elif role == "user":
+                    user_prompt = content
+            
+            # Save as single prompt file for easier reading
+            prompt_logger.save_single_prompt_file(
+                gate_name=gate_name,
+                conversation_type=conversation_type,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                llm_response=f"ERROR: {error}",
+                context=context,
+                metadata=metadata
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to log failed conversation with messages: {e}")
     
     def _call_openai(self, prompt: str) -> str:
         """Call OpenAI API"""
