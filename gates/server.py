@@ -136,6 +136,14 @@ class ScanResult(BaseModel):
     progress_percentage: Optional[int] = None
     step_details: Optional[str] = None
     app_id: Optional[str] = None
+    # NEW: Enhanced progress tracking fields
+    evidence_collection_progress: Optional[Dict[str, Any]] = None  # Progress for each evidence method
+    mandatory_collectors_status: Optional[Dict[str, str]] = None   # Status of mandatory collectors
+    gate_validation_progress: Optional[List[Dict[str, Any]]] = None  # Progress for each gate
+    # Backward compatibility aliases for VSCode extension and other clients
+    score: Optional[float] = None  # Alias for overall_score
+    gates: Optional[List[Dict[str, Any]]] = None  # Alias for gate_results
+    progress: Optional[int] = None  # Alias for progress_percentage
 
 
 class GateInfo(BaseModel):
@@ -491,12 +499,16 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
             "total_lines": 0,
             "passed_gates": 0,
             "failed_gates": 0,
-            "warning_gates": 0,
+            "warning_gates": 0,  # Added for backward compatibility
             "total_gates": 0,
             "errors": [],
             "current_step": None,
             "progress_percentage": None,
-            "step_details": None
+            "step_details": None,
+            # NEW: Enhanced progress tracking
+            "evidence_collection_progress": {},
+            "mandatory_collectors_status": {},
+            "gate_validation_progress": []
         }
         
         # Start background scan
@@ -540,7 +552,15 @@ async def get_scan_status(scan_id: str):
         current_step=result.get("current_step"),
         progress_percentage=result.get("progress_percentage"),
         step_details=result.get("step_details"),
-        app_id=result["request"].get("app_id") if "request" in result else None
+        app_id=result.get("app_id"),
+        # NEW: Enhanced progress tracking
+        evidence_collection_progress=result.get("evidence_collection_progress"),
+        mandatory_collectors_status=result.get("mandatory_collectors_status"),
+        gate_validation_progress=result.get("gate_validation_progress"),
+        # Backward compatibility aliases
+        score=result["overall_score"],  # Alias for overall_score
+        gates=result.get("gate_results", []),  # Alias for gate_results
+        progress=result.get("progress_percentage", 0)  # Alias for progress_percentage
     )
 
 
@@ -1044,7 +1064,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "total_lines": shared["repository"]["metadata"].get("total_lines", 0),
                 "passed_gates": passed,
                 "failed_gates": failed,
-                "warning_gates": warnings,
+                "warning_gates": warnings,  # Ensure warning_gates is set for backward compatibility
                 "total_gates": len(gate_results),
                 "gate_results": gate_results,  # Store detailed gate results for UI
                 "html_report_path": shared["reports"]["html_path"],
@@ -1078,7 +1098,7 @@ async def perform_scan(scan_id: str, request: ScanRequest):
                 "total_gates": 0,
                 "passed_gates": 0,
                 "failed_gates": 0,
-                "warning_gates": 0,
+                "warning_gates": 0,  # Ensure warning_gates is set for backward compatibility
                 "gate_results": [],
                 "errors": shared["errors"] + [error_msg],
                 "current_step": "Failed",
@@ -1093,7 +1113,8 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             "errors": [str(e)],
             "current_step": "Failed",
             "progress_percentage": 0,
-            "step_details": f"Scan failed with error: {str(e)}"
+            "step_details": f"Scan failed with error: {str(e)}",
+            "warning_gates": 0  # Ensure warning_gates is set for backward compatibility
         })
 
 

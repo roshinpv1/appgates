@@ -969,9 +969,57 @@ def main():
             with col3:
                 st.metric("Scan ID", st.session_state.scan_id)
             
-            # Current step
+            # Enhanced progress information
             current_step = scan_status.get("current_step", "Unknown")
-            st.info(f"Current Step: {current_step}")
+            step_details = scan_status.get("step_details", "")
+            
+            # Display current step and details
+            if current_step and current_step != "Unknown":
+                st.info(f"**Current Step:** {current_step}")
+            
+            if step_details and step_details != current_step:
+                st.info(f"**Details:** {step_details}")
+            
+            # Enhanced progress tracking (if available)
+            evidence_progress = scan_status.get("evidence_collection_progress")
+            mandatory_status = scan_status.get("mandatory_collectors_status")
+            gate_progress = scan_status.get("gate_validation_progress")
+            
+            if evidence_progress or mandatory_status or gate_progress:
+                st.markdown("### 🔍 Enhanced Progress Tracking")
+                
+                # Evidence collection progress
+                if evidence_progress:
+                    st.markdown("**📊 Evidence Collection Progress:**")
+                    for method, data in evidence_progress.items():
+                        if isinstance(data, dict):
+                            status_emoji = "✅" if data.get("status") == "completed" else "🔄" if data.get("status") == "in_progress" else "❌"
+                            score = data.get("score", 0)
+                            st.write(f"{status_emoji} **{method.title()}**: {data.get('status', 'unknown')} ({score:.1f}%)")
+                        else:
+                            st.write(f"📊 **{method.title()}**: {data}")
+                
+                # Mandatory collectors status
+                if mandatory_status:
+                    st.markdown("**🔒 Mandatory Collectors Status:**")
+                    for collector, status in mandatory_status.items():
+                        status_emoji = "✅" if status == "passed" else "❌" if status == "failed" else "⚠️"
+                        st.write(f"{status_emoji} **{collector.title()}**: {status}")
+                
+                # Gate validation progress
+                if gate_progress:
+                    st.markdown("**🎯 Gate Validation Progress:**")
+                    for gate_data in gate_progress:
+                        gate_name = gate_data.get("gate", "Unknown")
+                        gate_status = gate_data.get("status", "unknown")
+                        gate_progress_val = gate_data.get("progress", 0)
+                        mandatory_failures = gate_data.get("mandatory_failures", [])
+                        
+                        status_emoji = "✅" if gate_status == "completed" else "🔄" if gate_status == "in_progress" else "❌"
+                        st.write(f"{status_emoji} **{gate_name}**: {gate_status} ({gate_progress_val}%)")
+                        
+                        if mandatory_failures:
+                            st.write(f"   ❌ **Mandatory Failures:** {', '.join(mandatory_failures)}")
             
             if status == "completed":
                 st.success("🎉 Scan completed successfully!")
@@ -990,6 +1038,11 @@ def main():
                 
                 with col4:
                     st.metric("Total Lines", scan_status.get('total_lines', 0))
+                
+                # Display warning gates if any
+                warning_gates = scan_status.get('warning_gates', 0)
+                if warning_gates > 0:
+                    st.warning(f"⚠️ **Warning Gates:** {warning_gates} gates have warnings")
                 
                 # Automatically load reports when scan completes (if not already loaded)
                 if not hasattr(st.session_state, 'reports_loaded') or not st.session_state.reports_loaded:
@@ -1016,14 +1069,15 @@ def main():
                     # Summary view
                     st.markdown("### 📈 Scan Summary")
                     
-                    # Create a summary table
+                    # Create a summary table with enhanced fields
                     summary_data = {
-                        "Metric": ["Overall Score", "Gates Passed", "Gates Failed", "Total Gates", 
+                        "Metric": ["Overall Score", "Gates Passed", "Gates Failed", "Gates Warning", "Total Gates", 
                                  "Files Analyzed", "Lines Analyzed", "Scan Duration"],
                         "Value": [
                             f"{scan_status.get('overall_score', 0)}%",
                             f"{scan_status.get('passed_gates', 0)}",
                             f"{scan_status.get('failed_gates', 0)}",
+                            f"{scan_status.get('warning_gates', 0)}",
                             f"{scan_status.get('total_gates', 0)}",
                             f"{scan_status.get('total_files', 0):,}",
                             f"{scan_status.get('total_lines', 0):,}",
@@ -1042,6 +1096,20 @@ def main():
                         st.markdown("### 🎯 Gates Performance")
                         st.progress(passed_gates / total_gates)
                         st.caption(f"{passed_gates} out of {total_gates} gates passed")
+                        
+                        # Enhanced gates breakdown
+                        failed_gates = scan_status.get('failed_gates', 0)
+                        warning_gates = scan_status.get('warning_gates', 0)
+                        
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("✅ Passed", passed_gates, delta=None)
+                        with col2:
+                            st.metric("❌ Failed", failed_gates, delta=None)
+                        with col3:
+                            st.metric("⚠️ Warning", warning_gates, delta=None)
+                        with col4:
+                            st.metric("📊 Total", total_gates, delta=None)
                 
                 with tab2:
                     # HTML Report

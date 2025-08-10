@@ -23,15 +23,16 @@ class ValidationType(Enum):
 
 @dataclass
 class ValidationConfig:
-    """Configuration for a specific validation type"""
+    """Configuration for a validation type"""
     enabled: bool
-    config: Dict[str, Any]
+    mandatory: bool = False  # NEW: Whether this validation type is mandatory
+    config: Dict[str, Any] = None
     validation_type: ValidationType
 
 
 @dataclass
 class GateConfig:
-    """Complete gate configuration"""
+    """Configuration for a gate"""
     name: str
     display_name: str
     description: str
@@ -42,6 +43,7 @@ class GateConfig:
     validation_types: Dict[ValidationType, ValidationConfig]
     scoring: Dict[str, Any]
     expected_coverage: Dict[str, Any]
+    mandatory_evidence_collectors: List[str] = None  # NEW: List of mandatory evidence collectors
 
 
 class GateConfigLoader:
@@ -109,6 +111,7 @@ class GateConfigLoader:
                 val_type = ValidationType(val_type_str)
                 validation_types[val_type] = ValidationConfig(
                     enabled=val_config.get('enabled', True),
+                    mandatory=val_config.get('mandatory', False),  # NEW: Parse mandatory field
                     config=val_config,
                     validation_type=val_type
                 )
@@ -125,7 +128,8 @@ class GateConfigLoader:
             enabled=gate_data.get('enabled', True),
             validation_types=validation_types,
             scoring=gate_data.get('scoring', {}),
-            expected_coverage=gate_data.get('expected_coverage', {})
+            expected_coverage=gate_data.get('expected_coverage', {}),
+            mandatory_evidence_collectors=gate_data.get('mandatory_evidence_collectors', [])
         )
     
     def get_gate(self, gate_name: str) -> Optional[GateConfig]:
@@ -204,7 +208,8 @@ class GateConfigLoader:
                     'enabled': gate_config.enabled,
                     'validation_types': {},
                     'scoring': gate_config.scoring,
-                    'expected_coverage': gate_config.expected_coverage
+                    'expected_coverage': gate_config.expected_coverage,
+                    'mandatory_evidence_collectors': gate_config.mandatory_evidence_collectors
                 }
                 
                 # Export validation types

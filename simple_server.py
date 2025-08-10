@@ -76,6 +76,7 @@ class ScanResult(BaseModel):
     total_lines: int
     passed_gates: int
     failed_gates: int
+    warning_gates: int = 0  # Added for backward compatibility
     total_gates: int
     html_report_url: Optional[str] = None
     json_report_url: Optional[str] = None
@@ -83,6 +84,7 @@ class ScanResult(BaseModel):
     errors: List[str] = []
     current_step: Optional[str] = None
     progress_percentage: Optional[int] = None
+    step_details: Optional[str] = None  # Added for backward compatibility
 
 class GateInfo(BaseModel):
     name: str
@@ -169,6 +171,8 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         "request": request.dict(),
         "progress_percentage": 0,
         "current_step": "Initializing scan...",
+        "step_details": "Initializing scan...",  # Added for backward compatibility
+        "warning_gates": 0,  # Added for backward compatibility
         "errors": []
     }
     
@@ -198,13 +202,15 @@ async def get_scan_status(scan_id: str):
         total_lines=result.get("total_lines", 0),
         passed_gates=result.get("passed_gates", 0),
         failed_gates=result.get("failed_gates", 0),
+        warning_gates=result.get("warning_gates", 0),  # Added for backward compatibility
         total_gates=result.get("total_gates", 0),
         html_report_url=f"/api/v1/scan/{scan_id}/report/html" if result.get("html_report") else None,
         json_report_url=f"/api/v1/scan/{scan_id}/report/json" if result.get("json_report") else None,
         completed_at=result.get("completed_at"),
         errors=result.get("errors", []),
         current_step=result.get("current_step"),
-        progress_percentage=result.get("progress_percentage")
+        progress_percentage=result.get("progress_percentage"),
+        step_details=result.get("step_details")  # Added for backward compatibility
     )
 
 @app.get("/api/v1/scan/{scan_id}/report/html", response_class=HTMLResponse)
@@ -288,12 +294,14 @@ async def perform_scan(scan_id: str, request: ScanRequest):
             "status": "completed",
             "progress_percentage": 100,
             "current_step": "Scan completed",
+            "step_details": "Scan completed successfully",  # Added for backward compatibility
             "completed_at": datetime.now().isoformat(),
             "overall_score": 85.5,
             "total_files": 157,
             "total_lines": 12847,
             "passed_gates": 12,
             "failed_gates": 3,
+            "warning_gates": 0,  # Added for backward compatibility
             "total_gates": 15,
             "html_report": f"<h1>Scan Report for {request.repository_url}</h1><p>Overall Score: 85.5%</p><p>This is a mock report.</p>",
             "json_report": {

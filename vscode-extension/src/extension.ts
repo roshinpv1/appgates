@@ -246,8 +246,10 @@ class CodeGatesAssessmentPanel {
         while (Date.now() - startTime < timeout) {
             const result = await this.apiRunner.getScanStatus(scanId);
             
-            // Compose a user-friendly progress message
+            // Compose a user-friendly progress message with enhanced tracking
             let progressMsg = '';
+            let enhancedDetails = '';
+            
             if (result.current_step && result.progress_percentage !== undefined) {
                 progressMsg = `${result.current_step} (${result.progress_percentage}%)`;
             } else if (result.current_step) {
@@ -257,6 +259,16 @@ class CodeGatesAssessmentPanel {
             } else {
                 progressMsg = 'Assessment in progress...';
             }
+            
+            // Add enhanced progress details if available
+            if (result.evidence_collection_progress || result.mandatory_collectors_status || result.gate_validation_progress) {
+                enhancedDetails = this.formatEnhancedProgressDetails(result);
+            }
+            
+            // Add step details if available
+            if (result.step_details && result.step_details !== result.current_step) {
+                enhancedDetails += `\nDetails: ${result.step_details}`;
+            }
 
             // Send progress update with current step information
             this.panel.webview.postMessage({
@@ -265,65 +277,66 @@ class CodeGatesAssessmentPanel {
                     current_step: result.current_step,
                     progress_percentage: result.progress_percentage,
                     step_details: result.step_details,
-                    message: progressMsg
+                    message: progressMsg,
+                    enhanced_details: enhancedDetails,
+                    evidence_collection_progress: result.evidence_collection_progress,
+                    mandatory_collectors_status: result.mandatory_collectors_status,
+                    gate_validation_progress: result.gate_validation_progress
                 }
             });
 
-            if (result.status === 'completed') {
-                this.panel.webview.postMessage({
-                    command: 'assessmentProgress',
-                    data: { message: 'Assessment completed!' }
-                });
-                this.panel.webview.postMessage({
-                    command: 'showResults',
-                    data: result
-                });
-                // Try to fetch server-generated HTML content for display
-                if (result.scan_id) {
-                    try {
-                        console.log('Fetching server-generated HTML content for display...');
-                        const htmlContent = await this.apiRunner.getHtmlReport(result.scan_id);
-                        
-                        // Use the full HTML content to preserve all scripts/styles/interactivity
-                        this.panel.webview.postMessage({
-                            command: 'showResults',
-                            data: {
-                                ...result,
-                                htmlContent: htmlContent,
-                                canGenerateReport: true
-                            }
-                        });
-                        
-                        console.log('Successfully loaded server-generated HTML content');
-                        
-                    } catch (error: any) {
-                        console.warn('Failed to fetch server-generated HTML content, using fallback:', error.message);
-                        
-                        // Send basic result without server content (fallback)
-                        this.panel.webview.postMessage({
-                            command: 'showResults',
-                            data: {
-                                ...result,
-                                canGenerateReport: true
-                            }
-                        });
-                    }
-                }
-                return result;
-            } else if (result.status === 'failed') {
-                this.panel.webview.postMessage({
-                    command: 'assessmentError',
-                    data: { error: `Assessment failed: ${result.message || 'Unknown error'}` }
-                });
-                throw new Error(`Assessment failed: ${result.message || 'Unknown error'}`);
+            // Check if scan is completed
+            if (result.status === 'completed' || result.status === 'failed') {
+                break;
             }
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
+
+            // Wait before next poll
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        this.panel.webview.postMessage({
-            command: 'assessmentError',
-            data: { error: 'Assessment timed out after 15 minutes.' }
-        });
-        throw new Error('Assessment timed out after 15 minutes.');
+    }
+    
+    private formatEnhancedProgressDetails(result: any): string {
+        let details = '';
+        
+        // Evidence collection progress
+        if (result.evidence_collection_progress) {
+            details += '\n📊 Evidence Collection:\n';
+            for (const [method, data] of Object.entries(result.evidence_collection_progress)) {
+                if (typeof data === 'object' && data !== null) {
+                    const status = (data as any).status || 'unknown';
+                    const score = (data as any).score || 0;
+                    const emoji = status === 'completed' ? '✅' : status === 'in_progress' ? '🔄' : '❌';
+                    details += `  ${emoji} ${method}: ${status} (${score.toFixed(1)}%)\n`;
+                }
+            }
+        }
+        
+        // Mandatory collectors status
+        if (result.mandatory_collectors_status) {
+            details += '\n🔒 Mandatory Collectors:\n';
+            for (const [collector, status] of Object.entries(result.mandatory_collectors_status)) {
+                const emoji = status === 'passed' ? '✅' : status === 'failed' ? '❌' : '⚠️';
+                details += `  ${emoji} ${collector}: ${status}\n`;
+            }
+        }
+        
+        // Gate validation progress
+        if (result.gate_validation_progress && Array.isArray(result.gate_validation_progress)) {
+            details += '\n🎯 Gate Validation:\n';
+            for (const gateData of result.gate_validation_progress) {
+                const gateName = gateData.gate || 'Unknown';
+                const status = gateData.status || 'unknown';
+                const progress = gateData.progress || 0;
+                const emoji = status === 'completed' ? '✅' : status === 'in_progress' ? '🔄' : '❌';
+                details += `  ${emoji} ${gateName}: ${status} (${progress}%)\n`;
+                
+                if (gateData.mandatory_failures && gateData.mandatory_failures.length > 0) {
+                    details += `    ❌ Mandatory Failures: ${gateData.mandatory_failures.join(', ')}\n`;
+                }
+            }
+        }
+        
+        return details;
     }
 
     private async handleGenerateHtmlReport(data: any) {

@@ -112,6 +112,13 @@ class EnhancedValidationNode(Node):
             }
         
         try:
+            # Get scan_id for progress tracking
+            scan_id = params.get("shared", {}).get("request", {}).get("scan_id")
+            
+            # Update progress for gate validation start
+            if scan_id:
+                self._update_progress(scan_id, f"Validating gate: {gate.name}", 75)
+            
             # Use unified evidence collector
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -119,6 +126,62 @@ class EnhancedValidationNode(Node):
                 collect_evidence_for_gate(gate, app_domain, repo_path, metadata)
             )
             loop.close()
+            
+            # Update progress for evidence collection completion
+            if scan_id:
+                self._update_progress(scan_id, f"Evidence collection completed for {gate.name}", 85)
+            
+            # Check for mandatory evidence collector failures
+            mandatory_failures = []
+            mandatory_collectors = gate.mandatory_evidence_collectors or []
+            
+            for collector_name in mandatory_collectors:
+                if collector_name in evidence_results:
+                    evidence_result = evidence_results[collector_name]
+                    if not evidence_result.success:
+                        mandatory_failures.append(f"{collector_name}: {evidence_result.error or 'Failed'}")
+                else:
+                    mandatory_failures.append(f"{collector_name}: Not available")
+            
+            # If any mandatory collector failed, gate fails regardless of other scores
+            if mandatory_failures:
+                # Update progress for mandatory failure
+                if scan_id:
+                    self._update_progress(scan_id, f"Gate {gate.name} failed - mandatory collectors failed", 90)
+                
+                return {
+                    "gate": gate.name,
+                    "display_name": gate.display_name,
+                    "description": gate.description,
+                    "category": gate.category,
+                    "priority": gate.priority,
+                    "weight": gate.weight,
+                    "score": 0.0,
+                    "status": "FAIL",
+                    "evidence": {name: result.data for name, result in evidence_results.items()},
+                    "details": [f"Mandatory evidence collector failed: {', '.join(mandatory_failures)}"],
+                    "recommendations": ["Fix mandatory evidence collector failures"],
+                    "validation_results": [
+                        {
+                            "type": name,
+                            "success": result.success,
+                            "score": result.score,
+                            "evidence": result.data,
+                            "details": [f"{name} evidence collection completed"],
+                            "mandatory": name in mandatory_collectors
+                        }
+                        for name, result in evidence_results.items()
+                    ],
+                    "total_files": metadata.get("total_files", 1),
+                    "validation_sources": {
+                        "unified_evidence_collector": {
+                            "enabled": True, 
+                            "methods": list(evidence_results.keys()),
+                            "successful_methods": [k for k, v in evidence_results.items() if v.success],
+                            "mandatory_failures": mandatory_failures
+                        }
+                    }
+                }
             
             # Calculate overall score from all evidence methods
             total_score = 0.0
@@ -144,7 +207,8 @@ class EnhancedValidationNode(Node):
                     "success": evidence_result.success,
                     "score": evidence_result.score,
                     "evidence": evidence_result.data,
-                    "details": [f"{method_name} evidence collection completed"]
+                    "details": [f"{method_name} evidence collection completed"],
+                    "mandatory": method_name in mandatory_collectors
                 })
             
             # Calculate overall score
@@ -154,6 +218,10 @@ class EnhancedValidationNode(Node):
             scoring_config = gate.scoring
             pass_threshold = scoring_config.get('pass_threshold', 20.0)
             status = "PASS" if overall_score >= pass_threshold else "FAIL"
+            
+            # Update progress for gate completion
+            if scan_id:
+                self._update_progress(scan_id, f"Gate {gate.name} completed - {status}", 90)
             
             return {
                 "gate": gate.name,
@@ -173,12 +241,18 @@ class EnhancedValidationNode(Node):
                     "unified_evidence_collector": {
                         "enabled": True, 
                         "methods": list(evidence_results.keys()),
-                        "successful_methods": [k for k, v in evidence_results.items() if v.success]
+                        "successful_methods": [k for k, v in evidence_results.items() if v.success],
+                        "mandatory_collectors": mandatory_collectors
                     }
                 }
             }
             
         except Exception as e:
+            # Update progress for error
+            scan_id = params.get("shared", {}).get("request", {}).get("scan_id")
+            if scan_id:
+                self._update_progress(scan_id, f"Gate {gate.name} failed with error", 90)
+            
             return {
                 "gate": gate.name,
                 "display_name": gate.display_name,
@@ -197,6 +271,25 @@ class EnhancedValidationNode(Node):
                     "unified_evidence_collector": {"enabled": False, "error": str(e)}
                 }
             }
+    
+    def _update_progress(self, scan_id: str, current_step: str, progress_percentage: int, step_details: str = None):
+        """Update progress for the scan"""
+        try:
+            # Import scan_results from server module
+            import sys
+            sys.path.append(str(Path(__file__).parent.parent))
+            from server import scan_results
+            
+            if scan_id in scan_results:
+                scan_results[scan_id]["current_step"] = current_step
+                scan_results[scan_id]["progress_percentage"] = progress_percentage
+                if step_details:
+                    scan_results[scan_id]["step_details"] = step_details
+                else:
+                    scan_results[scan_id]["step_details"] = f"Processing: {current_step}"
+        except Exception as e:
+            # Silently fail if progress update fails
+            pass
     
     def _extract_app_domain(self, shared: Dict[str, Any]) -> str:
         """Extract application domain from repository URL or configuration"""

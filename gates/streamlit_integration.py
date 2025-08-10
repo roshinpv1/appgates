@@ -746,6 +746,9 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
                 statusText.textContent = result.status.toUpperCase();
                 stepDetails.textContent = result.current_step || 'Processing...';
                 
+                // Enhanced progress tracking display
+                displayEnhancedProgress(result);
+
                 if (result.status === 'completed') {{
                     showAlert('Scan completed successfully!', 'success');
                     await loadResults();
@@ -758,6 +761,108 @@ def get_integrated_ui_html(api_base: str = "http://localhost:8000/api/v1") -> st
             }} catch (error) {{
                 console.error('Error polling progress:', error);
                 setTimeout(pollProgress, 5000);
+            }}
+        }}
+
+        // Enhanced progress tracking display
+        function displayEnhancedProgress(data) {{
+            const progressSection = document.getElementById('progressSection');
+            if (!progressSection) return;
+            
+            let enhancedHtml = '';
+            
+            // Evidence collection progress
+            if (data.evidence_collection_progress) {{
+                enhancedHtml += '<div class="mb-3"><h6>📊 Evidence Collection Progress</h6><div class="row">';
+                for (const [method, methodData] of Object.entries(data.evidence_collection_progress)) {{
+                    if (typeof methodData === 'object' && methodData !== null) {{
+                        const status = methodData.status || 'unknown';
+                        const score = methodData.score || 0;
+                        const emoji = status === 'completed' ? '✅' : status === 'in_progress' ? '🔄' : '❌';
+                        const statusClass = status === 'completed' ? 'text-success' : status === 'in_progress' ? 'text-warning' : 'text-danger';
+                        
+                        enhancedHtml += `
+                            <div class="col-md-6 mb-2">
+                                <div class="card">
+                                    <div class="card-body p-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>${{emoji}} ${{method}}</span>
+                                            <span class="${{statusClass}}">${{status}} (${{score.toFixed(1)}}%)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }}
+                }}
+                enhancedHtml += '</div></div>';
+            }}
+            
+            // Mandatory collectors status
+            if (data.mandatory_collectors_status) {{
+                enhancedHtml += '<div class="mb-3"><h6>🔒 Mandatory Collectors Status</h6><div class="row">';
+                for (const [collector, status] of Object.entries(data.mandatory_collectors_status)) {{
+                    const emoji = status === 'passed' ? '✅' : status === 'failed' ? '❌' : '⚠️';
+                    const statusClass = status === 'passed' ? 'text-success' : status === 'failed' ? 'text-danger' : 'text-warning';
+                    
+                    enhancedHtml += `
+                        <div class="col-md-6 mb-2">
+                            <div class="card">
+                                <div class="card-body p-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>${{emoji}} ${{collector}}</span>
+                                        <span class="${{statusClass}}">${{status}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }}
+                enhancedHtml += '</div></div>';
+            }}
+            
+            // Gate validation progress
+            if (data.gate_validation_progress && Array.isArray(data.gate_validation_progress)) {{
+                enhancedHtml += '<div class="mb-3"><h6>🎯 Gate Validation Progress</h6>';
+                for (const gateData of data.gate_validation_progress) {{
+                    const gateName = gateData.gate || 'Unknown';
+                    const status = gateData.status || 'unknown';
+                    const progress = gateData.progress || 0;
+                    const emoji = status === 'completed' ? '✅' : status === 'in_progress' ? '🔄' : '❌';
+                    const statusClass = status === 'completed' ? 'text-success' : status === 'in_progress' ? 'text-warning' : 'text-danger';
+                    
+                    enhancedHtml += `
+                        <div class="card mb-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>${{emoji}} <strong>${{gateName}}</strong></span>
+                                    <span class="${{statusClass}}">${{status}} (${{progress}}%)</span>
+                                </div>
+                    `;
+                    
+                    if (gateData.mandatory_failures && gateData.mandatory_failures.length > 0) {{
+                        enhancedHtml += `
+                            <div class="mt-2">
+                                <small class="text-danger">
+                                    ❌ <strong>Mandatory Failures:</strong> ${{gateData.mandatory_failures.join(', ')}}
+                                </small>
+                            </div>
+                        `;
+                    }}
+                    
+                    enhancedHtml += '</div></div>';
+                }}
+                enhancedHtml += '</div>';
+            }}
+            
+            // Add enhanced progress to the progress section
+            const existingEnhanced = progressSection.querySelector('.enhanced-progress');
+            if (existingEnhanced) {{
+                existingEnhanced.remove();
+            }}
+            
+            if (enhancedHtml) {{
+                progressSection.insertAdjacentHTML('beforeend', `<div class="enhanced-progress">${{enhancedHtml}}</div>`);
             }}
         }}
 

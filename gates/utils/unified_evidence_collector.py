@@ -55,6 +55,7 @@ class EvidenceConfig:
     method: str
     config: Dict[str, Any]
     weight: float = 1.0
+    mandatory: bool = False  # NEW: Whether this evidence collector is mandatory
 
 
 class UnifiedEvidenceCollector:
@@ -170,7 +171,8 @@ class UnifiedEvidenceCollector:
                 enabled=val_config.enabled,
                 method=method_name,
                 config=val_config.config,
-                weight=gate_config.weight
+                weight=gate_config.weight,
+                mandatory=val_config.mandatory  # NEW: Include mandatory flag
             )
         
         return evidence_configs

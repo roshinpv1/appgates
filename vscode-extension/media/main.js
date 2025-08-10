@@ -73,12 +73,17 @@ window.addEventListener('message', event => {
             break;
             
         case 'assessmentProgress':
-            // Show progress information
+            // Show progress information with enhanced details
             if (message.data.current_step) {
                 const progressText = message.data.progress_percentage ? 
                     `${message.data.current_step} (${message.data.progress_percentage}%)` : 
                     message.data.current_step;
                 showStatus(progressText, 'info');
+                
+                // Show enhanced progress details if available
+                if (message.data.enhanced_details) {
+                    showEnhancedProgressDetails(message.data);
+                }
             } else {
                 showStatus(message.data.message, 'info');
             }
@@ -1480,4 +1485,63 @@ function addEnhancedReportFeatures(scanId) {
             `;
         }
     });
+} 
+
+// Show enhanced progress details
+function showEnhancedProgressDetails(data) {
+    const statusElement = document.getElementById('status');
+    if (statusElement) {
+        let enhancedHtml = '<div class="enhanced-progress">';
+        
+        // Evidence collection progress
+        if (data.evidence_collection_progress) {
+            enhancedHtml += '<div class="progress-section"><strong>📊 Evidence Collection:</strong><ul>';
+            for (const [method, methodData] of Object.entries(data.evidence_collection_progress)) {
+                if (typeof methodData === 'object' && methodData !== null) {
+                    const status = methodData.status || 'unknown';
+                    const score = methodData.score || 0;
+                    const emoji = status === 'completed' ? '✅' : status === 'in_progress' ? '🔄' : '❌';
+                    enhancedHtml += `<li>${emoji} <strong>${method}</strong>: ${status} (${score.toFixed(1)}%)</li>`;
+                }
+            }
+            enhancedHtml += '</ul></div>';
+        }
+        
+        // Mandatory collectors status
+        if (data.mandatory_collectors_status) {
+            enhancedHtml += '<div class="progress-section"><strong>🔒 Mandatory Collectors:</strong><ul>';
+            for (const [collector, status] of Object.entries(data.mandatory_collectors_status)) {
+                const emoji = status === 'passed' ? '✅' : status === 'failed' ? '❌' : '⚠️';
+                enhancedHtml += `<li>${emoji} <strong>${collector}</strong>: ${status}</li>`;
+            }
+            enhancedHtml += '</ul></div>';
+        }
+        
+        // Gate validation progress
+        if (data.gate_validation_progress && Array.isArray(data.gate_validation_progress)) {
+            enhancedHtml += '<div class="progress-section"><strong>🎯 Gate Validation:</strong><ul>';
+            for (const gateData of data.gate_validation_progress) {
+                const gateName = gateData.gate || 'Unknown';
+                const status = gateData.status || 'unknown';
+                const progress = gateData.progress || 0;
+                const emoji = status === 'completed' ? '✅' : status === 'in_progress' ? '🔄' : '❌';
+                enhancedHtml += `<li>${emoji} <strong>${gateName}</strong>: ${status} (${progress}%)</li>`;
+                
+                if (gateData.mandatory_failures && gateData.mandatory_failures.length > 0) {
+                    enhancedHtml += `<li style="margin-left: 20px; color: #dc3545;">❌ <strong>Mandatory Failures:</strong> ${gateData.mandatory_failures.join(', ')}</li>`;
+                }
+            }
+            enhancedHtml += '</ul></div>';
+        }
+        
+        enhancedHtml += '</div>';
+        
+        // Add enhanced details below the main status
+        const existingEnhanced = statusElement.querySelector('.enhanced-progress');
+        if (existingEnhanced) {
+            existingEnhanced.remove();
+        }
+        
+        statusElement.insertAdjacentHTML('beforeend', enhancedHtml);
+    }
 } 

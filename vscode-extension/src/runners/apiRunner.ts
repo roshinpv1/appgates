@@ -337,7 +337,14 @@ export class ApiRunner implements ICodeGatesRunner {
             languages_detected: apiResult.languages_detected || [],
             current_step: apiResult.current_step,
             progress_percentage: apiResult.progress_percentage,
-            step_details: apiResult.step_details
+            step_details: apiResult.step_details,
+            app_id: apiResult.app_id,
+            // Enhanced progress tracking fields
+            evidence_collection_progress: apiResult.evidence_collection_progress,
+            mandatory_collectors_status: apiResult.mandatory_collectors_status,
+            gate_validation_progress: apiResult.gate_validation_progress,
+            // Backward compatibility fields
+            warning_gates: apiResult.warning_gates || 0
         };
     }
 

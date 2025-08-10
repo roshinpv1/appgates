@@ -39,6 +39,17 @@ export interface ScanResult {
     progress_percentage?: number;
     step_details?: string;
     app_id?: string;
+    // Enhanced progress tracking fields
+    evidence_collection_progress?: Record<string, any>;
+    mandatory_collectors_status?: Record<string, string>;
+    gate_validation_progress?: Array<{
+        gate: string;
+        status: string;
+        progress: number;
+        mandatory_failures?: string[];
+    }>;
+    // Backward compatibility fields
+    warning_gates?: number;
 }
 
 export interface ICodeGatesRunner {

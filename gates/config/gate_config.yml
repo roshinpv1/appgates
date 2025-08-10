@@ -1,12 +1,12 @@
 # CodeGates Configuration File
-# Version: 3.0
-# Description: Unified evidence collection configuration with multiple evidence methods
+# Version: 3.1
+# Description: Unified evidence collection configuration with mandatory evidence collectors
 
-version: "3.0"
+version: "3.1"
 metadata:
   author: "CodeGates Team"
   created: "2024-01-01"
-  description: "Unified evidence collection configuration with pattern, API, database, LLM, website, static, and custom evidence methods"
+  description: "Unified evidence collection configuration with pattern, API, database, LLM, website, static, and custom evidence methods - now with mandatory collectors"
 
 # Global configuration
 global:
@@ -49,9 +49,15 @@ gates:
     weight: 15.0
     enabled: true
     
+    # Mandatory evidence collectors - if any of these fail, the gate fails
+    mandatory_evidence_collectors:
+      - "database"  # Database check is mandatory - must have all integrations
+      - "pattern"   # Pattern check is mandatory - must have alerting patterns
+    
     validation_types:
       database:
         enabled: true
+        mandatory: true  # This evidence collector is mandatory
         query: "fetch_alerting_integrations_status"
         parameters:
           - "app_id"
@@ -62,6 +68,7 @@ gates:
       
       pattern:
         enabled: true
+        mandatory: true  # This evidence collector is mandatory
         patterns:
           positive:
             - "alert.*threshold"
@@ -72,6 +79,7 @@ gates:
       
       api:
         enabled: true
+        mandatory: false  # This evidence collector is optional
         api_validation:
           enabled: true
           endpoints:
@@ -102,9 +110,15 @@ gates:
     weight: 12.0
     enabled: true
     
+    # Mandatory evidence collectors
+    mandatory_evidence_collectors:
+      - "pattern"   # Must have logging patterns in code
+      - "website"   # Must have logging UI accessible
+    
     validation_types:
       pattern:
         enabled: true
+        mandatory: true  # Must have structured logging patterns
         patterns:
           positive:
             - "logger\\.(info|debug|error|warn)"
@@ -121,6 +135,7 @@ gates:
       
       website:
         enabled: true
+        mandatory: true  # Must have accessible logging UI
         website_validation:
           enabled: true
           urls_to_check:
@@ -133,6 +148,16 @@ gates:
             - type: "screenshot"
               name: "logging_ui"
               selectors: [".logs", "#logs"]
+      
+      api:
+        enabled: true
+        mandatory: false  # Optional API check
+        api_validation:
+          enabled: true
+          endpoints:
+            - url: "https://{app_domain}/api/logs"
+              method: "GET"
+              expected_status_codes: [200]
     
     scoring:
       pass_threshold: 20.0
@@ -153,9 +178,15 @@ gates:
     weight: 8.0
     enabled: true
     
+    # Mandatory evidence collectors
+    mandatory_evidence_collectors:
+      - "pattern"   # Must have error handling patterns
+      - "website"   # Must have error detection working
+    
     validation_types:
       pattern:
         enabled: true
+        mandatory: true  # Must have error handling code
         patterns:
           positive:
             - "ui.*error"
@@ -168,6 +199,7 @@ gates:
       
       website:
         enabled: true
+        mandatory: true  # Must have working error detection
         website_validation:
           enabled: true
           urls_to_check:
@@ -187,6 +219,11 @@ gates:
                 - "404_page"
                 - "500_page"
                 - "javascript_error"
+      
+      llm:
+        enabled: true
+        mandatory: false  # Optional AI analysis
+        # LLM will analyze error handling implementation
     
     scoring:
       pass_threshold: 15.0
@@ -207,9 +244,15 @@ gates:
     weight: 10.0
     enabled: true
     
+    # Mandatory evidence collectors
+    mandatory_evidence_collectors:
+      - "pattern"   # Must have test files
+      - "static"    # Must have proper test structure
+    
     validation_types:
       pattern:
         enabled: true
+        mandatory: true  # Must have test patterns in code
         patterns:
           positive:
             - "test"
@@ -226,6 +269,7 @@ gates:
       
       static:
         enabled: true
+        mandatory: true  # Must have proper test file structure
         static_analysis:
           enabled: true
           checks:
@@ -236,6 +280,19 @@ gates:
               required_languages: ["Python", "JavaScript", "Java"]
             - type: "structure_validation"
               required_directories: ["test", "tests", "spec"]
+      
+      website:
+        enabled: true
+        mandatory: false  # Optional test UI check
+        website_validation:
+          enabled: true
+          urls_to_check:
+            - "https://{app_domain}/test"
+            - "https://{app_domain}/coverage"
+          checks:
+            - type: "text_extraction"
+              selectors: ["body"]
+              patterns: ["test", "coverage", "passed"]
     
     scoring:
       pass_threshold: 30.0
@@ -256,9 +313,15 @@ gates:
     weight: 12.0
     enabled: true
     
+    # Mandatory evidence collectors
+    mandatory_evidence_collectors:
+      - "api"       # Must have working API endpoints
+      - "pattern"   # Must have health check patterns
+    
     validation_types:
       pattern:
         enabled: true
+        mandatory: true  # Must have health check patterns
         patterns:
           positive:
             - "health.*check"
@@ -270,6 +333,7 @@ gates:
       
       api:
         enabled: true
+        mandatory: true  # Must have working API endpoints
         api_validation:
           enabled: true
           endpoints:
@@ -296,6 +360,18 @@ gates:
                 max_size: 5000
                 structure:
                   type: "object"
+      
+      website:
+        enabled: true
+        mandatory: false  # Optional website health check
+        website_validation:
+          enabled: true
+          urls_to_check:
+            - "https://{app_domain}/health"
+          checks:
+            - type: "text_extraction"
+              selectors: ["body"]
+              patterns: ["healthy", "status", "ok"]
     
     scoring:
       pass_threshold: 60.0
@@ -319,17 +395,26 @@ custom_gates:
     weight: 10.0
     enabled: true
     
+    # Mandatory evidence collectors
+    mandatory_evidence_collectors:
+      - "pattern"   # Must have security patterns
+      - "custom"    # Must pass custom security check
+    
     validation_types:
       pattern:
         enabled: true
+        mandatory: true  # Must have security patterns
         patterns:
           positive:
             - "custom.*security.*check"
             - "org.*specific.*validation"
+            - "authentication"
+            - "authorization"
           negative: []
       
       website:
         enabled: true
+        mandatory: false  # Optional website security check
         website_validation:
           enabled: true
           urls_to_check:
@@ -341,6 +426,7 @@ custom_gates:
       
       custom:
         enabled: true
+        mandatory: true  # Must pass custom security validation
         custom_validation:
           enabled: true
           function: |
