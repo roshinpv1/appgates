@@ -3025,7 +3025,7 @@ class ValidateGatesNode(Node):
             return recommendation_formatter.format_recommendation_html(mock_gate, "details")
             
         except ImportError:
-            # Fallback to local formatting if import fails
+            # Fallback to simple formatting if recommendation_formatter is not available
             return self._format_llm_recommendation_html_fallback(recommendation)
     
     def _format_llm_recommendation_html_fallback(self, recommendation: str) -> str:
@@ -3045,30 +3045,21 @@ class ValidateGatesNode(Node):
         return html
     
     def _clean_recommendation_text(self, text: str) -> str:
-        """Clean recommendation text for consistent formatting without bullet points or graphics"""
+        """Clean and format recommendation text for display"""
         if not text:
             return ""
         
-        # Remove excessive whitespace
-        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
-        text = re.sub(r' +', ' ', text)
+        # Remove extra whitespace and normalize
+        cleaned = text.strip()
         
-        # Normalize line endings
-        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        # Replace multiple spaces with single space
+        cleaned = ' '.join(cleaned.split())
         
-        # Remove all bullet points and convert to plain text
-        text = re.sub(r'^[\s]*[-•*][\s]*', '', text, flags=re.MULTILINE)
+        # Ensure proper sentence ending
+        if cleaned and not cleaned.endswith(('.', '!', '?')):
+            cleaned += '.'
         
-        # Clean up numbered lists
-        text = re.sub(r'^[\s]*(\d+)[\s]*[\.\)][\s]*', r'\1. ', text, flags=re.MULTILINE)
-        
-        # Remove trailing whitespace
-        text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
-        
-        # Remove empty lines that might be left after removing bullets
-        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
-        
-        return text.strip()
+        return cleaned
 
 
 class GenerateReportNode(Node):
@@ -3166,12 +3157,66 @@ class GenerateReportNode(Node):
                 import traceback
                 traceback.print_exc()
         
+        # Generate PDF reports based on HTML reports
+        if report_format in ["pdf", "both"]:
+            try:
+                print("📄 Generating PDF reports from HTML...")
+                
+                # Import the HTML to PDF converter
+                from utils.html_to_pdf_converter import generate_pdfs_from_html_reports
+                
+                # Get the HTML report path
+                html_report_path = report_paths.get("html")
+                
+                if not html_report_path or not os.path.exists(html_report_path):
+                    print("⚠️ HTML report not found, cannot generate PDFs from HTML")
+                    print("💡 Generate HTML report first, then generate PDFs")
+                else:
+                    # Create scan results dictionary for PDF generation
+                    scan_results = {
+                        "scan_id": scan_id,
+                        "repository_url": params["request"]["repository_url"],
+                        "branch": params["request"]["branch"],
+                        "overall_score": params["validation_results"]["overall_score"],
+                        "threshold": params["request"]["threshold"],
+                        "scan_timestamp_formatted": self._get_timestamp_formatted(),
+                        "project_name": self._extract_project_name(params["request"]["repository_url"]),
+                        "metadata": params["metadata"],
+                        "gate_results": params["validation_results"]["gate_results"],
+                        "gates": params["validation_results"]["gate_results"],  # For compatibility
+                        "splunk_results": params.get("splunk_results", {})
+                    }
+                    
+                    # Generate PDFs from HTML report
+                    pdf_results = generate_pdfs_from_html_reports(scan_results, html_report_path, output_dir)
+                    
+                    # Store PDF paths
+                    if pdf_results["summary"]:
+                        report_paths["pdf_summary"] = pdf_results["summary"][0]
+                        print(f"✅ Summary PDF generated from HTML: {pdf_results['summary'][0]}")
+                    
+                    if pdf_results["gates"]:
+                        report_paths["pdf_gates"] = pdf_results["gates"]
+                        print(f"✅ Generated {len(pdf_results['gates'])} individual gate PDFs from HTML")
+                
+            except ImportError as e:
+                print(f"⚠️ HTML to PDF conversion not available: {e}")
+                print("💡 Install WeasyPrint: pip install weasyprint")
+            except Exception as e:
+                print(f"❌ Failed to generate PDF reports from HTML: {e}")
+                import traceback
+                traceback.print_exc()
+        
         return report_paths
     
     def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: Dict[str, str]) -> str:
         """Store report paths in shared store"""
         shared["reports"]["json_path"] = exec_res.get("json")
         shared["reports"]["html_path"] = exec_res.get("html")
+        
+        # Store PDF paths
+        shared["reports"]["pdf_summary_path"] = exec_res.get("pdf_summary")
+        shared["reports"]["pdf_gates_paths"] = exec_res.get("pdf_gates", [])
         
         # Get server info for URL generation
         server_info = shared.get("server", {})
@@ -3180,15 +3225,31 @@ class GenerateReportNode(Node):
         
         print(f"✅ Reports generated:")
         for format_type, path in exec_res.items():
-            print(f"   {format_type.upper()}: {path}")
-            
-            # Print URL for HTML report
-            if format_type == "html" and path:
-                report_url = f"{server_url}/api/v1/scan/{scan_id}/report/html"
-                print(f"   🌐 HTML Report URL: {report_url}")
-            elif format_type == "json" and path:
+            if format_type == "json" and path:
+                print(f"   JSON: {path}")
                 report_url = f"{server_url}/api/v1/scan/{scan_id}/report/json"
                 print(f"   🌐 JSON Report URL: {report_url}")
+            elif format_type == "html" and path:
+                print(f"   HTML: {path}")
+                report_url = f"{server_url}/api/v1/scan/{scan_id}/report/html"
+                print(f"   🌐 HTML Report URL: {report_url}")
+            elif format_type == "pdf_summary" and path:
+                print(f"   PDF Summary: {path}")
+                pdf_url = f"{server_url}/api/v1/scan/{scan_id}/pdfs/summary"
+                print(f"   📄 PDF Summary URL: {pdf_url}")
+            elif format_type == "pdf_gates" and path:
+                print(f"   PDF Gates: {len(path)} individual gate PDFs")
+                pdf_url = f"{server_url}/api/v1/scan/{scan_id}/pdfs"
+                print(f"   📄 PDF Gates URL: {pdf_url}")
+        
+        # Print summary of all generated files
+        total_pdfs = len(exec_res.get("pdf_gates", []))
+        if exec_res.get("pdf_summary"):
+            total_pdfs += 1
+        
+        if total_pdfs > 0:
+            print(f"📄 Total PDFs generated: {total_pdfs} (Summary + {len(exec_res.get('pdf_gates', []))} individual gates)")
+            print(f"📁 PDFs stored in: {os.path.dirname(exec_res.get('pdf_summary', exec_res.get('pdf_gates', [''])[0] if exec_res.get('pdf_gates') else ''))}")
         
         return "default"
     
@@ -3388,8 +3449,20 @@ class GenerateReportNode(Node):
                 const details = document.getElementById(detailsId);
                 const isExpanded = button.getAttribute('aria-expanded') === 'true';
                 
+                // Toggle the expanded state
                 button.setAttribute('aria-expanded', !isExpanded);
                 details.setAttribute('aria-hidden', isExpanded);
+                
+                // Update button text and styling
+                if (!isExpanded) {
+                    button.textContent = '−';
+                    button.classList.add('expanded');
+                    button.style.background = '#dc2626';
+                } else {
+                    button.textContent = '+';
+                    button.classList.remove('expanded');
+                    button.style.background = '#2563eb';
+                }
                 
                 // Smooth scroll to expanded content
                 if (!isExpanded) {
@@ -3397,7 +3470,52 @@ class GenerateReportNode(Node):
                         details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }, 100);
                 }
+                
+                // Add a subtle animation effect
+                if (!isExpanded) {
+                    details.style.opacity = '0';
+                    details.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        details.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        details.style.opacity = '1';
+                        details.style.transform = 'translateY(0)';
+                    }, 50);
+                }
             }
+            
+            // Add keyboard navigation support
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    const activeElement = document.activeElement;
+                    if (activeElement && activeElement.classList.contains('details-toggle')) {
+                        event.preventDefault();
+                        const detailsId = activeElement.getAttribute('onclick').match(/details-[^)]+/)[0];
+                        toggleDetails(activeElement, detailsId);
+                    }
+                }
+            });
+            
+            // Add hover effects for better UX
+            document.addEventListener('DOMContentLoaded', function() {
+                const toggleButtons = document.querySelectorAll('.details-toggle');
+                toggleButtons.forEach(button => {
+                    button.addEventListener('mouseenter', function() {
+                        if (!this.classList.contains('expanded')) {
+                            this.style.background = '#1d4ed8';
+                        } else {
+                            this.style.background = '#b91c1c';
+                        }
+                    });
+                    
+                    button.addEventListener('mouseleave', function() {
+                        if (!this.classList.contains('expanded')) {
+                            this.style.background = '#2563eb';
+                        } else {
+                            this.style.background = '#dc2626';
+                        }
+                    });
+                });
+            });
             </script>
             """
             
@@ -3754,6 +3872,172 @@ class GenerateReportNode(Node):
         
         .condition-weight {
             font-weight: 500;
+        }
+        
+        /* Enhanced Gate Details Styling */
+        .gate-details-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .gate-details-header {
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .gate-status-summary {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .gate-details-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .details-section {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            border-left: 4px solid #2563eb;
+        }
+        
+        .details-section-title {
+            font-weight: bold;
+            color: #1f2937;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Enhanced Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .metric-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #2563eb;
+        }
+        
+        /* Enhanced Matches Table */
+        .matches-table-container {
+            overflow-x: auto;
+        }
+        
+        .matches-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .matches-table th {
+            background: #374151;
+            color: white;
+            padding: 10px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        
+        .matches-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.85em;
+        }
+        
+        .matches-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        /* Validation Evidence */
+        .validation-evidence {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .evidence-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .evidence-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .evidence-value {
+            font-weight: 500;
+            color: #2563eb;
+        }
+        
+        /* Recommendations */
+        .recommendation-content {
+            background: white;
+            border-radius: 6px;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* Enhanced Details Toggle Button */
+        .details-toggle {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .details-toggle:hover {
+            background: #1d4ed8;
+        }
+        
+        .details-toggle.expanded {
+            background: #dc2626;
+        }
+        
+        .details-toggle.expanded:hover {
+            background: #b91c1c;
         }
         """
     
@@ -4496,8 +4780,70 @@ class GenerateReportNode(Node):
                                     </tr>
                                     <tr id="details-{category_name.lower().replace(' ', '-')}-{gate_name}-{i}" class="gate-details" aria-hidden="true">
                                         <td colspan="5" class="details-content">
-                                            {metrics_html}
-                                            {details_content}
+                                            <div class="gate-details-container">
+                                                <div class="gate-details-header">
+                                                    <h4 style="margin: 0 0 15px 0; color: #1f2937; font-size: 1.2em;">
+                                                        🔒 {display_name} - Detailed Analysis
+                                                    </h4>
+                                                    <div class="gate-status-summary">
+                                                        <span class="status-{status.lower()}" style="font-size: 1.1em; padding: 8px 12px;">{status_info.get('display', status)}</span>
+                                                        <span style="margin-left: 15px; font-weight: bold; color: #2563eb;">Score: {score:.1f}%</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="gate-details-sections">
+                                                    <!-- Gate Description -->
+                                                    <div class="details-section">
+                                                        <div class="details-section-title">Description</div>
+                                                        <p style="margin: 5px 0; color: #374151;">{description}</p>
+                                                    </div>
+                                                    
+                                                    <!-- Gate Metrics -->
+                                                    <div class="details-section">
+                                                        <div class="details-section-title">Gate Metrics</div>
+                                                        <div class="metrics-grid">
+                                                            <div class="metric-item">
+                                                                <span class="metric-label">Category:</span>
+                                                                <span class="metric-value">{gate.get('category', 'N/A')}</span>
+                                                            </div>
+                                                            <div class="metric-item">
+                                                                <span class="metric-label">Priority:</span>
+                                                                <span class="metric-value">{priority}</span>
+                                                            </div>
+                                                            <div class="metric-item">
+                                                                <span class="metric-label">Patterns Used:</span>
+                                                                <span class="metric-value">{gate.get('patterns_used', 0)}</span>
+                                                            </div>
+                                                            <div class="metric-item">
+                                                                <span class="metric-label">Matches Found:</span>
+                                                                <span class="metric-value">{matches_found}</span>
+                                                            </div>
+                                                            <div class="metric-item">
+                                                                <span class="metric-label">Relevant Files:</span>
+                                                                <span class="metric-value">{gate.get('relevant_files', 0)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Evidence & Matches -->
+                                                    <div class="details-section">
+                                                        <div class="details-section-title">Evidence & Matches</div>
+                                                        {self._generate_matches_table_html(matches)}
+                                                    </div>
+                                                    
+                                                    <!-- Validation Evidence -->
+                                                    <div class="details-section">
+                                                        <div class="details-section-title">Validation Evidence</div>
+                                                        {self._generate_validation_evidence_html(gate)}
+                                                    </div>
+                                                    
+                                                    <!-- AI Recommendations -->
+                                                    <div class="details-section">
+                                                        <div class="details-section-title">AI Recommendations</div>
+                                                        {self._generate_recommendations_html(gate)}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>'''
                         
@@ -4956,6 +5302,139 @@ class GenerateReportNode(Node):
             {"llm_recommendation": formatted_recommendation}, 
             "details"
         )
+
+    def _generate_recommendations_html(self, gate: Dict[str, Any]) -> str:
+        """Generate recommendations HTML for gate details"""
+        recommendation = gate.get("llm_recommendation", "")
+        if not recommendation:
+            return '<p style="color: #6b7280; font-style: italic;">No specific recommendations available.</p>'
+        
+        # Clean and format the recommendation
+        cleaned_recommendation = self._clean_recommendation_text(recommendation)
+        
+        return f'''
+            <div class="recommendation-content">
+                <p style="margin: 5px 0; color: #374151; line-height: 1.5;">{cleaned_recommendation}</p>
+            </div>'''
+    
+    def _clean_recommendation_text(self, text: str) -> str:
+        """Clean and format recommendation text for display"""
+        if not text:
+            return ""
+        
+        # Remove extra whitespace and normalize
+        cleaned = text.strip()
+        
+        # Replace multiple spaces with single space
+        cleaned = ' '.join(cleaned.split())
+        
+        # Ensure proper sentence ending
+        if cleaned and not cleaned.endswith(('.', '!', '?')):
+            cleaned += '.'
+        
+        return cleaned
+    
+    def _generate_matches_table_html(self, matches: List[Dict[str, Any]]) -> str:
+        """Generate matches table HTML for gate details"""
+        if not matches:
+            return '<p style="color: #6b7280; font-style: italic;">No matches found for this gate.</p>'
+        
+        # Limit to first 10 matches for display
+        display_matches = matches[:10]
+        has_more = len(matches) > 10
+        
+        html_parts = []
+        html_parts.append('''
+            <div class="matches-table-container">
+                <table class="matches-table">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Line</th>
+                            <th>Pattern</th>
+                            <th>Context</th>
+                        </tr>
+                    </thead>
+                    <tbody>''')
+        
+        for match in display_matches:
+            file_path = match.get("file_path", match.get("file", ""))
+            line_number = match.get("line_number", match.get("line", ""))
+            pattern = match.get("pattern", "")
+            context = match.get("context", "")
+            
+            # Truncate long paths and context
+            if len(file_path) > 50:
+                file_path = "..." + file_path[-47:]
+            if len(context) > 80:
+                context = context[:77] + "..."
+            
+            html_parts.append(f'''
+                        <tr>
+                            <td style="font-family: monospace; font-size: 0.9em;">{file_path}</td>
+                            <td style="text-align: center;">{line_number}</td>
+                            <td style="font-family: monospace; font-size: 0.9em;">{pattern}</td>
+                            <td style="font-family: monospace; font-size: 0.9em;">{context}</td>
+                        </tr>''')
+        
+        if has_more:
+            html_parts.append(f'''
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #6b7280; font-style: italic;">
+                                ... and {len(matches) - 10} more matches
+                            </td>
+                        </tr>''')
+        
+        html_parts.append('''
+                    </tbody>
+                </table>
+            </div>''')
+        
+        return ''.join(html_parts)
+    
+    def _generate_validation_evidence_html(self, gate: Dict[str, Any]) -> str:
+        """Generate validation evidence HTML for gate details"""
+        validation_sources = gate.get("validation_sources", {})
+        enhanced_data = gate.get("enhanced_data", {})
+        
+        if not validation_sources and not enhanced_data:
+            return '<p style="color: #6b7280; font-style: italic;">No validation evidence available.</p>'
+        
+        html_parts = []
+        html_parts.append('<div class="validation-evidence">')
+        
+        # LLM Patterns
+        llm_patterns = validation_sources.get("llm_patterns", {})
+        if llm_patterns:
+            html_parts.append(f'''
+                <div class="evidence-item">
+                    <span class="evidence-label">LLM Patterns:</span>
+                    <span class="evidence-value">{llm_patterns.get('count', 0)} patterns, {llm_patterns.get('matches', 0)} matches</span>
+                </div>''')
+        
+        # Static Patterns
+        static_patterns = validation_sources.get("static_patterns", {})
+        if static_patterns:
+            html_parts.append(f'''
+                <div class="evidence-item">
+                    <span class="evidence-label">Static Patterns:</span>
+                    <span class="evidence-value">{static_patterns.get('count', 0)} patterns, {static_patterns.get('matches', 0)} matches</span>
+                </div>''')
+        
+        # Enhanced Analysis
+        if enhanced_data:
+            confidence = enhanced_data.get("confidence_score", 0)
+            coverage = enhanced_data.get("coverage_percentage", 0)
+            technologies = enhanced_data.get("technology_detected", [])
+            
+            html_parts.append(f'''
+                <div class="evidence-item">
+                    <span class="evidence-label">Enhanced Analysis:</span>
+                    <span class="evidence-value">Confidence: {confidence:.2f}, Coverage: {coverage:.1f}%, Technologies: {', '.join(technologies) if technologies else 'None detected'}</span>
+                </div>''')
+        
+        html_parts.append('</div>')
+        return ''.join(html_parts)
 
 
 class CleanupNode(Node):

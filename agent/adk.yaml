@@ -1,0 +1,39 @@
+# ADK Configuration for CodeGates Agent
+name: "codegates-validation-agent"
+description: "Intelligent agent for enterprise gate validation using LiteLLM"
+
+# Agent configuration
+agent:
+  model: "${CODEGATES_LLM_MODEL:-gpt-3.5-turbo}"
+  name: "codegates_validation_agent"
+  description: "Intelligent agent for enterprise gate validation and compliance"
+
+# Web interface configuration
+web:
+  port: 8080
+  host: "0.0.0.0"
+  debug: true
+  title: "CodeGates Validation Agent"
+  description: "Validate enterprise codebases against compliance standards"
+
+# Environment variables
+env:
+  - CODEGATES_LLM_PROVIDER
+  - CODEGATES_LLM_MODEL
+  - CODEGATES_LLM_API_KEY
+  - CODEGATES_LLM_BASE_URL
+  - LITELLM_MODEL
+  - LITELLM_API_KEY
+  - LITELLM_BASE_URL
+
+# Tools configuration
+tools:
+  - analyze_repository
+  - validate_gates
+  - collect_evidence
+  - generate_report
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s" 

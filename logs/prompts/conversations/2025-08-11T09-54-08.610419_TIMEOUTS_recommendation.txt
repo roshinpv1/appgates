@@ -1,0 +1,231 @@
+================================================================================
+CODEGATES LLM PROMPT
+================================================================================
+Timestamp: 2025-08-11T09:54:08.610419
+Gate Name: TIMEOUTS
+Type: recommendation
+================================================================================
+
+USER PROMPT:
+----------------------------------------
+
+# Gate Validation Analysis Request
+
+## Gate Information
+- **Name**: TIMEOUTS
+- **Display Name**: Timeouts
+- **Description**: Set appropriate timeouts for I/O operations
+- **Category**: Resilience
+- **Priority**: high
+- **Weight**: 1.0
+
+## Validation Results
+- **Status**: FAIL
+- **Score**: 0.0%
+- **Confidence**: high
+
+## How This Gate Was Evaluated
+
+This gate was evaluated using a comprehensive multi-method approach:
+- **Pattern Analysis**: Scanned 6 patterns across 0 files
+- **Evidence Collection**: Used 0 evidence collectors, 0 failed
+- **Coverage Assessment**: Achieved 0.0% coverage (expected: 25.0%)
+- **Critical Issues**: Found 0 violations requiring immediate attention
+- **Mandatory Failures**: 0 mandatory collectors failed
+- **Technology-Specific Validation**: Tailored to  and 
+
+
+## Parameters Considered
+- **Gate Weight**: 1.0 (impact on overall score)
+- **Priority Level**: high (urgency for remediation)
+- **Category**: Resilience (type of validation)
+- **Expected Coverage**: 25.0% (target implementation)
+- **Coverage Reasoning**: Standard expectation for enhanced evaluation
+- **Pattern Count**: 6 patterns analyzed
+- **Pattern Success Rate**: 0.0% (0/6)
+- **File Analysis Scope**: 0 files analyzed
+- **Relevant Files**: 0 files considered relevant
+- **Match Distribution**: 0 files contain matches
+
+## Detailed Results Analysis
+
+**Failure Analysis**:
+- **Score Deficiency**: 0.0% (below minimum threshold)
+- **Pattern Failures**: 6/6 patterns failed
+- **Coverage Gap**: 25.0% below expected coverage
+- **Critical Issues**: 0 violations found
+- **Mandatory Failures**: 0 mandatory collectors failed
+- **Implementation Gaps**: Missing implementations in 0 relevant files
+- **Technology Misalignment**: Not properly implemented for  stack
+
+
+## Evidence Collection Summary
+- **Collectors Used**: 
+- **Collectors Failed**: 
+- **Mandatory Collectors Passed**: True
+- **Mandatory Failures**: None
+
+## Pattern Analysis Details
+- **Total Patterns**: 6
+- **Matched Patterns**: 0
+- **Patterns Analyzed**: timeout.*setting, timeout.*seconds, timeout.*parameter, timeout.*ms, setTimeout
+- **Patterns Matched**: 
+
+## File Analysis Results
+- **Files Analyzed**: 0
+- **Files with Matches**: 0
+- **Relevant Files**: 0
+- **Total Files in Repo**: 1190
+
+## Coverage Analysis
+- **Expected Coverage**: 25.0%
+- **Actual Coverage**: 0.0%
+- **Coverage Gap**: 25.0%
+- **Coverage Reasoning**: Standard expectation for enhanced evaluation
+
+## Technology Context
+- **Primary Languages**: 
+- **Frameworks**: 
+- **Build Tools**: 
+
+## Repository Context
+- **Repository**: https://github.com/gridhead/gi-loadouts
+- **Branch**: main
+- **Commit**: Unknown
+
+## Specific Match Details
+No matches found
+
+## Violation Details
+No violations found
+
+## Code Examples Found
+No code examples available
+
+## Mitigation Strategy
+
+**Critical Mitigation Strategy**:
+- **Immediate Actions**: Address 0 mandatory collector failures
+- **Violation Remediation**: Fix 0 critical violations
+- **Coverage Improvement**: Increase coverage from 0.0% to 25.0%
+- **Pattern Implementation**: Implement missing patterns in 0 files
+- **Technology Alignment**: Align with  best practices
+- **Priority Order**: Address mandatory failures first, then violations, then coverage gaps
+
+
+## Task
+Based on the above comprehensive validation data, provide a detailed, actionable response that a developer can immediately use to improve their codebase.
+
+**CRITICAL INSTRUCTIONS:**
+- DO NOT include any introductory phrases like 'Based on the provided data...' or 'Here is the analysis...' or 'I will provide a comprehensive response...'
+- DO NOT use placeholder text like '*Gate Validation Analysis Report**' or '*Root Cause Analysis**'
+- DO NOT include generic analysis headers without content
+- Start directly with the 'Root Cause Analysis' or the main recommendation
+- Provide specific, actionable content for each section
+- Use natural language without bullet points or excessive formatting
+
+**Required Sections:**
+
+1. **Root Cause Analysis**: Explain why this gate failed
+   - Be specific about what was found or missing
+   - Reference the actual patterns, files, or evidence collected
+   - Explain the technical reasons for the status
+
+2. **Impact Assessment**: What are the implications for production readiness?
+   - Focus on real-world consequences
+   - Consider security, performance, reliability, and maintainability impacts
+   - Be specific about potential risks or benefits
+
+3. **Specific Recommendations**: Provide actionable steps to improve this gate
+   - Give concrete, implementable advice
+   - Include specific technologies or approaches relevant to the codebase
+   - Prioritize recommendations by impact and effort
+
+4. **Code Examples**: Show specific code changes needed
+   - Provide actual code snippets when possible
+   - Reference the specific languages and frameworks detected
+   - Show before/after examples if applicable
+
+5. **Best Practices**: Reference industry standards and best practices
+   - Include relevant standards, frameworks, or guidelines
+   - Explain why these practices matter
+   - Connect to the specific technology stack
+
+6. **Priority Actions**: What should be done first, second, third?
+   - Provide a clear action plan
+   - Consider dependencies and effort
+   - Include timeframes or effort estimates
+
+**Response Format:**
+Write in natural, flowing paragraphs. Avoid bullet points, numbered lists, or excessive formatting. Make the content readable and conversational while being technically precise.
+
+
+LLM RESPONSE:
+----------------------------------------
+The TIMEOUTS gate failed with a score of 0.0% due to the absence of any matching patterns across all analyzed files. This indicates that none of the critical timeout settings were properly implemented in the codebase.
+
+The implications for production readiness are severe, as this failure can lead to unpredictable behavior and potential crashes under load. The lack of timeouts can cause I/O operations to hang indefinitely, resulting in a poor user experience and potentially even data loss. Furthermore, this failure can also impact the overall reliability and maintainability of the system.
+
+To improve this gate, we need to implement the missing timeout settings for I/O operations. This involves adding the following patterns:
+
+* `timeout.*setting`
+* `timeout.*seconds`
+* `timeout.*parameter`
+* `timeout.*ms`
+* `setTimeout`
+
+These patterns should be added to all relevant files and modules, ensuring that timeouts are properly configured for I/O operations.
+
+Here's an example of how to implement a timeout setting in Python:
+```python
+import time
+
+# Set a 5-second timeout for I/O operations
+def io_operation(timeout=5):
+    try:
+        # Perform the I/O operation
+        result = yield from perform_i_o_operation()
+    except Exception as e:
+        # If the operation times out, raise an exception
+        if time.time() - start_time > timeout:
+            raise TimeoutError("I/O operation timed out")
+```
+In addition to implementing these patterns, it's essential to align with industry standards and best practices. The recommended approach is to use a library like `asyncio` or `trio` that provides built-in support for timeouts.
+
+To address this failure, we should prioritize the following actions:
+
+1. **Immediate Actions**: Implement the missing timeout settings in all relevant files and modules.
+2. **Violation Remediation**: Fix any critical violations related to I/O operations.
+3. **Coverage Improvement**: Increase coverage from 0.0% to 25.0% by adding more patterns and evidence collectors.
+
+By following these steps, we can improve the TIMEOUTS gate and ensure that our codebase is production-ready.
+
+CONTEXT:
+----------------------------------------
+{
+  "repository_url": "https://github.com/gridhead/gi-loadouts",
+  "branch": "main",
+  "scan_id": "9727b0ef-c7e1-4ba4-b6d0-1f079e7edf41",
+  "gate_name": "TIMEOUTS",
+  "gate_status": "FAIL",
+  "gate_score": 0.0,
+  "llm_provider": "local",
+  "llm_model": "llama-3.2-3b-instruct",
+  "prompt_length": 5499,
+  "evidence_collectors": [],
+  "mandatory_failures": []
+}
+
+METADATA:
+----------------------------------------
+{
+  "temperature": 0.1,
+  "max_tokens": 4000,
+  "timeout": 300,
+  "coverage_gap": 25.0,
+  "violation_count": 0
+}
+
+================================================================================
+END OF PROMPT
+================================================================================

@@ -1,0 +1,251 @@
+================================================================================
+CODEGATES LLM PROMPT
+================================================================================
+Timestamp: 2025-08-11T09:52:43.513348
+Gate Name: ALERTING_ACTIONABLE
+Type: recommendation
+================================================================================
+
+USER PROMPT:
+----------------------------------------
+
+# Gate Validation Analysis Request
+
+## Gate Information
+- **Name**: ALERTING_ACTIONABLE
+- **Display Name**: All alerting is actionable
+- **Description**: Ensure all alerting integrations (Splunk, AppDynamics, ThousandEyes) are present and actionable.
+- **Category**: Alerting
+- **Priority**: high
+- **Weight**: 1.0
+
+## Validation Results
+- **Status**: FAIL
+- **Score**: 0.0%
+- **Confidence**: high
+
+## How This Gate Was Evaluated
+
+This gate was evaluated using a comprehensive database integration approach:
+- **Database Integration**: Checked 3 alerting integrations via database query
+- **Integrations Missing**: Splunk, AppDynamics, ThousandEyes - Critical integrations are not configured
+- **Integrations Present**: None
+- **Integration Gap**: 3/3 integrations missing
+- **Database Query Success**: Successfully queried integration status from monitoring database
+- **Critical Issues**: Missing integrations prevent comprehensive alerting coverage
+- **Technology-Specific Validation**: Database integration approach ensures real-time accuracy
+
+
+## Parameters Considered
+- **Gate Weight**: 1.0 (impact on overall score)
+- **Priority Level**: high (urgency for remediation)
+- **Category**: Alerting (type of validation)
+- **Database Integration**: 3 integrations checked
+- **Integrations Present**: None
+- **Integrations Missing**: Splunk, AppDynamics, ThousandEyes
+- **Integration Coverage**: 0/3 (0.0%)
+- **Database Query Success**: Yes
+- **Real-time Verification**: Database integration ensures current status
+- **Evidence Collectors**: database_integration
+- **Mandatory Failures**: Splunk, AppDynamics, ThousandEyes
+
+## Detailed Results Analysis
+
+**Failure Analysis**:
+- **Integration Deficiency**: 3/3 integrations missing
+- **Missing Integrations**: Splunk, AppDynamics, ThousandEyes - Critical alerting platforms not configured
+- **Present Integrations**: None
+- **Database Verification**: Successfully identified missing integrations via database query
+- **Critical Issues**: Missing integrations prevent comprehensive alerting and monitoring
+- **Production Risk**: Incomplete alerting setup poses operational risks
+- **Technology Alignment**: Database integration approach ensures accurate real-time validation
+
+
+## Evidence Collection Summary
+- **Collectors Used**: database_integration
+- **Collectors Failed**: 
+- **Mandatory Collectors Passed**: False
+- **Mandatory Failures**: Splunk, AppDynamics, ThousandEyes
+
+## Pattern Analysis Details
+- **Total Patterns**: 3
+- **Matched Patterns**: 3
+- **Patterns Analyzed**: integration_Splunk, integration_AppDynamics, integration_ThousandEyes
+- **Patterns Matched**: missing_appdynamics, missing_splunk, missing_thousandeyes
+
+## File Analysis Results
+- **Files Analyzed**: 0
+- **Files with Matches**: 1
+- **Relevant Files**: 1
+- **Total Files in Repo**: 1190
+
+## Coverage Analysis
+- **Expected Coverage**: 100.0%
+- **Actual Coverage**: 100.0%
+- **Coverage Gap**: 0.0%
+- **Coverage Reasoning**: All integrations should be present
+
+## Technology Context
+- **Primary Languages**: 
+- **Frameworks**: 
+- **Build Tools**: 
+
+## Repository Context
+- **Repository**: https://github.com/gridhead/gi-loadouts
+- **Branch**: main
+- **Commit**: Unknown
+
+## Specific Match Details
+Match 1:
+  File: database_integration
+  Line: 1
+  Pattern: missing_splunk
+  Context: Missing Splunk integration...
+
+Match 2:
+  File: database_integration
+  Line: 1
+  Pattern: missing_appdynamics
+  Context: Missing AppDynamics integration...
+
+Match 3:
+  File: database_integration
+  Line: 1
+  Pattern: missing_thousandeyes
+  Context: Missing ThousandEyes integration...
+
+
+## Violation Details
+Violation 1:
+  File: database_integration
+  Line: 1
+  Type: GENERAL
+  Severity: LOW
+
+Violation 2:
+  File: database_integration
+  Line: 1
+  Type: GENERAL
+  Severity: LOW
+
+Violation 3:
+  File: database_integration
+  Line: 1
+  Type: GENERAL
+  Severity: LOW
+
+
+## Code Examples Found
+Code Example 1:
+  File: database_integration
+  Line: 1
+  Language: Unknown
+  Code: Missing Splunk integration
+
+Code Example 2:
+  File: database_integration
+  Line: 1
+  Language: Unknown
+  Code: Missing AppDynamics integration
+
+Code Example 3:
+  File: database_integration
+  Line: 1
+  Language: Unknown
+  Code: Missing ThousandEyes integration
+
+
+## Mitigation Strategy
+
+**Critical Mitigation Strategy**:
+- **Immediate Actions**: Configure missing Splunk, AppDynamics, ThousandEyes integrations
+- **Integration Setup**: Set up alerting integrations for Splunk, AppDynamics, ThousandEyes
+- **Configuration Priority**: Focus on high-impact integrations first (Splunk, AppDynamics)
+- **Database Integration**: Ensure new integrations are properly registered in monitoring database
+- **Testing**: Verify integrations are actionable and properly configured
+- **Documentation**: Document integration setup process for future reference
+- **Priority Order**: Address Splunk first (logging), then AppDynamics (APM), then ThousandEyes (monitoring)
+
+
+## Task
+Based on the above comprehensive validation data, provide a detailed, actionable response that a developer can immediately use to improve their codebase.
+
+**CRITICAL INSTRUCTIONS:**
+- DO NOT include any introductory phrases like 'Based on the provided data...' or 'Here is the analysis...' or 'I will provide a comprehensive response...'
+- DO NOT use placeholder text like '*Gate Validation Analysis Report**' or '*Root Cause Analysis**'
+- DO NOT include generic analysis headers without content
+- Start directly with the 'Root Cause Analysis' or the main recommendation
+- Provide specific, actionable content for each section
+- Use natural language without bullet points or excessive formatting
+
+**Required Sections:**
+
+1. **Root Cause Analysis**: Explain why this gate failed
+   - Be specific about what was found or missing
+   - Reference the actual patterns, files, or evidence collected
+   - Explain the technical reasons for the status
+
+2. **Impact Assessment**: What are the implications for production readiness?
+   - Focus on real-world consequences
+   - Consider security, performance, reliability, and maintainability impacts
+   - Be specific about potential risks or benefits
+
+3. **Specific Recommendations**: Provide actionable steps to improve this gate
+   - Give concrete, implementable advice
+   - Include specific technologies or approaches relevant to the codebase
+   - Prioritize recommendations by impact and effort
+
+4. **Code Examples**: Show specific code changes needed
+   - Provide actual code snippets when possible
+   - Reference the specific languages and frameworks detected
+   - Show before/after examples if applicable
+
+5. **Best Practices**: Reference industry standards and best practices
+   - Include relevant standards, frameworks, or guidelines
+   - Explain why these practices matter
+   - Connect to the specific technology stack
+
+6. **Priority Actions**: What should be done first, second, third?
+   - Provide a clear action plan
+   - Consider dependencies and effort
+   - Include timeframes or effort estimates
+
+**Response Format:**
+Write in natural, flowing paragraphs. Avoid bullet points, numbered lists, or excessive formatting. Make the content readable and conversational while being technically precise.
+
+
+CONTEXT:
+----------------------------------------
+{
+  "repository_url": "https://github.com/gridhead/gi-loadouts",
+  "branch": "main",
+  "scan_id": "9727b0ef-c7e1-4ba4-b6d0-1f079e7edf41",
+  "gate_name": "ALERTING_ACTIONABLE",
+  "gate_status": "FAIL",
+  "gate_score": 0.0,
+  "llm_provider": "local",
+  "llm_model": "llama-3.2-3b-instruct",
+  "prompt_length": 7191,
+  "evidence_collectors": [
+    "database_integration"
+  ],
+  "mandatory_failures": [
+    "Splunk",
+    "AppDynamics",
+    "ThousandEyes"
+  ]
+}
+
+METADATA:
+----------------------------------------
+{
+  "temperature": 0.1,
+  "max_tokens": 4000,
+  "timeout": 300,
+  "coverage_gap": 0,
+  "violation_count": 3
+}
+
+================================================================================
+END OF PROMPT
+================================================================================

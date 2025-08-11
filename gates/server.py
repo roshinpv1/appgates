@@ -45,6 +45,14 @@ except ImportError:
     print("⚠️ PatternCache not available")
     PATTERN_CACHE_AVAILABLE = False
 
+# Import PDF generation
+try:
+    from utils.html_to_pdf_converter import generate_pdfs_from_html_reports
+    PDF_GENERATION_AVAILABLE = True
+except ImportError:
+    print("⚠️ PDF generation not available. Install WeasyPrint: pip install weasyprint")
+    PDF_GENERATION_AVAILABLE = False
+
 # Add server configuration at the top of the file
 import socket
 
@@ -130,6 +138,9 @@ class ScanResult(BaseModel):
     total_gates: int
     html_report_url: Optional[str] = None
     json_report_url: Optional[str] = None
+    pdf_summary_url: Optional[str] = None
+    pdf_gates_url: Optional[str] = None
+    integrated_pdfs: bool = False
     completed_at: Optional[str] = None
     errors: List[str] = []
     current_step: Optional[str] = None
@@ -527,41 +538,69 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
 
 @app.get("/api/v1/scan/{scan_id}", response_model=ScanResult)
 async def get_scan_status(scan_id: str):
-    """
-    Get scan status and results
-    """
-    if scan_id not in scan_results:
-        raise HTTPException(status_code=404, detail="Scan not found")
-    
-    result = scan_results[scan_id]
-    
-    return ScanResult(
-        scan_id=result["scan_id"],
-        status=result["status"],
-        overall_score=result["overall_score"],
-        total_files=result["total_files"],
-        total_lines=result["total_lines"],
-        passed_gates=result["passed_gates"],
-        failed_gates=result["failed_gates"],
-        warning_gates=result["warning_gates"],
-        total_gates=result["total_gates"],
-        html_report_url=result.get("html_report_url"),
-        json_report_url=result.get("json_report_url"),
-        completed_at=result.get("completed_at"),
-        errors=result["errors"],
-        current_step=result.get("current_step"),
-        progress_percentage=result.get("progress_percentage"),
-        step_details=result.get("step_details"),
-        app_id=result.get("app_id"),
-        # NEW: Enhanced progress tracking
-        evidence_collection_progress=result.get("evidence_collection_progress"),
-        mandatory_collectors_status=result.get("mandatory_collectors_status"),
-        gate_validation_progress=result.get("gate_validation_progress"),
-        # Backward compatibility aliases
-        score=result["overall_score"],  # Alias for overall_score
-        gates=result.get("gate_results", []),  # Alias for gate_results
-        progress=result.get("progress_percentage", 0)  # Alias for progress_percentage
-    )
+    """Get the status of a scan"""
+    try:
+        if scan_id not in scan_results:
+            raise HTTPException(status_code=404, detail="Scan not found")
+        
+        result = scan_results[scan_id]
+        server_url = get_server_url()
+        
+        # Build response with enhanced information
+        response_data = {
+            "scan_id": scan_id,
+            "status": result.get("status", "UNKNOWN"),
+            "overall_score": result.get("overall_score", 0.0),
+            "total_files": result.get("metadata", {}).get("total_files", 0),
+            "total_lines": result.get("metadata", {}).get("total_lines", 0),
+            "passed_gates": len([g for g in result.get("gate_results", []) if g.get("status") == "PASS"]),
+            "failed_gates": len([g for g in result.get("gate_results", []) if g.get("status") == "FAIL"]),
+            "warning_gates": len([g for g in result.get("gate_results", []) if g.get("status") == "WARNING"]),
+            "total_gates": len(result.get("gate_results", [])),
+            "completed_at": result.get("completed_at"),
+            "errors": result.get("errors", []),
+            "current_step": result.get("current_step"),
+            "progress_percentage": result.get("progress_percentage"),
+            "step_details": result.get("step_details"),
+            "app_id": result["request"].get("app_id", ""),
+            # Enhanced progress tracking
+            "evidence_collection_progress": result.get("evidence_collection_progress"),
+            "mandatory_collectors_status": result.get("mandatory_collectors_status"),
+            "gate_validation_progress": result.get("gate_validation_progress"),
+            # Backward compatibility aliases
+            "score": result.get("overall_score", 0.0),
+            "gates": result.get("gate_results", []),
+            "progress": result.get("progress_percentage"),
+            # Report URLs
+            "html_report_url": None,
+            "json_report_url": None,
+            "pdf_summary_url": None,
+            "pdf_gates_url": None,
+            "integrated_pdfs": False
+        }
+        
+        # Add report URLs if reports exist
+        if result.get("html_report_path") and os.path.exists(result["html_report_path"]):
+            response_data["html_report_url"] = f"{server_url}/api/v1/scan/{scan_id}/report/html"
+        
+        if result.get("json_report_path") and os.path.exists(result["json_report_path"]):
+            response_data["json_report_url"] = f"{server_url}/api/v1/scan/{scan_id}/report/json"
+        
+        # Add PDF URLs if PDFs were generated during scan
+        if result.get("pdf_summary_path") and os.path.exists(result["pdf_summary_path"]):
+            response_data["pdf_summary_url"] = f"{server_url}/api/v1/scan/{scan_id}/pdfs/summary"
+            response_data["integrated_pdfs"] = True
+        
+        if result.get("pdf_gates_paths") and len(result["pdf_gates_paths"]) > 0:
+            response_data["pdf_gates_url"] = f"{server_url}/api/v1/scan/{scan_id}/pdfs"
+            response_data["integrated_pdfs"] = True
+        
+        return ScanResult(**response_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get scan status: {str(e)}")
 
 
 @app.get("/api/v1/scan/{scan_id}/results")
@@ -1188,80 +1227,288 @@ except ImportError:
     print("⚠️ PDF generation not available. Install ReportLab with: pip install reportlab")
 
 @app.get("/api/v1/scan/{scan_id}/pdfs")
+async def get_scan_pdfs(scan_id: str):
+    """Get list of available PDFs for a scan (both integrated and manually generated)"""
+    try:
+        pdf_files = []
+        
+        # Check for integrated PDFs (generated during scan)
+        if scan_id in scan_results:
+            result = scan_results[scan_id]
+            pdf_summary_path = result.get("pdf_summary_path")
+            pdf_gates_paths = result.get("pdf_gates_paths", [])
+            
+            if pdf_summary_path and os.path.exists(pdf_summary_path):
+                pdf_files.append({
+                    "filename": os.path.basename(pdf_summary_path),
+                    "type": "summary",
+                    "path": pdf_summary_path,
+                    "size": os.path.getsize(pdf_summary_path),
+                    "source": "integrated"
+                })
+            
+            for gate_path in pdf_gates_paths:
+                if os.path.exists(gate_path):
+                    pdf_files.append({
+                        "filename": os.path.basename(gate_path),
+                        "type": "gate",
+                        "path": gate_path,
+                        "size": os.path.getsize(gate_path),
+                        "source": "integrated"
+                    })
+        
+        # Check for manually generated PDFs in reports directory
+        pdf_dir = os.path.join("./reports/pdfs")
+        if os.path.exists(pdf_dir):
+            # Look for scan-specific PDFs
+            scan_pdf_pattern = os.path.join(pdf_dir, f"*{scan_id}*.pdf")
+            import glob
+            matches = glob.glob(scan_pdf_pattern)
+            
+            for match in matches:
+                filename = os.path.basename(match)
+                # Skip if already listed as integrated
+                if not any(pdf["filename"] == filename for pdf in pdf_files):
+                    pdf_type = "summary" if "summary" in filename.lower() else "gate"
+                    pdf_files.append({
+                        "filename": filename,
+                        "type": pdf_type,
+                        "path": match,
+                        "size": os.path.getsize(match),
+                        "source": "manual"
+                    })
+        
+        if not pdf_files:
+            return {
+                "scan_id": scan_id,
+                "pdfs": [],
+                "message": "No PDFs found for this scan. PDFs are generated automatically during scan completion.",
+                "integrated_generation": True
+            }
+        
+        # Sort PDFs: summary first, then gates
+        pdf_files.sort(key=lambda x: (x["type"] != "summary", x["filename"]))
+        
+        return {
+            "scan_id": scan_id,
+            "pdfs": pdf_files,
+            "total_count": len(pdf_files),
+            "summary_count": len([p for p in pdf_files if p["type"] == "summary"]),
+            "gate_count": len([p for p in pdf_files if p["type"] == "gate"]),
+            "integrated_generation": True,
+            "message": f"Found {len(pdf_files)} PDF(s) for scan {scan_id}"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get PDF list: {str(e)}")
+
+
+@app.get("/api/v1/scan/{scan_id}/pdfs/summary")
+async def download_summary_pdf(scan_id: str):
+    """Download the summary PDF for a scan"""
+    try:
+        # First check for integrated PDF
+        if scan_id in scan_results:
+            result = scan_results[scan_id]
+            pdf_summary_path = result.get("pdf_summary_path")
+            
+            if pdf_summary_path and os.path.exists(pdf_summary_path):
+                return FileResponse(
+                    pdf_summary_path,
+                    media_type="application/pdf",
+                    filename=os.path.basename(pdf_summary_path)
+                )
+        
+        # Check for manually generated summary PDF
+        pdf_dir = os.path.join("./reports/pdfs")
+        if os.path.exists(pdf_dir):
+            import glob
+            summary_pattern = os.path.join(pdf_dir, f"*{scan_id}*summary*.pdf")
+            matches = glob.glob(summary_pattern)
+            
+            if matches:
+                return FileResponse(
+                    matches[0],
+                    media_type="application/pdf",
+                    filename=os.path.basename(matches[0])
+                )
+        
+        raise HTTPException(status_code=404, detail="Summary PDF not found")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download summary PDF: {str(e)}")
+
+
+@app.get("/api/v1/scan/{scan_id}/pdfs/generate")
 async def generate_scan_pdfs(scan_id: str):
-    """Generate individual PDF documents for each gate in the scan"""
+    """Manually generate PDFs for a scan (fallback if not generated during scan)"""
     if not PDF_GENERATION_AVAILABLE:
         raise HTTPException(
             status_code=501, 
             detail="PDF generation not available. Install ReportLab with: pip install reportlab"
         )
     
-    if scan_id not in scan_results:
-        raise HTTPException(status_code=404, detail="Scan not found")
-    
     try:
-        # Generate PDFs from the scan results
-        pdf_files = generate_gate_pdfs_from_scan_id(scan_id, "./reports")
+        # Check if scan exists in memory or as a JSON file
+        scan_exists = False
+        scan_status = "UNKNOWN"
+        html_report_path = None
         
-        if not pdf_files:
-            raise HTTPException(status_code=500, detail="Failed to generate PDF files")
+        # First check in-memory scan results
+        if scan_id in scan_results:
+            scan_exists = True
+            scan_status = scan_results[scan_id].get("status", "UNKNOWN")
+            html_report_path = scan_results[scan_id].get("html_report_path")
+            print(f"🔍 Debug: Scan {scan_id} found in memory with status: '{scan_status}'")
+        else:
+            # Check if JSON report exists
+            json_path = os.path.join(REPORTS_DIR, scan_id, f"codegates_report_{scan_id}.json")
+            if os.path.exists(json_path):
+                scan_exists = True
+                # Try to read status from JSON file
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        json_data = json.load(f)
+                        scan_status = json_data.get("status", "COMPLETED")  # Assume completed if file exists
+                except:
+                    scan_status = "COMPLETED"  # Default to completed if we can't read status
+                
+                # Look for HTML report in the same directory
+                html_report_path = os.path.join(REPORTS_DIR, scan_id, f"codegates_report_{scan_id}.html")
+                if not os.path.exists(html_report_path):
+                    html_report_path = None
+                
+                print(f"🔍 Debug: Scan {scan_id} found in file with status: '{scan_status}'")
         
-        # Return information about generated files
-        pdf_info = []
-        for pdf_path in pdf_files:
-            filename = os.path.basename(pdf_path)
-            file_size = os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0
-            
-            # Determine file type and gate info from filename
-            if filename.startswith("SUMMARY_"):
-                file_type = "summary"
-                gate_name = "All Gates Summary"
-                gate_number = None
-            elif filename.startswith("Gate_"):
-                # Parse: Gate_{number}_{gate_name}_{scan_id}.pdf
-                parts = filename.split("_", 3)
-                file_type = "individual_gate"
-                gate_number = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-                gate_name = parts[2] if len(parts) > 2 else "unknown"
-            else:
-                # Legacy format for backwards compatibility
-                parts = filename.split("_", 2)
-                file_type = "individual_gate"
-                gate_number = None
-                gate_name = parts[1] if len(parts) > 1 else "unknown"
-            
-            pdf_info.append({
-                "filename": filename,
-                "filepath": pdf_path,
-                "file_size": file_size,
-                "type": file_type,
-                "gate_name": gate_name,
-                "gate_number": gate_number,
-                "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
-            })
+        if not scan_exists:
+            raise HTTPException(status_code=404, detail="Scan not found")
         
-        # Sort by gate number for better organization
-        pdf_info.sort(key=lambda x: (x["type"] != "individual_gate", x.get("gate_number", 999)))
+        # For file-based scans, check if scan is completed
+        if scan_id not in scan_results and scan_status.upper() not in ["COMPLETED", "COMPLETE"]:
+            raise HTTPException(status_code=400, detail="Scan not completed yet")
+        
+        # Check if HTML report exists
+        if not html_report_path or not os.path.exists(html_report_path):
+            raise HTTPException(
+                status_code=400, 
+                detail="HTML report not found. Generate HTML report first, then generate PDFs from HTML."
+            )
+        
+        # Load scan results for PDF generation
+        scan_results_data = None
+        if scan_id in scan_results:
+            # Get from memory
+            result = scan_results[scan_id]
+            scan_results_data = {
+                "scan_id": scan_id,
+                "repository_url": result["request"].get("repository_url", ""),
+                "branch": result["request"].get("branch", ""),
+                "overall_score": result.get("overall_score", 0.0),
+                "threshold": result["request"].get("threshold", 70),
+                "scan_timestamp_formatted": result.get("completed_at", ""),
+                "project_name": result["request"].get("app_id", "unknown"),
+                "metadata": result.get("metadata", {}),
+                "gate_results": result.get("gate_results", []),
+                "gates": result.get("gate_results", []),
+                "splunk_results": result.get("splunk_results", {})
+            }
+        else:
+            # Load from JSON file
+            json_path = os.path.join(REPORTS_DIR, scan_id, f"codegates_report_{scan_id}.json")
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                    scan_results_data = {
+                        "scan_id": scan_id,
+                        "repository_url": json_data.get("repository_url", ""),
+                        "branch": json_data.get("branch", ""),
+                        "overall_score": json_data.get("overall_score", 0.0),
+                        "threshold": json_data.get("threshold", 70),
+                        "scan_timestamp_formatted": json_data.get("scan_timestamp_formatted", ""),
+                        "project_name": json_data.get("project_name", "unknown"),
+                        "metadata": json_data.get("metadata", {}),
+                        "gate_results": json_data.get("gates", []),
+                        "gates": json_data.get("gates", []),
+                        "splunk_results": json_data.get("splunk_results", {})
+                    }
+            except Exception as e:
+                print(f"Error reading JSON report for PDF generation: {e}")
+                raise HTTPException(status_code=404, detail="No gate results found for PDF generation")
+        
+        # Generate PDFs from HTML report using the new converter
+        from utils.html_to_pdf_converter import generate_pdfs_from_html_reports
+        pdf_results = generate_pdfs_from_html_reports(scan_results_data, html_report_path, "./reports")
+        
+        if not pdf_results["summary"] and not pdf_results["gates"]:
+            raise HTTPException(status_code=500, detail="Failed to generate PDF files from HTML")
+        
+        # Organize PDF files for response
+        pdf_files = []
+        
+        if pdf_results["summary"]:
+            for summary_pdf in pdf_results["summary"]:
+                pdf_files.append({
+                    "filename": os.path.basename(summary_pdf),
+                    "type": "summary",
+                    "path": summary_pdf,
+                    "size": os.path.getsize(summary_pdf),
+                    "source": "manual_generation"
+                })
+        
+        if pdf_results["gates"]:
+            for gate_pdf in pdf_results["gates"]:
+                pdf_files.append({
+                    "filename": os.path.basename(gate_pdf),
+                    "type": "gate",
+                    "path": gate_pdf,
+                    "size": os.path.getsize(gate_pdf),
+                    "source": "manual_generation"
+                })
+        
+        # Sort PDFs: summary first, then gates
+        pdf_files.sort(key=lambda x: (x["type"] != "summary", x["filename"]))
         
         return {
             "scan_id": scan_id,
-            "total_files": len(pdf_files),
-            "individual_gates": len([p for p in pdf_info if p["type"] == "individual_gate"]),
-            "pdf_files": pdf_info,
-            "message": f"Generated {len(pdf_files)} individual gate PDF files for JIRA upload"
+            "message": f"Successfully generated {len(pdf_files)} PDF(s) from HTML report",
+            "pdfs": pdf_files,
+            "total_count": len(pdf_files),
+            "summary_count": len([p for p in pdf_files if p["type"] == "summary"]),
+            "gate_count": len([p for p in pdf_files if p["type"] == "gate"]),
+            "source": "HTML reports",
+            "implementation": "Pure Python ReportLab"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        print(f"❌ Failed to generate PDFs: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDFs: {str(e)}")
 
 @app.get("/api/v1/scan/{scan_id}/pdf/{filename}")
 async def download_pdf_file(scan_id: str, filename: str):
     """Download a specific PDF file"""
-    if scan_id not in scan_results:
+    # Check if scan exists in memory or as a JSON file
+    scan_exists = False
+    
+    # First check in-memory scan results
+    if scan_id in scan_results:
+        scan_exists = True
+    else:
+        # Check if JSON report exists
+        json_path = os.path.join(REPORTS_DIR, scan_id, f"codegates_report_{scan_id}.json")
+        if os.path.exists(json_path):
+            scan_exists = True
+    
+    if not scan_exists:
         raise HTTPException(status_code=404, detail="Scan not found")
     
     # Construct file path
-    pdf_dir = os.path.join("./reports/pdfs", scan_id)
+    pdf_dir = os.path.join(REPORTS_DIR, "pdfs", scan_id)
     file_path = os.path.join(pdf_dir, filename)
     
     if not os.path.exists(file_path):
@@ -1287,7 +1534,7 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
     if not PDF_GENERATION_AVAILABLE:
         raise HTTPException(
             status_code=501, 
-            detail="PDF generation not available. Install ReportLab with: pip install reportlab"
+            detail="PDF generation not available. Install WeasyPrint with: pip install weasyprint"
         )
     
     if scan_id not in scan_results:
@@ -1300,6 +1547,14 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
         # Check if scan is completed
         if result_data.get("status") != "completed":
             raise HTTPException(status_code=400, detail="Scan not completed yet")
+        
+        # Get HTML report path
+        html_report_path = result_data.get("html_report_path")
+        if not html_report_path or not os.path.exists(html_report_path):
+            raise HTTPException(
+                status_code=400, 
+                detail="HTML report not found. Generate HTML report first, then generate PDFs from HTML."
+            )
         
         # Extract gate results
         gate_results = result_data.get("gate_results", [])
@@ -1349,20 +1604,16 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
             "branch": result_data["request"].get("branch", "unknown"),
             "scan_timestamp_formatted": result_data.get("completed_at", result_data.get("created_at", "unknown")),
             "overall_score": result_data.get("overall_score", 0),
-            "gate_results": gate_results
+            "gate_results": gate_results,
+            "gates": gate_results  # For compatibility
         }
         
-        # Generate PDFs
-        pdf_generator = CodeGatesPDFGenerator()
-        pdf_dir = os.path.join("./reports/pdfs", scan_id)
+        # Generate PDFs from HTML report using the new converter
+        from utils.html_to_pdf_converter import generate_pdfs_from_html_reports
+        pdf_results = generate_pdfs_from_html_reports(scan_data, html_report_path, "./reports")
         
-        # Generate individual gate PDFs
-        pdf_files = pdf_generator.generate_individual_gate_pdfs(scan_data, pdf_dir)
-        
-        # Generate summary PDF
-        summary_pdf = pdf_generator.generate_summary_pdf(scan_data, pdf_dir)
-        if summary_pdf:
-            pdf_files.append(summary_pdf)
+        if not pdf_results["summary"] and not pdf_results["gates"]:
+            raise HTTPException(status_code=500, detail="Failed to generate PDF files from HTML")
         
         # Organize by gate number and status for JIRA upload
         organized_files = {
@@ -1372,29 +1623,36 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
         
         status_counts = {"FAIL": 0, "WARNING": 0, "PASS": 0, "NOT_APPLICABLE": 0}
         
-        for pdf_path in pdf_files:
+        # Add summary PDF info
+        if pdf_results["summary"]:
+            summary_path = pdf_results["summary"][0]
+            filename = os.path.basename(summary_path)
+            file_size = os.path.getsize(summary_path) if os.path.exists(summary_path) else 0
+            
+            organized_files["summary"].append({
+                "filename": filename,
+                "filepath": summary_path,
+                "file_size": file_size,
+                "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
+            })
+        
+        # Add individual gate PDFs info
+        for pdf_path in pdf_results["gates"]:
             filename = os.path.basename(pdf_path)
             file_size = os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0
             
-            if filename.startswith("SUMMARY_"):
-                organized_files["summary"].append({
-                    "filename": filename,
-                    "filepath": pdf_path,
-                    "file_size": file_size,
-                    "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
-                })
-            elif filename.startswith("Gate_"):
-                # Parse gate number and find corresponding gate data
-                parts = filename.split("_", 3)
-                gate_number = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-                
-                # Find gate data to get status
+            # Extract gate name from filename: project-scanid-gatename.pdf
+            parts = filename.split("-")
+            if len(parts) >= 3:
+                gate_name = parts[2].replace(".pdf", "").replace("_", " ").title()
+                # Find corresponding gate data
                 gate_data = None
-                if gate_number and gate_number <= len(gate_results):
-                    gate_data = gate_results[gate_number - 1]
+                for gate in gate_results:
+                    if gate.get("gate", "").lower().replace("_", " ") == gate_name.lower():
+                        gate_data = gate
+                        break
                 
                 gate_status = gate_data.get("status", "UNKNOWN") if gate_data else "UNKNOWN"
-                gate_name = gate_data.get("gate", parts[2] if len(parts) > 2 else "unknown") if gate_data else (parts[2] if len(parts) > 2 else "unknown")
                 gate_display_name = gate_data.get("display_name", gate_name) if gate_data else gate_name
                 
                 if gate_status in status_counts:
@@ -1404,19 +1662,19 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
                     "filename": filename,
                     "filepath": pdf_path,
                     "file_size": file_size,
-                    "gate_number": gate_number,
                     "gate_name": gate_name,
                     "gate_display_name": gate_display_name,
                     "status": gate_status,
                     "download_url": f"/api/v1/scan/{scan_id}/pdf/{filename}"
                 })
         
-        # Sort individual gates by gate number
-        organized_files["individual_gates"].sort(key=lambda x: x.get("gate_number", 999))
+        # Sort individual gates by status (FAIL first, then WARNING, then PASS)
+        status_order = {"FAIL": 0, "WARNING": 1, "PASS": 2, "NOT_APPLICABLE": 3}
+        organized_files["individual_gates"].sort(key=lambda x: status_order.get(x.get("status", "UNKNOWN"), 4))
         
         return {
             "scan_id": scan_id,
-            "total_files": len(pdf_files),
+            "total_files": len(pdf_results["summary"]) + len(pdf_results["gates"]),
             "individual_gates_count": len(organized_files["individual_gates"]),
             "organized_files": organized_files,
             "status_summary": status_counts,
@@ -1427,13 +1685,14 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
                 "passed_gates": f"{status_counts['PASS']} PASS gates - attach for reference",
                 "not_applicable_gates": f"{status_counts['NOT_APPLICABLE']} NOT_APPLICABLE gates - skip or attach for documentation",
                 "summary": "Upload SUMMARY PDF as overall scan report",
-                "recommendation": "Create individual JIRA tickets for each gate PDF. Use gate number and name for ticket titles."
+                "recommendation": "Create individual JIRA tickets for each gate PDF. Use gate name for ticket titles.",
+                "source": "Generated from HTML reports"
             },
-            "message": f"Generated {len(pdf_files)} PDFs organized for individual JIRA ticket upload"
+            "message": f"Generated {len(pdf_results['summary']) + len(pdf_results['gates'])} PDFs from HTML for individual JIRA ticket upload"
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"JIRA PDF generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"JIRA PDF generation from HTML failed: {str(e)}")
 
 
 if __name__ == "__main__":
