@@ -124,6 +124,9 @@ class RepositoryAnalysisTool(BaseTool):
     name = "analyze_repository"
     description = "Clone and analyze a repository to understand its structure, technologies, and patterns"
     
+    def __init__(self):
+        super().__init__(name=self.name, description=self.description)
+    
     async def run_async(self, args: dict, tool_context) -> dict:
         """Analyze repository structure and codebase"""
         try:
@@ -256,46 +259,29 @@ class RepositoryAnalysisTool(BaseTool):
 
 
 class GateValidationTool(BaseTool):
-    """Tool for validating specific gates against the codebase"""
+    """Tool for validating gates using existing functions"""
     
     name = "validate_gates"
-    description = "Validate hard gates against the codebase using pattern matching and analysis"
+    description = "Validate hard gates using CodeGates utilities"
+    
+    def __init__(self):
+        super().__init__(name=self.name, description=self.description)
     
     async def run_async(self, args: dict, tool_context) -> dict:
-        """Validate gates against the codebase"""
+        """Validate gates using codegates functions"""
         try:
-            gate_names = args.get("gate_names", [])
-            repo_path = args["repository_path"]
-            app_id = args.get("app_id", "unknown")
+            repo_url = args.get("repository_url")
+            app_id = args.get("app_id")
+            gate_names = args.get("gates", [])
             
-            print(f"🔍 Validating gates: {gate_names}")
-            
-            if not CODEGATES_AVAILABLE:
-                return {
-                    "status": "error",
-                    "message": "CodeGates functionality not available",
-                    "data": None
-                }
-            
-            # Use existing EnhancedGateEvaluator
-            evaluator = EnhancedGateEvaluator()
+            # Validate gates using existing functions
             results = []
-            
             for gate_name in gate_names:
                 try:
-                    # Evaluate gate using existing logic
-                    result = evaluator.evaluate_gate(gate_name, repo_path)
-                    
-                    # Add metadata
-                    result["gate_name"] = gate_name
-                    result["gate_number"] = get_gate_number(gate_name)
-                    result["app_id"] = app_id
-                    
+                    result = validate_security_gate(gate_name, repo_url, app_id)
                     results.append(result)
-                    
                 except Exception as e:
                     results.append({
-                        "gate_name": gate_name,
                         "status": "error",
                         "message": f"Error validating gate {gate_name}: {str(e)}",
                         "app_id": app_id
@@ -308,7 +294,6 @@ class GateValidationTool(BaseTool):
                 "successful_validations": len([r for r in results if r.get("status") != "error"]),
                 "message": f"Validated {len(gate_names)} gates successfully."
             }
-            
         except Exception as e:
             return {
                 "status": "error",
@@ -322,6 +307,9 @@ class EvidenceCollectionTool(BaseTool):
     
     name = "collect_evidence"
     description = "Collect evidence from Splunk, AppDynamics, and web portals"
+    
+    def __init__(self):
+        super().__init__(name=self.name, description=self.description)
     
     async def run_async(self, args: dict, tool_context) -> dict:
         """Collect evidence from external sources"""
@@ -363,10 +351,8 @@ class EvidenceCollectionTool(BaseTool):
             return {
                 "status": "success",
                 "evidence": evidence,
-                "sources_collected": list(evidence.keys()),
-                "message": f"Collected evidence from {len(evidence)} sources."
+                "message": "Evidence collected successfully"
             }
-            
         except Exception as e:
             return {
                 "status": "error",
@@ -376,111 +362,35 @@ class EvidenceCollectionTool(BaseTool):
 
 
 class ReportGenerationTool(BaseTool):
-    """Tool for generating comprehensive validation reports"""
+    """Tool for generating reports"""
     
     name = "generate_report"
-    description = "Generate comprehensive validation report with recommendations"
+    description = "Generate comprehensive reports for validation results"
+    
+    def __init__(self):
+        super().__init__(name=self.name, description=self.description)
     
     async def run_async(self, args: dict, tool_context) -> dict:
-        """Generate comprehensive report"""
+        """Generate report based on results"""
         try:
-            validation_results = args["validation_results"]
-            evidence_data = args.get("evidence_data", {})
-            repo_url = args.get("repository_url", "Unknown")
+            results = args.get("results", {})
+            format_type = args.get("format", "markdown")
             
-            print(f"📊 Generating report for validation results")
+            print("📝 Generating report...")
             
-            # Generate summary
-            summary = self._generate_summary(validation_results)
-            
-            # Generate recommendations
-            recommendations = self._generate_recommendations(validation_results, evidence_data)
-            
-            # Generate detailed report
-            detailed_report = self._generate_detailed_report(validation_results, evidence_data)
+            report = generate_validation_report(results, format_type)
             
             return {
                 "status": "success",
-                "report": {
-                    "summary": summary,
-                    "recommendations": recommendations,
-                    "detailed_report": detailed_report,
-                    "repository_url": repo_url,
-                    "timestamp": self._get_timestamp()
-                },
-                "message": "Report generated successfully."
+                "report": report,
+                "message": "Report generated successfully"
             }
-            
         except Exception as e:
             return {
                 "status": "error",
                 "message": f"Error generating report: {str(e)}",
                 "data": None
             }
-    
-    def _generate_summary(self, validation_results: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Generate validation summary"""
-        total_gates = len(validation_results)
-        passed_gates = len([r for r in validation_results if r.get("status") == "passed"])
-        failed_gates = len([r for r in validation_results if r.get("status") == "failed"])
-        error_gates = len([r for r in validation_results if r.get("status") == "error"])
-        
-        return {
-            "total_gates": total_gates,
-            "passed": passed_gates,
-            "failed": failed_gates,
-            "errors": error_gates,
-            "success_rate": (passed_gates / total_gates * 100) if total_gates > 0 else 0
-        }
-    
-    def _generate_recommendations(self, validation_results: List[Dict[str, Any]], evidence_data: Dict[str, Any]) -> List[str]:
-        """Generate actionable recommendations"""
-        recommendations = []
-        
-        for result in validation_results:
-            if result.get("status") == "failed":
-                gate_name = result.get("gate_name", "Unknown")
-                gate_number = result.get("gate_number", "N/A")
-                
-                recommendations.append(
-                    f"Gate {gate_number} ({gate_name}): Review and implement required patterns and practices."
-                )
-        
-        # Add evidence-based recommendations
-        if evidence_data.get("splunk", {}).get("status") == "error":
-            recommendations.append("Splunk Integration: Configure Splunk monitoring and alerting.")
-        
-        if evidence_data.get("appdynamics", {}).get("status") == "error":
-            recommendations.append("AppDynamics Integration: Set up AppDynamics application monitoring.")
-        
-        return recommendations
-    
-    def _generate_detailed_report(self, validation_results: List[Dict[str, Any]], evidence_data: Dict[str, Any]) -> str:
-        """Generate detailed report text"""
-        report_lines = ["# CodeGates Validation Report", ""]
-        
-        for result in validation_results:
-            gate_name = result.get("gate_name", "Unknown")
-            gate_number = result.get("gate_number", "N/A")
-            status = result.get("status", "unknown")
-            
-            report_lines.append(f"## Gate {gate_number}: {gate_name}")
-            report_lines.append(f"**Status**: {status.upper()}")
-            
-            if result.get("message"):
-                report_lines.append(f"**Details**: {result['message']}")
-            
-            if result.get("patterns_found"):
-                report_lines.append(f"**Patterns Found**: {len(result['patterns_found'])}")
-            
-            report_lines.append("")
-        
-        return "\n".join(report_lines)
-    
-    def _get_timestamp(self) -> str:
-        """Get current timestamp"""
-        from datetime import datetime
-        return datetime.now().isoformat()
 
 
 # =============================================================================

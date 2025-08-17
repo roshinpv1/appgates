@@ -33,13 +33,13 @@ class LLMAnalysisNode:
             pattern_data: Pattern data for all gates
             
         Returns:
-            Updated gate results with LLM-based recommendations
+            Updated gate results with LLM-based recommendations only
         """
         
         print("🤖 Generating LLM-based recommendations for gate results...")
         
         if not self.llm_client or not self.llm_client.is_available():
-            print("   ⚠️ LLM client not available, using fallback recommendations")
+            print("   ❌ LLM client not available - cannot generate recommendations")
             return self._add_fallback_recommendations(gate_results)
         
         processed_results = []
@@ -57,11 +57,12 @@ class LLMAnalysisNode:
                 # Call LLM for analysis
                 llm_recommendations = self._call_llm_for_analysis(prompt, gate_name, status)
                 
-                # Update gate result with LLM recommendations
+                # Update gate result with LLM recommendations only
                 updated_result = gate_result.copy()
                 updated_result["llm_recommendations"] = llm_recommendations
                 updated_result["recommendations"] = llm_recommendations  # Replace static recommendations
                 updated_result["llm_analysis_prompt"] = prompt
+                updated_result["llm_analysis_used"] = True
                 
                 processed_results.append(updated_result)
                 
@@ -69,12 +70,13 @@ class LLMAnalysisNode:
                 
             except Exception as e:
                 print(f"   ❌ {gate_name}: LLM analysis failed - {e}")
-                # Use fallback recommendations for this gate
-                fallback_result = gate_result.copy()
-                fallback_result["llm_recommendations"] = self._generate_fallback_recommendations_for_gate(gate_result)
-                fallback_result["recommendations"] = fallback_result["llm_recommendations"]
-                fallback_result["llm_analysis_error"] = str(e)
-                processed_results.append(fallback_result)
+                # Use empty recommendations instead of fallback
+                empty_result = gate_result.copy()
+                empty_result["llm_recommendations"] = []
+                empty_result["recommendations"] = []
+                empty_result["llm_analysis_error"] = str(e)
+                empty_result["llm_analysis_failed"] = True
+                processed_results.append(empty_result)
         
         print(f"✅ Completed LLM analysis for {len(processed_results)} gates")
         return processed_results
@@ -166,7 +168,7 @@ class LLMAnalysisNode:
         """Parse LLM response into structured recommendations"""
         
         if not response:
-            return ["No analysis available"]
+            return []
         
         # Split response into lines and extract recommendations
         lines = response.strip().split('\n')
@@ -199,61 +201,28 @@ class LLMAnalysisNode:
             if len(cleaned_response) > 50:
                 recommendations = [cleaned_response]
             else:
-                recommendations = ["Analysis completed but no specific recommendations generated"]
+                recommendations = []
         
         return recommendations[:5]  # Limit to 5 recommendations max
     
     def _add_fallback_recommendations(self, gate_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Add fallback recommendations when LLM is not available"""
+        """Add empty recommendations when LLM is not available"""
         
-        print("   📝 Using fallback recommendations...")
+        print("   ⚠️ LLM not available - using empty recommendations")
         
         updated_results = []
         for gate_result in gate_results:
             updated_result = gate_result.copy()
-            fallback_recommendations = self._generate_fallback_recommendations_for_gate(gate_result)
-            updated_result["llm_recommendations"] = fallback_recommendations
-            updated_result["recommendations"] = fallback_recommendations
-            updated_result["llm_analysis_fallback"] = True
+            updated_result["llm_recommendations"] = []
+            updated_result["recommendations"] = []
+            updated_result["llm_analysis_unavailable"] = True
             updated_results.append(updated_result)
         
         return updated_results
     
     def _generate_fallback_recommendations_for_gate(self, gate_result: Dict[str, Any]) -> List[str]:
-        """Generate fallback recommendations for a single gate"""
-        
-        gate_name = gate_result.get("gate", "UNKNOWN")
-        status = gate_result.get("status", "FAIL")
-        score = gate_result.get("score", 0.0)
-        details = gate_result.get("details", [])
-        
-        recommendations = []
-        
-        if status == "PASS":
-            recommendations.append(f"✅ {gate_name} is well implemented")
-            if score >= 90:
-                recommendations.append("Excellent implementation - continue maintaining current practices")
-            elif score >= 70:
-                recommendations.append("Good implementation - consider minor improvements")
-            else:
-                recommendations.append("Adequate implementation - review for potential enhancements")
-        else:
-            recommendations.append(f"❌ {gate_name} needs improvement")
-            
-            if score < 30:
-                recommendations.append("Critical: Immediate implementation required")
-            elif score < 50:
-                recommendations.append("High Priority: Significant improvements needed")
-            else:
-                recommendations.append("Medium Priority: Enhance implementation")
-            
-            # Add specific recommendations based on details
-            if details:
-                for detail in details[:2]:  # Limit to 2 details
-                    if "missing" in detail.lower() or "not found" in detail.lower():
-                        recommendations.append(f"Focus on: {detail}")
-        
-        return recommendations
+        """Generate empty recommendations - no static fallback"""
+        return []
 
 
 def integrate_llm_analysis_with_gate_evaluation(gate_results: List[Dict[str, Any]], pattern_data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -265,7 +234,7 @@ def integrate_llm_analysis_with_gate_evaluation(gate_results: List[Dict[str, Any
         pattern_data: Pattern data for all gates
         
     Returns:
-        Updated gate results with LLM-based recommendations
+        Updated gate results with LLM-based recommendations only
     """
     
     llm_analysis_node = LLMAnalysisNode()
@@ -307,14 +276,14 @@ def batch_process_gate_results(gate_results: List[Dict[str, Any]], pattern_data:
             
         except Exception as e:
             print(f"   ❌ Batch {batch_num} failed: {e}")
-            # Add fallback recommendations for this batch
+            # Add empty recommendations for this batch
             for gate_result in batch:
-                fallback_result = gate_result.copy()
-                fallback_recommendations = llm_analysis_node._generate_fallback_recommendations_for_gate(gate_result)
-                fallback_result["llm_recommendations"] = fallback_recommendations
-                fallback_result["recommendations"] = fallback_recommendations
-                fallback_result["llm_analysis_error"] = str(e)
-                processed_results.append(fallback_result)
+                empty_result = gate_result.copy()
+                empty_result["llm_recommendations"] = []
+                empty_result["recommendations"] = []
+                empty_result["llm_analysis_error"] = str(e)
+                empty_result["llm_analysis_failed"] = True
+                processed_results.append(empty_result)
     
     return {
         "processed_results": processed_results,

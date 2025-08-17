@@ -11,7 +11,7 @@ if [ -f "jira.env" ]; then
 else
     # Fallback to hardcoded values
     echo "⚠️ jira.env not found, using fallback values..."
-    export JIRA_URL="https://roshin.atlassian.net"
+    export JIRA_URL="https://roshin.atlassian.net/jira"
     export JIRA_USER="ss"
     export JIRA_TOKEN=""
 fi

@@ -25,7 +25,7 @@ def example_integration_with_existing_system():
             ],
             "patterns_used": 3,
             "matches_found": 15,
-            "recommendations": []  # Empty - will be replaced by LLM analysis
+            "recommendations": []  # Empty - will be replaced by LLM analysis only
         },
         {
             "gate": "ALERTING_ACTIONABLE",
@@ -35,7 +35,7 @@ def example_integration_with_existing_system():
             "matches": [],
             "patterns_used": 0,
             "matches_found": 0,
-            "recommendations": []  # Empty - will be replaced by LLM analysis
+            "recommendations": []  # Empty - will be replaced by LLM analysis only
         },
         {
             "gate": "AVOID_LOGGING_SECRETS",
@@ -45,7 +45,7 @@ def example_integration_with_existing_system():
             "matches": [],
             "patterns_used": 5,
             "matches_found": 0,
-            "recommendations": []  # Empty - will be replaced by LLM analysis
+            "recommendations": []  # Empty - will be replaced by LLM analysis only
         },
         {
             "gate": "AUTO_SCALE",
@@ -57,7 +57,7 @@ def example_integration_with_existing_system():
             ],
             "patterns_used": 2,
             "matches_found": 1,
-            "recommendations": []  # Empty - will be replaced by LLM analysis
+            "recommendations": []  # Empty - will be replaced by LLM analysis only
         }
     ]
     
@@ -87,6 +87,7 @@ def example_integration_with_existing_system():
     
     print("🚀 Starting LLM Analysis Integration Example...")
     print(f"   📊 Processing {len(gate_results)} gate results")
+    print("   🎯 Note: Only LLM-generated recommendations will be used (no static fallback)")
     
     # Method 1: Direct integration
     print("\n📋 Method 1: Direct Integration")
@@ -106,16 +107,19 @@ def example_integration_with_existing_system():
             recommendations = result.get("llm_recommendations", result.get("recommendations", []))
             
             print(f"\n🔍 {gate_name} ({status}):")
-            for i, rec in enumerate(recommendations, 1):
-                print(f"   {i}. {rec}")
-            
-            # Show if fallback was used
-            if result.get("llm_analysis_fallback"):
-                print(f"   ⚠️ Used fallback recommendations (LLM not available)")
-            elif result.get("llm_analysis_error"):
-                print(f"   ❌ LLM analysis error: {result['llm_analysis_error']}")
+            if recommendations:
+                for i, rec in enumerate(recommendations, 1):
+                    print(f"   {i}. {rec}")
             else:
+                print("   (No LLM recommendations available)")
+            
+            # Show analysis status
+            if result.get("llm_analysis_used"):
                 print(f"   ✅ LLM analysis completed successfully")
+            elif result.get("llm_analysis_failed"):
+                print(f"   ❌ LLM analysis failed: {result.get('llm_analysis_error', 'Unknown error')}")
+            elif result.get("llm_analysis_unavailable"):
+                print(f"   ⚠️ LLM not available - no recommendations generated")
     
     except Exception as e:
         print(f"❌ Direct integration failed: {e}")
@@ -134,8 +138,11 @@ def example_integration_with_existing_system():
             recommendations = result.get("llm_recommendations", result.get("recommendations", []))
             
             print(f"\n🔍 {gate_name} ({status}):")
-            for i, rec in enumerate(recommendations, 1):
-                print(f"   {i}. {rec}")
+            if recommendations:
+                for i, rec in enumerate(recommendations, 1):
+                    print(f"   {i}. {rec}")
+            else:
+                print("   (No LLM recommendations available)")
     
     except Exception as e:
         print(f"❌ Convenience function failed: {e}")
@@ -160,8 +167,11 @@ def example_integration_with_existing_system():
             recommendations = result.get("llm_recommendations", result.get("recommendations", []))
             
             print(f"\n🔍 {gate_name} ({status}):")
-            for i, rec in enumerate(recommendations, 1):
-                print(f"   {i}. {rec}")
+            if recommendations:
+                for i, rec in enumerate(recommendations, 1):
+                    print(f"   {i}. {rec}")
+            else:
+                print("   (No LLM recommendations available)")
     
     except Exception as e:
         print(f"❌ Batch processing failed: {e}")
