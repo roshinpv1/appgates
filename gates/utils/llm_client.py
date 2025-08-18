@@ -592,7 +592,7 @@ def _create_config_for_provider(provider: LLMProvider) -> LLMConfig:
             provider=provider,
             model=os.getenv("LOCAL_LLM_MODEL", "llama-3.2-3b-instruct"),
             api_key=os.getenv("LOCAL_LLM_API_KEY", "not-needed"),
-            base_url=os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1"),
+            base_url=os.getenv("LOCAL_LLM_URL", "http://localhost:1234/v1"),
             temperature=float(os.getenv("LOCAL_LLM_TEMPERATURE", "0.1")),
             max_tokens=int(os.getenv("LOCAL_LLM_MAX_TOKENS", "40000"))
         )
@@ -602,7 +602,7 @@ def _create_config_for_provider(provider: LLMProvider) -> LLMConfig:
             provider=provider,
             model=os.getenv("OLLAMA_MODEL", "llama-3.2-3b-instruct"),
             api_key=None,
-            base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+            base_url=os.getenv("OLLAMA_HOST", "http://localhost:1234"),
             temperature=float(os.getenv("OLLAMA_TEMPERATURE", "0.1")),
             max_tokens=int(os.getenv("OLLAMA_NUM_PREDICT", "4000"))
         )

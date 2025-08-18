@@ -40,7 +40,7 @@ def test_completion_debug():
                 "provider": "ollama",
                 "model": "gemma3:27b",
                 "api_key": None,
-                "base_url": "http://localhost:11434",
+                "base_url": "http://localhost:1234",
                 "temperature": 0.3,
                 "max_tokens": 2000,
                 "enable_streaming": True,

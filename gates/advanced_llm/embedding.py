@@ -35,11 +35,17 @@ class EmbeddingConfig:
     provider: str = "openai"
     model: str = "text-embedding-3-small"
     base_url: str = None
+    api_key: str = None
     batch_size: int = 64
     max_retries: int = 3
     timeout: int = 30
     rate_limit_per_minute: int = 1000
     fallback_providers: List[str] = None
+    
+    # Local provider specific settings
+    local_provider: str = "ollama"  # "ollama" or "lm_studio"
+    local_base_url: str = None  # Separate URL for local embeddings
+    local_model: str = "nomic-embed-text"
 
 
 class EmbeddingService:
@@ -107,14 +113,27 @@ class EmbeddingService:
         
         # Local provider (using Ollama or LM Studio)
         try:
-            # Get base_url from config if provided, otherwise use Ollama default
-            base_url = getattr(self.config, 'base_url', "http://localhost:11434")
+            # Use local_base_url from config if provided, otherwise use default based on provider
+            if hasattr(self.config, 'local_base_url') and self.config.local_base_url:
+                base_url = self.config.local_base_url
+            else:
+                # Default based on local provider type
+                if hasattr(self.config, 'local_provider') and self.config.local_provider == "lm_studio":
+                    base_url = "http://localhost:1234"
+                else:
+                    base_url = "http://localhost:1234"  # Ollama default
+            
+            local_model = getattr(self.config, 'local_model', 'nomic-embed-text')
+            
             self.providers["local"] = {
                 "client": None,  # Not using LLM client for embeddings
                 "api_key": None,
                 "base_url": base_url,
-                "model": self.model_name
+                "model": local_model
             }
+            
+            print(f"   🏠 Local embeddings: {base_url} (model: {local_model})")
+            
         except Exception as e:
             print(f"⚠️ Failed to initialize local provider: {e}")
         
@@ -260,11 +279,15 @@ class EmbeddingService:
         try:
             import requests
             
-            base_url = provider.get("base_url", "http://localhost:11434")
-            model = provider.get("model", "nomic-embed-text")
+            # Use configuration from EmbeddingConfig if available, otherwise fall back to provider dict
+            base_url = self.config.local_base_url or provider.get("base_url", "http://localhost:1234")
+            model = self.config.local_model or provider.get("model", "nomic-embed-text")
+            local_provider = self.config.local_provider or "ollama"
             
-            # Determine if this is LM Studio (port 1234) or Ollama (port 11434)
-            is_lm_studio = "1234" in base_url
+            # Determine if this is LM Studio (port 1234) or Ollama (port 1234)
+            is_lm_studio = local_provider == "lm_studio" or "1234" in base_url
+            
+            print(f"🧠 Using local embedding provider: {local_provider} at {base_url}")
             
             embeddings = []
             for text in texts:
@@ -277,7 +300,7 @@ class EmbeddingService:
                                 "model": model,
                                 "input": text
                             },
-                            timeout=30
+                            timeout=self.config.timeout
                         )
                     else:
                         # Ollama embedding API
@@ -287,7 +310,7 @@ class EmbeddingService:
                                 "model": model,
                                 "prompt": text
                             },
-                            timeout=30
+                            timeout=self.config.timeout
                         )
                     
                     if response.status_code == 200:

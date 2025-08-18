@@ -65,7 +65,7 @@ def scan(repository_url: str, branch: str, token: Optional[str], threshold: int,
         codegates scan https://github.com/owner/repo --llm-provider openai --llm-model gpt-4
         
         # Scan with local LLM
-        codegates scan https://github.com/owner/repo --llm-provider local --llm-url http://localhost:11434/v1
+        codegates scan https://github.com/owner/repo --llm-provider local --llm-url http://localhost:1234/v1
         
         # Scan with enterprise Apigee LLM
         codegates scan https://github.com/owner/repo --llm-provider apigee

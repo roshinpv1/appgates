@@ -102,10 +102,12 @@ class AdvancedLLMService:
         """Initialize all service components"""
         try:
             # Initialize vector store
-            self.vector_store = VectorStore(self.config.get("vector_store", {}))
+            vector_store_config = self.config.get("vector_store", {})
+            self.vector_store = VectorStore(vector_store_config)
             
-            # Initialize embedding service
-            self.embedding_service = EmbeddingService(self.config.get("embedding", {}))
+            # Initialize embedding service with separate configuration
+            embedding_config = self.config.get("embedding", {})
+            self.embedding_service = EmbeddingService(embedding_config)
             
             # Initialize AST parser
             self.ast_parser = ASTParser(self.config.get("ast_parser", {}))
@@ -133,6 +135,8 @@ class AdvancedLLMService:
             self.context_retriever = None
             
             print("✅ Core components initialized successfully")
+            print(f"   🧠 Embeddings: {embedding_config.get('provider', 'openai')} at {embedding_config.get('base_url', 'default')}")
+            print(f"   🤖 LLM: {llm_config.get('provider', 'openai')} at {llm_config.get('base_url', 'default')}")
             
         except Exception as e:
             print(f"❌ Failed to initialize components: {e}")
