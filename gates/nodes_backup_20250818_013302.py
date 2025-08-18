@@ -320,6 +320,989 @@ class ExtractConfigNode(Node):
         
         return dependencies
 
+
+class GeneratePromptNode(Node):
+    """Node to generate comprehensive LLM prompt"""
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare prompt generation data"""
+        return {
+            "metadata": shared["repository"]["metadata"],
+            "config": shared["config"],
+            "hard_gates": shared["hard_gates"],
+            "repo_url": shared["request"]["repository_url"]
+        }
+    
+    def exec(self, data: Dict[str, Any]) -> str:
+        """Generate comprehensive LLM prompt"""
+        print("📋 Generating LLM prompt...")
+        
+        # Build comprehensive prompt similar to processor.py
+        prompt_parts = []
+        
+        prompt_parts.append("You are an expert code analyzer specializing in hard gate validation patterns for enterprise security and compliance.")
+        prompt_parts.append("")
+        prompt_parts.append("## CODEBASE ANALYSIS")
+        prompt_parts.append("")
+        
+        # Repository overview
+        metadata = data["metadata"]
+        prompt_parts.append("### Repository Overview")
+        prompt_parts.append(f"- Repository: {data['repo_url']}")
+        prompt_parts.append(f"- Total Files: {metadata.get('total_files', 0)}")
+        prompt_parts.append(f"- Total Lines: {metadata.get('total_lines', 0)}")
+        prompt_parts.append(f"- Languages: {', '.join(metadata.get('languages', {}).keys())}")
+        prompt_parts.append("")
+        
+        # Language statistics
+        language_stats = metadata.get('language_stats', {})
+        if language_stats:
+            prompt_parts.append("### Language Distribution")
+            prompt_parts.append("```json")
+            prompt_parts.append(json.dumps(language_stats, indent=2))
+            prompt_parts.append("```")
+            prompt_parts.append("")
+        
+        # File structure metadata
+        directory_structure = metadata.get('directory_structure', {})
+        if directory_structure:
+            prompt_parts.append("### Codebase File Structure")
+            prompt_parts.append("```yaml")
+            prompt_parts.append(self._convert_structure_to_yaml(directory_structure))
+            prompt_parts.append("```")
+            prompt_parts.append("")
+        
+        # Build files
+        config = data["config"]
+        if config["build_files"]:
+            prompt_parts.append("### Build Files Detected")
+            for filename, info in config["build_files"].items():
+                prompt_parts.append(f"**{filename}** ({info['type']})")
+                prompt_parts.append(f"```")
+                prompt_parts.append(info["content"][:1000])  # First 1000 chars
+                prompt_parts.append(f"```")
+                prompt_parts.append("")
+        
+        # Config files
+        if config["config_files"]:
+            prompt_parts.append("### Configuration Files")
+            for filename, info in config["config_files"].items():
+                prompt_parts.append(f"**{filename}** ({info['type']})")
+                prompt_parts.append(f"```")
+                prompt_parts.append(info["content"][:1000])  # First 1000 chars for config files
+                prompt_parts.append(f"```")
+                prompt_parts.append("")
+        
+        # Dependencies
+        if config["dependencies"]:
+            prompt_parts.append("### Dependencies")
+            deps_str = ", ".join(config["dependencies"][:50])  # First 50 deps
+            prompt_parts.append(f"- {deps_str}")
+            if len(config["dependencies"]) > 50:
+                prompt_parts.append(f"- ... and {len(config['dependencies']) - 50} more")
+            prompt_parts.append("")
+        
+        # File type distribution
+        file_types = metadata.get('file_types', {})
+        if file_types:
+            prompt_parts.append("### File Type Distribution")
+            prompt_parts.append("```json")
+            prompt_parts.append(json.dumps(file_types, indent=2))
+            prompt_parts.append("```")
+            prompt_parts.append("")
+        
+        # Hard gates
+        prompt_parts.append("## HARD GATES TO ANALYZE")
+        for gate in data["hard_gates"]:
+            prompt_parts.append(f"- **{gate['name']}**: {gate['description']}")
+        prompt_parts.append("")
+        
+        # Task description
+        prompt_parts.append("## TASK")
+        prompt_parts.append("Generate comprehensive regex patterns for each hard gate that would be effective for this specific codebase.")
+        prompt_parts.append("Consider the detected languages, frameworks, dependencies, and file structure when formulating patterns.")
+        prompt_parts.append("Use the file structure metadata to understand the project organization and target patterns appropriately.")
+        prompt_parts.append("")
+        prompt_parts.append("## CRITICAL PATTERN REQUIREMENTS")
+        prompt_parts.append("**MUST FOLLOW THESE RULES:**")
+        prompt_parts.append("1. **NO COMPLEX REGEX**: Use simple, readable patterns that actually work")
+        prompt_parts.append("2. **REAL-WORLD FOCUSED**: Patterns must match actual code, not theoretical examples")
+        prompt_parts.append("3. **TECHNOLOGY-SPECIFIC**: Tailor patterns to the detected frameworks and libraries")
+        prompt_parts.append("4. **IMPORT PATTERNS**: Include import/using statements for comprehensive coverage")
+        prompt_parts.append("5. **FLEXIBLE MATCHING**: Use \\b\\w*pattern\\w* for flexible name matching")
+        prompt_parts.append("")
+        prompt_parts.append("## TECHNOLOGY-SPECIFIC PATTERN GUIDELINES")
+        
+        # Add technology-specific guidelines based on detected languages
+        primary_languages = metadata.get('language_stats', {})
+        if 'Java' in primary_languages:
+            prompt_parts.append("### Java/Spring Boot Patterns:")
+            prompt_parts.append("- **Imports**: r'import\\s+org\\.slf4j\\.Logger', r'import\\s+org\\.slf4j\\.LoggerFactory'")
+            prompt_parts.append("- **Annotations**: r'@Slf4j', r'@RestController', r'@Service', r'@Component'")
+            prompt_parts.append("- **Logging**: r'log\\.(info|debug|error|warn|trace)\\(', r'logger\\.(info|debug|error|warn|trace)\\('")
+            prompt_parts.append("- **Spring**: r'LoggerFactory\\.getLogger\\(', r'private\\s+static\\s+final\\s+Logger'")
+            prompt_parts.append("")
+        
+        if 'Python' in primary_languages:
+            prompt_parts.append("### Python Patterns:")
+            prompt_parts.append("- **Imports**: r'import\\s+logging', r'from\\s+logging\\s+import', r'import\\s+structlog'")
+            prompt_parts.append("- **Logging**: r'logging\\.(info|debug|error|warning|critical)', r'logger\\.(info|debug|error|warning|critical)'")
+            prompt_parts.append("- **Framework**: r'app\\.logger\\.', r'flask\\.logging', r'django\\.utils\\.log'")
+            prompt_parts.append("")
+        
+        if 'JavaScript' in primary_languages or 'TypeScript' in primary_languages:
+            prompt_parts.append("### JavaScript/TypeScript Patterns:")
+            prompt_parts.append("- **Imports**: r'import\\s+\\w*[Ll]og\\w*\\s+from', r'const\\s+\\w*[Ll]og\\w*\\s*=\\s*require'")
+            prompt_parts.append("- **Logging**: r'console\\.(log|info|debug|error|warn)', r'winston\\.', r'pino\\.'")
+            prompt_parts.append("- **Modern**: r'winston\\.createLogger\\(', r'pino\\(\\)', r'bunyan\\.createLogger\\('")
+            prompt_parts.append("")
+        
+        if 'C#' in primary_languages:
+            prompt_parts.append("### C#/.NET Patterns:")
+            prompt_parts.append("- **Imports**: r'using\\s+Microsoft\\.Extensions\\.Logging', r'using\\s+Serilog'")
+            prompt_parts.append("- **Logging**: r'ILogger<\\w+>', r'Log\\.(Information|Debug|Error|Warning|Critical)'")
+            prompt_parts.append("- **Framework**: r'AddSerilog\\(\\)', r'AddLogging\\(\\)', r'LoggerFactory'")
+            prompt_parts.append("")
+        
+        prompt_parts.append("## OUTPUT FORMAT")
+        prompt_parts.append("Provide a JSON response with patterns, descriptions, significance, and expected coverage analysis for each gate:")
+        prompt_parts.append("```json")
+        prompt_parts.append("{")
+        prompt_parts.append('  "GATE_NAME": {')
+        prompt_parts.append('    "patterns": [')
+        prompt_parts.append('      "r\'import\\\\s+org\\\\.slf4j\\\\.Logger\'",')
+        prompt_parts.append('      "r\'@Slf4j\'",')
+        prompt_parts.append('      "r\'log\\\\.(info|debug|error|warn|trace)\\\\(\'",')
+        prompt_parts.append('      "r\'logger\\\\.(info|debug|error|warn|trace)\\\\(\'"')
+        prompt_parts.append('    ],')
+        prompt_parts.append('    "description": "Comprehensive logging patterns for this technology stack",')
+        prompt_parts.append('    "significance": "Critical for monitoring and debugging in production environments",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 25,')
+        prompt_parts.append('      "reasoning": "Based on project structure and framework usage patterns",')
+        prompt_parts.append('      "confidence": "high"')
+        prompt_parts.append('    }')
+        prompt_parts.append('  }')
+        prompt_parts.append("}")
+        prompt_parts.append("```")
+        prompt_parts.append("")
+        prompt_parts.append("**IMPORTANT**: If a gate is not applicable to the detected technology stack or project type, respond with:")
+        prompt_parts.append("```json")
+        prompt_parts.append('  "GATE_NAME": {')
+        prompt_parts.append('    "patterns": [],')
+        prompt_parts.append('    "description": "Not Applicable",')
+        prompt_parts.append('    "significance": "This gate is not applicable to the current technology stack and project type",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 0,')
+        prompt_parts.append('      "reasoning": "Not applicable to this technology stack",')
+        prompt_parts.append('      "confidence": "high"')
+        prompt_parts.append('    }')
+        prompt_parts.append('  }')
+        prompt_parts.append("```")
+        prompt_parts.append("")
+        prompt_parts.append("## PATTERN EFFECTIVENESS REQUIREMENTS")
+        prompt_parts.append("Focus on patterns that are:")
+        prompt_parts.append("- **Specific to the detected technology stack and libraries used**")
+        prompt_parts.append("- **Based on actual import statements and framework usage**")
+        prompt_parts.append("- **Comprehensive in coverage but simple in implementation**")
+        prompt_parts.append("- **Practical for real-world codebases**")
+        prompt_parts.append("- **Security and compliance-focused**")
+        prompt_parts.append("- **Contextually aware of the project structure and organization**")
+        prompt_parts.append("- **FLEXIBLE and INCLUSIVE**: Patterns should catch real-world variations")
+        prompt_parts.append("")
+        prompt_parts.append("**PATTERN EXAMPLES FOR COMMON SCENARIOS:**")
+        
+        # Add specific examples based on detected technologies
+        if 'Java' in primary_languages:
+            prompt_parts.append("**Java/Spring Boot Examples:**")
+            prompt_parts.append("- Logging: r'import\\s+org\\.slf4j\\.Logger', r'@Slf4j', r'log\\.(info|debug|error|warn|trace)\\('")
+            prompt_parts.append("- API: r'@RestController', r'@GetMapping', r'@PostMapping', r'@RequestMapping'")
+            prompt_parts.append("- Error: r'try\\s*\\{', r'catch\\s*\\(\\w+\\s+\\w+\\)', r'throw\\s+new\\s+\\w+Exception'")
+            prompt_parts.append("- Tests: r'@Test', r'@MockBean', r'@SpringBootTest', r'import\\s+org\\.junit'")
+            prompt_parts.append("")
+        
+        if 'Python' in primary_languages:
+            prompt_parts.append("**Python Examples:**")
+            prompt_parts.append("- Logging: r'import\\s+logging', r'logging\\.(info|debug|error|warning|critical)', r'logger\\s*=\\s*logging\\.getLogger'")
+            prompt_parts.append("- API: r'@app\\.route', r'@api\\.route', r'from\\s+flask\\s+import', r'from\\s+fastapi\\s+import'")
+            prompt_parts.append("- Error: r'try:', r'except\\s+\\w+:', r'raise\\s+\\w+Error'")
+            prompt_parts.append("- Tests: r'import\\s+unittest', r'import\\s+pytest', r'def\\s+test_\\w+'")
+            prompt_parts.append("")
+        
+        if 'JavaScript' in primary_languages or 'TypeScript' in primary_languages:
+            prompt_parts.append("**JavaScript/TypeScript Examples:**")
+            prompt_parts.append("- Logging: r'console\\.(log|info|debug|error|warn)', r'winston\\.', r'import\\s+\\w*[Ll]og\\w*\\s+from'")
+            prompt_parts.append("- API: r'app\\.(get|post|put|delete)', r'router\\.(get|post|put|delete)', r'@Controller', r'@Get'")
+            prompt_parts.append("- Error: r'try\\s*\\{', r'catch\\s*\\(\\w+\\)', r'throw\\s+new\\s+Error'")
+            prompt_parts.append("- Tests: r'describe\\(', r'it\\(', r'test\\(', r'expect\\('")
+            prompt_parts.append("")
+        
+        prompt_parts.append("**CRITICAL: AVOID THESE PATTERN MISTAKES:**")
+        prompt_parts.append("- ❌ DON'T use: r'\\blogger\\.([a-zA-Z]+)\\.([a-zA-Z]+)\\(' (too restrictive)")
+        prompt_parts.append("- ✅ DO use: r'\\b\\w*logger\\w*\\.(info|debug|error|warn|trace)\\(' (flexible)")
+        prompt_parts.append("- ❌ DON'T use: r'\\bsecret\\.[a-zA-Z]+' (won't match real code)")
+        prompt_parts.append("- ✅ DO use: r'(password|secret|token|key)\\s*[=:]' (matches assignments)")
+        prompt_parts.append("- ❌ DON'T use: Complex nested groups without clear purpose")
+        prompt_parts.append("- ✅ DO use: Simple, readable patterns that match actual code")
+        prompt_parts.append("")
+        prompt_parts.append("For each gate, provide:")
+        prompt_parts.append("- **patterns**: Array of regex patterns optimized for the detected technology stack")
+        prompt_parts.append("- **description**: 1-2 sentence explanation of what the patterns detect and why")
+        prompt_parts.append("- **significance**: 2-3 sentence explanation of importance for this specific technology stack")
+        prompt_parts.append("- **expected_coverage**: Intelligent analysis based on project characteristics")
+        prompt_parts.append("  - **percentage**: Realistic percentage based on project type and size")
+        prompt_parts.append("  - **reasoning**: Detailed explanation considering:")
+        prompt_parts.append("    - Project architecture and detected frameworks")
+        prompt_parts.append("    - Technology stack and library dependencies")
+        prompt_parts.append("    - File types and their distribution")
+        prompt_parts.append("    - Common implementation patterns for this gate type")
+        prompt_parts.append("    - Industry standards and best practices")
+        prompt_parts.append("  - **confidence**: High/medium/low based on pattern specificity and technology match")
+        prompt_parts.append("")
+        prompt_parts.append("**COVERAGE ANALYSIS GUIDELINES:**")
+        prompt_parts.append("- **Consider the specific technology stack**: Different frameworks have different patterns")
+        prompt_parts.append("- **Account for project size and complexity**: Larger projects may have lower percentages but higher absolute counts")
+        prompt_parts.append("- **Factor in architectural patterns**: Microservices vs monolith affects distribution")
+        prompt_parts.append("- **Consider file type distribution**: Some patterns only apply to specific file types")
+        prompt_parts.append("- **Account for library usage**: Imported libraries may provide built-in implementations")
+        prompt_parts.append("- **Be realistic**: Not every file needs every pattern, estimate based on actual usage scenarios")
+        prompt_parts.append("- **Provide reasoning that shows understanding of the codebase structure and technology choices**")
+        prompt_parts.append("")
+        prompt_parts.append("**REMEMBER**: Generate patterns that will actually find real code in this specific project!")
+        
+        prompt_parts.append("## CRITICAL INFRASTRUCTURE PATTERN DETECTION")
+        prompt_parts.append("**SPECIAL ANALYSIS REQUIRED:**")
+        prompt_parts.append("")
+        prompt_parts.append("### CENTRALIZED LOGGING FRAMEWORKS")
+        prompt_parts.append("If you detect ANY of these centralized logging frameworks, set coverage to 100% for STRUCTURED_LOGS:")
+        prompt_parts.append("- **Java**: Logback, Log4j2, SLF4J with structured output")
+        prompt_parts.append("- **Python**: structlog, python-json-logger, loguru")
+        prompt_parts.append("- **JavaScript**: Winston, Pino, Bunyan with JSON format")
+        prompt_parts.append("- **C#**: Serilog, NLog with structured logging")
+        prompt_parts.append("- **Enterprise**: ELK Stack, Splunk, DataDog, New Relic")
+        prompt_parts.append("")
+        prompt_parts.append("### RESILIENCE PATTERNS")
+        prompt_parts.append("If you detect ANY of these resilience patterns, set coverage to 100% for the corresponding gates:")
+        prompt_parts.append("- **Circuit Breakers**: Hystrix, Resilience4j, Polly, pybreaker → CIRCUIT_BREAKERS = 100%")
+        prompt_parts.append("- **Retry Logic**: Spring Retry, Polly Retry, tenacity, retrying → RETRY_LOGIC = 100%")
+        prompt_parts.append("- **Timeouts**: HttpClient.Timeout, RestTemplate timeout, aiohttp timeout → TIMEOUTS = 100%")
+        prompt_parts.append("- **Throttling**: RateLimiter, Bucket4j, express-rate-limit → THROTTLING = 100%")
+        prompt_parts.append("")
+        prompt_parts.append("### DETECTION CRITERIA")
+        prompt_parts.append("Look for these specific indicators:")
+        prompt_parts.append("- **Dependencies**: Check package.json, pom.xml, requirements.txt, .csproj")
+        prompt_parts.append("- **Configuration**: Check logging config files, application.properties, appsettings.json")
+        prompt_parts.append("- **Imports**: Look for framework-specific import statements")
+        prompt_parts.append("- **Usage**: Check for actual usage patterns in code")
+        prompt_parts.append("")
+        prompt_parts.append("### COVERAGE RULES")
+        prompt_parts.append("**When infrastructure patterns are detected:**")
+        prompt_parts.append("- Set expected_coverage.percentage = 100")
+        prompt_parts.append("- Set expected_coverage.confidence = 'high'")
+        prompt_parts.append("- Set expected_coverage.reasoning = 'Infrastructure framework detected'")
+        prompt_parts.append("- Include comprehensive patterns for the detected framework")
+        prompt_parts.append("")
+        prompt_parts.append("**Example for detected centralized logging:**")
+        prompt_parts.append("```json")
+        prompt_parts.append('  "STRUCTURED_LOGS": {')
+        prompt_parts.append('    "patterns": [')
+        prompt_parts.append('      "r\'import\\\\s+org\\\\\\.slf4j\\\\\\.Logger\'",')
+        prompt_parts.append('      "r\'@Slf4j\'",')
+        prompt_parts.append('      "r\'logback\\.xml\'",')
+        prompt_parts.append('      "r\'logback-spring\\.xml\'"')
+        prompt_parts.append('    ],')
+        prompt_parts.append('    "description": "Centralized logging framework (Logback/SLF4J) detected",')
+        prompt_parts.append('    "significance": "Enterprise-grade structured logging infrastructure in place",')
+        prompt_parts.append('    "expected_coverage": {')
+        prompt_parts.append('      "percentage": 100,')
+        prompt_parts.append('      "reasoning": "Centralized logging framework (Logback/SLF4J) detected in dependencies and configuration",')
+        prompt_parts.append('      "confidence": "high"')
+        prompt_parts.append('    }')
+        prompt_parts.append('  }')
+        prompt_parts.append("```")
+        prompt_parts.append("")
+        prompt_parts.append("## CRITICAL PATTERN REQUIREMENTS")
+        
+        prompt = "\n".join(prompt_parts)
+        return prompt
+    
+    def _convert_structure_to_yaml(self, structure: Dict[str, Any], indent: int = 0) -> str:
+        """Convert directory structure to YAML format with only file names"""
+        yaml_lines = []
+        indent_str = "  " * indent
+        
+        for name, content in structure.items():
+            if isinstance(content, dict):
+                if content.get('type') == 'file':
+                    # It's a file - just add the filename
+                    yaml_lines.append(f"{indent_str}- {name}")
+                else:
+                    # It's a directory - add directory name and recurse
+                    yaml_lines.append(f"{indent_str}{name}:")
+                    yaml_lines.append(self._convert_structure_to_yaml(content, indent + 1))
+            else:
+                # Fallback for other types
+                yaml_lines.append(f"{indent_str}- {name}")
+        
+        return "\n".join(yaml_lines)
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: str) -> str:
+        """Store prompt in shared store"""
+        shared["llm"]["prompt"] = exec_res
+        
+        # Log the final prompt
+        print(f"✅ Generated LLM prompt ({len(exec_res)} characters)")
+        
+        # Save prompt to log file for debugging
+        try:
+            import os
+            from datetime import datetime
+            
+            # Get logs directory from shared context
+            logs_dir = shared.get("directories", {}).get("logs", "./logs")
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            # Generate timestamp for log file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            scan_id = shared["request"].get("scan_id", "unknown")
+            
+            # Save prompt to file
+            prompt_log_file = os.path.join(logs_dir, f"prompt_{scan_id}_{timestamp}.txt")
+            with open(prompt_log_file, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("CODEGATES LLM PROMPT LOG\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Scan ID: {scan_id}\n")
+                f.write(f"Repository: {shared['request'].get('repository_url', 'unknown')}\n")
+                f.write(f"Branch: {shared['request'].get('branch', 'unknown')}\n")
+                f.write(f"Prompt Length: {len(exec_res)} characters\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(exec_res)
+                f.write("\n\n" + "=" * 80 + "\n")
+                f.write("END OF PROMPT\n")
+                f.write("=" * 80 + "\n")
+            
+            print(f"📝 Prompt logged to: {prompt_log_file}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to log prompt: {e}")
+        
+        return "default"
+
+
+class CallLLMNode(Node):
+    """Node to call LLM for pattern generation using comprehensive LLM client"""
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare LLM call parameters"""
+        return {
+            "prompt": shared["llm"]["prompt"],
+            "llm_config": shared.get("llm_config", {}),
+            "request": shared["request"]
+        }
+    
+    def exec(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Call LLM to generate patterns using the comprehensive LLM client"""
+        print("🤖 Calling LLM for pattern generation...")
+        
+        # Set a timeout for the entire LLM operation
+        import signal
+        import threading
+        
+        # Timeout configuration
+        LLM_TIMEOUT = int(os.getenv("CODEGATES_LLM_TIMEOUT", "500"))  # 2 minutes default
+        print(f"   ⏱️ LLM timeout set to {LLM_TIMEOUT} seconds")
+        
+        # Try to create LLM client from environment first
+        llm_client = create_llm_client_from_env()
+        
+        # If no client from env, try to create from shared config
+        if not llm_client:
+            llm_config = params["llm_config"]
+            if llm_config.get("url") or llm_config.get("api_key"):
+                try:
+                    # Determine provider based on config
+                    if llm_config.get("url") and "apigee" in str(llm_config.get("url", "")):
+                        provider = LLMProvider.APIGEE
+                    elif llm_config.get("url") and "enterprise" in str(llm_config.get("url", "")):
+                        provider = LLMProvider.ENTERPRISE
+                    elif llm_config.get("url"):
+                        provider = LLMProvider.LOCAL
+                    else:
+                        provider = LLMProvider.OPENAI  # Default
+                    
+                    config = LLMConfig(
+                        provider=provider,
+                        model=llm_config.get("model", "gpt-4"),
+                        api_key=llm_config.get("api_key"),
+                        base_url=llm_config.get("url"),
+                        temperature=llm_config.get("temperature", 0.1),
+                        max_tokens=llm_config.get("max_tokens", 4000),
+                        timeout=LLM_TIMEOUT
+                    )
+                    
+                    llm_client = LLMClient(config)
+                    
+                except Exception as e:
+                    print(f"⚠️ Failed to create LLM client from config: {e}")
+                    llm_client = None
+        
+        # If we have a working LLM client, use it with timeout protection
+        if llm_client and llm_client.is_available():
+            try:
+                print(f"🔗 Using {llm_client.config.provider.value} LLM provider")
+                print(f"   Model: {llm_client.config.model}")
+                
+                # Use threading with timeout to prevent hanging
+                result = {"success": False, "response": "", "error": ""}
+                
+                def llm_call_with_timeout():
+                    try:
+                        response = llm_client.call_llm(params["prompt"])
+                        result["success"] = True
+                        result["response"] = response
+                    except Exception as e:
+                        result["error"] = str(e)
+                
+                # Start LLM call in a separate thread
+                llm_thread = threading.Thread(target=llm_call_with_timeout)
+                llm_thread.daemon = True
+                llm_thread.start()
+                
+                # Wait for completion with timeout
+                llm_thread.join(timeout=LLM_TIMEOUT)
+                
+                if llm_thread.is_alive():
+                    print(f"⚠️ LLM call timed out after {LLM_TIMEOUT} seconds, using fallback")
+                    result["error"] = f"LLM call timed out after {LLM_TIMEOUT} seconds"
+                
+                if result["success"]:
+                    # Try to parse JSON response with enhanced format
+                    pattern_data = self._parse_enhanced_llm_response(result["response"])
+                    
+                    return {
+                        "success": True,
+                        "pattern_data": pattern_data,
+                        "source": llm_client.config.provider.value,
+                        "model": llm_client.config.model,
+                        "response": result["response"][:10000] + "..." if len(result["response"]) > 10000 else result["response"]
+                    }
+                else:
+                    print(f"⚠️ LLM call failed: {result['error']}")
+                    # Fall back to pattern generation
+                    pass
+                
+            except Exception as e:
+                print(f"⚠️ LLM call failed: {e}")
+                # Fall back to pattern generation
+                pass
+        
+        # Fallback to pattern generation
+        print("🔄 LLM not available or failed, using fallback pattern generation")
+        pattern_data = self._generate_fallback_pattern_data()
+        
+        return {
+            "success": True,
+            "pattern_data": pattern_data,
+            "source": "fallback",
+            "model": "built-in",
+            "response": "Generated fallback patterns based on hard gate definitions"
+        }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict[str, Any], exec_res: Dict[str, Any]) -> str:
+        """Store LLM response and pattern data in shared store"""
+        shared["llm"]["response"] = exec_res["response"]
+        shared["llm"]["pattern_data"] = exec_res["pattern_data"]
+        shared["llm"]["source"] = exec_res["source"]
+        shared["llm"]["model"] = exec_res["model"]
+        
+        # Extract patterns for backward compatibility
+        patterns = {}
+        for gate_name, gate_data in exec_res["pattern_data"].items():
+            patterns[gate_name] = gate_data.get("patterns", [])
+        shared["llm"]["patterns"] = patterns
+        
+        pattern_count = sum(len(gate_data.get("patterns", [])) for gate_data in exec_res["pattern_data"].values())
+        print(f"✅ Generated {pattern_count} patterns for {len(exec_res['pattern_data'])} gates")
+        print(f"   Source: {exec_res['source']} ({exec_res['model']})")
+        
+        # Log the LLM response using environment-based paths
+        try:
+            # Get logs directory from shared context
+            logs_dir = shared.get("directories", {}).get("logs", "./logs")
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            # Generate timestamp for log file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            scan_id = shared["request"].get("scan_id", "unknown")
+            
+            # Save LLM response to file
+            response_log_file = os.path.join(logs_dir, f"llm_response_{scan_id}_{timestamp}.txt")
+            with open(response_log_file, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("CODEGATES LLM RESPONSE LOG\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Scan ID: {scan_id}\n")
+                f.write(f"Repository: {shared['request'].get('repository_url', 'unknown')}\n")
+                f.write(f"Branch: {shared['request'].get('branch', 'unknown')}\n")
+                f.write(f"LLM Source: {exec_res['source']}\n")
+                f.write(f"LLM Model: {exec_res['model']}\n")
+                f.write(f"Response Length: {len(exec_res['response'])} characters\n")
+                f.write(f"Patterns Generated: {pattern_count}\n")
+                f.write(f"Gates Processed: {len(exec_res['pattern_data'])}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write("RAW LLM RESPONSE:\n")
+                f.write("-" * 40 + "\n")
+                f.write(exec_res["response"])
+                f.write("\n\n" + "-" * 40 + "\n")
+                f.write("PARSED PATTERN DATA:\n")
+                f.write("-" * 40 + "\n")
+                import json
+                f.write(json.dumps(exec_res["pattern_data"], indent=2))
+                f.write("\n\n" + "=" * 80 + "\n")
+                f.write("END OF RESPONSE\n")
+                f.write("=" * 80 + "\n")
+            
+            print(f"📝 LLM response logged to: {response_log_file}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to log LLM response: {e}")
+        
+        return "default"
+    
+    def _parse_enhanced_llm_response(self, response: str) -> Dict[str, Dict[str, Any]]:
+        """Parse enhanced LLM response with expected coverage and maximum files analysis"""
+        try:
+            # Try to parse as JSON first
+            if response.strip().startswith('{'):
+                try:
+                    data = json.loads(response)
+                    return self._validate_and_enhance_json_data(data)
+                except json.JSONDecodeError:
+                    pass
+            
+            # Fallback to text parsing
+            return self._extract_patterns_from_text(response)
+            
+        except Exception as e:
+            print(f"   ⚠️ Error parsing LLM response: {e}")
+            return self._generate_fallback_pattern_data()
+    
+    def _validate_and_enhance_json_data(self, data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Validate and enhance JSON data with maximum files analysis"""
+        enhanced_data = {}
+        
+        for gate_name, gate_data in data.items():
+            if isinstance(gate_data, dict):
+                # Extract patterns
+                patterns = gate_data.get("patterns", [])
+                if isinstance(patterns, list):
+                    patterns = self._clean_and_validate_patterns(patterns)
+                
+                # Extract expected coverage with enhanced analysis
+                expected_coverage = gate_data.get("expected_coverage", {})
+                if isinstance(expected_coverage, dict):
+                    # Add maximum files analysis
+                    max_files_expected = self._calculate_max_files_expected(gate_name, expected_coverage)
+                    expected_coverage["max_files_expected"] = max_files_expected
+                
+                # Extract other fields
+                description = gate_data.get("description", "")
+                significance = gate_data.get("significance", "")
+                confidence = gate_data.get("confidence", "medium")
+                
+                enhanced_data[gate_name] = {
+                    "patterns": patterns,
+                    "description": description,
+                    "significance": significance,
+                    "expected_coverage": expected_coverage,
+                    "confidence": confidence
+                }
+        
+        return enhanced_data
+    
+    def _calculate_max_files_expected(self, gate_name: str, expected_coverage: Dict[str, Any]) -> int:
+        """Calculate maximum number of files expected for validation based on gate type and coverage"""
+        percentage = expected_coverage.get("percentage", 10)
+        reasoning = expected_coverage.get("reasoning", "")
+        
+        # Gate-specific maximum file expectations
+        gate_max_files = {
+            "STRUCTURED_LOGS": 200,
+            "AVOID_LOGGING_SECRETS": 100,  # Security gate - reasonable expectation
+            "AUDIT_TRAIL": 100,
+            "LOG_API_CALLS": 120,
+            "LOG_APPLICATION_MESSAGES": 180,
+            "ERROR_LOGS": 160,
+            "UI_ERRORS": 80,
+            "UI_ERROR_TOOLS": 60,
+            "AUTOMATED_TESTS": 100,
+            "INPUT_VALIDATION": 200,
+            "OUTPUT_SANITIZATION": 150,
+            "SQL_INJECTION_PREVENTION": 120,
+            "XSS_PREVENTION": 140,
+            "CSRF_PROTECTION": 80,
+            "AUTHENTICATION": 100,
+            "AUTHORIZATION": 120,
+            "SECURE_COMMUNICATION": 60,
+            "SECURE_STORAGE": 80,
+            "SECURE_CONFIGURATION": 100,
+            "SECURE_DEPLOYMENT": 60
+        }
+        
+        # Get base maximum files for this gate
+        base_max_files = gate_max_files.get(gate_name, 100)
+        
+        # Special handling for security gates
+        if gate_name == "AVOID_LOGGING_SECRETS" or "security" in reasoning.lower():
+            # For security gates, use a reasonable expectation regardless of percentage
+            return base_max_files
+        
+        # Adjust based on expected coverage percentage
+        if percentage == 100:
+            # Infrastructure patterns - expect high coverage
+            max_files = int(base_max_files * 0.8)  # 80% of base
+        elif percentage >= 50:
+            # High coverage expectations
+            max_files = int(base_max_files * 0.6)  # 60% of base
+        elif percentage >= 25:
+            # Medium coverage expectations
+            max_files = int(base_max_files * 0.4)  # 40% of base
+        else:
+            # Low coverage expectations
+            max_files = int(base_max_files * 0.2)  # 20% of base
+        
+        # Ensure minimum of 1 file
+        return max(1, max_files)
+    
+    def _fix_common_json_issues(self, json_str: str) -> str:
+        """Fix common JSON formatting issues in LLM responses"""
+        # Remove trailing commas
+        json_str = re.sub(r',\s*}', '}', json_str)
+        json_str = re.sub(r',\s*]', ']', json_str)
+        
+        # Fix unescaped quotes in strings
+        json_str = re.sub(r'(?<!\\)"(?![,}\]])', '\\"', json_str)
+        
+        # Fix single quotes to double quotes
+        json_str = re.sub(r"'([^']*)':", r'"\1":', json_str)
+        
+        # Fix missing quotes around keys
+        json_str = re.sub(r'(\w+):', r'"\1":', json_str)
+        
+        return json_str
+    
+    def _clean_and_validate_patterns(self, patterns: List[str]) -> List[str]:
+        """Clean and validate regex patterns from LLM"""
+        cleaned_patterns = []
+        
+        for pattern in patterns:
+            if not pattern or not isinstance(pattern, str):
+                continue
+                
+            # Remove common LLM formatting artifacts
+            pattern = pattern.strip()
+            
+            # Remove r' prefix and ' suffix if present
+            if pattern.startswith("r'") and pattern.endswith("'"):
+                pattern = pattern[2:-1]
+            elif pattern.startswith('r"') and pattern.endswith('"'):
+                pattern = pattern[2:-1]
+            elif pattern.startswith("'") and pattern.endswith("'"):
+                pattern = pattern[1:-1]
+            elif pattern.startswith('"') and pattern.endswith('"'):
+                pattern = pattern[1:-1]
+            
+            # Skip empty patterns
+            if not pattern:
+                continue
+            
+            # Basic validation - try to compile the regex
+            try:
+                re.compile(pattern)
+                cleaned_patterns.append(pattern)
+            except re.error as e:
+                print(f"⚠️ Invalid regex pattern skipped: {pattern} - {e}")
+                # Try to fix common issues
+                fixed_pattern = self._fix_regex_pattern(pattern)
+                if fixed_pattern:
+                    try:
+                        re.compile(fixed_pattern)
+                        cleaned_patterns.append(fixed_pattern)
+                        print(f"✅ Fixed pattern: {pattern} → {fixed_pattern}")
+                    except re.error:
+                        print(f"⚠️ Could not fix pattern: {pattern}")
+        
+        return cleaned_patterns
+    
+    def _fix_regex_pattern(self, pattern: str) -> str:
+        """Attempt to fix common regex pattern issues"""
+        # Fix unescaped dots
+        pattern = re.sub(r'(?<!\\)\.(?![*+?{])', r'\\.', pattern)
+        
+        # Fix unescaped parentheses in contexts where they should be literal
+        pattern = re.sub(r'(?<!\\)\((?![^)]*\|)', r'\\(', pattern)
+        pattern = re.sub(r'(?<!\\)\)(?![*+?{])', r'\\)', pattern)
+        
+        # Fix missing word boundaries
+        if not pattern.startswith(r'\b') and pattern.startswith(r'\w'):
+            pattern = r'\b' + pattern
+        
+        return pattern
+    
+    def _extract_patterns_from_text(self, response: str) -> Dict[str, Dict[str, Any]]:
+        """Extract patterns from unstructured text response"""
+        pattern_data = {}
+        
+        # Look for gate sections in the response - improved pattern to handle various formats
+        # This handles both **GATE_NAME** and ** GATE_NAME ** formats
+        gate_sections = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*.*?(?=\*\*\s*[A-Z_]+\s*\*\*|\Z)', response, re.DOTALL)
+        
+        # If no sections found with the above pattern, try alternative patterns
+        if not gate_sections:
+            # Try pattern for sections that start with **GATE_NAME** followed by content
+            gate_sections = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*.*?(?=\*\*\s*[A-Z_]+\s*\*\*|\Z)', response, re.DOTALL)
+        
+        # If still no sections, try to extract from the entire response
+        if not gate_sections:
+            # Look for any **GATE_NAME** patterns in the response
+            gate_names = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*', response)
+            for gate_name in gate_names:
+                # Extract content after this gate name until the next gate or end
+                pattern = rf'\*\*\s*{re.escape(gate_name)}\s*\*\*.*?(?=\*\*\s*[A-Z_]+\s*\*\*|\Z)'
+                match = re.search(pattern, response, re.DOTALL)
+                if match:
+                    gate_sections.append(match.group(0))
+        
+        # Process each gate section
+        for section in gate_sections:
+            lines = section.split('\n')
+            gate_name = None
+            
+            # Extract gate name from the first line
+            for line in lines:
+                gate_match = re.search(r'\*\*\s*([A-Z_]+)\s*\*\*', line)
+                if gate_match:
+                    gate_name = gate_match.group(1)
+                    break
+            
+            if not gate_name:
+                continue
+            
+            # Extract patterns from the section
+            patterns = []
+            description = "Pattern analysis for this gate"
+            significance = "Important for code quality and compliance"
+            percentage = 10
+            confidence = "medium"
+            
+            # Process each line in the section
+            for line in lines[1:]:
+                line = line.strip()
+                
+                # Look for patterns in various formats
+                if line.startswith('- **patterns**:') or line.startswith('* **patterns**:'):
+                    # Extract patterns from this line and following lines
+                    pattern_text = line.split(':', 1)[1].strip() if ':' in line else ""
+                    patterns.extend(self._extract_patterns_from_line(pattern_text))
+                elif line.startswith('*   **Patterns**') or line.startswith('-   **Patterns**'):
+                    # Handle the format used by the local LLM
+                    pattern_text = line.split('**Patterns**', 1)[1].strip() if '**Patterns**' in line else ""
+                    patterns.extend(self._extract_patterns_from_line(pattern_text))
+                elif line.startswith('*   `') or line.startswith('-   `'):
+                    # Handle individual pattern lines
+                    pattern_text = line.strip('* - `').strip('`')
+                    patterns.extend(self._extract_patterns_from_line(pattern_text))
+                elif line.startswith('- **description**:') or line.startswith('* **description**:'):
+                    description = line.split(':', 1)[1].strip() if ':' in line else description
+                elif line.startswith('*   **Description**') or line.startswith('-   **Description**'):
+                    description = line.split('**Description**', 1)[1].strip() if '**Description**' in line else description
+                elif line.startswith('- **significance**:') or line.startswith('* **significance**:'):
+                    significance = line.split(':', 1)[1].strip() if ':' in line else significance
+                elif line.startswith('*   **Significance**') or line.startswith('-   **Significance**'):
+                    significance = line.split('**Significance**', 1)[1].strip() if '**Significance**' in line else significance
+                elif line.startswith('- **expected_coverage**:') or line.startswith('* **expected_coverage**:'):
+                    # Try to extract percentage
+                    percentage_match = re.search(r'(\d+)%', line)
+                    if percentage_match:
+                        percentage = int(percentage_match.group(1))
+                elif '**Percentage**' in line:
+                    # Try to extract percentage from the format used by local LLM
+                    percentage_match = re.search(r'(\d+)', line)
+                    if percentage_match:
+                        percentage = int(percentage_match.group(1))
+            
+            # Only add if we found patterns for this specific gate
+            if patterns:
+                pattern_data[gate_name] = {
+                    "patterns": patterns,
+                    "description": description,
+                    "significance": significance,
+                    "expected_coverage": {
+                        "percentage": percentage,
+                        "reasoning": "Extracted from text analysis",
+                        "confidence": confidence
+                    }
+                }
+        
+        # If no patterns found, try a more aggressive extraction
+        if not pattern_data:
+            # Look for any patterns in the entire response
+            all_patterns = self._extract_patterns_from_line(response)
+            if all_patterns:
+                # Try to associate patterns with gate names
+                gate_names = re.findall(r'\*\*\s*([A-Z_]+)\s*\*\*', response)
+                for gate_name in gate_names:
+                    pattern_data[gate_name] = {
+                        "patterns": all_patterns[:3],  # Take first 3 patterns
+                        "description": "Pattern analysis for this gate",
+                        "significance": "Important for code quality and compliance",
+                        "expected_coverage": {
+                            "percentage": 10,
+                            "reasoning": "Extracted from text analysis",
+                            "confidence": "medium"
+                        }
+                    }
+        
+        # If still no patterns found, return fallback
+        if not pattern_data:
+            return self._generate_fallback_pattern_data()
+        
+        return pattern_data
+    
+    def _extract_patterns_from_line(self, line: str) -> List[str]:
+        """Extract regex patterns from a line of text"""
+        patterns = []
+        
+        # Look for patterns in various formats
+        # Pattern 1: r'pattern' format
+        pattern_matches = re.findall(r'r[\'"]([^\'\"]+)[\'"]', line)
+        patterns.extend(pattern_matches)
+        
+        # Pattern 2: `pattern` format (backticks)
+        pattern_matches = re.findall(r'`([^`]+)`', line)
+        for match in pattern_matches:
+            # Clean up the pattern - remove r' prefix if present
+            if match.startswith("r'") and match.endswith("'"):
+                match = match[2:-1]
+            elif match.startswith('r"') and match.endswith('"'):
+                match = match[2:-1]
+            patterns.append(match)
+        
+        # Pattern 3: Look for patterns without r prefix but with quotes
+        pattern_matches = re.findall(r'[\'"]([^\'\"]+)[\'"]', line)
+        for match in pattern_matches:
+            if match not in patterns and len(match) > 3:  # Avoid short strings
+                # Skip if it looks like a description rather than a pattern
+                if not any(keyword in match.lower() for keyword in ['description', 'significance', 'reasoning', 'confidence']):
+                    patterns.append(match)
+        
+        # Pattern 4: Look for patterns that start with common regex patterns
+        # This handles cases where the pattern is not properly quoted
+        regex_patterns = re.findall(r'([a-zA-Z_][a-zA-Z0-9_]*\s*[=:]\s*[^\s,;]+)', line)
+        for match in regex_patterns:
+            if len(match) > 5 and match not in patterns:  # Avoid very short matches
+                patterns.append(match)
+        
+        # Clean up patterns - remove duplicates and empty patterns
+        cleaned_patterns = []
+        for pattern in patterns:
+            pattern = pattern.strip()
+            if pattern and len(pattern) > 2 and pattern not in cleaned_patterns:
+                # Basic validation - try to compile the regex
+                try:
+                    re.compile(pattern)
+                    cleaned_patterns.append(pattern)
+                except re.error:
+                    # If it's not a valid regex, it might be a simple pattern
+                    # Convert it to a simple word boundary pattern
+                    simple_pattern = r'\b' + re.escape(pattern) + r'\b'
+                    try:
+                        re.compile(simple_pattern)
+                        cleaned_patterns.append(simple_pattern)
+                    except re.error:
+                        # Skip invalid patterns
+                        continue
+        
+        return cleaned_patterns
+    
+    def _parse_llm_response(self, response: str) -> Dict[str, List[str]]:
+        """Parse LLM response to extract patterns (legacy method)"""
+        try:
+            # Try to find JSON in the response
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                # Try to find JSON without code blocks
+                json_match = re.search(r'(\{.*?\})', response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    raise ValueError("No JSON found in response")
+            
+            # Parse JSON
+            patterns = json.loads(json_str)
+            
+            # Validate that all patterns are lists of strings
+            validated_patterns = {}
+            for gate_name, gate_patterns in patterns.items():
+                if isinstance(gate_patterns, list):
+                    validated_patterns[gate_name] = [str(p) for p in gate_patterns if p]
+                else:
+                    validated_patterns[gate_name] = [str(gate_patterns)] if gate_patterns else []
+            
+            return validated_patterns
+            
+        except Exception as e:
+            print(f"⚠️ Failed to parse LLM response: {e}")
+            print(f"Response preview: {response[:200]}...")
+            # Return fallback patterns
+            return self._generate_fallback_patterns()
+    
+    def _generate_fallback_pattern_data(self) -> Dict[str, Dict[str, Any]]:
+        """Generate fallback pattern data when LLM fails"""
+        fallback_patterns = self._generate_fallback_patterns()
+        
+        pattern_data = {}
+        for gate_name, patterns in fallback_patterns.items():
+            pattern_data[gate_name] = {
+                "patterns": patterns,
+                "description": f"Fallback patterns for {gate_name} - basic implementation patterns",
+                "significance": "These are fallback patterns when LLM analysis is unavailable. They provide basic coverage but may not be optimized for your specific technology stack.",
+                "expected_coverage": {
+                    "percentage": 10,  # Conservative default
+                    "reasoning": "Fallback expectation - LLM analysis unavailable for technology-specific estimation",
+                    "confidence": "low"
+                }
+            }
+        
+        return pattern_data
+    
+    def _generate_fallback_patterns(self) -> Dict[str, List[str]]:
+        """Generate fallback patterns from hard gate definitions"""
+        patterns = {}
+        
+        for gate in HARD_GATES:
+            gate_patterns = []
+            
+            # Use patterns from gate definition
+            if "patterns" in gate:
+                gate_patterns.extend(gate["patterns"].get("positive", []))
+                gate_patterns.extend(gate["patterns"].get("violations", []))
+            
+            # Add some basic patterns if none exist
+            if not gate_patterns:
+                gate_name_lower = gate["name"].lower()
+                gate_patterns = [gate_name_lower, gate_name_lower.replace("_", ".*")]
+            
+            patterns[gate["name"]] = gate_patterns
+        
+        return patterns
+
+
 class ValidateGatesNode(Node):
     """Node to validate all gates using generated patterns (Map-Reduce)"""
     

@@ -6,7 +6,7 @@ Scan ID: 19ef74be-e4a1-49e4-9310-48b222e3bc64
 Repository: https://github.com/spring-projects/spring-petclinic
 Branch: main
 LLM Source: local
-LLM Model: llama-3.2-3b-instruct
+LLM Model: deepseek-r1-qwen3-8b-abliterated
 Response Length: 7798 characters
 Patterns Generated: 45
 Gates Processed: 15

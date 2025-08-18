@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator, root_validator
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -1413,6 +1413,350 @@ async def generate_jira_pdfs(scan_id: str, request: Dict[str, Any] = None):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"JIRA PDF generation failed: {str(e)}")
+
+# Add advanced LLM imports
+try:
+    from .advanced_llm import AdvancedLLMService
+    ADVANCED_LLM_AVAILABLE = True
+except ImportError:
+    ADVANCED_LLM_AVAILABLE = False
+    print("⚠️ Advanced LLM system not available")
+
+# Advanced LLM Request Models
+class AdvancedIndexRequest(BaseModel):
+    repository_url: Optional[str] = Field(None, description="Repository URL to index")
+    repo_url: Optional[str] = Field(None, description="Repository URL to index (alternative field name)")
+    branch: str = Field(default="main", description="Branch to index")
+    github_token: Optional[str] = Field(None, description="GitHub token for private repos")
+    enable_ast_parsing: bool = Field(default=True, description="Enable AST-aware parsing")
+    enable_symbol_extraction: bool = Field(default=True, description="Enable symbol extraction")
+    
+    def get_repository_url(self) -> str:
+        """Get the repository URL from either field"""
+        repo_url = self.repository_url or self.repo_url
+        if not repo_url:
+            raise ValueError("Either repository_url or repo_url must be provided")
+        return repo_url
+
+class ContextRequest(BaseModel):
+    query: str = Field(..., description="Search query")
+    cursor_context: Optional[Dict[str, Any]] = Field(None, description="Cursor context for proximity search")
+    max_chunks: int = Field(default=24, description="Maximum number of chunks to retrieve")
+    search_mode: str = Field(default="hybrid", description="Search mode: vector, keyword, symbol, hybrid")
+
+class CompletionRequest(BaseModel):
+    instruction: str = Field(..., description="Instruction for LLM")
+    context_result: Optional[Dict[str, Any]] = Field(default=None, description="Context from retrieval (optional, will be retrieved automatically)")
+    mode: str = Field(default="chat", description="Completion mode: chat, patch, explain")
+    stream: bool = Field(default=True, description="Enable streaming response")
+
+class PatchRequest(BaseModel):
+    instruction: str = Field(..., description="Instruction for patch generation")
+    context_result: Dict[str, Any] = Field(..., description="Context from retrieval")
+    target_file: Optional[str] = Field(None, description="Target file for patch")
+
+# Initialize Advanced LLM Service
+advanced_llm_service = None
+if ADVANCED_LLM_AVAILABLE:
+    try:
+        # Configuration for advanced LLM
+        advanced_config = {
+            "retrieval": {
+                "max_chunks": 8,  # Reduced for smaller model
+                "max_tokens_per_chunk": 800,
+                "vector_search_weight": 0.4,
+                "keyword_search_weight": 0.3,
+                "symbol_search_weight": 0.2,
+                "proximity_weight": 0.1,
+                "score_threshold": 0.3  # Lowered from 0.7 to allow more results
+            },
+            "indexing": {
+                "chunk_size": 800,
+                "overlap_size": 120,
+                "supported_languages": ["python", "javascript", "typescript", "java", "csharp", "go", "rust"],
+                "enable_ast_parsing": True,
+                "enable_symbol_extraction": True,
+                "batch_size": 64
+            },
+            "llm": {
+                "provider": "local",
+                "model": "deepseek-r1-qwen3-8b-abliterated",
+                "api_key": None,  # Not needed for LM Studio
+                "base_url": "http://localhost:1234",
+                "temperature": 0.3,
+                "max_tokens": 2000,
+                "enable_streaming": True,
+                "max_concurrent_requests": 10
+            },
+            "vector_store": {
+                "use_qdrant": True,  # Use embedded Qdrant
+                "qdrant_path": "./qdrant_data",  # Persistent embedded Qdrant
+                "vector_size": 768  # nomic-embed-text generates 768-dimensional embeddings
+            },
+            "embedding": {
+                "provider": "local",
+                "model": "text-embedding-nomic-embed-text-v1.5-embedding",
+                "base_url": "http://localhost:1234",
+                "batch_size": 32
+            },
+            "cache": {
+                "use_redis": False,  # Use in-memory cache
+                "max_size": 1000,
+                "default_ttl": 300
+            }
+        }
+        
+        advanced_llm_service = AdvancedLLMService(advanced_config)
+        print("✅ Advanced LLM service initialized")
+        
+    except Exception as e:
+        print(f"❌ Failed to initialize Advanced LLM service: {e}")
+        advanced_llm_service = None
+
+# Advanced LLM Endpoints
+@app.post("/api/v1/advanced/index", response_model=Dict[str, Any])
+async def index_repository_advanced(request: AdvancedIndexRequest):
+    """Index a repository for advanced LLM assistance"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        result = advanced_llm_service.index_repository(
+            repo_url=request.get_repository_url(),
+            branch=request.branch,
+            github_token=request.github_token
+        )
+        
+        return {
+            "status": "success",
+            "data": result,
+            "message": f"Repository indexed successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
+
+@app.get("/api/v1/advanced/index/status/{repo_id}")
+async def get_index_status(repo_id: str):
+    """Get indexing status for a repository"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        # Check if repository is indexed
+        is_indexed = advanced_llm_service._is_repository_indexed(repo_id)
+        
+        if is_indexed:
+            # Get collection stats
+            stats = advanced_llm_service.vector_store.get_collection_stats(repo_id)
+            return {
+                "status": "success",
+                "data": {
+                    "repo_id": repo_id,
+                    "indexed": True,
+                    "stats": stats
+                }
+            }
+        else:
+            return {
+                "status": "success",
+                "data": {
+                    "repo_id": repo_id,
+                    "indexed": False
+                }
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+@app.delete("/api/v1/advanced/index/{repo_id}")
+async def delete_index(repo_id: str):
+    """Delete repository index"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        # Delete from vector store
+        advanced_llm_service.vector_store.delete_collection(repo_id)
+        
+        # Clear cache entries for this repo
+        advanced_llm_service.cache_manager.invalidate_pattern(f"*{repo_id}*")
+        
+        return {
+            "status": "success",
+            "message": f"Index for repository {repo_id} deleted successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+@app.post("/api/v1/advanced/context/{repo_id}")
+async def get_context(repo_id: str, request: ContextRequest):
+    """Retrieve context for a query"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        result = advanced_llm_service.get_context(
+            repo_id=repo_id,
+            query=request.query,
+            cursor_context=request.cursor_context,
+            max_chunks=request.max_chunks
+        )
+        
+        return {
+            "status": "success",
+            "data": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Context retrieval failed: {str(e)}")
+
+@app.post("/api/v1/advanced/complete/{repo_id}")
+async def complete_with_context(repo_id: str, request: CompletionRequest):
+    """Generate completion using retrieved context"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        # First, retrieve context for the instruction
+        context_result = advanced_llm_service.get_context(
+            repo_id=repo_id,
+            query=request.instruction,
+            cursor_context=request.context_result.get("cursor_context") if request.context_result else None
+        )
+        
+        # Then generate completion with the retrieved context
+        result = await advanced_llm_service.complete_with_context(
+            repo_id=repo_id,
+            instruction=request.instruction,
+            context_result=context_result,
+            mode=request.mode
+        )
+        
+        return {
+            "status": "success",
+            "data": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Completion failed: {str(e)}")
+
+@app.post("/api/v1/advanced/patch/{repo_id}")
+async def generate_patch(repo_id: str, request: PatchRequest):
+    """Generate a patch for code changes"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        # First, retrieve context for the instruction
+        context_result = advanced_llm_service.get_context(
+            repo_id=repo_id,
+            query=request.instruction,
+            cursor_context=request.context_result.get("cursor_context") if request.context_result else None
+        )
+        
+        # Then generate patch with the retrieved context
+        result = await advanced_llm_service.generate_patch(
+            repo_id=repo_id,
+            instruction=request.instruction,
+            context_result=context_result,
+            target_file=request.target_file
+        )
+        
+        return {
+            "status": "success",
+            "data": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Patch generation failed: {str(e)}")
+
+@app.get("/api/v1/advanced/stats")
+async def get_advanced_stats():
+    """Get advanced LLM system statistics"""
+    if not advanced_llm_service:
+        raise HTTPException(status_code=503, detail="Advanced LLM service not available")
+    
+    try:
+        # Get stats from all components
+        service_stats = advanced_llm_service.get_stats()
+        vector_stats = advanced_llm_service.vector_store.health_check()
+        cache_stats = advanced_llm_service.cache_manager.get_stats()
+        embedding_stats = advanced_llm_service.embedding_service.get_stats()
+        
+        # Check if context retriever is initialized
+        retrieval_stats = {}
+        if advanced_llm_service.context_retriever:
+            retrieval_stats = advanced_llm_service.context_retriever.get_stats()
+        
+        llm_stats = {
+            "provider": advanced_llm_service.llm_client.config.provider.value,
+            "model": advanced_llm_service.llm_client.config.model,
+            "requests_processed": service_stats.get("requests_processed", 0)
+        }
+        
+        return {
+            "status": "success",
+            "data": {
+                "service": service_stats,
+                "vector_store": vector_stats,
+                "cache": cache_stats,
+                "embedding": embedding_stats,
+                "retrieval": retrieval_stats,
+                "llm_proxy": llm_stats
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stats retrieval failed: {str(e)}")
+
+@app.get("/api/v1/advanced/health")
+async def advanced_health_check():
+    """Health check for advanced LLM system"""
+    if not advanced_llm_service:
+        return {
+            "status": "unhealthy",
+            "error": "Advanced LLM service not available"
+        }
+    
+    try:
+        # Check all components
+        vector_health = advanced_llm_service.vector_store.health_check()
+        cache_health = advanced_llm_service.cache_manager.health_check()
+        embedding_health = advanced_llm_service.embedding_service.health_check()
+        ast_health = advanced_llm_service.ast_parser.health_check()
+        llm_health = {
+            "status": "healthy",
+            "provider": advanced_llm_service.llm_client.config.provider.value,
+            "model": advanced_llm_service.llm_client.config.model
+        }
+        
+        # Determine overall health
+        all_healthy = all([
+            vector_health.get("status") == "healthy",
+            cache_health.get("status") == "healthy",
+            embedding_health.get("status") == "healthy",
+            ast_health.get("status") == "healthy",
+            llm_health.get("status") == "healthy"
+        ])
+        
+        return {
+            "status": "healthy" if all_healthy else "degraded",
+            "components": {
+                "vector_store": vector_health,
+                "cache": cache_health,
+                "embedding": embedding_health,
+                "ast_parser": ast_health,
+                "llm_proxy": llm_health
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 
 if __name__ == "__main__":
