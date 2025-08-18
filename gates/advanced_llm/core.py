@@ -177,8 +177,31 @@ class AdvancedLLMService:
                 print(f"✅ Repository {repo_id} already indexed")
                 return {"repo_id": repo_id, "status": "already_indexed"}
             
-            # Clone repository
+            # Clone repository to get commit hash
             repo_path = self._clone_repository(repo_url, branch, github_token)
+            
+            # Get repository info including commit hash
+            from gates.utils.git_operations import get_repository_info
+            repo_info = get_repository_info(str(repo_path))
+            
+            if repo_info.get("is_git_repo") and repo_info.get("commit_hash"):
+                commit_hash = repo_info["commit_hash"]
+                print(f"🔍 Repository commit hash: {commit_hash}")
+                
+                # Check if this specific commit is already indexed
+                commit_repo_id = self._generate_repo_id_with_commit(repo_url, branch, commit_hash)
+                
+                if self._is_repository_indexed(commit_repo_id):
+                    print(f"✅ Repository with commit {commit_hash} already indexed")
+                    # Clean up the cloned repository
+                    self._cleanup_repository(repo_path)
+                    return {"repo_id": commit_repo_id, "status": "already_indexed", "commit_hash": commit_hash}
+                
+                # If not indexed, use the commit-specific repo_id for indexing
+                repo_id = commit_repo_id
+                print(f"🔄 Indexing repository with commit hash: {commit_hash}")
+            else:
+                print(f"⚠️ Could not determine commit hash, using fallback repo_id")
             
             # Index repository
             result = self.code_indexer.index_repository(
@@ -197,7 +220,8 @@ class AdvancedLLMService:
                 **result,
                 "repo_id": repo_id,
                 "indexing_time_ms": indexing_time,
-                "status": "success"
+                "status": "success",
+                "commit_hash": repo_info.get("commit_hash") if repo_info.get("is_git_repo") else None
             }
             
         except Exception as e:
@@ -368,6 +392,12 @@ Provide a clear, actionable answer based on the code context."""
         """Generate unique repository ID"""
         import hashlib
         repo_key = f"{repo_url}:{branch}"
+        return hashlib.sha256(repo_key.encode()).hexdigest()[:16]
+    
+    def _generate_repo_id_with_commit(self, repo_url: str, branch: str, commit_hash: str) -> str:
+        """Generate unique repository ID including commit hash"""
+        import hashlib
+        repo_key = f"{repo_url}:{branch}:{commit_hash}"
         return hashlib.sha256(repo_key.encode()).hexdigest()[:16]
     
     def _generate_cache_key(self, repo_id: str, query: str, 

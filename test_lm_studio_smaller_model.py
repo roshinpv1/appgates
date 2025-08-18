@@ -9,7 +9,7 @@ try:
     url = "http://localhost:1234/v1/chat/completions"
     
     payload = {
-        "model": "deepseek-r1-qwen3-8b-abliterated",
+        "model": "llama-3.2-3b-instruct",
         "messages": [
             {"role": "user", "content": "Hello, how are you?"}
         ],
@@ -22,7 +22,7 @@ try:
     }
     
     print(f"🔧 Sending request to: {url}")
-    print(f"🔧 Model: deepseek-r1-qwen3-8b-abliterated")
+    print(f"🔧 Model: llama-3.2-3b-instruct")
     print(f"🔧 Payload: {json.dumps(payload, indent=2)}")
     
     response = requests.post(url, headers=headers, json=payload, timeout=30)

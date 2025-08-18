@@ -1480,7 +1480,7 @@ if ADVANCED_LLM_AVAILABLE:
             },
             "llm": {
                 "provider": "local",
-                "model": "deepseek-r1-qwen3-8b-abliterated",
+                "model": "llama-3.2-3b-instruct",
                 "api_key": None,  # Not needed for LM Studio
                 "base_url": "http://localhost:1234",
                 "temperature": 0.3,
@@ -1527,10 +1527,18 @@ async def index_repository_advanced(request: AdvancedIndexRequest):
             github_token=request.github_token
         )
         
+        # Determine appropriate message based on status
+        if result.get("status") == "already_indexed":
+            commit_hash = result.get("commit_hash", "")
+            message = f"Repository already indexed (commit: {commit_hash})" if commit_hash else "Repository already indexed"
+        else:
+            commit_hash = result.get("commit_hash", "")
+            message = f"Repository indexed successfully (commit: {commit_hash})" if commit_hash else "Repository indexed successfully"
+        
         return {
             "status": "success",
             "data": result,
-            "message": f"Repository indexed successfully"
+            "message": message
         }
         
     except Exception as e:

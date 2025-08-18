@@ -590,7 +590,7 @@ def _create_config_for_provider(provider: LLMProvider) -> LLMConfig:
     elif provider == LLMProvider.LOCAL:
         return LLMConfig(
             provider=provider,
-            model=os.getenv("LOCAL_LLM_MODEL", "deepseek-r1-qwen3-8b-abliterated"),
+            model=os.getenv("LOCAL_LLM_MODEL", "llama-3.2-3b-instruct"),
             api_key=os.getenv("LOCAL_LLM_API_KEY", "not-needed"),
             base_url=os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1"),
             temperature=float(os.getenv("LOCAL_LLM_TEMPERATURE", "0.1")),
@@ -600,7 +600,7 @@ def _create_config_for_provider(provider: LLMProvider) -> LLMConfig:
     elif provider == LLMProvider.OLLAMA:
         return LLMConfig(
             provider=provider,
-            model=os.getenv("OLLAMA_MODEL", "deepseek-r1-qwen3-8b-abliterated"),
+            model=os.getenv("OLLAMA_MODEL", "llama-3.2-3b-instruct"),
             api_key=None,
             base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             temperature=float(os.getenv("OLLAMA_TEMPERATURE", "0.1")),
@@ -610,7 +610,7 @@ def _create_config_for_provider(provider: LLMProvider) -> LLMConfig:
     elif provider == LLMProvider.ENTERPRISE:
         return LLMConfig(
             provider=provider,
-            model=os.getenv("ENTERPRISE_LLM_MODEL", "deepseek-r1-qwen3-8b-abliterated"),
+            model=os.getenv("ENTERPRISE_LLM_MODEL", "llama-3.2-3b-instruct"),
             api_key=os.getenv("ENTERPRISE_LLM_API_KEY"),
             base_url=os.getenv("ENTERPRISE_LLM_URL"),
             temperature=float(os.getenv("ENTERPRISE_LLM_TEMPERATURE", "0.1")),

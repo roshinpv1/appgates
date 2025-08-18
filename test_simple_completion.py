@@ -11,7 +11,7 @@ try:
     # Test simple completion
     config = LLMConfig(
         provider=LLMProvider.LOCAL,
-        model="deepseek-r1-qwen3-8b-abliterated",
+        model="llama-3.2-3b-instruct",
         base_url="http://localhost:1234",
         temperature=0.3,
         max_tokens=100
