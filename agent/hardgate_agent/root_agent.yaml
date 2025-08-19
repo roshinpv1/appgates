@@ -1,0 +1,83 @@
+# HardGate Agent Configuration
+# Enterprise-grade code security analysis using Google ADK with LiteLLM integration
+
+agent:
+  name: "hardgate_agent"
+  description: "Enterprise-grade code security analysis agent using Google ADK with LiteLLM integration"
+  version: "1.0.0"
+  author: "CodeGates Team"
+
+model:
+  type: "litellm"
+  model: "llama-3.2-3b-instruct"
+  base_url: "http://localhost:1234/v1"
+  api_key: "sdsd"
+  provider: "openai"
+
+tools:
+  - name: "analyze_repository"
+    description: "Clone and analyze a repository to understand its structure, technologies, and identify applicable hard gates for validation"
+    class: "RepositoryAnalysisTool"
+  
+  - name: "validate_gates"
+    description: "Validate hard gates against the codebase using pattern matching and analysis"
+    class: "GateValidationTool"
+  
+  - name: "collect_evidence"
+    description: "Collect evidence from external sources like Splunk, AppDynamics, and web portals for comprehensive analysis"
+    class: "EvidenceCollectionTool"
+  
+  - name: "generate_report"
+    description: "Generate comprehensive security and compliance reports in various formats including JSON, HTML, and Markdown"
+    class: "ReportGenerationTool"
+  
+  - name: "scan_code"
+    description: "Perform comprehensive security scanning including vulnerabilities, dependencies, configuration, secrets, and authentication"
+    class: "CodeScanningTool"
+  
+  - name: "analyze_security"
+    description: "Perform comprehensive security analysis including risk assessment, threat modeling, and security posture evaluation"
+    class: "SecurityAnalysisTool"
+  
+  - name: "check_compliance"
+    description: "Validate compliance against security standards including SOC2, ISO27001, NIST, and enterprise policies"
+    class: "ComplianceCheckTool"
+  
+  - name: "analyze_with_llm"
+    description: "Use LLM for intelligent analysis of security findings and recommendations"
+    class: "LLMAnalysisTool"
+
+configuration:
+  scan_depth: "comprehensive"
+  time_range: "24h"
+  output_format: "json"
+  enable_llm_analysis: true
+  enable_evidence_collection: true
+
+hard_gates:
+  - "STRUCTURED_LOGS"
+  - "AVOID_LOGGING_SECRETS"
+  - "AUDIT_TRAIL"
+  - "CORRELATION_ID"
+  - "LOG_API_CALLS"
+  - "CLIENT_UI_ERRORS"
+  - "RETRY_LOGIC"
+  - "TIMEOUT_IO"
+  - "THROTTLING"
+  - "CIRCUIT_BREAKERS"
+  - "HTTP_ERROR_CODES"
+  - "URL_MONITORING"
+  - "AUTOMATED_TESTS"
+  - "AUTO_SCALE"
+  - "ALERTING_ACTIONABLE"
+
+compliance_frameworks:
+  - "SOC2"
+  - "ISO27001"
+  - "NIST"
+  - "Enterprise"
+
+evidence_sources:
+  - "splunk"
+  - "appdynamics"
+  - "web_portal" 

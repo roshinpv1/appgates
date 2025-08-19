@@ -1422,6 +1422,13 @@ except ImportError:
     ADVANCED_LLM_AVAILABLE = False
     print("⚠️ Advanced LLM system not available")
 
+# Import agent integration
+try:
+    from .agent_integration import create_agent_integration, get_integration_status
+    AGENT_INTEGRATION_AVAILABLE = True
+except ImportError:
+    AGENT_INTEGRATION_AVAILABLE = False
+
 # Advanced LLM Request Models
 class AdvancedIndexRequest(BaseModel):
     repository_url: Optional[str] = Field(None, description="Repository URL to index")
@@ -1766,6 +1773,479 @@ async def advanced_health_check():
             "error": str(e)
         }
 
+
+# =============================================================================
+# AGENT INTEGRATION ENDPOINTS
+# =============================================================================
+
+@app.get("/api/v1/agent/status")
+async def get_agent_integration_status():
+    """Get status of agent integration components"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        return {
+            "status": "unavailable",
+            "error": "Agent integration not available"
+        }
+    
+    try:
+        status = get_integration_status()
+        return {
+            "status": "available",
+            "data": status
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+
+@app.post("/api/v1/agent/validate")
+async def validate_repository_with_agent(request: Request):
+    """Validate repository using both CodeGates and Agent capabilities"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Agent integration not available"
+        )
+    
+    try:
+        body = await request.json()
+        repo_url = body.get("repository_url")
+        branch = body.get("branch", "main")
+        gates = body.get("gates", [])
+        user_id = body.get("user_id", "default_user")
+        session_id = body.get("session_id", "default_session")
+        analysis_type = body.get("analysis_type", "full")
+        
+        if not repo_url:
+            raise HTTPException(
+                status_code=400, 
+                detail="repository_url is required"
+            )
+        
+        # Create agent integration instance
+        integration = create_agent_integration()
+        
+        # Run comprehensive analysis
+        results = await integration.run_comprehensive_analysis(
+            repo_url=repo_url,
+            analysis_type=analysis_type,
+            branch=branch,
+            gates=gates,
+            user_id=user_id,
+            session_id=session_id
+        )
+        
+        return {
+            "status": "success",
+            "data": results
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Agent validation failed: {str(e)}"
+        )
+
+
+@app.post("/api/v1/agent/validate/async")
+async def validate_repository_with_agent_async(
+    request: Request,
+    background_tasks: BackgroundTasks
+):
+    """Validate repository asynchronously using both CodeGates and Agent capabilities"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Agent integration not available"
+        )
+    
+    try:
+        body = await request.json()
+        repo_url = body.get("repository_url")
+        branch = body.get("branch", "main")
+        gates = body.get("gates", [])
+        user_id = body.get("user_id", "default_user")
+        session_id = body.get("session_id", "default_session")
+        analysis_type = body.get("analysis_type", "full")
+        
+        if not repo_url:
+            raise HTTPException(
+                status_code=400, 
+                detail="repository_url is required"
+            )
+        
+        # Generate unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Store task in memory (in production, use Redis or database)
+        if not hasattr(app.state, 'agent_tasks'):
+            app.state.agent_tasks = {}
+        
+        app.state.agent_tasks[task_id] = {
+            "status": "running",
+            "progress": 0,
+            "results": None,
+            "error": None,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        # Define background task
+        async def run_agent_validation():
+            try:
+                integration = create_agent_integration()
+                results = await integration.run_comprehensive_analysis(
+                    repo_url=repo_url,
+                    analysis_type=analysis_type,
+                    branch=branch,
+                    gates=gates,
+                    user_id=user_id,
+                    session_id=session_id
+                )
+                
+                app.state.agent_tasks[task_id].update({
+                    "status": "completed",
+                    "progress": 100,
+                    "results": results
+                })
+                
+            except Exception as e:
+                app.state.agent_tasks[task_id].update({
+                    "status": "failed",
+                    "error": str(e)
+                })
+        
+        # Add task to background tasks
+        background_tasks.add_task(run_agent_validation)
+        
+        return {
+            "status": "accepted",
+            "task_id": task_id,
+            "message": "Agent validation started in background"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to start agent validation: {str(e)}"
+        )
+
+
+@app.get("/api/v1/agent/task/{task_id}")
+async def get_agent_task_status(task_id: str):
+    """Get status of an agent validation task"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Agent integration not available"
+        )
+    
+    if not hasattr(app.state, 'agent_tasks'):
+        raise HTTPException(
+            status_code=404, 
+            detail="No tasks found"
+        )
+    
+    task = app.state.agent_tasks.get(task_id)
+    if not task:
+        raise HTTPException(
+            status_code=404, 
+            detail="Task not found"
+        )
+    
+    return {
+        "status": "success",
+        "data": task
+    }
+
+
+# =============================================================================
+# ENHANCED QUESTION ANSWERING ENDPOINTS
+# =============================================================================
+
+class QuestionRequest(BaseModel):
+    repo_url: str = Field(..., description="Repository URL to ask questions about")
+    question: str = Field(..., description="Question to ask about the repository")
+    branch: str = Field(default="main", description="Branch to analyze")
+    github_token: Optional[str] = Field(None, description="GitHub token for private repos")
+    user_id: str = Field(default="default_user", description="User ID for agent session")
+    session_id: str = Field(default="default_session", description="Session ID for agent session")
+
+
+@app.post("/api/v1/agent/ask")
+async def ask_question_about_repository(request: QuestionRequest):
+    """Ask questions about a repository using enhanced code analysis"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Agent integration not available"
+        )
+    
+    try:
+        integration = create_agent_integration()
+        
+        # Ask question using enhanced capabilities
+        result = await integration.ask_question_about_repository(
+            repo_url=request.repo_url,
+            question=request.question,
+            branch=request.branch,
+            github_token=request.github_token,
+            user_id=request.user_id,
+            session_id=request.session_id
+        )
+        
+        return {
+            "status": "success",
+            "data": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to ask question: {str(e)}"
+        )
+
+
+@app.post("/api/v1/agent/ask/async")
+async def ask_question_about_repository_async(
+    request: QuestionRequest,
+    background_tasks: BackgroundTasks
+):
+    """Ask questions about a repository asynchronously"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Agent integration not available"
+        )
+    
+    try:
+        # Generate task ID
+        task_id = str(uuid.uuid4())
+        
+        # Initialize task tracking
+        if not hasattr(app.state, 'agent_tasks'):
+            app.state.agent_tasks = {}
+        
+        app.state.agent_tasks[task_id] = {
+            "status": "running",
+            "progress": 0,
+            "created_at": datetime.now().isoformat(),
+            "request": request.dict()
+        }
+        
+        async def run_question_answering():
+            try:
+                integration = create_agent_integration()
+                
+                # Update progress
+                app.state.agent_tasks[task_id].update({
+                    "progress": 25,
+                    "status": "indexing_repository"
+                })
+                
+                # Ask question using enhanced capabilities
+                result = await integration.ask_question_about_repository(
+                    repo_url=request.repo_url,
+                    question=request.question,
+                    branch=request.branch,
+                    github_token=request.github_token,
+                    user_id=request.user_id,
+                    session_id=request.session_id
+                )
+                
+                app.state.agent_tasks[task_id].update({
+                    "status": "completed",
+                    "progress": 100,
+                    "results": result
+                })
+                
+            except Exception as e:
+                app.state.agent_tasks[task_id].update({
+                    "status": "failed",
+                    "error": str(e)
+                })
+        
+        # Add task to background tasks
+        background_tasks.add_task(run_question_answering)
+        
+        return {
+            "status": "accepted",
+            "task_id": task_id,
+            "message": "Question answering started in background"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to start question answering: {str(e)}"
+        )
+
+
+@app.get("/api/v1/agent/enhanced-tools")
+async def get_enhanced_agent_tools():
+    """Get available enhanced agent tools"""
+    if not AGENT_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503, 
+            detail="Agent integration not available"
+        )
+    
+    try:
+        integration = create_agent_integration()
+        tools = integration.get_enhanced_agent_tools()
+        
+        tool_info = []
+        for tool in tools:
+            tool_info.append({
+                "name": tool.name,
+                "description": tool.description,
+                "type": "enhanced_code_analysis"
+            })
+        
+        return {
+            "status": "success",
+            "tools": tool_info,
+            "total_tools": len(tool_info)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get enhanced tools: {str(e)}"
+        )
+
+# Import enhanced scanning
+try:
+    from .enhanced_scanning import EnhancedScanningService
+    ENHANCED_SCANNING_AVAILABLE = True
+except ImportError:
+    ENHANCED_SCANNING_AVAILABLE = False
+    print("⚠️ Enhanced scanning not available")
+
+# Initialize Enhanced Scanning Service
+enhanced_scanning_service = None
+if ENHANCED_SCANNING_AVAILABLE and advanced_llm_service:
+    try:
+        enhanced_scanning_service = EnhancedScanningService(advanced_llm_service)
+        print("✅ Enhanced scanning service initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize enhanced scanning service: {e}")
+
+class EnhancedScanRequest(BaseModel):
+    repo_url: str = Field(..., description="Repository URL to scan")
+    gates: List[str] = Field(default=["STRUCTURED_LOGS", "SECURITY_AUTHENTICATION", "ERROR_HANDLING", "PERFORMANCE_OPTIMIZATION"], 
+                           description="List of gates to analyze")
+    branch: str = Field(default="main", description="Branch to analyze")
+    github_token: Optional[str] = Field(None, description="GitHub token for private repos")
+
+@app.post("/api/v1/enhanced/scan")
+async def enhanced_scan_repository(request: EnhancedScanRequest):
+    """Perform enhanced scanning using vector embeddings and semantic analysis"""
+    
+    if not enhanced_scanning_service:
+        raise HTTPException(status_code=503, detail="Enhanced scanning service not available")
+    
+    try:
+        # First, ensure repository is indexed
+        print(f"📚 Indexing repository for enhanced scan: {request.repo_url}")
+        index_result = await index_repository_async(
+            IndexRequest(
+                repo_url=request.repo_url,
+                branch=request.branch,
+                github_token=request.github_token
+            )
+        )
+        
+        if not index_result.get("success"):
+            raise HTTPException(status_code=400, detail=f"Failed to index repository: {index_result.get('error')}")
+        
+        repo_id = index_result["repo_id"]
+        
+        # Perform enhanced scanning
+        print(f"🔍 Performing enhanced scan for gates: {request.gates}")
+        scan_result = enhanced_scanning_service.enhanced_scan_repository(repo_id, request.gates)
+        
+        return {
+            "success": True,
+            "repo_id": repo_id,
+            "scan_result": scan_result,
+            "message": "Enhanced scan completed successfully"
+        }
+        
+    except Exception as e:
+        print(f"❌ Enhanced scan failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhanced scan failed: {str(e)}")
+
+@app.get("/api/v1/enhanced/scan/status")
+async def get_enhanced_scan_status():
+    """Get status of enhanced scanning service"""
+    return {
+        "enhanced_scanning_available": ENHANCED_SCANNING_AVAILABLE,
+        "service_initialized": enhanced_scanning_service is not None,
+        "supported_gates": [
+            "STRUCTURED_LOGS",
+            "SECURITY_AUTHENTICATION", 
+            "ERROR_HANDLING",
+            "PERFORMANCE_OPTIMIZATION"
+        ] if enhanced_scanning_service else []
+    }
+
+class SemanticSearchRequest(BaseModel):
+    repo_id: str = Field(..., description="Repository ID to search in")
+    query: str = Field(..., description="Semantic search query")
+    gate_name: Optional[str] = Field(None, description="Specific gate to search for")
+    max_results: int = Field(default=10, description="Maximum number of results")
+
+@app.post("/api/v1/enhanced/semantic-search")
+async def semantic_search_code(request: SemanticSearchRequest):
+    """Search code using semantic similarity"""
+    
+    if not enhanced_scanning_service:
+        raise HTTPException(status_code=503, detail="Enhanced scanning service not available")
+    
+    try:
+        if request.gate_name:
+            # Search for specific gate patterns
+            matches = enhanced_scanning_service.pattern_matcher.find_semantic_patterns(
+                request.repo_id, request.gate_name
+            )
+        else:
+            # General semantic search
+            query_embedding = enhanced_scanning_service.embedding_service.embed_single(request.query)
+            if not query_embedding:
+                raise HTTPException(status_code=400, detail="Failed to generate query embedding")
+            
+            search_results = enhanced_scanning_service.vector_store.search_similar(
+                collection_name=request.repo_id,
+                query_vector=query_embedding,
+                limit=request.max_results,
+                score_threshold=0.5
+            )
+            
+            matches = []
+            for result in search_results:
+                matches.append({
+                    "id": result.id,
+                    "score": result.score,
+                    "content": result.payload.get("content", ""),
+                    "file_path": result.payload.get("file_path", ""),
+                    "start_line": result.payload.get("start_line", 0),
+                    "end_line": result.payload.get("end_line", 0),
+                    "language": result.payload.get("language", "text")
+                })
+        
+        return {
+            "success": True,
+            "query": request.query,
+            "gate_name": request.gate_name,
+            "total_matches": len(matches),
+            "matches": matches[:request.max_results]
+        }
+        
+    except Exception as e:
+        print(f"❌ Semantic search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Semantic search failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

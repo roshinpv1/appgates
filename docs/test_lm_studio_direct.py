@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+import requests
+import json
+
+print("🔧 Testing LM Studio chat completions directly...")
+
+try:
+    # Test LM Studio chat completions
+    url = "http://localhost:1234/v1/chat/completions"
+    
+    payload = {
+        "model": "llama-3.2-3b-instruct",
+        "messages": [
+            {"role": "user", "content": "Hello, how are you?"}
+        ],
+        "temperature": 0.3,
+        "max_tokens": 100
+    }
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    print(f"🔧 Sending request to: {url}")
+    print(f"🔧 Payload: {json.dumps(payload, indent=2)}")
+    
+    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    
+    print(f"🔧 Response status: {response.status_code}")
+    print(f"🔧 Response headers: {dict(response.headers)}")
+    
+    if response.status_code == 200:
+        result = response.json()
+        print(f"✅ Success! Response: {json.dumps(result, indent=2)}")
+    else:
+        print(f"❌ Error response: {response.text}")
+        
+except Exception as e:
+    print(f"❌ Test failed: {e}")
+    import traceback
+    traceback.print_exc()

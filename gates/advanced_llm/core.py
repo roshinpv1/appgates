@@ -32,6 +32,7 @@ from .embedding import EmbeddingService
 from .ast_parser import ASTParser
 from .vector_store import VectorStore
 from .cache import CacheManager
+from .pattern_library import PatternLibraryService
 
 
 @dataclass
@@ -101,8 +102,13 @@ class AdvancedLLMService:
     def _initialize_components(self):
         """Initialize all service components"""
         try:
+            # Initialize pattern library service
+            self.pattern_library = PatternLibraryService()
+            
             # Initialize vector store
             vector_store_config = self.config.get("vector_store", {})
+            # Set correct embedding dimensions for nomic-embed-text (768)
+            vector_store_config["vector_size"] = 768
             self.vector_store = VectorStore(vector_store_config)
             
             # Initialize embedding service with separate configuration
@@ -134,9 +140,13 @@ class AdvancedLLMService:
             self.code_indexer = None
             self.context_retriever = None
             
+            # Index pattern library texts
+            self._index_pattern_library()
+            
             print("✅ Core components initialized successfully")
             print(f"   🧠 Embeddings: {embedding_config.get('provider', 'openai')} at {embedding_config.get('base_url', 'default')}")
             print(f"   🤖 LLM: {llm_config.get('provider', 'openai')} at {llm_config.get('base_url', 'default')}")
+            print(f"   📚 Pattern Library: {len(self.pattern_library.patterns)} gates loaded")
             
         except Exception as e:
             print(f"❌ Failed to initialize components: {e}")
@@ -161,6 +171,94 @@ class AdvancedLLMService:
                 embedding_service=self.embedding_service,
                 config=self.retrieval_config
             )
+    
+    def _index_pattern_library(self):
+        """Index pattern library texts in the vector store"""
+        try:
+            pattern_texts = self.pattern_library.get_pattern_texts()
+            if not pattern_texts:
+                print("⚠️ No pattern texts to index")
+                return
+            
+            print(f"📚 Indexing {len(pattern_texts)} pattern texts...")
+            
+            # Generate embeddings for pattern texts
+            embeddings = self.embedding_service.embed_texts(pattern_texts)
+            
+            # Create collection for pattern library if it doesn't exist
+            pattern_collection = "pattern_library"
+            if not self.vector_store.collection_exists(pattern_collection):
+                self.vector_store.create_collection(pattern_collection)
+            
+            # Prepare vectors for upsert
+            vectors = []
+            for i, (text, embedding) in enumerate(zip(pattern_texts, embeddings)):
+                vector_data = {
+                    "id": f"pattern_{i}",
+                    "vector": embedding,
+                    "payload": {
+                        "text": text,
+                        "type": "pattern_library",
+                        "source": "enhanced_pattern_library.json",
+                        "index": i,
+                        "text_length": len(text)
+                    }
+                }
+                vectors.append(vector_data)
+            
+            # Store in vector store
+            success = self.vector_store.upsert_vectors(pattern_collection, vectors)
+            
+            if success:
+                print(f"✅ Indexed {len(pattern_texts)} pattern texts in vector store")
+            else:
+                print(f"❌ Failed to index pattern texts in vector store")
+            
+        except Exception as e:
+            print(f"❌ Failed to index pattern library: {e}")
+    
+    def _get_relevant_patterns_for_query(self, query: str, max_patterns: int = 3) -> List[str]:
+        """Get relevant patterns for a query to include as context"""
+        try:
+            # First try vector search if pattern library is indexed
+            pattern_collection = "pattern_library"
+            if self.vector_store.collection_exists(pattern_collection):
+                # Generate embedding for the query
+                query_embedding = self.embedding_service.embed_single(query)
+                
+                if query_embedding:
+                    # Search for similar patterns
+                    search_results = self.vector_store.search_similar(
+                        collection_name=pattern_collection,
+                        query_vector=query_embedding,
+                        limit=max_patterns,
+                        score_threshold=0.5
+                    )
+                    
+                    if search_results:
+                        relevant_patterns = []
+                        for result in search_results:
+                            if "text" in result.payload:
+                                relevant_patterns.append(result.payload["text"])
+                        
+                        if relevant_patterns:
+                            print(f"🔍 Found {len(relevant_patterns)} relevant patterns via vector search")
+                            return relevant_patterns
+            
+            # Fallback to keyword-based search
+            relevant_patterns = self.pattern_library.get_relevant_patterns_for_query(
+                query, max_patterns=max_patterns
+            )
+            
+            if relevant_patterns:
+                print(f"🔍 Found {len(relevant_patterns)} relevant patterns via keyword search")
+                return relevant_patterns
+            
+            return []
+            
+        except Exception as e:
+            print(f"⚠️ Failed to get relevant patterns: {e}")
+            return []
     
     def index_repository(self, repo_url: str, branch: str = "main", 
                               github_token: Optional[str] = None) -> Dict[str, Any]:
@@ -356,9 +454,12 @@ class AdvancedLLMService:
     def _assemble_prompt(self, repo_id: str, instruction: str,
                               context_result: Dict[str, Any], mode: str) -> str:
         """
-        Assemble hierarchical prompt with context
+        Assemble hierarchical prompt with context and relevant patterns
         """
         chunks = context_result.get("chunks", [])
+        
+        # Get relevant patterns for the instruction
+        relevant_patterns = self._get_relevant_patterns_for_query(instruction, max_patterns=3)
         
         # Build context blocks
         context_blocks = []
@@ -369,26 +470,33 @@ class AdvancedLLMService:
             context_block += chunk.get('content', '') + "\n```\n"
             context_blocks.append(context_block)
         
+        # Build pattern context
+        pattern_context = ""
+        if relevant_patterns:
+            pattern_context = "\n\nRelevant Code Quality Patterns:\n"
+            for i, pattern in enumerate(relevant_patterns, 1):
+                pattern_context += f"\n--- Pattern {i} ---\n{pattern}\n"
+        
         # Assemble prompt based on mode
         if mode == "patch":
             prompt = f"""You are an expert code assistant. Generate a unified diff patch for the following changes.
 
 Context:
-{chr(10).join(context_blocks)}
+{chr(10).join(context_blocks)}{pattern_context}
 
 Instruction: {instruction}
 
-Generate a unified diff patch that implements the requested changes. Include only the necessary modifications."""
+Generate a unified diff patch that implements the requested changes. Consider the relevant code quality patterns when making changes. Include only the necessary modifications."""
 
         else:  # chat mode
             prompt = f"""You are an expert code assistant. Use the following context to answer the question.
 
 Context:
-{chr(10).join(context_blocks)}
+{chr(10).join(context_blocks)}{pattern_context}
 
 Question: {instruction}
 
-Provide a clear, actionable answer based on the code context."""
+Provide a clear, actionable answer based on the code context and relevant patterns. Consider the code quality gates and patterns when providing recommendations."""
         
         return prompt
     

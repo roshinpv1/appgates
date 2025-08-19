@@ -26,20 +26,45 @@ except ImportError:
 
 @dataclass
 class ChunkMetadata:
-    """Metadata for a code chunk"""
+    """Enhanced metadata for a code chunk"""
+    # Repository information
     repo_id: str
+    
+    # File path information
     file_path: str
+    relative_path: str
+    filename: str
+    directory: str
+    file_extension: str
+    
+    # File characteristics
+    file_size: int
+    total_lines: int
+    is_binary: bool
+    file_type: str  # source, config, test, documentation, etc.
     language: str
+    
+    # Chunk information
     start_line: int
     end_line: int
+    chunk_size: int
+    overlap_size: int
+    
+    # Code analysis
     imports: List[str]
     references: List[str]
     content_hash: str
     mtime: int
-    chunk_size: int
-    overlap_size: int
+    
+    # Optional fields (with defaults)
     symbol_name: Optional[str] = None
     symbol_kind: Optional[str] = None
+    encoding: Optional[str] = None
+    permissions: Optional[str] = None
+    git_status: Optional[str] = None
+    git_tracked: Optional[bool] = None
+    complexity_score: Optional[float] = None
+    cyclomatic_complexity: Optional[int] = None
 
 
 class CodeIndexer:
@@ -203,7 +228,7 @@ class CodeIndexer:
         return False
     
     def _analyze_file_for_indexing(self, file_path: Path, repo_root: Path) -> Dict[str, Any]:
-        """Analyze individual file for indexing"""
+        """Analyze individual file for indexing with enhanced metadata"""
         try:
             stat = file_path.stat()
             relative_path = file_path.relative_to(repo_root)
@@ -216,13 +241,41 @@ class CodeIndexer:
             if not file_ext:
                 language = self._detect_language_from_content(file_path)
             
-            # Read file content for line counting
+            # Detect if file is binary
+            is_binary = self._is_binary_file(file_path)
+            
+            # Determine file type
+            file_type = self._get_file_type(file_path, language)
+            
+            # Read file content for line counting and encoding detection
+            encoding = "utf-8"  # Default
+            lines = 0
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
                     lines = len(content.splitlines())
+            except UnicodeDecodeError:
+                # Try different encodings
+                for enc in ['utf-8', 'latin-1', 'cp1252']:
+                    try:
+                        with open(file_path, 'r', encoding=enc, errors='ignore') as f:
+                            content = f.read()
+                            lines = len(content.splitlines())
+                            encoding = enc
+                            break
+                    except UnicodeDecodeError:
+                        continue
             except Exception:
                 lines = 0
+            
+            # Get file permissions
+            permissions = oct(stat.st_mode)[-3:] if hasattr(stat, 'st_mode') else "644"
+            
+            # Get directory information
+            directory = str(relative_path.parent) if relative_path.parent != Path('.') else "."
+            
+            # Get Git status
+            git_status, git_tracked = self._get_git_status(file_path, repo_root)
             
             return {
                 "path": str(file_path),
@@ -232,12 +285,103 @@ class CodeIndexer:
                 "extension": file_ext,
                 "language": language,
                 "lines": lines,
-                "mtime": int(stat.st_mtime)
+                "mtime": int(stat.st_mtime),
+                "is_binary": is_binary,
+                "file_type": file_type,
+                "encoding": encoding,
+                "permissions": permissions,
+                "directory": directory,
+                "git_status": git_status,
+                "git_tracked": git_tracked
             }
             
         except Exception as e:
             print(f"⚠️ Error analyzing file {file_path}: {e}")
             return None
+    
+    def _is_binary_file(self, file_path: Path) -> bool:
+        """Check if file is binary"""
+        try:
+            # Check file extension first
+            binary_extensions = {
+                '.exe', '.dll', '.so', '.dylib', '.bin', '.obj', '.o', '.a', '.lib',
+                '.jar', '.war', '.ear', '.class', '.pyc', '.pyo', '.pyd',
+                '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.ico', '.svg',
+                '.mp3', '.mp4', '.avi', '.mov', '.wmv', '.flv',
+                '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar',
+                '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'
+            }
+            
+            if file_path.suffix.lower() in binary_extensions:
+                return True
+            
+            # Check first few bytes for binary content
+            try:
+                with open(file_path, 'rb') as f:
+                    chunk = f.read(1024)
+                    # Check for null bytes (common in binary files)
+                    if b'\x00' in chunk:
+                        return True
+                    # Check for high percentage of non-printable characters
+                    non_printable = sum(1 for b in chunk if b < 32 and b not in [9, 10, 13])
+                    if len(chunk) > 0 and non_printable / len(chunk) > 0.3:
+                        return True
+            except Exception:
+                pass
+            
+            return False
+        except Exception:
+            return False
+    
+    def _get_file_type(self, file_path: Path, language: str) -> str:
+        """Determine the general file type"""
+        filename = file_path.name.lower()
+        
+        # Test files
+        if any(pattern in filename for pattern in ['test', 'spec', 'specs', '_test', 'test_']):
+            return "test"
+        
+        # Configuration files
+        config_patterns = [
+            'config', 'conf', 'cfg', 'ini', 'toml', 'yaml', 'yml', 'json',
+            'properties', 'env', 'dockerfile', 'docker-compose', 'makefile',
+            'pom.xml', 'build.gradle', 'package.json', 'requirements.txt',
+            'setup.py', 'pyproject.toml', 'cargo.toml', 'go.mod', 'composer.json'
+        ]
+        if any(pattern in filename for pattern in config_patterns):
+            return "config"
+        
+        # Documentation files
+        doc_extensions = {'.md', '.txt', '.rst', '.adoc', '.doc', '.docx', '.pdf'}
+        if file_path.suffix.lower() in doc_extensions or 'readme' in filename:
+            return "documentation"
+        
+        # Build files
+        build_patterns = ['build', 'makefile', 'gradle', 'maven', 'ant', 'cmake']
+        if any(pattern in filename for pattern in build_patterns):
+            return "build"
+        
+        # Script files
+        script_extensions = {'.sh', '.bat', '.ps1', '.cmd', '.py', '.pl', '.rb'}
+        if file_path.suffix.lower() in script_extensions:
+            return "script"
+        
+        # Source code files
+        source_extensions = {'.py', '.java', '.js', '.ts', '.cs', '.go', '.rs', '.cpp', '.c', '.h', '.hpp'}
+        if file_path.suffix.lower() in source_extensions:
+            return "source"
+        
+        # Web files
+        web_extensions = {'.html', '.css', '.scss', '.less', '.jsx', '.tsx'}
+        if file_path.suffix.lower() in web_extensions:
+            return "web"
+        
+        # Database files
+        db_extensions = {'.sql', '.db', '.sqlite'}
+        if file_path.suffix.lower() in db_extensions:
+            return "database"
+        
+        return "other"
     
     def _detect_language_from_content(self, file_path: Path) -> str:
         """Detect language from file content for files without extension"""
@@ -329,25 +473,39 @@ class CodeIndexer:
                 if len(symbol_content.strip()) < 10:  # Skip very small symbols (reduced from 50)
                     continue
                 
-                # Create chunk metadata
-                chunk_metadata = ChunkMetadata(
+                # Create metadata for symbol-based chunk
+                metadata = ChunkMetadata(
                     repo_id=repo_id,
                     file_path=file_path,
+                    relative_path=file_info["relative_path"],
+                    filename=file_info["name"],
+                    directory=file_info["directory"],
+                    file_extension=file_info["extension"],
+                    file_size=file_info["size"],
+                    total_lines=file_info["lines"],
+                    is_binary=file_info["is_binary"],
+                    file_type=file_info["file_type"],
                     language=language,
-                    symbol_name=symbol_name,
-                    symbol_kind=symbol_kind,
                     start_line=start_line,
                     end_line=end_line,
-                    imports=ast_result.get("imports", []),
-                    references=symbol.get("references", []),
+                    imports=[],
+                    references=[],
                     content_hash=self._hash_content(symbol_content),
                     mtime=file_info["mtime"],
                     chunk_size=len(symbol_content),
-                    overlap_size=0
+                    overlap_size=0,
+                    symbol_name=symbol_name,
+                    symbol_kind=symbol_kind,
+                    encoding=file_info["encoding"],
+                    permissions=file_info["permissions"],
+                    git_status=file_info["git_status"],
+                    git_tracked=file_info["git_tracked"],
+                    complexity_score=None, # Placeholder, needs actual detection
+                    cyclomatic_complexity=None # Placeholder, needs actual detection
                 )
                 
                 chunks.append({
-                    "metadata": chunk_metadata,
+                    "metadata": metadata,
                     "content": symbol_content,
                     "type": "ast_symbol"
                 })
@@ -391,9 +549,15 @@ class CodeIndexer:
             chunk_metadata = ChunkMetadata(
                 repo_id=repo_id,
                 file_path=file_path,
+                relative_path=file_info["relative_path"],
+                filename=file_info["name"],
+                directory=file_info["directory"],
+                file_extension=file_info["extension"],
+                file_size=file_info["size"],
+                total_lines=file_info["lines"],
+                is_binary=file_info["is_binary"],
+                file_type=file_info["file_type"],
                 language=language,
-                symbol_name=None,
-                symbol_kind=None,
                 start_line=start_line,
                 end_line=end_line,
                 imports=[],
@@ -401,7 +565,15 @@ class CodeIndexer:
                 content_hash=self._hash_content(chunk_content),
                 mtime=file_info["mtime"],
                 chunk_size=len(chunk_content),
-                overlap_size=overlap_size
+                overlap_size=overlap_size,
+                symbol_name=None,
+                symbol_kind=None,
+                encoding=file_info["encoding"],
+                permissions=file_info["permissions"],
+                git_status=file_info["git_status"],
+                git_tracked=file_info["git_tracked"],
+                complexity_score=None, # Placeholder, needs actual detection
+                cyclomatic_complexity=None # Placeholder, needs actual detection
             )
             
             chunks.append({
@@ -518,19 +690,52 @@ class CodeIndexer:
                     "id": self._generate_chunk_id(repo_id, metadata.file_path, metadata.start_line),
                     "vector": embedding_data["embedding"],
                     "payload": {
+                        # Repository information
                         "repo_id": metadata.repo_id,
+                        
+                        # File path information
                         "file_path": metadata.file_path,
+                        "relative_path": metadata.relative_path,
+                        "filename": metadata.filename,
+                        "directory": metadata.directory,
+                        "file_extension": metadata.file_extension,
+                        
+                        # File characteristics
+                        "file_size": metadata.file_size,
+                        "total_lines": metadata.total_lines,
+                        "is_binary": metadata.is_binary,
+                        "file_type": metadata.file_type,
                         "language": metadata.language,
-                        "symbol_name": metadata.symbol_name,
-                        "symbol_kind": metadata.symbol_kind,
+                        
+                        # Chunk information
                         "start_line": metadata.start_line,
                         "end_line": metadata.end_line,
+                        "chunk_size": metadata.chunk_size,
+                        "overlap_size": metadata.overlap_size,
+                        
+                        # Code analysis
+                        "symbol_name": metadata.symbol_name,
+                        "symbol_kind": metadata.symbol_kind,
                         "imports": metadata.imports,
                         "references": metadata.references,
-                        "hash": metadata.content_hash,
+                        
+                        # File metadata
+                        "content_hash": metadata.content_hash,
                         "mtime": metadata.mtime,
+                        "encoding": metadata.encoding,
+                        "permissions": metadata.permissions,
+                        
+                        # Git information
+                        "git_status": metadata.git_status,
+                        "git_tracked": metadata.git_tracked,
+                        
+                        # Code complexity metrics
+                        "complexity_score": metadata.complexity_score,
+                        "cyclomatic_complexity": metadata.cyclomatic_complexity,
+                        
+                        # Chunk type and content
                         "chunk_type": chunk["type"],
-                        "content": chunk["content"]  # Add the actual content
+                        "content": chunk["content"]
                     }
                 }
                 vectors.append(vector_data)
@@ -640,3 +845,56 @@ class CodeIndexer:
         """Generate unique chunk ID"""
         chunk_key = f"{repo_id}:{file_path}:{start_line}"
         return hashlib.sha256(chunk_key.encode()).hexdigest()[:16]
+
+    def _get_git_status(self, file_path: Path, repo_root: Path) -> tuple[str, bool]:
+        """Get Git status for a file"""
+        try:
+            import subprocess
+            
+            # Get relative path from repo root
+            relative_path = file_path.relative_to(repo_root)
+            
+            # Check if file is tracked by Git
+            result = subprocess.run(
+                ['git', 'ls-files', str(relative_path)],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                # File is tracked, get its status
+                status_result = subprocess.run(
+                    ['git', 'status', '--porcelain', str(relative_path)],
+                    cwd=repo_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                
+                if status_result.returncode == 0:
+                    status_line = status_result.stdout.strip()
+                    if status_line:
+                        # Parse Git status (e.g., "M  file.txt" means modified)
+                        status_code = status_line[:2].strip()
+                        status_map = {
+                            'M': 'modified',
+                            'A': 'added',
+                            'D': 'deleted',
+                            'R': 'renamed',
+                            'C': 'copied',
+                            'U': 'unmerged',
+                            '??': 'untracked'
+                        }
+                        return status_map.get(status_code, 'unknown'), True
+                    else:
+                        return 'clean', True
+                else:
+                    return 'unknown', True
+            else:
+                return 'untracked', False
+                
+        except Exception as e:
+            # Git not available or other error
+            return 'unknown', None

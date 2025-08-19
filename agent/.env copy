@@ -1,0 +1,20 @@
+# CodeGates JIRA Integration Environment Variables
+JIRA_URL=https://roshinpv.atlassian.net/jira
+JIRA_USER=roshin
+JIRA_TOKEN=ATATT3xFfGF0Ht6W_d_B_J9DFZO_f2GiFb_N1-6oJgUtt0o5Mc03a_RjMBVbxzSSdKnsWYkxk4s02kjvExSrovHbsP1zCZ_XMYChfLIqifLgJTxBDMNtC0ncLA3Qg4aFP3dDejptSI7NLuHJ05u4UYknncEtJTUPMFzxyDpLGd1D0D4ieHIeOb8=A538893F
+JIRA_SSL_VERIFY=true
+
+# LLM Configuration - Using OLLAMA provider with smaller model
+CODEGATES_DEFAULT_LLM_PROVIDER=local
+LOCAL_LLM_URL=http://localhost:1234
+LOCAL_LLM_MODEL=llama-3.2-3b-instruct
+LOCAL_LLM_API_KEY=asasasasaewew
+LOCAL_LLM_TEMPERATURE=0.1
+LOCAL_LLM_MAX_TOKENS=4000
+
+
+
+
+# Fallback to OpenAI if you have a key
+# OPENAI_API_KEY=sk-xxxxxxxxxxxx
+# OPENAI_MODEL=gpt-3.5-turbo

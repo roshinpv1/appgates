@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeGates UI Test - JIRA Functionality Visibility</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step { 
+            background: #e3f2fd; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            border-left: 4px solid #2196f3;
+        }
+        .success { background: #e8f5e8; border-left-color: #4caf50; }
+        .warning { background: #fff3e0; border-left-color: #ff9800; }
+        .error { background: #ffebee; border-left-color: #f44336; }
+        button { 
+            background: #2196f3; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        button:hover { background: #1976d2; }
+        .test-result { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            font-family: monospace;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 CodeGates UI Test - JIRA Functionality</h1>
+        
+        <div class="step">
+            <h3>📋 Issue: Report expand and JIRA upload options not visible</h3>
+            <p>Let's test if the JIRA functionality is working and guide you to see it.</p>
+        </div>
+
+        <div class="step">
+            <h3>🧪 Quick Tests</h3>
+            <button onclick="testServer()">Test Server Health</button>
+            <button onclick="testCompletedScans()">Check Completed Scans</button>
+            <button onclick="testUIAccess()">Test UI Access</button>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="step warning">
+            <h3>💡 How to See JIRA Functionality</h3>
+            <p><strong>The JIRA upload and expand options only appear AFTER a scan is completed and results are loaded.</strong></p>
+            
+            <ol>
+                <li><strong>Open the UI:</strong> Go to <a href="http://localhost:8000/ui/" target="_blank">http://localhost:8000/ui/</a></li>
+                <li><strong>Run a scan:</strong> Fill in the scan form and click "Run Security Scan"</li>
+                <li><strong>Wait for completion:</strong> Watch the progress until scan shows "completed"</li>
+                <li><strong>Look for the report section:</strong> It should appear automatically</li>
+                <li><strong>Find the "Show Details" button:</strong> In the Security Gates section</li>
+                <li><strong>Click "Show Details":</strong> This reveals individual gate cards with JIRA functionality</li>
+            </ol>
+        </div>
+
+        <div class="step success">
+            <h3>✅ What You Should See After Scan Completion</h3>
+            <p><strong>Summary View (Default):</strong></p>
+            <ul>
+                <li>📊 Executive summary metrics (Total Gates, Gates Met, etc.)</li>
+                <li>📋 Security Gates Summary table</li>
+                <li>🔍 "Show Details" button</li>
+            </ul>
+            
+            <p><strong>Detailed View (After clicking "Show Details"):</strong></p>
+            <ul>
+                <li>🎫 Individual gate cards with full details</li>
+                <li>💬 Comment boxes for each gate</li>
+                <li>🎯 JIRA ID input fields</li>
+                <li>📤 "Upload to JIRA" buttons for each gate</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🔧 Current Server Status</h3>
+            <button onclick="checkCurrentStatus()">Refresh Status</button>
+            <div id="serverStatus"></div>
+        </div>
+
+        <div class="step">
+            <h3>🚀 Quick Demo Scan</h3>
+            <p>If you want to see the functionality immediately:</p>
+            <button onclick="startDemoScan()">Start Demo Scan</button>
+            <div id="demoProgress"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8000/api/v1";
+
+        async function testServer() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<div class="test-result">🔄 Testing server...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                results.innerHTML = `
+                    <div class="test-result success">
+                        ✅ Server is healthy<br>
+                        Active scans: ${data.active_scans}<br>
+                        Pattern cache: ${data.pattern_cache?.status || 'unknown'}
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `<div class="test-result error">❌ Server error: ${error.message}</div>`;
+            }
+        }
+
+        async function testCompletedScans() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<div class="test-result">🔄 Checking for completed scans...</div>';
+            
+            // We'll use a known scan ID if available
+            const scanId = '7004214f-93b5-4544-aa83-9f4bdafa1275';
+            
+            try {
+                const response = await fetch(`${API_BASE}/scan/${scanId}/results`);
+                if (response.ok) {
+                    const data = await response.json();
+                    results.innerHTML = `
+                        <div class="test-result success">
+                            ✅ Found completed scan: ${scanId}<br>
+                            Gate results: ${data.gate_results?.length || 0}<br>
+                            Overall score: ${data.overall_score}%<br>
+                            <strong>This means JIRA functionality should be visible in the UI!</strong>
+                        </div>
+                    `;
+                } else {
+                    results.innerHTML = `<div class="test-result warning">⚠️ No completed scans found. Run a scan first!</div>`;
+                }
+            } catch (error) {
+                results.innerHTML = `<div class="test-result error">❌ Error checking scans: ${error.message}</div>`;
+            }
+        }
+
+        async function testUIAccess() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<div class="test-result">🔄 Testing UI access...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:8000/ui/');
+                if (response.ok) {
+                    const html = await response.text();
+                    const hasJiraFunctionality = html.includes('Upload to JIRA') && html.includes('toggleGateDetails');
+                    
+                    results.innerHTML = `
+                        <div class="test-result ${hasJiraFunctionality ? 'success' : 'warning'}">
+                            ${hasJiraFunctionality ? '✅' : '⚠️'} UI accessible<br>
+                            JIRA functionality: ${hasJiraFunctionality ? 'Present' : 'Missing'}<br>
+                            ${hasJiraFunctionality ? 'The functionality is there - you just need to complete a scan!' : 'There might be an issue with the UI code.'}
+                        </div>
+                    `;
+                } else {
+                    results.innerHTML = `<div class="test-result error">❌ UI not accessible: ${response.status}</div>`;
+                }
+            } catch (error) {
+                results.innerHTML = `<div class="test-result error">❌ UI access error: ${error.message}</div>`;
+            }
+        }
+
+        async function checkCurrentStatus() {
+            const status = document.getElementById('serverStatus');
+            status.innerHTML = '<div class="test-result">🔄 Checking current status...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                status.innerHTML = `
+                    <div class="test-result success">
+                        <strong>Server Status:</strong><br>
+                        • Status: ${data.status}<br>
+                        • Active scans: ${data.active_scans}<br>
+                        • Server URL: ${data.server?.url}<br>
+                        • Pattern cache: ${data.pattern_cache?.status || 'unknown'}<br>
+                        <br>
+                        <strong>Next Steps:</strong><br>
+                        1. Go to <a href="http://localhost:8000/ui/" target="_blank">the UI</a><br>
+                        2. Run a scan to see JIRA functionality
+                    </div>
+                `;
+            } catch (error) {
+                status.innerHTML = `<div class="test-result error">❌ Status check failed: ${error.message}</div>`;
+            }
+        }
+
+        async function startDemoScan() {
+            const progress = document.getElementById('demoProgress');
+            progress.innerHTML = '<div class="test-result">🔄 Starting demo scan...</div>';
+            
+            const scanData = {
+                repository_url: 'https://github.com/microsoft/vscode',
+                branch: 'main',
+                threshold: 70,
+                app_id: 'demo-test'
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(scanData)
+                });
+                
+                const data = await response.json();
+                const scanId = data.scan_id;
+                
+                progress.innerHTML = `
+                    <div class="test-result success">
+                        ✅ Demo scan started: ${scanId}<br>
+                        <strong>Now go to <a href="http://localhost:8000/ui/" target="_blank">the UI</a> to see the results!</strong>
+                    </div>
+                `;
+                
+                // Poll for completion
+                pollScanProgress(scanId, progress);
+                
+            } catch (error) {
+                progress.innerHTML = `<div class="test-result error">❌ Demo scan failed: ${error.message}</div>`;
+            }
+        }
+
+        async function pollScanProgress(scanId, progressElement) {
+            try {
+                const response = await fetch(`${API_BASE}/scan/${scanId}`);
+                const data = await response.json();
+                
+                if (data.status === 'completed') {
+                    progressElement.innerHTML = `
+                        <div class="test-result success">
+                            🎉 Demo scan completed!<br>
+                            Score: ${data.overall_score}%<br>
+                            <strong>NOW:</strong> <a href="http://localhost:8000/ui/" target="_blank">Go to UI</a> and you should see the JIRA functionality!
+                        </div>
+                    `;
+                } else if (data.status === 'failed') {
+                    progressElement.innerHTML = `<div class="test-result error">❌ Demo scan failed</div>`;
+                } else {
+                    progressElement.innerHTML = `
+                        <div class="test-result">
+                            🔄 Demo scan in progress: ${data.progress_percentage || 0}%<br>
+                            Step: ${data.current_step || 'Processing...'}
+                        </div>
+                    `;
+                    setTimeout(() => pollScanProgress(scanId, progressElement), 2000);
+                }
+            } catch (error) {
+                progressElement.innerHTML = `<div class="test-result error">❌ Error polling scan: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run initial tests
+        window.addEventListener('DOMContentLoaded', () => {
+            testServer();
+        });
+    </script>
+</body>
+</html> 
