@@ -2247,6 +2247,195 @@ async def semantic_search_code(request: SemanticSearchRequest):
         print(f"❌ Semantic search failed: {e}")
         raise HTTPException(status_code=500, detail=f"Semantic search failed: {str(e)}")
 
+# Import contextual recommendations
+try:
+    from .contextual_recommendations import (
+        ContextualRecommendationEngine, 
+        ContextualSearchAPI,
+        RecommendationType
+    )
+    CONTEXTUAL_RECOMMENDATIONS_AVAILABLE = True
+except ImportError:
+    CONTEXTUAL_RECOMMENDATIONS_AVAILABLE = False
+    print("⚠️ Contextual recommendations not available")
+
+# Initialize Contextual Recommendation Engine
+contextual_recommendation_engine = None
+contextual_search_api = None
+if CONTEXTUAL_RECOMMENDATIONS_AVAILABLE and advanced_llm_service and pattern_library_service:
+    try:
+        contextual_recommendation_engine = ContextualRecommendationEngine(
+            vector_store=vector_store,
+            pattern_library=pattern_library_service,
+            advanced_llm=advanced_llm_service
+        )
+        contextual_search_api = ContextualSearchAPI(contextual_recommendation_engine)
+        print("✅ Contextual recommendation engine initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize contextual recommendation engine: {e}")
+
+class ContextualRecommendationRequest(BaseModel):
+    code_context: str = Field(..., description="Code context to analyze")
+    language: str = Field(..., description="Programming language")
+    domain: str = Field(default="general", description="Domain/industry context")
+    recommendation_types: List[str] = Field(
+        default=["security", "performance", "best_practices", "code_quality"],
+        description="Types of recommendations to generate"
+    )
+
+class ContextualSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query")
+    language: str = Field(..., description="Programming language")
+    pattern_type: Optional[str] = Field(None, description="Specific pattern type to search")
+
+class SimilarImplementationRequest(BaseModel):
+    target_code: str = Field(..., description="Target code to find similar implementations for")
+    language: str = Field(..., description="Programming language")
+    limit: int = Field(default=5, description="Number of similar implementations to return")
+
+@app.post("/api/v1/contextual/recommendations")
+async def generate_contextual_recommendations(request: ContextualRecommendationRequest):
+    """Generate contextual recommendations based on code analysis"""
+    
+    if not contextual_recommendation_engine:
+        raise HTTPException(
+            status_code=503, 
+            detail="Contextual recommendation engine not available"
+        )
+    
+    try:
+        # Convert string types to enum
+        rec_types = []
+        for rec_type_str in request.recommendation_types:
+            try:
+                rec_types.append(RecommendationType(rec_type_str))
+            except ValueError:
+                print(f"⚠️ Unknown recommendation type: {rec_type_str}")
+        
+        if not rec_types:
+            rec_types = list(RecommendationType)
+        
+        # Generate recommendations
+        recommendations = await contextual_recommendation_engine.generate_contextual_recommendations(
+            code_context=request.code_context,
+            language=request.language,
+            domain=request.domain,
+            recommendation_types=rec_types
+        )
+        
+        # Convert to JSON-serializable format
+        result = []
+        for rec in recommendations:
+            result.append({
+                "title": rec.title,
+                "description": rec.description,
+                "type": rec.recommendation_type.value,
+                "confidence_score": rec.confidence_score,
+                "code_examples": rec.code_examples,
+                "pattern_references": rec.pattern_references,
+                "similar_implementations": rec.similar_implementations,
+                "reasoning": rec.reasoning,
+                "priority": rec.priority,
+                "impact": rec.impact
+            })
+        
+        return {
+            "status": "success",
+            "recommendations": result,
+            "total_count": len(result),
+            "context": {
+                "language": request.language,
+                "domain": request.domain,
+                "types_requested": request.recommendation_types
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Contextual recommendations failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate contextual recommendations: {str(e)}"
+        )
+
+@app.post("/api/v1/contextual/search")
+async def search_contextual_patterns(request: ContextualSearchRequest):
+    """Search for contextual patterns and code examples"""
+    
+    if not contextual_search_api:
+        raise HTTPException(
+            status_code=503, 
+            detail="Contextual search API not available"
+        )
+    
+    try:
+        results = await contextual_search_api.search_contextual_patterns(
+            query=request.query,
+            language=request.language,
+            pattern_type=request.pattern_type
+        )
+        
+        return {
+            "status": "success",
+            "results": results,
+            "total_count": len(results),
+            "query": request.query,
+            "language": request.language
+        }
+        
+    except Exception as e:
+        print(f"❌ Contextual search failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to perform contextual search: {str(e)}"
+        )
+
+@app.post("/api/v1/contextual/similar")
+async def find_similar_implementations(request: SimilarImplementationRequest):
+    """Find similar code implementations"""
+    
+    if not contextual_search_api:
+        raise HTTPException(
+            status_code=503, 
+            detail="Contextual search API not available"
+        )
+    
+    try:
+        similar_implementations = await contextual_search_api.get_similar_implementations(
+            target_code=request.target_code,
+            language=request.language,
+            limit=request.limit
+        )
+        
+        return {
+            "status": "success",
+            "similar_implementations": similar_implementations,
+            "total_count": len(similar_implementations),
+            "target_language": request.language
+        }
+        
+    except Exception as e:
+        print(f"❌ Similar implementation search failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to find similar implementations: {str(e)}"
+        )
+
+@app.get("/api/v1/contextual/recommendation-types")
+async def get_recommendation_types():
+    """Get available recommendation types"""
+    
+    return {
+        "status": "success",
+        "recommendation_types": [
+            {
+                "value": rec_type.value,
+                "name": rec_type.name,
+                "description": f"{rec_type.value.replace('_', ' ').title()} recommendations"
+            }
+            for rec_type in RecommendationType
+        ]
+    }
+
 if __name__ == "__main__":
     import uvicorn
     
