@@ -296,20 +296,32 @@ class VectorService:
             # Initialize embedding service
             embedding_service = EmbeddingService(self.config)
             
-            # Search in main repository collection
-            main_collection = f"repo_{scan_id}"
-            cd_collection = f"repo_{scan_id}_cd"
+            # Search in single collection for both main and CD repositories
+            collection = f"repo_{scan_id}"
             
-            # Try multiple queries to get better results
+            # Enhanced queries for better project analysis
             queries = [
-                "project technologies frameworks dependencies",
-                "main application setup configuration",
-                "spring boot java application",
-                "project structure and dependencies",
-                "application configuration files",
-                "main technologies used in project",
-                "framework and library dependencies",
-                "project setup and requirements"
+                # Technology and framework detection
+                "spring boot java application framework",
+                "maven gradle build configuration dependencies",
+                "database configuration mysql postgresql h2",
+                "application properties configuration setup",
+                "main application class controller service",
+                "testing framework junit mockito test",
+                "logging configuration logback log4j",
+                "security authentication authorization",
+                "docker kubernetes deployment configuration",
+                "monitoring health check actuator",
+                "api rest controller endpoint",
+                "entity model data structure",
+                "repository data access layer",
+                "service business logic layer",
+                "web security configuration",
+                "database schema sql migration",
+                "application startup configuration",
+                "development tools configuration",
+                "production deployment setup",
+                "microservices architecture patterns"
             ]
             
             all_main_results = []
@@ -323,28 +335,21 @@ class VectorService:
                     if not query_embedding:
                         continue
                     
-                    # Search in main collection with lower threshold
-                    main_results = self.search_similar(
-                        collection_name=main_collection,
+                    # Search in single collection for both main and CD repositories
+                    all_results = self.search_similar(
+                        collection_name=collection,
                         query_vector=query_embedding,
-                        limit=10,
-                        score_threshold=0.1  # Lower threshold for better results
+                        limit=30,  # Increased limit to get both main and CD results
+                        score_threshold=0.05  # Even lower threshold for comprehensive results
                     )
-                    all_main_results.extend(main_results)
                     
-                    # Search in CD collection if it exists
-                    try:
-                        if self.collection_exists(cd_collection):
-                            cd_results = self.search_similar(
-                                collection_name=cd_collection,
-                                query_vector=query_embedding,
-                                limit=5,
-                                score_threshold=0.1
-                            )
-                            all_cd_results.extend(cd_results)
-                    except Exception as e:
-                        # Silently ignore CD collection errors - it's expected for repos without CD
-                        pass
+                    # Separate results by repo_type
+                    for result in all_results:
+                        repo_type = result.payload.get("repo_type", "main")
+                        if repo_type == "main":
+                            all_main_results.append(result)
+                        elif repo_type == "cd":
+                            all_cd_results.append(result)
                         
                 except Exception as e:
                     print(f"⚠️ Query '{query}' failed: {e}")
@@ -383,11 +388,18 @@ class VectorService:
             # Combine all results
             all_results = main_results + cd_results
             
-            # Extract technologies and frameworks
+            # Extract comprehensive project information
             technologies = set()
             frameworks = set()
             file_types = set()
             dependencies = set()
+            architecture_patterns = set()
+            security_features = set()
+            testing_frameworks = set()
+            build_tools = set()
+            deployment_configs = set()
+            database_technologies = set()
+            monitoring_tools = set()
             
             for result in all_results:
                 payload = result.payload
@@ -402,33 +414,81 @@ class VectorService:
                 # Extract content for technology detection
                 content = payload.get("content", "").lower()
                 
-                # Detect technologies and frameworks
+                # Enhanced technology and framework detection patterns
                 tech_patterns = {
-                    "python": ["python", "django", "flask", "fastapi", "pandas", "numpy", "pip", "requirements.txt", "py", "python3"],
-                    "javascript": ["javascript", "node.js", "react", "vue", "angular", "express", "npm", "package.json", "js", "ts", "typescript"],
-                    "java": ["java", "spring", "maven", "gradle", "junit", "javax", "jakarta", "spring boot", "spring framework", "pom.xml", "build.gradle"],
-                    "go": ["go", "golang", "go.mod", "go.sum"],
-                    "rust": ["rust", "cargo", "cargo.toml", "cargo.lock"],
-                    "php": ["php", "laravel", "symfony", "composer.json"],
-                    "ruby": ["ruby", "rails", "gemfile", "gemfile.lock"],
-                    "csharp": ["c#", "dotnet", "asp.net", ".csproj", ".sln"],
-                    "docker": ["docker", "dockerfile", "docker-compose", "container"],
-                    "kubernetes": ["kubernetes", "k8s", "helm", "deployment.yaml", "service.yaml"],
-                    "aws": ["aws", "amazon", "lambda", "ec2", "s3", "cloudformation"],
-                    "azure": ["azure", "microsoft", "azure devops"],
-                    "gcp": ["gcp", "google cloud", "firebase", "cloud run"],
-                    "database": ["mysql", "postgresql", "mongodb", "redis", "elasticsearch", "h2", "hibernate", "jpa"],
-                    "monitoring": ["prometheus", "grafana", "jaeger", "zipkin", "actuator"],
-                    "testing": ["jest", "pytest", "junit", "cypress", "selenium", "test", "spec"],
-                    "build_tools": ["maven", "gradle", "ant", "make", "cmake"],
-                    "web_frameworks": ["spring boot", "spring mvc", "express", "fastapi", "django", "flask"],
-                    "orm": ["hibernate", "jpa", "sqlalchemy", "sequelize", "prisma"],
-                    "logging": ["logback", "log4j", "slf4j", "winston", "logging"]
+                    # Core Technologies
+                    "java": ["java", "javax", "jakarta", "jdk", "jre", "jvm"],
+                    "spring": ["spring", "spring boot", "spring framework", "spring mvc", "spring data", "spring security"],
+                    "maven": ["maven", "pom.xml", "mvn", "maven-compiler-plugin"],
+                    "gradle": ["gradle", "build.gradle", "gradle wrapper", "gradlew"],
+                    
+                    # Database Technologies
+                    "h2": ["h2", "h2 database", "h2console"],
+                    "mysql": ["mysql", "mariadb", "mysql connector"],
+                    "postgresql": ["postgresql", "postgres", "psql"],
+                    "jpa": ["jpa", "hibernate", "entity", "@entity", "@table"],
+                    "jdbc": ["jdbc", "datasource", "connection pool"],
+                    
+                    # Testing Frameworks
+                    "junit": ["junit", "junit5", "@test", "testng"],
+                    "mockito": ["mockito", "@mock", "@injectmocks"],
+                    "spring test": ["@springboottest", "@webmvctest", "@datajpatest"],
+                    
+                    # Security
+                    "spring security": ["spring security", "security config", "@secured", "@preauthorize"],
+                    "oauth": ["oauth", "oauth2", "jwt", "token"],
+                    
+                    # Monitoring and Health
+                    "actuator": ["actuator", "health check", "metrics", "prometheus"],
+                    "logging": ["logback", "log4j", "slf4j", "logging", "logger"],
+                    
+                    # Build and Deployment
+                    "docker": ["docker", "dockerfile", "container"],
+                    "kubernetes": ["kubernetes", "k8s", "helm", "deployment"],
+                    "jenkins": ["jenkins", "pipeline", "ci/cd"],
+                    "github actions": ["github actions", "workflow", ".github/workflows"],
+                    
+                    # Web Technologies
+                    "thymeleaf": ["thymeleaf", "html template", "template engine"],
+                    "bootstrap": ["bootstrap", "css framework"],
+                    "jquery": ["jquery", "javascript library"],
+                    
+                    # Development Tools
+                    "devcontainer": ["devcontainer", "docker compose", "development environment"],
+                    "git": ["git", "gitignore", "version control"],
+                    
+                    # Application Patterns
+                    "mvc": ["mvc", "model view controller", "@controller", "@service", "@repository"],
+                    "rest": ["rest", "restful", "@restcontroller", "@requestmapping"],
+                    "microservices": ["microservices", "service discovery", "api gateway"],
+                    
+                    # Configuration
+                    "properties": ["application.properties", "application.yml", "yaml", "configuration"],
+                    "profiles": ["@profile", "spring profiles", "environment specific"]
                 }
                 
+                # Enhanced technology detection with categorization
                 for tech, patterns in tech_patterns.items():
                     if any(pattern in content for pattern in patterns):
                         technologies.add(tech)
+                        
+                        # Categorize technologies
+                        if tech in ["java", "spring", "maven", "gradle"]:
+                            frameworks.add(tech)
+                        elif tech in ["h2", "mysql", "postgresql", "jpa", "jdbc"]:
+                            database_technologies.add(tech)
+                        elif tech in ["junit", "mockito", "spring test"]:
+                            testing_frameworks.add(tech)
+                        elif tech in ["spring security", "oauth"]:
+                            security_features.add(tech)
+                        elif tech in ["actuator", "logging"]:
+                            monitoring_tools.add(tech)
+                        elif tech in ["docker", "kubernetes", "jenkins", "github actions"]:
+                            deployment_configs.add(tech)
+                        elif tech in ["maven", "gradle"]:
+                            build_tools.add(tech)
+                        elif tech in ["mvc", "rest", "microservices"]:
+                            architecture_patterns.add(tech)
                 
                 # Extract dependencies from specific files
                 file_path = payload.get("file_path", "").lower()
@@ -483,21 +543,64 @@ class VectorService:
                                     except:
                                         pass
             
-            # Generate summary
-            summary = f"Project analysis for {repo_url} reveals a "
+            # Generate comprehensive project summary
+            summary = f"Project analysis for {repo_url} reveals a comprehensive "
             
-            if technologies:
-                tech_list = list(technologies)[:5]  # Top 5 technologies
-                summary += f"technology stack primarily using {', '.join(tech_list)}. "
+            # Technology stack
+            if frameworks:
+                framework_list = list(frameworks)[:3]
+                summary += f"technology stack built on {', '.join(framework_list)}. "
+            elif technologies:
+                tech_list = list(technologies)[:3]
+                summary += f"technology stack using {', '.join(tech_list)}. "
+            else:
+                summary += "technology stack. "
             
+            # Architecture patterns
+            if architecture_patterns:
+                arch_list = list(architecture_patterns)[:2]
+                summary += f"The application follows {', '.join(arch_list)} architecture patterns. "
+            
+            # Database technologies
+            if database_technologies:
+                db_list = list(database_technologies)[:2]
+                summary += f"Database layer uses {', '.join(db_list)}. "
+            
+            # Security features
+            if security_features:
+                sec_list = list(security_features)[:2]
+                summary += f"Security is implemented using {', '.join(sec_list)}. "
+            
+            # Testing approach
+            if testing_frameworks:
+                test_list = list(testing_frameworks)[:2]
+                summary += f"Testing is handled with {', '.join(test_list)}. "
+            
+            # Monitoring and logging
+            if monitoring_tools:
+                monitor_list = list(monitoring_tools)[:2]
+                summary += f"Monitoring and logging use {', '.join(monitor_list)}. "
+            
+            # Build and deployment
+            if build_tools:
+                build_list = list(build_tools)[:2]
+                summary += f"Build process uses {', '.join(build_list)}. "
+            
+            if deployment_configs:
+                deploy_list = list(deployment_configs)[:2]
+                summary += f"Deployment configuration includes {', '.join(deploy_list)}. "
+            
+            # File structure
             if file_types:
-                file_list = list(file_types)[:5]  # Top 5 file types
-                summary += f"The codebase contains {', '.join(file_list)} files. "
+                file_list = list(file_types)[:5]
+                summary += f"The codebase contains {', '.join(file_list)} file types. "
             
+            # Dependencies
             if dependencies:
-                dep_list = list(dependencies)[:5]  # Top 5 dependencies
+                dep_list = list(dependencies)[:5]
                 summary += f"Key dependencies include {', '.join(dep_list)}. "
             
+            # CD repository
             if cd_results:
                 summary += "The project includes a separate CD (Continuous Deployment) repository for infrastructure and deployment configurations. "
             
@@ -509,6 +612,13 @@ class VectorService:
                 "frameworks": list(frameworks),
                 "file_types": list(file_types),
                 "dependencies": list(dependencies),
+                "architecture_patterns": list(architecture_patterns),
+                "security_features": list(security_features),
+                "testing_frameworks": list(testing_frameworks),
+                "build_tools": list(build_tools),
+                "deployment_configs": list(deployment_configs),
+                "database_technologies": list(database_technologies),
+                "monitoring_tools": list(monitoring_tools),
                 "has_cd_repo": len(cd_results) > 0,
                 "total_files_analyzed": len(all_results)
             }

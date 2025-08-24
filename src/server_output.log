@@ -7,8 +7,8 @@
   @app.on_event("startup")
 INFO:     Will watch for changes in these directories: ['/Users/roshinpv/Documents/next/appgates/src']
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [7675] using StatReload
-INFO:     Started server process [7726]
+INFO:     Started reloader process [38429] using StatReload
+INFO:     Started server process [38481]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 🚀 Starting CodeGates Scan API Server
@@ -40,21 +40,21 @@ INFO:     Application startup complete.
 📁 Repository: https://github.com/spring-projects/spring-petclinic
 🌿 Branch: main
 📥 Step 1: Repository Checkout and extract metadata (including CD repos)
-✅ Repository cloned to: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_203849
+✅ Repository cloned to: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_225928
 🔍 Attempting to clone CD repository: https://github.com/spring-projects/spring-petclinic-cd
-❌ Repository clone failed: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_203851'...
+❌ Repository clone failed: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_225930'...
 remote: Repository not found.
 fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
 
-⚠️ CD repository not found or failed to clone: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_203851'...
+⚠️ CD repository not found or failed to clone: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_225930'...
 remote: Repository not found.
 fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
 
-✅ Main repository checked out: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_203849
+✅ Main repository checked out: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_225928
 📊 Main repository info: 108 files, 19526 lines
-🔍 Starting vectorization for scan: test_llm_fix
-📁 Main repo: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_203849
-📊 Main collection: repo_test_llm_fix
+🔍 Starting vectorization for scan: test_all_gates
+📁 Main repo: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_225928
+📊 Collection: repo_test_all_gates
 🔍 Processing main repository files...
 ✅ Main repository: 2086 chunks created
 🧠 Generating embeddings...
@@ -101,9 +101,9 @@ fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not 
 ✅ Generated embeddings for batch 41/42
 ✅ Generated embeddings for batch 42/42
 💾 Storing vectors in database...
-🔍 About to store 2086 vectors in collection: repo_test_llm_fix
-✅ Successfully stored 2086 vectors in main collection: repo_test_llm_fix
-📊 Collection repo_test_llm_fix now has 2086 vectors
+🔍 About to store 2086 vectors in collection: repo_test_all_gates
+✅ Successfully stored 2086 vectors in collection: repo_test_all_gates
+📊 Collection repo_test_all_gates now has 2086 vectors
 ✅ Vectorization completed successfully
 📊 Total chunks processed: 2086
 📊 Total vectors stored: 2086
@@ -112,342 +112,41 @@ fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not 
 ✅ Loaded 9 prompt templates from prompt library
 📝 Prompt Service loaded: 9 prompt templates
    📞 Calling LLM service...
-   📝 LLM response received (4119 chars)
-   🔍 Parsing LLM response...
-🔍 LLM Response preview: Here is the analysis of the repository for hard gate compliance using the specific gates in scope:
-
-**AUDITABILITY GATES**
-
-1. **1.1: Logs Searchable/Available (HIGH)**
-	* Pattern: `application.properties` contains log configuration, e.g., `spring.sql.init.schema-locations=classpath*:db/${database}/...
-🔍 Extracted JSON string: {database}/schema.sql`
-	* Applicability: **TRUE**
-	* Reasoning: The repository has a clear logging mechanism in place, and logs are searchable.
-2. **1.3: Audit Trail (HIGH)**
-	* Pattern: `application....
-⚠️ JSON parsing failed: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-🔍 JSON string that failed: {database}/schema.sql`
-	* Applicability: **TRUE**
-	* Reasoning: The repository has a clear logging mechanism in place, and logs are searchable.
-2. **1.3: Audit Trail (HIGH)**
-	* Pattern: `application.properties` contains log configuration, e.g., `spring.sql.init.schema-locations=classpath*:db/${data...
-✅ Generated 14 dynamic patterns (took 19.42s)
-🔧 Step 4: Pattern Consolidation
-✅ Pattern consolidation completed: 78 patterns
-🔍 Step 5: Expected Implementation Calculation (including CD repos)
-✅ Expected implementations calculated for 11 patterns (110 total implementations)
-📁 Step 6: File Scanning & Pattern & AST parser based Matching (including CD repos)
-🔍 Scanning main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_203849
-✅ File scanning completed: 11 patterns scanned, 66 total matches
-⚖️ Step 7: Gate Evaluation & Threshold Checking (including CD repos)
-✅ Gate evaluation completed: 11 gates evaluated (2 passed, 2 failed)
-🧠 Step 8: LLM Post-Analysis with Contextual Recommendations
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-✅ LLM post-analysis completed: 2 recommendations generated
-📊 Step 9: Report Generation
-🔧 Attempting to initialize Qdrant at ./qdrant_data
-🔓 Removed stale lock file
-🔗 Successfully initialized embedded Qdrant at ./qdrant_data
-🔧 use_qdrant flag set to: True
-💾 VectorService initialized with 768 dimensions
-🧠 EmbeddingService initialized with local provider
-💾 HTML report saved: reports/test_llm_fix/codegates_report_test_llm_fix.html
-💾 JSON report saved: reports/test_llm_fix/codegates_report_test_llm_fix.json
-💾 Summary file saved: reports/test_llm_fix/report_summary_test_llm_fix.txt
-✅ Report generated: 2/11 gates passed
-📄 HTML report generated (68736 characters)
-💾 Reports saved to: {'html': 'reports/test_llm_fix/codegates_report_test_llm_fix.html', 'json': 'reports/test_llm_fix/codegates_report_test_llm_fix.json', 'summary': 'reports/test_llm_fix/report_summary_test_llm_fix.txt'}
-💾 Step 10: Agentic Storage for Future Use
-✅ Scan result stored in vector database: scan_test_llm_fix
-🧹 Cleaned up: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_203849
-✅ Scan process completed successfully
-INFO:     127.0.0.1:59868 - "POST /api/v1/scan HTTP/1.1" 200 OK
-🔍 Starting scan for: https://github.com/spring-projects/spring-petclinic
-🚀 Starting CodeGates Scan Process
-📁 Repository: https://github.com/spring-projects/spring-petclinic
-🌿 Branch: main
-📥 Step 1: Repository Checkout and extract metadata (including CD repos)
-✅ Repository cloned to: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_204604
-🔍 Attempting to clone CD repository: https://github.com/spring-projects/spring-petclinic-cd
-❌ Repository clone failed: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_204606'...
-remote: Repository not found.
-fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
-
-⚠️ CD repository not found or failed to clone: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_204606'...
-remote: Repository not found.
-fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
-
-✅ Main repository checked out: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_204604
-📊 Main repository info: 108 files, 19526 lines
-🔍 Starting vectorization for scan: test_improved_prompt
-📁 Main repo: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_204604
-📊 Main collection: repo_test_improved_prompt
-🔍 Processing main repository files...
-✅ Main repository: 2086 chunks created
-🧠 Generating embeddings...
-✅ Generated embeddings for batch 1/42
-✅ Generated embeddings for batch 2/42
-✅ Generated embeddings for batch 3/42
-✅ Generated embeddings for batch 4/42
-✅ Generated embeddings for batch 5/42
-✅ Generated embeddings for batch 6/42
-✅ Generated embeddings for batch 7/42
-✅ Generated embeddings for batch 8/42
-✅ Generated embeddings for batch 9/42
-✅ Generated embeddings for batch 10/42
-✅ Generated embeddings for batch 11/42
-✅ Generated embeddings for batch 12/42
-✅ Generated embeddings for batch 13/42
-✅ Generated embeddings for batch 14/42
-✅ Generated embeddings for batch 15/42
-✅ Generated embeddings for batch 16/42
-✅ Generated embeddings for batch 17/42
-✅ Generated embeddings for batch 18/42
-✅ Generated embeddings for batch 19/42
-✅ Generated embeddings for batch 20/42
-✅ Generated embeddings for batch 21/42
-✅ Generated embeddings for batch 22/42
-✅ Generated embeddings for batch 23/42
-✅ Generated embeddings for batch 24/42
-✅ Generated embeddings for batch 25/42
-✅ Generated embeddings for batch 26/42
-✅ Generated embeddings for batch 27/42
-✅ Generated embeddings for batch 28/42
-✅ Generated embeddings for batch 29/42
-✅ Generated embeddings for batch 30/42
-✅ Generated embeddings for batch 31/42
-✅ Generated embeddings for batch 32/42
-✅ Generated embeddings for batch 33/42
-✅ Generated embeddings for batch 34/42
-✅ Generated embeddings for batch 35/42
-✅ Generated embeddings for batch 36/42
-✅ Generated embeddings for batch 37/42
-✅ Generated embeddings for batch 38/42
-✅ Generated embeddings for batch 39/42
-✅ Generated embeddings for batch 40/42
-✅ Generated embeddings for batch 41/42
-✅ Generated embeddings for batch 42/42
-💾 Storing vectors in database...
-🔍 About to store 2086 vectors in collection: repo_test_improved_prompt
-✅ Successfully stored 2086 vectors in main collection: repo_test_improved_prompt
-📊 Collection repo_test_improved_prompt now has 2086 vectors
-✅ Vectorization completed successfully
-📊 Total chunks processed: 2086
-📊 Total vectors stored: 2086
-🤖 Step 3: LLM Pre-Analysis (Dynamic Patterns)
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-   📞 Calling LLM service...
-   📝 LLM response received (4739 chars)
+   📝 LLM response received (1935 chars)
    🔍 Parsing LLM response...
 🔍 LLM Response preview: {
     "patterns": [
         {
             "gate_id": "1.6",
             "name": "Log API Calls",
-            "description": "Log REST API calls to capture external component interaction for troubleshooting",
-            "pattern": "rest|api.*log|http.*request|requests.*to.*external.*component",
-    ...
-🔍 Extracted JSON string: {
-    "patterns": [
-        {
-            "gate_id": "1.6",
-            "name": "Log API Calls",
-            "description": "Log REST API calls to capture external component interaction for troublesho...
-⚠️ JSON parsing failed: Expecting ',' delimiter: line 83 column 10 (char 4517)
-🔍 JSON string that failed: {
-    "patterns": [
-        {
-            "gate_id": "1.6",
-            "name": "Log API Calls",
-            "description": "Log REST API calls to capture external component interaction for troubleshooting",
-            "pattern": "rest|api.*log|http.*request|requests.*to.*external.*component",
-    ...
-✅ Generated 14 dynamic patterns (took 19.89s)
-🔧 Step 4: Pattern Consolidation
-✅ Pattern consolidation completed: 78 patterns
-🔍 Step 5: Expected Implementation Calculation (including CD repos)
-✅ Expected implementations calculated for 11 patterns (110 total implementations)
-📁 Step 6: File Scanning & Pattern & AST parser based Matching (including CD repos)
-🔍 Scanning main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_204604
-✅ File scanning completed: 11 patterns scanned, 66 total matches
-⚖️ Step 7: Gate Evaluation & Threshold Checking (including CD repos)
-✅ Gate evaluation completed: 11 gates evaluated (2 passed, 2 failed)
-🧠 Step 8: LLM Post-Analysis with Contextual Recommendations
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-✅ LLM post-analysis completed: 2 recommendations generated
-📊 Step 9: Report Generation
-🔧 Attempting to initialize Qdrant at ./qdrant_data
-🔓 Removed stale lock file
-🔗 Successfully initialized embedded Qdrant at ./qdrant_data
-🔧 use_qdrant flag set to: True
-💾 VectorService initialized with 768 dimensions
-🧠 EmbeddingService initialized with local provider
-💾 HTML report saved: reports/test_improved_prompt/codegates_report_test_improved_prompt.html
-💾 JSON report saved: reports/test_improved_prompt/codegates_report_test_improved_prompt.json
-💾 Summary file saved: reports/test_improved_prompt/report_summary_test_improved_prompt.txt
-✅ Report generated: 2/11 gates passed
-📄 HTML report generated (68736 characters)
-💾 Reports saved to: {'html': 'reports/test_improved_prompt/codegates_report_test_improved_prompt.html', 'json': 'reports/test_improved_prompt/codegates_report_test_improved_prompt.json', 'summary': 'reports/test_improved_prompt/report_summary_test_improved_prompt.txt'}
-💾 Step 10: Agentic Storage for Future Use
-✅ Scan result stored in vector database: scan_test_improved_prompt
-🧹 Cleaned up: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_204604
-✅ Scan process completed successfully
-INFO:     127.0.0.1:60046 - "POST /api/v1/scan HTTP/1.1" 200 OK
-WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [7726]
-INFO:     Started server process [12014]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
-🚀 Starting CodeGates Scan API Server
-🔧 Attempting to initialize Qdrant at ./qdrant_data
-🔓 Removed stale lock file
-🔗 Successfully initialized embedded Qdrant at ./qdrant_data
-🔧 use_qdrant flag set to: True
-💾 VectorService initialized with 768 dimensions
-🧠 EmbeddingService initialized with local provider
-🔍 ASTParserService initialized with 9 supported languages
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-✅ Loaded 7 gates from pattern library
-📚 Pattern Library loaded: 7 gates with 7 pattern texts
-🤖 LLMService initialized with local provider
-🔧 Attempting to initialize Qdrant at ./qdrant_data
-🔓 Removed stale lock file
-🔗 Successfully initialized embedded Qdrant at ./qdrant_data
-🔧 use_qdrant flag set to: True
-💾 VectorService initialized with 768 dimensions
-🧠 EmbeddingService initialized with local provider
-🤖 LLMService initialized with local provider
-❓ QuestionService initialized
-✅ Scan flow initialized successfully
-✅ Question service initialized successfully
-🔍 Starting scan for: https://github.com/spring-projects/spring-petclinic
-🚀 Starting CodeGates Scan Process
-📁 Repository: https://github.com/spring-projects/spring-petclinic
-🌿 Branch: main
-📥 Step 1: Repository Checkout and extract metadata (including CD repos)
-✅ Repository cloned to: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205450
-🔍 Attempting to clone CD repository: https://github.com/spring-projects/spring-petclinic-cd
-❌ Repository clone failed: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_205452'...
-remote: Repository not found.
-fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
-
-⚠️ CD repository not found or failed to clone: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_205452'...
-remote: Repository not found.
-fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
-
-✅ Main repository checked out: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205450
-📊 Main repository info: 108 files, 19526 lines
-🔍 Starting vectorization for scan: test_json_fix
-📁 Main repo: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205450
-📊 Main collection: repo_test_json_fix
-🔍 Processing main repository files...
-✅ Main repository: 2086 chunks created
-🧠 Generating embeddings...
-✅ Generated embeddings for batch 1/42
-✅ Generated embeddings for batch 2/42
-✅ Generated embeddings for batch 3/42
-✅ Generated embeddings for batch 4/42
-✅ Generated embeddings for batch 5/42
-✅ Generated embeddings for batch 6/42
-✅ Generated embeddings for batch 7/42
-✅ Generated embeddings for batch 8/42
-✅ Generated embeddings for batch 9/42
-✅ Generated embeddings for batch 10/42
-✅ Generated embeddings for batch 11/42
-✅ Generated embeddings for batch 12/42
-✅ Generated embeddings for batch 13/42
-✅ Generated embeddings for batch 14/42
-✅ Generated embeddings for batch 15/42
-✅ Generated embeddings for batch 16/42
-✅ Generated embeddings for batch 17/42
-✅ Generated embeddings for batch 18/42
-✅ Generated embeddings for batch 19/42
-✅ Generated embeddings for batch 20/42
-✅ Generated embeddings for batch 21/42
-✅ Generated embeddings for batch 22/42
-✅ Generated embeddings for batch 23/42
-✅ Generated embeddings for batch 24/42
-✅ Generated embeddings for batch 25/42
-✅ Generated embeddings for batch 26/42
-✅ Generated embeddings for batch 27/42
-✅ Generated embeddings for batch 28/42
-✅ Generated embeddings for batch 29/42
-✅ Generated embeddings for batch 30/42
-✅ Generated embeddings for batch 31/42
-✅ Generated embeddings for batch 32/42
-✅ Generated embeddings for batch 33/42
-✅ Generated embeddings for batch 34/42
-✅ Generated embeddings for batch 35/42
-✅ Generated embeddings for batch 36/42
-✅ Generated embeddings for batch 37/42
-✅ Generated embeddings for batch 38/42
-✅ Generated embeddings for batch 39/42
-✅ Generated embeddings for batch 40/42
-✅ Generated embeddings for batch 41/42
-✅ Generated embeddings for batch 42/42
-💾 Storing vectors in database...
-🔍 About to store 2086 vectors in collection: repo_test_json_fix
-✅ Successfully stored 2086 vectors in main collection: repo_test_json_fix
-📊 Collection repo_test_json_fix now has 2086 vectors
-✅ Vectorization completed successfully
-📊 Total chunks processed: 2086
-📊 Total vectors stored: 2086
-🤖 Step 3: LLM Pre-Analysis (Dynamic Patterns)
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-   📞 Calling LLM service...
-   📝 LLM response received (2816 chars)
-   🔍 Parsing LLM response...
-🔍 LLM Response preview: {
-    "patterns": [
-        {
-            "gate_id": "1.8",
-            "name": "Log Application Messages",
-            "description": "Log application messages with standard log libraries",
-            "pattern": "\\blog\\b|\\bmessage\\b|\\binfo\\b|\\bdebug\\b",
+            "description": "Log REST API calls for troubleshooting",
+            "pattern": "rest.*api|http.*request",
             "severity": "HIGH",
-    ...
+            "category": "AUDITABILITY",
+            ...
 🔍 Extracted JSON string: {
     "patterns": [
         {
-            "gate_id": "1.8",
-            "name": "Log Application Messages",
-            "description": "Log application messages with standard log libraries",
-         ...
-⚠️ Strategy 1 failed: Expecting ',' delimiter: line 65 column 10 (char 2810)
-⚠️ Strategy 2 failed: Expecting ',' delimiter: line 65 column 10 (char 2810)
-⚠️ Strategy 3 failed: name 're' is not defined
-⚠️ Strategy 4 failed: Expecting ',' delimiter: line 65 column 10 (char 2810)
-⚠️ Strategy 5 failed: name 're' is not defined
-⚠️ All JSON parsing strategies failed
-✅ Generated 14 dynamic patterns (took 14.29s)
+            "gate_id": "1.6",
+            "name": "Log API Calls",
+            "description": "Log REST API calls for troubleshooting",
+            "pattern": "rest.*api|...
+✅ Successfully parsed 5 patterns from LLM response (strategy 1)
+✅ Generated 5 dynamic patterns (took 9.47s)
 🔧 Step 4: Pattern Consolidation
-✅ Pattern consolidation completed: 78 patterns
+✅ Pattern consolidation completed: 69 patterns
 🔍 Step 5: Expected Implementation Calculation (including CD repos)
-✅ Expected implementations calculated for 11 patterns (110 total implementations)
+✅ Expected implementations calculated for 5 patterns (100 total implementations)
 📁 Step 6: File Scanning & Pattern & AST parser based Matching (including CD repos)
-🔍 Scanning main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205450
-✅ File scanning completed: 11 patterns scanned, 66 total matches
+🔍 Scanning main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_225928
+✅ File scanning completed: 5 patterns scanned, 31 total matches
 ⚖️ Step 7: Gate Evaluation & Threshold Checking (including CD repos)
-✅ Gate evaluation completed: 11 gates evaluated (2 passed, 2 failed)
+✅ Gate evaluation completed: 5 gates evaluated (1 passed, 3 failed)
 🧠 Step 8: LLM Post-Analysis with Contextual Recommendations
 ✅ Loaded 16 gates in scope
 ✅ Loaded 9 prompt templates from prompt library
 📝 Prompt Service loaded: 9 prompt templates
-✅ LLM post-analysis completed: 2 recommendations generated
+✅ LLM post-analysis completed: 3 recommendations generated
 📊 Step 9: Report Generation
 🔧 Attempting to initialize Qdrant at ./qdrant_data
 🔓 Removed stale lock file
@@ -455,46 +154,31 @@ fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not 
 🔧 use_qdrant flag set to: True
 💾 VectorService initialized with 768 dimensions
 🧠 EmbeddingService initialized with local provider
-💾 HTML report saved: reports/test_json_fix/codegates_report_test_json_fix.html
-💾 JSON report saved: reports/test_json_fix/codegates_report_test_json_fix.json
-💾 Summary file saved: reports/test_json_fix/report_summary_test_json_fix.txt
-✅ Report generated: 2/11 gates passed
-📄 HTML report generated (68718 characters)
-💾 Reports saved to: {'html': 'reports/test_json_fix/codegates_report_test_json_fix.html', 'json': 'reports/test_json_fix/codegates_report_test_json_fix.json', 'summary': 'reports/test_json_fix/report_summary_test_json_fix.txt'}
+💾 HTML report saved: reports/test_all_gates/codegates_report_test_all_gates.html
+💾 JSON report saved: reports/test_all_gates/codegates_report_test_all_gates.json
+💾 Summary file saved: reports/test_all_gates/report_summary_test_all_gates.txt
+✅ Report generated: 1/5 gates passed
+📄 HTML report generated (35386 characters)
+💾 Reports saved to: {'html': 'reports/test_all_gates/codegates_report_test_all_gates.html', 'json': 'reports/test_all_gates/codegates_report_test_all_gates.json', 'summary': 'reports/test_all_gates/report_summary_test_all_gates.txt'}
 💾 Step 10: Agentic Storage for Future Use
-✅ Scan result stored in vector database: scan_test_json_fix
-🧹 Cleaned up: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205450
+✅ Scan result stored in vector database: scan_test_all_gates
+🧹 Cleaned up: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_225928
 ✅ Scan process completed successfully
-INFO:     127.0.0.1:60222 - "POST /api/v1/scan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63127 - "POST /api/v1/scan HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [12014]
-INFO:     Started server process [12641]
+INFO:     Finished server process [38481]
+INFO:     Started server process [40344]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [12641]
-INFO:     Started server process [13222]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [13222]
-INFO:     Started server process [13259]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [13259]
-INFO:     Started server process [13435]
+INFO:     Finished server process [40344]
+INFO:     Started server process [40587]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 🚀 Starting CodeGates Scan API Server
@@ -511,157 +195,19 @@ INFO:     Application startup complete.
 ✅ Loaded 7 gates from pattern library
 📚 Pattern Library loaded: 7 gates with 7 pattern texts
 🤖 LLMService initialized with local provider
-🔧 Attempting to initialize Qdrant at ./qdrant_data
-🔓 Removed stale lock file
-🔗 Successfully initialized embedded Qdrant at ./qdrant_data
-🔧 use_qdrant flag set to: True
-💾 VectorService initialized with 768 dimensions
-🧠 EmbeddingService initialized with local provider
-🤖 LLMService initialized with local provider
-❓ QuestionService initialized
-✅ Scan flow initialized successfully
-✅ Question service initialized successfully
-🔍 Starting scan for: https://github.com/spring-projects/spring-petclinic
-🚀 Starting CodeGates Scan Process
-📁 Repository: https://github.com/spring-projects/spring-petclinic
-🌿 Branch: main
-📥 Step 1: Repository Checkout and extract metadata (including CD repos)
-✅ Repository cloned to: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205939
-🔍 Attempting to clone CD repository: https://github.com/spring-projects/spring-petclinic-cd
-❌ Repository clone failed: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_205946'...
-remote: Repository not found.
-fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
-
-⚠️ CD repository not found or failed to clone: Git clone failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic-cd_20250824_205946'...
-remote: Repository not found.
-fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
-
-✅ Main repository checked out: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205939
-📊 Main repository info: 108 files, 19526 lines
-🔍 Starting vectorization for scan: test_manual_fix
-📁 Main repo: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205939
-📊 Main collection: repo_test_manual_fix
-🔍 Processing main repository files...
-✅ Main repository: 2086 chunks created
-🧠 Generating embeddings...
-✅ Generated embeddings for batch 1/42
-✅ Generated embeddings for batch 2/42
-✅ Generated embeddings for batch 3/42
-✅ Generated embeddings for batch 4/42
-✅ Generated embeddings for batch 5/42
-✅ Generated embeddings for batch 6/42
-✅ Generated embeddings for batch 7/42
-✅ Generated embeddings for batch 8/42
-✅ Generated embeddings for batch 9/42
-✅ Generated embeddings for batch 10/42
-✅ Generated embeddings for batch 11/42
-✅ Generated embeddings for batch 12/42
-✅ Generated embeddings for batch 13/42
-✅ Generated embeddings for batch 14/42
-✅ Generated embeddings for batch 15/42
-✅ Generated embeddings for batch 16/42
-✅ Generated embeddings for batch 17/42
-✅ Generated embeddings for batch 18/42
-✅ Generated embeddings for batch 19/42
-✅ Generated embeddings for batch 20/42
-✅ Generated embeddings for batch 21/42
-✅ Generated embeddings for batch 22/42
-✅ Generated embeddings for batch 23/42
-✅ Generated embeddings for batch 24/42
-✅ Generated embeddings for batch 25/42
-✅ Generated embeddings for batch 26/42
-✅ Generated embeddings for batch 27/42
-✅ Generated embeddings for batch 28/42
-✅ Generated embeddings for batch 29/42
-✅ Generated embeddings for batch 30/42
-✅ Generated embeddings for batch 31/42
-✅ Generated embeddings for batch 32/42
-✅ Generated embeddings for batch 33/42
-✅ Generated embeddings for batch 34/42
-✅ Generated embeddings for batch 35/42
-✅ Generated embeddings for batch 36/42
-✅ Generated embeddings for batch 37/42
-✅ Generated embeddings for batch 38/42
-✅ Generated embeddings for batch 39/42
-✅ Generated embeddings for batch 40/42
-✅ Generated embeddings for batch 41/42
-✅ Generated embeddings for batch 42/42
-💾 Storing vectors in database...
-🔍 About to store 2086 vectors in collection: repo_test_manual_fix
-✅ Successfully stored 2086 vectors in main collection: repo_test_manual_fix
-📊 Collection repo_test_manual_fix now has 2086 vectors
-✅ Vectorization completed successfully
-📊 Total chunks processed: 2086
-📊 Total vectors stored: 2086
-🤖 Step 3: LLM Pre-Analysis (Dynamic Patterns)
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-   📞 Calling LLM service...
-   📝 LLM response received (2650 chars)
-   🔍 Parsing LLM response...
-🔍 LLM Response preview: {
-    "patterns": [
-        {
-            "gate_id": "1.6",
-            "name": "Log API Calls",
-            "description": "Log REST API calls to capture external component interaction for troubleshooting",
-            "pattern": "rest|api.*call|http.*request",
-            "severity": "HIGH",
-     ...
-🔍 Extracted JSON string: {
-    "patterns": [
-        {
-            "gate_id": "1.6",
-            "name": "Log API Calls",
-            "description": "Log REST API calls to capture external component interaction for troublesho...
-✅ Successfully parsed 6 patterns from LLM response (strategy 1)
-✅ Generated 6 dynamic patterns (took 11.64s)
-🔧 Step 4: Pattern Consolidation
-✅ Pattern consolidation completed: 70 patterns
-🔍 Step 5: Expected Implementation Calculation (including CD repos)
-✅ Expected implementations calculated for 5 patterns (50 total implementations)
-📁 Step 6: File Scanning & Pattern & AST parser based Matching (including CD repos)
-🔍 Scanning main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205939
-✅ File scanning completed: 5 patterns scanned, 104 total matches
-⚖️ Step 7: Gate Evaluation & Threshold Checking (including CD repos)
-✅ Gate evaluation completed: 5 gates evaluated (3 passed, 2 failed)
-🧠 Step 8: LLM Post-Analysis with Contextual Recommendations
-✅ Loaded 16 gates in scope
-✅ Loaded 9 prompt templates from prompt library
-📝 Prompt Service loaded: 9 prompt templates
-✅ LLM post-analysis completed: 2 recommendations generated
-📊 Step 9: Report Generation
-🔧 Attempting to initialize Qdrant at ./qdrant_data
-🔓 Removed stale lock file
-🔗 Successfully initialized embedded Qdrant at ./qdrant_data
-🔧 use_qdrant flag set to: True
-💾 VectorService initialized with 768 dimensions
-🧠 EmbeddingService initialized with local provider
-💾 HTML report saved: reports/test_manual_fix/codegates_report_test_manual_fix.html
-💾 JSON report saved: reports/test_manual_fix/codegates_report_test_manual_fix.json
-💾 Summary file saved: reports/test_manual_fix/report_summary_test_manual_fix.txt
-✅ Report generated: 3/5 gates passed
-📄 HTML report generated (36588 characters)
-💾 Reports saved to: {'html': 'reports/test_manual_fix/codegates_report_test_manual_fix.html', 'json': 'reports/test_manual_fix/codegates_report_test_manual_fix.json', 'summary': 'reports/test_manual_fix/report_summary_test_manual_fix.txt'}
-💾 Step 10: Agentic Storage for Future Use
-✅ Scan result stored in vector database: scan_test_manual_fix
-🧹 Cleaned up: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205939
-✅ Scan process completed successfully
-INFO:     127.0.0.1:60378 - "POST /api/v1/scan HTTP/1.1" 200 OK
+❌ Failed to initialize scan flow: unexpected indent (scan_nodes.py, line 1211)
+❌ Scan failed: 503: Scan flow not initialized
+INFO:     127.0.0.1:63334 - "POST /api/v1/scan HTTP/1.1" 500 Internal Server Error
+❌ Scan failed: 503: Scan flow not initialized
+INFO:     127.0.0.1:63346 - "POST /api/v1/scan HTTP/1.1" 500 Internal Server Error
+❌ Scan failed: 503: Scan flow not initialized
+INFO:     127.0.0.1:63355 - "POST /api/v1/scan HTTP/1.1" 500 Internal Server Error
 WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [13435]
-INFO:     Started server process [14266]
+INFO:     Finished server process [40587]
+INFO:     Started server process [42746]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 WARNING:  StatReload detected changes in 'flow/scan_nodes.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [14266]
-INFO:     Started server process [14720]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.

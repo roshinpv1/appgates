@@ -155,13 +155,12 @@ class VectorizationNode(AsyncNode):
             if cd_repo_path:
                 print(f"📁 CD repo: {cd_repo_path}")
             
-            # Generate collection names using scan_id for consistency
-            main_collection_name = f"repo_{scan_id}"
-            cd_collection_name = f"repo_{scan_id}_cd" if cd_repo_path else None
+            # Generate single collection name using scan_id for consistency
+            collection_name = f"repo_{scan_id}"
             
-            print(f"📊 Main collection: {main_collection_name}")
-            if cd_collection_name:
-                print(f"📊 CD collection: {cd_collection_name}")
+            print(f"📊 Collection: {collection_name}")
+            if cd_repo_path:
+                print(f"📁 Will include both main and CD repositories in single collection")
             
             # Process main repository
             print(f"🔍 Processing main repository files...")
@@ -242,48 +241,34 @@ class VectorizationNode(AsyncNode):
                 }
                 vectors.append(vector_data)
             
-            # Store main repository vectors
-            if main_chunks:
-                main_vectors = [v for v in vectors if v["payload"]["repo_type"] == "main"]
-                if main_vectors:
-                    try:
-                        print(f"🔍 About to store {len(main_vectors)} vectors in collection: {main_collection_name}")
-                        success = self.vector_service.upsert_vectors(main_collection_name, main_vectors)
-                        if success:
-                            print(f"✅ Successfully stored {len(main_vectors)} vectors in main collection: {main_collection_name}")
-                            
-                            # Verify storage by checking collection info
-                            collection_info = self.vector_service.get_collection_info(main_collection_name)
-                            if collection_info:
-                                print(f"📊 Collection {main_collection_name} now has {collection_info.get('count', 0)} vectors")
-                            else:
-                                print(f"⚠️ Could not verify collection info for {main_collection_name}")
+            # Store all vectors in single collection
+            if vectors:
+                try:
+                    print(f"🔍 About to store {len(vectors)} vectors in collection: {collection_name}")
+                    success = self.vector_service.upsert_vectors(collection_name, vectors)
+                    if success:
+                        print(f"✅ Successfully stored {len(vectors)} vectors in collection: {collection_name}")
+                        
+                        # Verify storage by checking collection info
+                        collection_info = self.vector_service.get_collection_info(collection_name)
+                        if collection_info:
+                            print(f"📊 Collection {collection_name} now has {collection_info.get('count', 0)} vectors")
                         else:
-                            print(f"❌ Failed to store main vectors in {main_collection_name}")
-                            return "error"
-                    except Exception as e:
-                        print(f"❌ Failed to store main vectors: {e}")
-                        import traceback
-                        traceback.print_exc()
+                            print(f"⚠️ Could not verify collection info for {collection_name}")
+                    else:
+                        print(f"❌ Failed to store vectors in {collection_name}")
                         return "error"
-            
-            # Store CD repository vectors
-            if cd_chunks and cd_collection_name:
-                cd_vectors = [v for v in vectors if v["payload"]["repo_type"] == "cd"]
-                if cd_vectors:
-                    try:
-                        self.vector_service.upsert_vectors(cd_collection_name, cd_vectors)
-                        print(f"✅ Stored {len(cd_vectors)} vectors in CD collection")
-                    except Exception as e:
-                        print(f"❌ Failed to store CD vectors: {e}")
-                        return "error"
+                except Exception as e:
+                    print(f"❌ Failed to store vectors: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return "error"
             
             # Store vector data in context
             if hasattr(self, 'context') and self.context is not None:
                 self.context.vector_data = {
                     "scan_id": scan_id,
-                    "main_collection_name": main_collection_name,
-                    "cd_collection_name": cd_collection_name,
+                    "collection_name": collection_name,
                     "main_chunks_count": len(main_chunks),
                     "cd_chunks_count": len(cd_chunks),
                     "total_vectors_stored": len(vectors)
@@ -891,6 +876,15 @@ Focus on patterns relevant to the project's technology stack and domain. Generat
                 "category": "AUDITABILITY",
                 "examples": ["log masking", "sensitive data redaction", "password masking"]
             },
+            {
+                "gate_id": "2.7",
+                "name": "UI Error Handling",
+                "description": "Critical and error log messages from client devices",
+                "pattern": r"ui.*error|client.*error|browser.*error|mobile.*error|frontend.*error",
+                "severity": "MEDIUM",
+                "category": "AUDITABILITY",
+                "examples": ["UI error handling", "client error logging", "browser error tracking"]
+            },
             # Error Handling Hard Gates
             {
                 "gate_id": "1.1",
@@ -909,6 +903,15 @@ Focus on patterns relevant to the project's technology stack and domain. Generat
                 "severity": "HIGH",
                 "category": "ERROR_HANDLING",
                 "examples": ["HTTP status codes", "error response codes", "status code handling"]
+            },
+            {
+                "gate_id": "2.4",
+                "name": "Include Client error tracking",
+                "description": "Include client error tracking for monitoring",
+                "pattern": r"client.*error|error.*tracking|client.*tracking|error.*monitoring",
+                "severity": "MEDIUM",
+                "category": "ERROR_HANDLING",
+                "examples": ["client error tracking", "error monitoring", "client tracking"]
             },
             # Availability Hard Gates
             {
@@ -1054,39 +1057,155 @@ class PatternConsolidationNode(AsyncNode):
     
     def _load_static_patterns(self) -> List[Dict[str, Any]]:
         """Load static patterns from library"""
-        # Simplified static patterns - in real implementation, load from file
+        # Comprehensive static patterns for all hard gates
         return [
+            # Auditability Hard Gates
             {
-                "gate_id": "security_auth",
-                "name": "Authentication Check",
-                "description": "Check for proper authentication implementation",
-                "pattern": r"(?:auth|login|authenticate|verify)",
+                "gate_id": "1.1",
+                "name": "Logs Searchable/Available",
+                "description": "Logs are searchable and available for both the platform and development team",
+                "pattern": r"log|logger|logging|syslog|centralized.*log",
                 "severity": "HIGH",
-                "category": "SECURITY"
+                "category": "AUDITABILITY",
+                "examples": ["logging configuration", "centralized logging", "log aggregation"]
             },
             {
-                "gate_id": "security_password",
-                "name": "Password Security",
-                "description": "Check for secure password handling",
-                "pattern": r"password\s*=\s*['\"][^'\"]*['\"]",
+                "gate_id": "1.3",
+                "name": "Audit Trail",
+                "description": "Maintain logs of user and system activity",
+                "pattern": r"audit|audit.*trail|user.*activity|system.*activity",
                 "severity": "HIGH",
-                "category": "SECURITY"
+                "category": "AUDITABILITY",
+                "examples": ["audit trail", "user activity logging", "system audit"]
             },
             {
-                "gate_id": "performance_cache",
-                "name": "Caching Implementation",
-                "description": "Check for caching mechanisms",
-                "pattern": r"(?:cache|redis|memcached)",
+                "gate_id": "1.5",
+                "name": "Implement tracking ID for log messages",
+                "description": "Log messages include a tracking ID where possible",
+                "pattern": r"tracking.*id|request.*id|correlation.*id|trace.*id",
                 "severity": "MEDIUM",
-                "category": "PERFORMANCE"
+                "category": "AUDITABILITY",
+                "examples": ["request tracking", "correlation ID", "trace ID"]
             },
             {
-                "gate_id": "quality_logging",
-                "name": "Logging Implementation",
-                "description": "Check for proper logging",
-                "pattern": r"(?:log|logger|logging)",
+                "gate_id": "1.6",
+                "name": "Log API Calls",
+                "description": "Log REST API calls to capture external component interaction",
+                "pattern": r"api.*log|rest.*log|http.*log|request.*log",
+                "severity": "HIGH",
+                "category": "AUDITABILITY",
+                "examples": ["API logging", "REST call logging", "HTTP request logging"]
+            },
+            {
+                "gate_id": "1.8",
+                "name": "Log Application Messages",
+                "description": "Log application messages with standard log libraries",
+                "pattern": r"log.*library|logging.*framework|app.*log|application.*log",
+                "severity": "HIGH",
+                "category": "AUDITABILITY",
+                "examples": ["logging library", "application logging", "log framework"]
+            },
+            {
+                "gate_id": "1.10",
+                "name": "Avoid Logging Sensitive Data",
+                "description": "Prevent logging confidential and/or restricted data",
+                "pattern": r"mask.*log|redact.*log|sensitive.*data|password.*log|token.*log",
+                "severity": "CRITICAL",
+                "category": "AUDITABILITY",
+                "examples": ["log masking", "sensitive data redaction", "password masking"]
+            },
+            {
+                "gate_id": "2.7",
+                "name": "UI Error Handling",
+                "description": "Critical and error log messages from client devices",
+                "pattern": r"ui.*error|client.*error|browser.*error|mobile.*error|frontend.*error",
                 "severity": "MEDIUM",
-                "category": "OBSERVABILITY"
+                "category": "AUDITABILITY",
+                "examples": ["UI error handling", "client error logging", "browser error tracking"]
+            },
+            # Error Handling Hard Gates
+            {
+                "gate_id": "1.1",
+                "name": "Log system errors",
+                "description": "Log system errors for troubleshooting",
+                "pattern": r"error.*log|system.*error|exception.*log|crash.*log",
+                "severity": "HIGH",
+                "category": "ERROR_HANDLING",
+                "examples": ["error logging", "system error handling", "exception logging"]
+            },
+            {
+                "gate_id": "1.3",
+                "name": "Use HTTP standard error codes",
+                "description": "All APIs must return standardized HTTP status codes",
+                "pattern": r"http.*status|status.*code|error.*code|response.*code",
+                "severity": "HIGH",
+                "category": "ERROR_HANDLING",
+                "examples": ["HTTP status codes", "error response codes", "status code handling"]
+            },
+            {
+                "gate_id": "2.4",
+                "name": "Include Client error tracking",
+                "description": "Include client error tracking for monitoring",
+                "pattern": r"client.*error|error.*tracking|client.*tracking|error.*monitoring",
+                "severity": "MEDIUM",
+                "category": "ERROR_HANDLING",
+                "examples": ["client error tracking", "error monitoring", "client tracking"]
+            },
+            # Availability Hard Gates
+            {
+                "gate_id": "1.5",
+                "name": "Timeouts",
+                "description": "Set timeouts on I/O operations to prevent waiting",
+                "pattern": r"timeout|time.*out|connection.*timeout|request.*timeout",
+                "severity": "HIGH",
+                "category": "AVAILABILITY",
+                "examples": ["connection timeout", "request timeout", "I/O timeout"]
+            },
+            {
+                "gate_id": "1.12",
+                "name": "Retry Logic",
+                "description": "Use retry logic to handle system failures",
+                "pattern": r"retry|retry.*logic|retry.*mechanism|retry.*policy",
+                "severity": "HIGH",
+                "category": "AVAILABILITY",
+                "examples": ["retry logic", "retry mechanism", "retry policy"]
+            },
+            {
+                "gate_id": "3.6",
+                "name": "Throttling, drop request",
+                "description": "Throttling requests when capacity limit is reached",
+                "pattern": r"throttle|throttling|rate.*limit|request.*limit",
+                "severity": "MEDIUM",
+                "category": "AVAILABILITY",
+                "examples": ["request throttling", "rate limiting", "throttle mechanism"]
+            },
+            {
+                "gate_id": "3.9",
+                "name": "Set circuit breakers on outgoing requests",
+                "description": "Circuit breaker to detect failures and prevent reoccurring",
+                "pattern": r"circuit.*breaker|circuit.*break|breaker.*pattern",
+                "severity": "HIGH",
+                "category": "AVAILABILITY",
+                "examples": ["circuit breaker", "circuit break pattern", "breaker implementation"]
+            },
+            {
+                "gate_id": "3.18",
+                "name": "Auto Scale",
+                "description": "System can automatically scale based on usage telemetry",
+                "pattern": r"auto.*scale|auto.*scaling|scale.*up|scale.*down",
+                "severity": "MEDIUM",
+                "category": "AVAILABILITY",
+                "examples": ["auto scaling", "scale up/down", "automatic scaling"]
+            },
+            # Testing Hard Gates
+            {
+                "gate_id": "2",
+                "name": "Automated Regression Testing",
+                "description": "Regression test cases must cover all critical areas",
+                "pattern": r"regression.*test|automated.*test|test.*suite|test.*coverage",
+                "severity": "HIGH",
+                "category": "TESTING",
+                "examples": ["regression testing", "automated tests", "test coverage"]
             }
         ]
     
@@ -1121,18 +1240,21 @@ class ExpectedImplementationNode(AsyncNode):
             patterns = prep_res["patterns"]
             
             scan_id = vector_data["scan_id"]
-            main_collection_name = vector_data["main_collection_name"]
-            cd_collection_name = vector_data.get("cd_collection_name")
+            collection_name = vector_data["collection_name"]
             consolidated_patterns = patterns["consolidated"]
             
             expected_implementations = {}
             
-            # Define hard gates to filter
+            # Define all hard gates from the prompt library
             hard_gates = {
-                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',  # Auditability
-                '2.4',  # Error Handling
-                '1.12', '3.6', '3.9', '3.18',  # Availability
-                '2'  # Testing
+                # Auditability gates
+                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
+                # Error Handling gates
+                '1.1', '1.3', '2.4',
+                # Availability gates
+                '1.5', '1.12', '3.6', '3.9', '3.18',
+                # Testing gates
+                '2'
             }
             
             # For each pattern, find expected implementations using semantic search
@@ -1148,54 +1270,42 @@ class ExpectedImplementationNode(AsyncNode):
                 query_embedding = self.embedding_service.embed_single(query)
                 
                 if query_embedding:
-                    # Search main repository
-                    main_results = self.vector_service.search_similar(
-                        collection_name=main_collection_name,
+                    # Search single collection for both main and CD repositories
+                    all_results = self.vector_service.search_similar(
+                        collection_name=collection_name,
                         query_vector=query_embedding,
-                        limit=10,
+                        limit=20,  # Increased limit to get both main and CD results
                         score_threshold=0.5
                     )
                     
-                    # Search CD repository if available
+                    # Process results and separate by repo_type
+                    main_results = []
                     cd_results = []
-                    if cd_collection_name:
-                        cd_results = self.vector_service.search_similar(
-                            collection_name=cd_collection_name,
-                            query_vector=query_embedding,
-                            limit=10,
-                            score_threshold=0.5
-                        )
                     
-                    # Combine results
-                    all_results = []
-                    
-                    # Add main repository results
-                    for result in main_results:
-                        all_results.append({
+                    for result in all_results:
+                        repo_type = result.payload.get("repo_type", "main")
+                        result_data = {
                             "content": result.payload.get("content", ""),
                             "file_path": result.payload.get("file_path", ""),
-                            "repo_type": "main",
+                            "repo_type": repo_type,
                             "score": result.score
-                        })
+                        }
+                        
+                        if repo_type == "main":
+                            main_results.append(result_data)
+                        elif repo_type == "cd":
+                            cd_results.append(result_data)
                     
-                    # Add CD repository results
-                    for result in cd_results:
-                        all_results.append({
-                            "content": result.payload.get("content", ""),
-                            "file_path": result.payload.get("file_path", ""),
-                            "repo_type": "cd",
-                            "score": result.score
-                        })
-                    
-                    # Sort by score
-                    all_results.sort(key=lambda x: x["score"], reverse=True)
+                    # Combine and sort by score
+                    combined_results = main_results + cd_results
+                    combined_results.sort(key=lambda x: x["score"], reverse=True)
                     
                     expected_implementations[pattern["gate_id"]] = {
                         "pattern": pattern,
-                        "expected_count": len(all_results),
+                        "expected_count": len(combined_results),
                         "main_implementations": len(main_results),
                         "cd_implementations": len(cd_results),
-                        "similar_implementations": all_results[:15]  # Top 15 combined results
+                        "similar_implementations": combined_results[:15]  # Top 15 combined results
                     }
             
             # Store expected implementations
@@ -1247,12 +1357,16 @@ class FileScanningNode(AsyncNode):
             consolidated_patterns = patterns["consolidated"]
             scan_results = {}
             
-            # Define hard gates to filter
+            # Define all hard gates from the prompt library
             hard_gates = {
-                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',  # Auditability
-                '2.4',  # Error Handling
-                '1.12', '3.6', '3.9', '3.18',  # Availability
-                '2'  # Testing
+                # Auditability gates
+                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
+                # Error Handling gates
+                '1.1', '1.3', '2.4',
+                # Availability gates
+                '1.5', '1.12', '3.6', '3.9', '3.18',
+                # Testing gates
+                '2'
             }
             
             # Filter patterns to only include hard gates
@@ -1403,12 +1517,16 @@ class GateEvaluationNode(AsyncNode):
             
             gate_results = []
             
-            # Define hard gates to filter
+            # Define all hard gates from the prompt library
             hard_gates = {
-                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',  # Auditability
-                '2.4',  # Error Handling
-                '1.12', '3.6', '3.9', '3.18',  # Availability
-                '2'  # Testing
+                # Auditability gates
+                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
+                # Error Handling gates
+                '1.1', '1.3', '2.4',
+                # Availability gates
+                '1.5', '1.12', '3.6', '3.9', '3.18',
+                # Testing gates
+                '2'
             }
             
             for gate_id, scan_result in scan_results.items():

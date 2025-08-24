@@ -1,0 +1,170 @@
+{
+  "scan_id": "test_all_gates",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-24T23:00:31.210010",
+  "total_gates": 5,
+  "passed_gates": 1,
+  "failed_gates": 3,
+  "partial_gates": 0,
+  "skipped_gates": 1,
+  "risk_score": 0.6,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "1.6",
+      "gate_name": "Log API Calls",
+      "status": "fail",
+      "expected_count": 20,
+      "actual_count": 5,
+      "threshold": 10,
+      "patterns_found": [
+        "https://github.com/spring-projects/spring-petclinic/issues) is the preferred channel for bug reports, feature requests and submitting pull request",
+        "http.Request",
+        "http.Request",
+        "http.Request",
+        "http.Request"
+      ],
+      "recommendations": [
+        "Implement Log API Calls to improve quality"
+      ],
+      "confidence_score": 0.25,
+      "reasoning": "Found 5 implementations, below expected 20"
+    },
+    {
+      "gate_id": "1.8",
+      "gate_name": "Log Application Messages",
+      "status": "fail",
+      "expected_count": 20,
+      "actual_count": 1,
+      "threshold": 10,
+      "patterns_found": [
+        "logic to include english strings, hence message"
+      ],
+      "recommendations": [
+        "Implement Log Application Messages to improve quality"
+      ],
+      "confidence_score": 0.05,
+      "reasoning": "Found 1 implementations, below expected 20"
+    },
+    {
+      "gate_id": "1.10",
+      "gate_name": "Avoid Logging Sensitive Data",
+      "status": "pass",
+      "expected_count": 20,
+      "actual_count": 22,
+      "threshold": 5,
+      "patterns_found": [
+        "PASSWORD - user and password for downloading maven",
+        "PASSWORD=",
+        "PASSWORD) {",
+        "PASSWORD)",
+        "PASSWORD=petclinic -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=petclinic -p 3306:3306 mysql:9.2"
+      ],
+      "recommendations": [
+        "Good implementation of Avoid Logging Sensitive Data"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "Found 22 implementations, meeting expected 20"
+    },
+    {
+      "gate_id": "2.4",
+      "gate_name": "Include Client error tracking",
+      "status": "fail",
+      "expected_count": 20,
+      "actual_count": 3,
+      "threshold": 6,
+      "patterns_found": [
+        "https://www.thymeleaf.org\" th:replace=\"~{fragments/layout :: layout (~{::body},'error",
+        "HttpStatus.INTERNAL_SERVER_ERROR",
+        "HttpStatus.INTERNAL_SERVER_ERROR"
+      ],
+      "recommendations": [
+        "Implement Include Client error tracking to improve quality"
+      ],
+      "confidence_score": 0.15,
+      "reasoning": "Found 3 implementations, below expected 20"
+    },
+    {
+      "gate_id": "3.9",
+      "gate_name": "Set circuit breakers on outgoing requests",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 10,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Set circuit breakers on outgoing requests"
+    }
+  ],
+  "recommendations": [
+    "Improve Log API Calls: Implement Log API Calls to address log api calls concerns",
+    "Improve Log Application Messages: Implement Log Application Messages to address log application messages concerns",
+    "Improve Include Client error tracking: Implement Include Client error tracking to address include client error tracking concerns"
+  ],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_225928",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "Project analysis for https://github.com/spring-projects/spring-petclinic reveals a comprehensive technology stack. The codebase contains devcontainer/dockerfile, txt, bat, java, yml file types. The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.",
+      "technologies": [],
+      "frameworks": [],
+      "file_types": [
+        "devcontainer/dockerfile",
+        "txt",
+        "bat",
+        "java",
+        "yml",
+        "scss",
+        "properties",
+        "jmx",
+        "json",
+        "css",
+        "xml",
+        "md",
+        "gradle",
+        "editorconfig",
+        "cmd",
+        "sql"
+      ],
+      "dependencies": [],
+      "architecture_patterns": [],
+      "security_features": [],
+      "testing_frameworks": [],
+      "build_tools": [],
+      "deployment_configs": [],
+      "database_technologies": [],
+      "monitoring_tools": [],
+      "has_cd_repo": false,
+      "total_files_analyzed": 211
+    }
+  }
+}
