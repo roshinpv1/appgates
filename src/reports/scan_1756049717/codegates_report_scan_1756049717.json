@@ -1,0 +1,208 @@
+{
+  "scan_id": "scan_1756049717",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-24T21:06:25.588341",
+  "total_gates": 10,
+  "passed_gates": 1,
+  "failed_gates": 2,
+  "partial_gates": 0,
+  "skipped_gates": 7,
+  "risk_score": 0.2,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "1.3",
+      "gate_name": "Use HTTP standard error codes",
+      "status": "pass",
+      "expected_count": 10,
+      "actual_count": 31,
+      "threshold": 5,
+      "patterns_found": [
+        "s://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build ",
+        "s://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/spring-projects/spring-petclinic) [![Open in GitHub ",
+        "s://github.com/",
+        "s://github.com/",
+        "s://"
+      ],
+      "recommendations": [
+        "Good implementation of Use HTTP standard error codes"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "Found 31 implementations, meeting expected 10"
+    },
+    {
+      "gate_id": "1.5",
+      "gate_name": "Implement tracking ID for log messages",
+      "status": "fail",
+      "expected_count": 10,
+      "actual_count": 2,
+      "threshold": 3,
+      "patterns_found": [
+        "Mapping(\"/owners/{owner",
+        "Builders.post(\"/owners/{owner"
+      ],
+      "recommendations": [
+        "Implement Implement tracking ID for log messages to improve quality"
+      ],
+      "confidence_score": 0.2,
+      "reasoning": "Found 2 implementations, below expected 10"
+    },
+    {
+      "gate_id": "1.6",
+      "gate_name": "Log API Calls",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 5,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Log API Calls"
+    },
+    {
+      "gate_id": "1.8",
+      "gate_name": "Log Application Messages",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 5,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Log Application Messages"
+    },
+    {
+      "gate_id": "1.10",
+      "gate_name": "Avoid Logging Sensitive Data",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 2,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Avoid Logging Sensitive Data"
+    },
+    {
+      "gate_id": "2.4",
+      "gate_name": "Include Client error tracking",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 3,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Include Client error tracking"
+    },
+    {
+      "gate_id": "1.1",
+      "gate_name": "Log system errors",
+      "status": "fail",
+      "expected_count": 10,
+      "actual_count": 2,
+      "threshold": 5,
+      "patterns_found": [
+        "_",
+        "_"
+      ],
+      "recommendations": [
+        "Implement Log system errors to improve quality"
+      ],
+      "confidence_score": 0.2,
+      "reasoning": "Found 2 implementations, below expected 10"
+    },
+    {
+      "gate_id": "3.6",
+      "gate_name": "Throttling, drop request",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 3,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Throttling, drop request"
+    },
+    {
+      "gate_id": "3.9",
+      "gate_name": "Set circuit breakers on outgoing requests",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 5,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Set circuit breakers on outgoing requests"
+    },
+    {
+      "gate_id": "3.18",
+      "gate_name": "Auto Scale",
+      "status": "skipped",
+      "expected_count": 10,
+      "actual_count": 0,
+      "threshold": 3,
+      "patterns_found": [],
+      "recommendations": [],
+      "confidence_score": 0.0,
+      "reasoning": "No implementations found for Auto Scale"
+    }
+  ],
+  "recommendations": [
+    "Improve Implement tracking ID for log messages: Implement Implement tracking ID for log messages to address implement tracking id for log messages concerns",
+    "Improve Log system errors: Implement Log system errors to address log system errors concerns"
+  ],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_210517",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "Project analysis for https://github.com/spring-projects/spring-petclinic reveals a The codebase contains gradle, devcontainer/dockerfile, java, cmd, yml files. The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.",
+      "technologies": [],
+      "frameworks": [],
+      "file_types": [
+        "gradle",
+        "devcontainer/dockerfile",
+        "java",
+        "cmd",
+        "yml",
+        "sql",
+        "md",
+        "txt",
+        "properties",
+        "xml"
+      ],
+      "dependencies": [],
+      "has_cd_repo": false,
+      "total_files_analyzed": 42
+    }
+  }
+}

@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_vector_fix
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-24 19:20:44.430003
+
+Results Summary:
+- Total Gates: 11
+- Passed: 11
+- Failed: 0
+- Partial: 0
+- Skipped: 0
+- Risk Score: 0.00
+
+Report Files:
+- HTML Report: codegates_report_test_vector_fix.html
+- JSON Report: codegates_report_test_vector_fix.json
+- Summary: report_summary_test_vector_fix.txt
+
+Report Directory: reports/test_vector_fix
+
+Generated on: 2025-08-24T19:20:44.430744

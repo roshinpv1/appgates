@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hard Gate Assessment (Enhanced Scan) - APP ID - spring-projects/spring-petclinic (main)</title>
+    <style>
+        
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f3f4f6; }
+        h1 { font-size: 2em; color: #1f2937; border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 30px; }
+        h2 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 40px; }
+        h3 { color: #374151; margin-top: 30px; }
+        
+        /* Report Badge Styles */
+        .report-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 15px;
+        }
+        .summary-badge { background: #059669; color: #fff; }
+        
+        /* Summary Stats */
+        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+        .stat-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #6b7280; margin-top: 5px; }
+        
+        /* Compliance Bar */
+        .compliance-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .compliance-fill { height: 100%; background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); transition: width 0.3s ease; }
+        
+        /* Risk Score */
+        .risk-score { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; margin: 20px 0; }
+        .risk-number { font-size: 3em; font-weight: bold; color: #dc2626; }
+        .risk-label { color: #6b7280; margin-top: 5px; font-weight: 600; }
+        .risk-description { color: #374151; margin-top: 10px; }
+        
+        /* Gates Analysis Styling */
+        .gates-analysis { margin-top: 30px; }
+        .gate-category-section { margin-bottom: 40px; }
+        .category-title {
+            color: #1f2937;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .category-content {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; margin: 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #2563eb; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        tr:hover { background: #f9fafb; }
+        
+        /* Status Styles */
+        .status-pass { color: #059669 !important; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-warning { color: #d97706 !important; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-fail { color: #dc2626 !important; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not_applicable { color: #6b7280 !important; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        
+        /* Expandable Details Styling */
+        .details-toggle {
+            background: none;
+            border: none;
+            color: #2563eb;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 1.1em;
+            transition: transform 0.2s;
+        }
+        .details-toggle:hover { color: #1d4ed8; }
+        .details-toggle[aria-expanded="true"] { transform: rotate(45deg); }
+        
+        .gate-details {
+            display: none;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            padding: 0;
+            margin: 0;
+        }
+        .gate-details[aria-hidden="false"] { display: table-row; }
+        
+        .details-content {
+            padding: 16px;
+            color: #4b5563;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* Recommendations */
+        .recommendations-section { margin-top: 30px; }
+        .recommendation-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        .recommendation-meta {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .recommendation-type, .recommendation-priority, .recommendation-confidence {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        .recommendation-type { background: #e0f2fe; color: #0277bd; }
+        .recommendation-priority { background: #fff3e0; color: #f57c00; }
+        .recommendation-confidence { background: #f3e5f5; color: #7b1fa2; }
+        
+        /* Hard Gate Styling */
+        .hard-gate-row {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+        }
+        .hard-gate-row:hover {
+            background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+        }
+        .hard-gate-badge {
+            background: #dc2626;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .hard-gate-row .details-content {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        /* Project Summary Styling */
+        .project-summary-section {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .project-description {
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+        
+        .project-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .detail-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .detail-card h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+        
+        .tech-tags, .file-type-tags, .dependency-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .tech-tag, .file-type-tag, .dependency-tag {
+            background: #2563eb;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .file-type-tag {
+            background: #059669;
+        }
+        
+        .dependency-tag {
+            background: #7c3aed;
+        }
+        
+        .no-data {
+            color: #6b7280;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+        
+        .stats-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+        
+        .stat-value {
+            color: #1f2937;
+            font-weight: 600;
+        }
+        
+    </style>
+    <script>
+    function toggleDetails(button, detailsId) {
+        const details = document.getElementById(detailsId);
+        const isExpanded = button.getAttribute('aria-expanded') === 'true';
+        
+        button.setAttribute('aria-expanded', !isExpanded);
+        details.setAttribute('aria-hidden', isExpanded);
+        
+        // Smooth scroll to expanded content
+        if (!isExpanded) {
+            setTimeout(() => {
+                details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="report-container">
+        <div class="report-header">
+            <h1>APP ID - spring-projects/spring-petclinic (main)</h1>
+            <div class="report-badge summary-badge">Enhanced Scan Report</div>
+            <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
+        </div>
+        
+        <h2>Executive Summary</h2>
+        
+        <div class="hard-gates-notice" style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="color: #92400e; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5em;">⚠️</span>
+                Hard Gates Assessment - Primary Focus
+            </h3>
+            <p style="color: #92400e; margin-bottom: 0; font-weight: 500;">
+                This report focuses on the evaluation of <strong>16 critical hard gates</strong> across Auditability, Error Handling, Availability, and Testing categories. 
+                These gates represent the primary compliance requirements and must be addressed for production deployment.
+            </p>
+        </div>
+        
+        
+        <h2>Project Summary</h2>
+        
+        <div class="project-summary-section">
+            <div class="summary-content">
+                <p class="project-description">Project analysis for https://github.com/spring-projects/spring-petclinic reveals a The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.</p>
+            </div>
+            
+            <div class="project-details-grid">
+                <div class="detail-card">
+                    <h4>Technologies</h4>
+                    <div class="tech-tags">
+                        <span class="no-data">No technologies detected</span>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>File Types</h4>
+                    <div class="file-type-tags">
+                        <span class="no-data">No file types detected</span>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Key Dependencies</h4>
+                    <div class="dependency-tags">
+                        <span class="no-data">No dependencies detected</span>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Analysis Stats</h4>
+                    <div class="stats-info">
+                        <div class="stat-item">
+                            <span class="stat-label">Files Analyzed:</span>
+                            <span class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">CD Repository:</span>
+                            <span class="stat-value">No</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-number">11</div>
+                <div class="stat-label">Total Gates Evaluated</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">2</div>
+                <div class="stat-label">Gates Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">2</div>
+                <div class="stat-label">Partially Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">2</div>
+                <div class="stat-label">Not Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">5</div>
+                <div class="stat-label">Not Applicable</div>
+            </div>
+        </div>
+        
+        <h3>Overall Compliance</h3>
+        <div class="compliance-bar">
+            <div class="compliance-fill" style="width: 33.3%"></div>
+        </div>
+        <p><strong>33.3% Hard Gates Compliance</strong></p>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
+            <em>Percentage calculated based on 6 applicable gates (excluding 5 N/A gates)</em>
+        </p>
+        
+        <h2>Hard Gates Analysis</h2>
+        <div class="gates-analysis">
+                <div class="gate-category-section">
+                    <h3 class="category-title">Auditability</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.1-0')" aria-expanded="false" aria-label="Show details for Log system errors">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.1</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Log system errors</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-fail">FAIL</span></td>
+                                        <td>2 implementations found</td>
+                                        <td>Implement required</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.1-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 2
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.20
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 2 implementations, below expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>error_log</code></li><li><code>error_log</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement Log system errors to improve quality</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.10-1')" aria-expanded="false" aria-label="Show details for Avoid Logging Sensitive Data">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.10</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Avoid Logging Sensitive Data</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.10-1" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 2
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>No implementations found for Avoid Logging Sensitive Data</p>
+                                            </div>
+                                            
+                                            
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.3-2')" aria-expanded="false" aria-label="Show details for Use HTTP standard error codes">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.3</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Use HTTP standard error codes</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>22 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.3-2" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 22
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 22 implementations, meeting expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status</code></li><li><code>http.HttpStatus</code></li><li><code>StatusCode</code></li><li><code>HttpStatus</code></li><li><code>http.HttpStatus</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Good implementation of Use HTTP standard error codes</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.5-3')" aria-expanded="false" aria-label="Show details for Timeouts">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.5</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Timeouts</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>29 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.5-3" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 29
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 29 implementations, meeting expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>Timestamp>2024-11-28T14:37:52Z</project.build.out</code></li><li><code>Timeout</code></li><li><code>timeout</code></li><li><code>timeout</code></li><li><code>timeout</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Good implementation of Timeouts</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.6-4')" aria-expanded="false" aria-label="Show details for Log API Calls">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.6</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Log API Calls</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-fail">FAIL</span></td>
+                                        <td>2 implementations found</td>
+                                        <td>Implement required</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.6-4" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 2
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.20
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 2 implementations, below expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>https://github.com/spring-petclinic). If you are interested in using a different technolog</code></li><li><code>https://spring.io/blog</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement Log API Calls to improve quality</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.8-5')" aria-expanded="false" aria-label="Show details for Log Application Messages">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.8</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Log Application Messages</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-warning">PARTIAL</span></td>
+                                        <td>5 implementations found</td>
+                                        <td>Enhance implementation</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.8-5" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.50
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 5 implementations, partially meeting expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>logging.level.org.springframework</code></li><li><code>logging.level.org.springframework</code></li><li><code>logging.level.org.springframework</code></li><li><code>apper/Log</code></li><li><code>apperDistributionUrlConverter.classUT     PK     ! >    / 	           C  org/gradle/wrapper/BootstrapMainStarter$1.classUT     PK     ! 4>t*    A 	           E  org/gradle/wrapper/Download$DefaultDownloadProgressListener.classUT     PK     !     4 	           *I  org/gradle/wrapper/Download$ProxyAuthenticator.classUT     PK     ! Af	  *  ! 	           {L  org/gradle/wrapper/Download.classUT     PK     ! P    - 	           9V  org/gradle/wrapper/GradleUserHomeLookup.classUT     PK     ! U C%  )  * 	           vX  org/gradle/wrapper/GradleWrapperMain.classUT     PK     ! N!    " 	           m  org/gradle/wrapper/Install$1.classUT     PK     ! D;k    - 	           :z  org/gradle/wrapper/Install$InstallCheck.classUT     PK     ! 1"K  x    	           	|  org/gradle/wrapper/Install.classUT     PK     ! 	<     	           Y  org/gradle/wrapper/Log</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Enhance Log Application Messages implementation for better coverage</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="gate-category-section">
+                    <h3 class="category-title">Error Handling</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-error-handling-1.1-0')" aria-expanded="false" aria-label="Show details for Log system errors">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.1</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Log system errors</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-fail">FAIL</span></td>
+                                        <td>2 implementations found</td>
+                                        <td>Implement required</td>
+                                    </tr>
+                                    <tr id="details-error-handling-1.1-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 2
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.20
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 2 implementations, below expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>error_log</code></li><li><code>error_log</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement Log system errors to improve quality</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-error-handling-1.3-1')" aria-expanded="false" aria-label="Show details for Use HTTP standard error codes">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.3</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Use HTTP standard error codes</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>22 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-error-handling-1.3-1" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 22
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 22 implementations, meeting expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status</code></li><li><code>http.HttpStatus</code></li><li><code>StatusCode</code></li><li><code>HttpStatus</code></li><li><code>http.HttpStatus</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Good implementation of Use HTTP standard error codes</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="gate-category-section">
+                    <h3 class="category-title">Availability</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-1.12-0')" aria-expanded="false" aria-label="Show details for Retry Logic">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.12</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Retry Logic</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-1.12-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>No implementations found for Retry Logic</p>
+                                            </div>
+                                            
+                                            
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-1.5-1')" aria-expanded="false" aria-label="Show details for Timeouts">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.5</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Timeouts</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>29 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-availability-1.5-1" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 29
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 29 implementations, meeting expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>Timestamp>2024-11-28T14:37:52Z</project.build.out</code></li><li><code>Timeout</code></li><li><code>timeout</code></li><li><code>timeout</code></li><li><code>timeout</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Good implementation of Timeouts</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-3.18-2')" aria-expanded="false" aria-label="Show details for Auto Scale">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">3.18</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Auto Scale</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-warning">PARTIAL</span></td>
+                                        <td>6 implementations found</td>
+                                        <td>Enhance implementation</td>
+                                    </tr>
+                                    <tr id="details-availability-3.18-2" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 6
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 3
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.60
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>Found 6 implementations, partially meeting expected 10</p>
+                                            </div>
+                                            <h4>Patterns Found</h4><ul><li><code>scale-down</code></li><li><code>scale-down</code></li><li><code>scale-down</code></li><li><code>scale-down</code></li><li><code>scale-down</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Enhance Auto Scale implementation for better coverage</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-3.6-3')" aria-expanded="false" aria-label="Show details for Throttling, drop request">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">3.6</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Throttling, drop request</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-3.6-3" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 3
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>No implementations found for Throttling, drop request</p>
+                                            </div>
+                                            
+                                            
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-3.9-4')" aria-expanded="false" aria-label="Show details for Set circuit breakers on outgoing requests">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">3.9</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Set circuit breakers on outgoing requests</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-3.9-4" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>No implementations found for Set circuit breakers on outgoing requests</p>
+                                            </div>
+                                            
+                                            
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="gate-category-section">
+                    <h3 class="category-title">Testing</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-testing-2-0')" aria-expanded="false" aria-label="Show details for Automated Regression Testing">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">2</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Automated Regression Testing</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-testing-2-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 10
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 5
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>No implementations found for Automated Regression Testing</p>
+                                            </div>
+                                            
+                                            
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div></div>
+        
+        <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+            <p>Hard Gate Assessment Enhanced Scan Report generated on August 24, 2025 at 06:46 PM</p>
+        </footer>
+    </div>
+</body>
+</html>

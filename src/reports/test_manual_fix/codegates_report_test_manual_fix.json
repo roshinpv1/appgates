@@ -1,0 +1,165 @@
+{
+  "scan_id": "test_manual_fix",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-24T21:00:47.668630",
+  "total_gates": 5,
+  "passed_gates": 3,
+  "failed_gates": 2,
+  "partial_gates": 0,
+  "skipped_gates": 0,
+  "risk_score": 0.4,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "1.6",
+      "gate_name": "Log API Calls",
+      "status": "pass",
+      "expected_count": 10,
+      "actual_count": 31,
+      "threshold": 5,
+      "patterns_found": [
+        "rest",
+        "rest",
+        "https://github.com/spring-projects/spring-petclinic/issues) is the preferred channel for bug reports, feature requests and submitting pull request",
+        "Rest",
+        "http.Request"
+      ],
+      "recommendations": [
+        "Good implementation of Log API Calls"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "Found 31 implementations, meeting expected 10"
+    },
+    {
+      "gate_id": "1.8",
+      "gate_name": "Log Application Messages",
+      "status": "pass",
+      "expected_count": 10,
+      "actual_count": 32,
+      "threshold": 5,
+      "patterns_found": [
+        "essage>This build requires at least Java ${java.version}, update your JVM, and run the build again</message",
+        "or pull requests, editor preferences are available in the [editor config](.editorconfig) for easy use in common text editors. Read more and download plugins at <https://editorconfig.org>. All commits must include a __Signed-off-by__ trailer at the end of each commit message",
+        "ring.messages.basename=messages/message",
+        "resources().registerPattern(\"message",
+        "redirectAttributes.addFlashAttribute(\"message"
+      ],
+      "recommendations": [
+        "Good implementation of Log Application Messages"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "Found 32 implementations, meeting expected 10"
+    },
+    {
+      "gate_id": "2.4",
+      "gate_name": "Include Client error tracking",
+      "status": "fail",
+      "expected_count": 10,
+      "actual_count": 2,
+      "threshold": 3,
+      "patterns_found": [
+        "nd issue tracking",
+        "ndles loading language-specific messages, tracking"
+      ],
+      "recommendations": [
+        "Implement Include Client error tracking to improve quality"
+      ],
+      "confidence_score": 0.2,
+      "reasoning": "Found 2 implementations, below expected 10"
+    },
+    {
+      "gate_id": "3.6",
+      "gate_name": "Throttling, drop request",
+      "status": "pass",
+      "expected_count": 10,
+      "actual_count": 36,
+      "threshold": 3,
+      "patterns_found": [
+        "The [issue tracker](https://github.com/spring-projects/spring-petclinic/issues) is the preferred channel for bug reports, feature requests and submitting pull request",
+        "or pull request",
+        "echo \"Checksum validation was request",
+        "port org.springframework.data.domain.PageRequest",
+        "port org.springframework.web.bind.annotation.Request"
+      ],
+      "recommendations": [
+        "Good implementation of Throttling, drop request"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "Found 36 implementations, meeting expected 10"
+    },
+    {
+      "gate_id": "3.9",
+      "gate_name": "Set circuit breakers on outgoing requests",
+      "status": "fail",
+      "expected_count": 10,
+      "actual_count": 3,
+      "threshold": 5,
+      "patterns_found": [
+        "The [issue tracker](https://github.com/spring-projects/spring-petclinic/issues) is the preferred channel for bug reports, feature requests and submitting pull requests",
+        "r pull requests",
+        "Uses session storage to remember the user’s language setting across requests"
+      ],
+      "recommendations": [
+        "Implement Set circuit breakers on outgoing requests to improve quality"
+      ],
+      "confidence_score": 0.3,
+      "reasoning": "Found 3 implementations, below expected 10"
+    }
+  ],
+  "recommendations": [
+    "Improve Include Client error tracking: Implement Include Client error tracking to address include client error tracking concerns",
+    "Improve Set circuit breakers on outgoing requests: Implement Set circuit breakers on outgoing requests to address set circuit breakers on outgoing requests concerns"
+  ],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250824_205939",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "Project analysis for https://github.com/spring-projects/spring-petclinic reveals a The codebase contains md, devcontainer/dockerfile, sql, txt, yml files. The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.",
+      "technologies": [],
+      "frameworks": [],
+      "file_types": [
+        "md",
+        "devcontainer/dockerfile",
+        "sql",
+        "txt",
+        "yml",
+        "xml",
+        "gradle",
+        "cmd",
+        "properties",
+        "java"
+      ],
+      "dependencies": [],
+      "has_cd_repo": false,
+      "total_files_analyzed": 42
+    }
+  }
+}

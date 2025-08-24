@@ -125,150 +125,210 @@ class VectorizationNode(AsyncNode):
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare vectorization"""
+        # Get commit hash from metadata if available
+        commit_hash = None
+        if context.metadata and "main_repo" in context.metadata:
+            commit_hash = context.metadata["main_repo"].get("commit_hash")
+        
         return {
             "repo_path": context.repo_path,
             "cd_repo_path": context.cd_repo_path,
+            "scan_id": context.scan_id,
+            "repo_url": context.repo_url,
+            "branch": context.branch,
+            "commit_hash": commit_hash,
             "metadata": context.metadata
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
-        """Execute vectorization for both main and CD repositories"""
+        """Execute vectorization step"""
         try:
-            import time
-            start_time = time.time()
-            print("🧠 Step 2: Vectorization & Storage (including CD repos)")
-            
             repo_path = prep_res["repo_path"]
-            cd_repo_path = prep_res["cd_repo_path"]
-            metadata = prep_res["metadata"]
+            cd_repo_path = prep_res.get("cd_repo_path")
+            scan_id = prep_res["scan_id"]
+            repo_url = prep_res["repo_url"]
+            branch = prep_res["branch"]
+            commit_hash = prep_res["commit_hash"]
             
-            # Handle case where metadata is None
-            if not metadata:
-                print("❌ No metadata available for vectorization")
-                return "error"
+            print(f"🔍 Starting vectorization for scan: {scan_id}")
+            print(f"📁 Main repo: {repo_path}")
+            if cd_repo_path:
+                print(f"📁 CD repo: {cd_repo_path}")
             
-            main_repo_metadata = metadata.get("main_repo")
-            cd_repo_metadata = metadata.get("cd_repo")
+            # Generate collection names using scan_id for consistency
+            main_collection_name = f"repo_{scan_id}"
+            cd_collection_name = f"repo_{scan_id}_cd" if cd_repo_path else None
             
-            if not main_repo_metadata:
-                print("❌ No main repository metadata available")
-                return "error"
-            
-            # Create collection for main repository
-            main_repo_id = hashlib.md5(f"{main_repo_metadata['repo_url']}_{main_repo_metadata['commit_hash']}".encode()).hexdigest()[:16]
-            main_collection_name = f"repo_{main_repo_id}"
-            
-            if not self.vector_service.collection_exists(main_collection_name):
-                self.vector_service.create_collection(main_collection_name)
+            print(f"📊 Main collection: {main_collection_name}")
+            if cd_collection_name:
+                print(f"📊 CD collection: {cd_collection_name}")
             
             # Process main repository
-            main_vectors = []
+            print(f"🔍 Processing main repository files...")
             main_chunks = []
             
-            print(f"📁 Processing main repository: {repo_path}")
+            # Get repository metadata
+            main_repo_metadata = self._get_repo_metadata(repo_path, repo_url, branch, commit_hash, "main")
             
-            # Limit files for large repositories to improve performance
-            max_files = 1000  # Process max 1000 files for performance
-            processed_files = 0
+            for file_path in self._get_files_to_process(repo_path):
+                try:
+                    chunks = await self._process_file(file_path, repo_path, scan_id, "main", main_repo_metadata)
+                    main_chunks.extend(chunks)
+                except Exception as e:
+                    print(f"⚠️ Failed to process file {file_path}: {e}")
+                    continue
             
-            for file_path in Path(repo_path).rglob("*"):
-                if processed_files >= max_files:
-                    print(f"⚠️ Reached file limit ({max_files}), skipping remaining files")
-                    break
-                    
-                if file_path.is_file() and not self._should_ignore_file(file_path):
+            print(f"✅ Main repository: {len(main_chunks)} chunks created")
+            
+            # Process CD repository if it exists
+            cd_chunks = []
+            if cd_repo_path:
+                print(f"🔍 Processing CD repository files...")
+                cd_repo_metadata = self._get_repo_metadata(cd_repo_path, repo_url, branch, commit_hash, "cd")
+                
+                for file_path in self._get_files_to_process(cd_repo_path):
                     try:
-                        file_chunks = await self._process_file(file_path, repo_path, main_repo_id, "main")
-                        main_chunks.extend(file_chunks)
-                        
-                        # Create embeddings for chunks
-                        for chunk in file_chunks:
-                            embedding = self.embedding_service.embed_single(chunk["content"])
-                            if embedding:
-                                main_vectors.append({
-                                    "id": chunk["id"],
-                                    "vector": embedding,
-                                    "payload": chunk["metadata"]
-                                })
-                        
-                        processed_files += 1
-                        
-                        # Progress indicator for large repositories
-                        if processed_files % 100 == 0:
-                            print(f"   📊 Processed {processed_files} files...")
-                    
+                        chunks = await self._process_file(file_path, cd_repo_path, scan_id, "cd", cd_repo_metadata)
+                        cd_chunks.extend(chunks)
                     except Exception as e:
                         print(f"⚠️ Failed to process file {file_path}: {e}")
                         continue
-            
-            # Process CD repository if available
-            cd_vectors = []
-            cd_chunks = []
-            cd_collection_name = None
-            
-            if cd_repo_path and cd_repo_metadata:
-                cd_repo_id = hashlib.md5(f"{cd_repo_metadata['repo_url']}_{cd_repo_metadata['commit_hash']}".encode()).hexdigest()[:16]
-                cd_collection_name = f"repo_{cd_repo_id}_cd"
                 
-                if not self.vector_service.collection_exists(cd_collection_name):
-                    self.vector_service.create_collection(cd_collection_name)
+                print(f"✅ CD repository: {len(cd_chunks)} chunks created")
+            
+            # Generate embeddings for all chunks
+            print(f"🧠 Generating embeddings...")
+            all_chunks = main_chunks + cd_chunks
+            
+            if not all_chunks:
+                print("⚠️ No chunks to vectorize")
+                return "error"
+            
+            # Generate embeddings in batches
+            batch_size = 50
+            all_embeddings = []
+            
+            for i in range(0, len(all_chunks), batch_size):
+                batch = all_chunks[i:i + batch_size]
+                batch_texts = [chunk["content"] for chunk in batch]
                 
-                print(f"📁 Processing CD repository: {cd_repo_path}")
-                for file_path in Path(cd_repo_path).rglob("*"):
-                    if file_path.is_file() and not self._should_ignore_file(file_path):
-                        try:
-                            file_chunks = await self._process_file(file_path, cd_repo_path, cd_repo_id, "cd")
-                            cd_chunks.extend(file_chunks)
-                            
-                            # Create embeddings for chunks
-                            for chunk in file_chunks:
-                                embedding = self.embedding_service.embed_single(chunk["content"])
-                                if embedding:
-                                    cd_vectors.append({
-                                        "id": chunk["id"],
-                                        "vector": embedding,
-                                        "payload": chunk["metadata"]
-                                    })
-                        
-                        except Exception as e:
-                            print(f"⚠️ Failed to process CD file {file_path}: {e}")
-                            continue
+                try:
+                    batch_embeddings = self.embedding_service.embed_batch(batch_texts)
+                    all_embeddings.extend(batch_embeddings)
+                    print(f"✅ Generated embeddings for batch {i//batch_size + 1}/{(len(all_chunks) + batch_size - 1)//batch_size}")
+                except Exception as e:
+                    print(f"❌ Failed to generate embeddings for batch {i//batch_size + 1}: {e}")
+                    # Continue with other batches
+                    continue
+            
+            if len(all_embeddings) != len(all_chunks):
+                print(f"⚠️ Embedding count mismatch: {len(all_embeddings)} vs {len(all_chunks)}")
+                # Truncate to match
+                all_chunks = all_chunks[:len(all_embeddings)]
+            
+            # Store vectors in database
+            print(f"💾 Storing vectors in database...")
+            
+            # Prepare vectors for storage
+            vectors = []
+            for i, (chunk, embedding) in enumerate(zip(all_chunks, all_embeddings)):
+                if embedding is None:
+                    continue
+                    
+                vector_data = {
+                    "id": chunk["id"],
+                    "vector": embedding,
+                    "payload": chunk["metadata"]
+                }
+                vectors.append(vector_data)
             
             # Store main repository vectors
-            if main_vectors:
-                self.vector_service.upsert_vectors(main_collection_name, main_vectors)
-                print(f"✅ Stored {len(main_vectors)} vectors in main collection {main_collection_name}")
+            if main_chunks:
+                main_vectors = [v for v in vectors if v["payload"]["repo_type"] == "main"]
+                if main_vectors:
+                    try:
+                        print(f"🔍 About to store {len(main_vectors)} vectors in collection: {main_collection_name}")
+                        success = self.vector_service.upsert_vectors(main_collection_name, main_vectors)
+                        if success:
+                            print(f"✅ Successfully stored {len(main_vectors)} vectors in main collection: {main_collection_name}")
+                            
+                            # Verify storage by checking collection info
+                            collection_info = self.vector_service.get_collection_info(main_collection_name)
+                            if collection_info:
+                                print(f"📊 Collection {main_collection_name} now has {collection_info.get('count', 0)} vectors")
+                            else:
+                                print(f"⚠️ Could not verify collection info for {main_collection_name}")
+                        else:
+                            print(f"❌ Failed to store main vectors in {main_collection_name}")
+                            return "error"
+                    except Exception as e:
+                        print(f"❌ Failed to store main vectors: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        return "error"
             
             # Store CD repository vectors
-            if cd_vectors:
-                self.vector_service.upsert_vectors(cd_collection_name, cd_vectors)
-                print(f"✅ Stored {len(cd_vectors)} vectors in CD collection {cd_collection_name}")
+            if cd_chunks and cd_collection_name:
+                cd_vectors = [v for v in vectors if v["payload"]["repo_type"] == "cd"]
+                if cd_vectors:
+                    try:
+                        self.vector_service.upsert_vectors(cd_collection_name, cd_vectors)
+                        print(f"✅ Stored {len(cd_vectors)} vectors in CD collection")
+                    except Exception as e:
+                        print(f"❌ Failed to store CD vectors: {e}")
+                        return "error"
             
-            # Store in context
-            self.context.vector_data = {
-                "main_repo_id": main_repo_id,
-                "main_collection_name": main_collection_name,
-                "main_vectors_count": len(main_vectors),
-                "main_chunks_count": len(main_chunks),
-                "cd_repo_id": cd_repo_id if cd_repo_path else None,
-                "cd_collection_name": cd_collection_name,
-                "cd_vectors_count": len(cd_vectors),
-                "cd_chunks_count": len(cd_chunks),
-                "total_vectors_count": len(main_vectors) + len(cd_vectors),
-                "total_chunks_count": len(main_chunks) + len(cd_chunks),
-                "has_cd_repo": cd_repo_path is not None
-            }
+            # Store vector data in context
+            if hasattr(self, 'context') and self.context is not None:
+                self.context.vector_data = {
+                    "scan_id": scan_id,
+                    "main_collection_name": main_collection_name,
+                    "cd_collection_name": cd_collection_name,
+                    "main_chunks_count": len(main_chunks),
+                    "cd_chunks_count": len(cd_chunks),
+                    "total_vectors_stored": len(vectors)
+                }
             
-            elapsed_time = time.time() - start_time
-            print(f"✅ Vectorization completed (took {elapsed_time:.2f}s)")
+            print(f"✅ Vectorization completed successfully")
+            print(f"📊 Total chunks processed: {len(all_chunks)}")
+            print(f"📊 Total vectors stored: {len(vectors)}")
             
             return "success"
             
         except Exception as e:
             print(f"❌ Vectorization failed: {e}")
+            import traceback
+            traceback.print_exc()
             return "error"
     
-    async def _process_file(self, file_path: Path, repo_root: Path, repo_id: str, repo_type: str = "main") -> List[Dict[str, Any]]:
+    def _get_repo_metadata(self, repo_path: str, repo_url: str, branch: str, commit_hash: str, repo_type: str) -> Dict[str, Any]:
+        """Helper to get repository metadata for vectorization"""
+        return {
+            "repo_path": repo_path,
+            "repo_url": repo_url,
+            "branch": branch,
+            "commit_hash": commit_hash,
+            "repo_type": repo_type,
+            "total_files": 0, # Will be updated after processing
+            "total_lines": 0, # Will be updated after processing
+            "languages": [], # Will be updated after processing
+            "dependencies": {}, # Will be updated after processing
+            "build_files": [], # Will be updated after processing
+            "config_files": [] # Will be updated after processing
+        }
+    
+    def _get_files_to_process(self, repo_path: str) -> List[Path]:
+        """Helper to get list of files to process, respecting ignore patterns"""
+        repo_path_obj = Path(repo_path)
+        files_to_process = []
+        
+        for file_path in repo_path_obj.rglob("*"):
+            if file_path.is_file() and not self._should_ignore_file(file_path):
+                files_to_process.append(file_path)
+        
+        return files_to_process
+    
+    async def _process_file(self, file_path: Path, repo_root: Path, scan_id: str, repo_type: str = "main", repo_metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Process individual file"""
         try:
             # Read file content
@@ -302,27 +362,50 @@ class VectorizationNode(AsyncNode):
                     symbol_content = '\n'.join(symbol_lines)
                     
                     if len(symbol_content.strip()) >= 10:
-                        chunk_id = f"{repo_id}_{file_path.name}_{symbol_name}_{start_line}"
+                        # Generate a proper UUID for the chunk ID
+                        import uuid
+                        chunk_id = str(uuid.uuid4())
+                        
+                        # Create comprehensive metadata
+                        chunk_metadata = {
+                            "scan_id": scan_id,
+                            "repo_type": repo_type,
+                            "file_path": str(file_path.relative_to(repo_root)),
+                            "filename": file_path.name,
+                            "language": language,
+                            "start_line": start_line,
+                            "end_line": end_line,
+                            "symbol_name": symbol_name,
+                            "symbol_kind": "function" if "function" in symbol_name.lower() else "class",
+                            "content_hash": hashlib.md5(symbol_content.encode()).hexdigest(),
+                            "file_size": file_path.stat().st_size,
+                            "total_lines": len(content.split('\n')),
+                            "processing_timestamp": time.time()
+                        }
+                        
+                        # Add repository metadata if available
+                        if repo_metadata:
+                            chunk_metadata.update({
+                                "repo_url": repo_metadata.get("repo_url", ""),
+                                "repo_branch": repo_metadata.get("branch", ""),
+                                "repo_commit_hash": repo_metadata.get("commit_hash", ""),
+                                "repo_total_files": repo_metadata.get("total_files", 0),
+                                "repo_total_lines": repo_metadata.get("total_lines", 0),
+                                "repo_languages": repo_metadata.get("languages", []),
+                                "repo_dependencies": repo_metadata.get("dependencies", {}),
+                                "repo_build_files": repo_metadata.get("build_files", []),
+                                "repo_config_files": repo_metadata.get("config_files", [])
+                            })
+                        
                         chunks.append({
                             "id": chunk_id,
                             "content": symbol_content,
-                            "metadata": {
-                                "repo_id": repo_id,
-                                "repo_type": repo_type,
-                                "file_path": str(file_path.relative_to(repo_root)),
-                                "filename": file_path.name,
-                                "language": language,
-                                "start_line": start_line,
-                                "end_line": end_line,
-                                "symbol_name": symbol_name,
-                                "symbol_kind": "function" if "function" in symbol_name.lower() else "class",
-                                "content_hash": hashlib.md5(symbol_content.encode()).hexdigest()
-                            }
+                            "metadata": chunk_metadata
                         })
             
             # If no symbols, create sliding window chunks
             if not chunks:
-                chunks = self._create_sliding_chunks(content, file_path, repo_root, repo_id, language, repo_type)
+                chunks = self._create_sliding_chunks(content, file_path, repo_root, scan_id, language, repo_type, repo_metadata)
             
             return chunks
             
@@ -331,7 +414,7 @@ class VectorizationNode(AsyncNode):
             return []
     
     def _create_sliding_chunks(self, content: str, file_path: Path, repo_root: Path, 
-                              repo_id: str, language: str, repo_type: str = "main") -> List[Dict[str, Any]]:
+                              scan_id: str, language: str, repo_type: str = "main", repo_metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Create sliding window chunks"""
         chunks = []
         lines = content.split('\n')
@@ -343,20 +426,43 @@ class VectorizationNode(AsyncNode):
             chunk_content = '\n'.join(chunk_lines)
             
             if len(chunk_content.strip()) >= 10:
-                chunk_id = f"{repo_id}_{file_path.name}_chunk_{i}"
+                # Generate a proper UUID for the chunk ID
+                import uuid
+                chunk_id = str(uuid.uuid4())
+                
+                # Create comprehensive metadata
+                chunk_metadata = {
+                    "scan_id": scan_id,
+                    "repo_type": repo_type,
+                    "file_path": str(file_path.relative_to(repo_root)),
+                    "filename": file_path.name,
+                    "language": language,
+                    "start_line": i + 1,
+                    "end_line": min(i + chunk_size, len(lines)),
+                    "content_hash": hashlib.md5(chunk_content.encode()).hexdigest(),
+                    "file_size": file_path.stat().st_size,
+                    "total_lines": len(content.split('\n')),
+                    "processing_timestamp": time.time()
+                }
+                
+                # Add repository metadata if available
+                if repo_metadata:
+                    chunk_metadata.update({
+                        "repo_url": repo_metadata.get("repo_url", ""),
+                        "repo_branch": repo_metadata.get("branch", ""),
+                        "repo_commit_hash": repo_metadata.get("commit_hash", ""),
+                        "repo_total_files": repo_metadata.get("total_files", 0),
+                        "repo_total_lines": repo_metadata.get("total_lines", 0),
+                        "repo_languages": repo_metadata.get("languages", []),
+                        "repo_dependencies": repo_metadata.get("dependencies", {}),
+                        "repo_build_files": repo_metadata.get("build_files", []),
+                        "repo_config_files": repo_metadata.get("config_files", [])
+                    })
+                
                 chunks.append({
                     "id": chunk_id,
                     "content": chunk_content,
-                    "metadata": {
-                        "repo_id": repo_id,
-                        "repo_type": repo_type,
-                        "file_path": str(file_path.relative_to(repo_root)),
-                        "filename": file_path.name,
-                        "language": language,
-                        "start_line": i + 1,
-                        "end_line": min(i + chunk_size, len(lines)),
-                        "content_hash": hashlib.md5(chunk_content.encode()).hexdigest()
-                    }
+                    "metadata": chunk_metadata
                 })
         
         return chunks
@@ -609,57 +715,123 @@ Analyze the following project and generate applicable security, performance, and
 Build Configurations:
 {build_configs}
 
-Please generate patterns in the following JSON format:
+IMPORTANT: You must respond with ONLY valid JSON in the following format. Do not include any other text, explanations, or markdown formatting:
+
 {{
     "patterns": [
         {{
-            "gate_id": "unique_id",
-            "name": "Pattern Name",
-            "description": "Pattern description",
-            "pattern": "regex_pattern",
-            "severity": "HIGH|MEDIUM|LOW",
-            "category": "SECURITY|PERFORMANCE|QUALITY|OBSERVABILITY",
-            "examples": ["example1", "example2"]
+            "gate_id": "1.1",
+            "name": "Log system errors",
+            "description": "Log system errors for troubleshooting",
+            "pattern": "error.*log|system.*error|exception.*log",
+            "severity": "HIGH",
+            "category": "ERROR_HANDLING",
+            "examples": ["error logging", "system error handling"]
+        }},
+        {{
+            "gate_id": "1.3",
+            "name": "Use HTTP standard error codes",
+            "description": "All APIs must return standardized HTTP status codes",
+            "pattern": "http.*status|status.*code|error.*code",
+            "severity": "HIGH",
+            "category": "ERROR_HANDLING",
+            "examples": ["HTTP status codes", "error response codes"]
         }}
     ]
 }}
 
-Focus on patterns relevant to the project's technology stack and domain.
+Focus on patterns relevant to the project's technology stack and domain. Generate 5-10 specific patterns.
 """
     
     def _parse_llm_response(self, response: str) -> List[Dict[str, Any]]:
         """Parse LLM response to extract patterns"""
         try:
+            # Debug: Show response preview
+            print(f"🔍 LLM Response preview: {response[:300]}...")
+            
             # Try to extract JSON from response
             if "{" in response and "}" in response:
                 start = response.find("{")
                 end = response.rfind("}") + 1
                 json_str = response[start:end]
                 
+                print(f"🔍 Extracted JSON string: {json_str[:200]}...")
+                
                 # Clean up common JSON issues
-                json_str = json_str.replace("\\n", "\\n")  # Fix newlines
-                json_str = json_str.replace("\\t", "\\t")  # Fix tabs
+                json_str = json_str.replace("```json", "").replace("```", "")  # Remove markdown code blocks
+                json_str = json_str.strip()
                 
-                # Try to parse the JSON
-                data = json.loads(json_str)
-                patterns = data.get("patterns", [])
+                # Try multiple parsing strategies
+                parsing_strategies = [
+                    # Strategy 1: Direct parsing
+                    lambda: json.loads(json_str),
+                    # Strategy 2: Fix common trailing commas
+                    lambda: json.loads(json_str.replace(",\n}", "\n}").replace(",\n]", "\n]")),
+                    # Strategy 3: Fix unquoted property names
+                    lambda: json.loads(re.sub(r'(\w+):', r'"\1":', json_str)),
+                    # Strategy 4: Fix single quotes
+                    lambda: json.loads(json_str.replace("'", '"')),
+                    # Strategy 5: Fix missing quotes around string values
+                    lambda: json.loads(re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])', r': "\1"', json_str)),
+                    # Strategy 6: Try to fix common JSON issues manually
+                    lambda: self._manual_json_fix(json_str)
+                ]
                 
-                if patterns:
-                    return patterns
-                else:
-                    print("⚠️ No patterns found in LLM response")
-                    return self._create_fallback_patterns()
+                for i, strategy in enumerate(parsing_strategies):
+                    try:
+                        data = strategy()
+                        patterns = data.get("patterns", [])
+                        
+                        if patterns:
+                            print(f"✅ Successfully parsed {len(patterns)} patterns from LLM response (strategy {i+1})")
+                            return patterns
+                        else:
+                            print(f"⚠️ No patterns found in LLM response (strategy {i+1})")
+                            continue
+                    except Exception as e:
+                        print(f"⚠️ Strategy {i+1} failed: {e}")
+                        continue
+                
+                print("⚠️ All JSON parsing strategies failed")
+                return self._create_fallback_patterns()
             else:
                 print("⚠️ No JSON structure found in LLM response")
+                print(f"🔍 Response contains '{{': {'{' in response}, '}}': {'}' in response}")
                 return self._create_fallback_patterns()
                 
-        except json.JSONDecodeError as e:
-            print(f"⚠️ JSON parsing failed: {e}")
-            print(f"Response preview: {response[:200]}...")
-            return self._create_fallback_patterns()
         except Exception as e:
             print(f"⚠️ Failed to parse LLM response: {e}")
             return self._create_fallback_patterns()
+    
+    def _manual_json_fix(self, json_str: str) -> Dict[str, Any]:
+        """Manually fix common JSON issues"""
+        try:
+            # Remove any trailing commas before closing braces/brackets
+            json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+            
+            # Fix common issues with unquoted strings
+            json_str = re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])(?=\s*[,}\]])', r': "\1"', json_str)
+            
+            # Fix escaped quotes
+            json_str = json_str.replace('\\"', '"').replace('"', '\\"')
+            
+            # Try to parse the fixed JSON
+            return json.loads(json_str)
+        except Exception:
+            # If manual fix fails, try to extract just the patterns array
+            try:
+                # Find the patterns array
+                pattern_match = re.search(r'"patterns"\s*:\s*\[(.*?)\]', json_str, re.DOTALL)
+                if pattern_match:
+                    patterns_str = pattern_match.group(1)
+                    # Try to parse individual patterns
+                    patterns = []
+                    # This is a simplified approach - in practice, we'd need more sophisticated parsing
+                    return {"patterns": patterns}
+            except Exception:
+                pass
+            
+            raise ValueError("Manual JSON fix failed")
     
     def _create_fallback_patterns(self) -> List[Dict[str, Any]]:
         """Create fallback patterns focused on hard gates when LLM response parsing fails"""
@@ -806,8 +978,9 @@ Focus on patterns relevant to the project's technology stack and domain.
 class PatternConsolidationNode(AsyncNode):
     """Step 4: Pattern Consolidation"""
     
-    def __init__(self):
+    def __init__(self, pattern_library_service=None):
         super().__init__()
+        self.pattern_library_service = pattern_library_service
         # Load static patterns
         self.static_patterns = self._load_static_patterns()
     
@@ -849,6 +1022,20 @@ class PatternConsolidationNode(AsyncNode):
                     "description": pattern.get("description", ""),
                     "severity": pattern.get("severity", "medium")
                 })
+            
+            # Add enhanced pattern library patterns if available
+            if self.pattern_library_service:
+                for gate_id, pattern_info in self.pattern_library_service.patterns.items():
+                    for pattern in pattern_info.patterns:
+                        consolidated.append({
+                            "source": "enhanced_library",
+                            "gate_id": gate_id,
+                            "name": pattern_info.display_name,
+                            "pattern": pattern,
+                            "description": pattern_info.description,
+                            "severity": pattern_info.priority.upper(),
+                            "category": pattern_info.category
+                        })
             
             # Store consolidated patterns
             self.context.patterns = {
@@ -933,16 +1120,26 @@ class ExpectedImplementationNode(AsyncNode):
             vector_data = prep_res["vector_data"]
             patterns = prep_res["patterns"]
             
-            main_repo_id = vector_data["main_repo_id"]
+            scan_id = vector_data["scan_id"]
             main_collection_name = vector_data["main_collection_name"]
-            cd_repo_id = vector_data.get("cd_repo_id")
             cd_collection_name = vector_data.get("cd_collection_name")
             consolidated_patterns = patterns["consolidated"]
             
             expected_implementations = {}
             
+            # Define hard gates to filter
+            hard_gates = {
+                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',  # Auditability
+                '2.4',  # Error Handling
+                '1.12', '3.6', '3.9', '3.18',  # Availability
+                '2'  # Testing
+            }
+            
             # For each pattern, find expected implementations using semantic search
             for pattern in consolidated_patterns:
+                # Only process hard gates
+                if pattern.get("gate_id") not in hard_gates:
+                    continue
                 pattern_name = pattern["name"]
                 pattern_description = pattern["description"]
                 
@@ -1050,9 +1247,20 @@ class FileScanningNode(AsyncNode):
             consolidated_patterns = patterns["consolidated"]
             scan_results = {}
             
+            # Define hard gates to filter
+            hard_gates = {
+                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',  # Auditability
+                '2.4',  # Error Handling
+                '1.12', '3.6', '3.9', '3.18',  # Availability
+                '2'  # Testing
+            }
+            
+            # Filter patterns to only include hard gates
+            hard_gate_patterns = [p for p in consolidated_patterns if p.get("gate_id") in hard_gates]
+            
             # Scan main repository files for each pattern
             print(f"🔍 Scanning main repository: {repo_path}")
-            for pattern in consolidated_patterns:
+            for pattern in hard_gate_patterns:
                 gate_id = pattern["gate_id"]
                 pattern_regex = pattern["pattern"]
                 
@@ -1070,7 +1278,7 @@ class FileScanningNode(AsyncNode):
             # Scan CD repository files for each pattern
             if cd_repo_path:
                 print(f"🔍 Scanning CD repository: {cd_repo_path}")
-                for pattern in consolidated_patterns:
+                for pattern in hard_gate_patterns:
                     gate_id = pattern["gate_id"]
                     pattern_regex = pattern["pattern"]
                     
@@ -1195,7 +1403,18 @@ class GateEvaluationNode(AsyncNode):
             
             gate_results = []
             
+            # Define hard gates to filter
+            hard_gates = {
+                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',  # Auditability
+                '2.4',  # Error Handling
+                '1.12', '3.6', '3.9', '3.18',  # Availability
+                '2'  # Testing
+            }
+            
             for gate_id, scan_result in scan_results.items():
+                # Only process hard gates
+                if gate_id not in hard_gates:
+                    continue
                 pattern = scan_result["pattern"]
                 main_matches = scan_result.get("main_matches", [])
                 cd_matches = scan_result.get("cd_matches", [])

@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_hard_gates_only
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-24 17:38:42.430365
+
+Results Summary:
+- Total Gates: 11
+- Passed: 2
+- Failed: 2
+- Partial: 2
+- Skipped: 5
+- Risk Score: 0.27
+
+Report Files:
+- HTML Report: codegates_report_test_hard_gates_only.html
+- JSON Report: codegates_report_test_hard_gates_only.json
+- Summary: report_summary_test_hard_gates_only.txt
+
+Report Directory: reports/test_hard_gates_only
+
+Generated on: 2025-08-24T17:38:42.431336

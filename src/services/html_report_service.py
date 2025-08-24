@@ -82,9 +82,9 @@ class HTMLReportService:
 <body>
     <div class="report-container">
         <div class="report-header">
+            <div class="report-badge summary-badge">Hard Gate Assessment Report {timestamp}</div>
             <h1>{project_display_name}</h1>
-            <div class="report-badge summary-badge">{report_type_display} Report</div>
-            <p style="color: #2563eb; margin-bottom: 30px; font-weight: 500;">Hard Gate Assessment Report</p>
+            
         </div>
         
         <h2>Executive Summary</h2>
@@ -138,7 +138,7 @@ class HTMLReportService:
         {gates_table_html}
         
         <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-            <p>Hard Gate Assessment {report_type_display} Report generated on {timestamp}</p>
+            
         </footer>
     </div>
 </body>
@@ -232,20 +232,20 @@ class HTMLReportService:
         for category_name in categories:
             categories[category_name].sort(key=lambda x: (not getattr(x, 'is_hard_gate', False), x.gate_id))
         
-        # Also add any gates that don't match predefined categories
-        unmatched_gates = []
-        for gate in gate_results:
-            matched = False
-            for gate_ids in predefined_categories.values():
-                if gate.gate_id in gate_ids:
-                    matched = True
-                    break
-            if not matched:
-                gate.is_hard_gate = False
-                unmatched_gates.append(gate)
-        
-        if unmatched_gates:
-            categories['Other'] = unmatched_gates
+        # Filter out gates that don't match predefined categories (only show hard gates)
+        # unmatched_gates = []
+        # for gate in gate_results:
+        #     matched = False
+        #     for gate_ids in predefined_categories.values():
+        #         if gate.gate_id in gate_ids:
+        #             matched = True
+        #             break
+        #     if not matched:
+        #         gate.is_hard_gate = False
+        #         unmatched_gates.append(gate)
+        # 
+        # if unmatched_gates:
+        #     categories['Other'] = unmatched_gates
         
         html_parts = []
         html_parts.append('<div class="gates-analysis">')

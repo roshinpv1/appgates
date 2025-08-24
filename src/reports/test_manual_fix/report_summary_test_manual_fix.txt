@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_manual_fix
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-24 21:00:47.668630
+
+Results Summary:
+- Total Gates: 5
+- Passed: 3
+- Failed: 2
+- Partial: 0
+- Skipped: 0
+- Risk Score: 0.40
+
+Report Files:
+- HTML Report: codegates_report_test_manual_fix.html
+- JSON Report: codegates_report_test_manual_fix.json
+- Summary: report_summary_test_manual_fix.txt
+
+Report Directory: reports/test_manual_fix
+
+Generated on: 2025-08-24T21:00:47.669455

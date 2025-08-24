@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_json_fix
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-24 20:55:55.671422
+
+Results Summary:
+- Total Gates: 11
+- Passed: 2
+- Failed: 2
+- Partial: 2
+- Skipped: 5
+- Risk Score: 0.27
+
+Report Files:
+- HTML Report: codegates_report_test_json_fix.html
+- JSON Report: codegates_report_test_json_fix.json
+- Summary: report_summary_test_json_fix.txt
+
+Report Directory: reports/test_json_fix
+
+Generated on: 2025-08-24T20:55:55.672362

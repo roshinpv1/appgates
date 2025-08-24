@@ -52,7 +52,7 @@ class ScanFlow(AsyncFlow):
         checkout_node = RepositoryCheckoutNode()
         vectorization_node = VectorizationNode(self.vector_service, self.embedding_service, self.ast_parser_service)
         llm_pre_node = LLMPreAnalysisNode(self.llm_service)
-        consolidation_node = PatternConsolidationNode()
+        consolidation_node = PatternConsolidationNode(self.pattern_library_service)
         expected_impl_node = ExpectedImplementationNode(self.vector_service, self.embedding_service)
         scanning_node = FileScanningNode(self.ast_parser_service)
         evaluation_node = GateEvaluationNode()

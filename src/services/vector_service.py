@@ -55,30 +55,30 @@ class VectorService:
         """Initialize Qdrant client"""
         try:
             qdrant_path = self.config.get("qdrant_path", ":memory:")
+            print(f"🔧 Attempting to initialize Qdrant at {qdrant_path}")
             
-            # Check if Qdrant is already in use by trying to create a test client
+            # For embedded Qdrant, ensure the directory exists
             if qdrant_path != ":memory:":
-                try:
-                    # Try to create a test client to check if Qdrant is available
-                    test_client = QdrantClient(path=qdrant_path)
-                    # If successful, close the test client
-                    del test_client
-                except Exception as test_error:
-                    if "already accessed by another instance" in str(test_error):
-                        print(f"⚠️ Qdrant already in use, using in-memory store")
-                        self._init_memory_store()
-                        return
-                    else:
-                        # Other error, try to continue
-                        pass
+                import os
+                os.makedirs(qdrant_path, exist_ok=True)
+                
+                # Check if there's a lock file and remove it if it's stale
+                lock_file = os.path.join(qdrant_path, ".lock")
+                if os.path.exists(lock_file):
+                    try:
+                        # Try to remove stale lock file
+                        os.remove(lock_file)
+                        print(f"🔓 Removed stale lock file")
+                    except Exception as e:
+                        print(f"⚠️ Could not remove lock file: {e}")
             
-            print(f"🔧 Initializing Qdrant at {qdrant_path}")
             self.client = QdrantClient(path=qdrant_path)
             self.use_qdrant = True
-            print(f"🔗 Successfully initialized Qdrant at {qdrant_path}")
+            print(f"🔗 Successfully initialized embedded Qdrant at {qdrant_path}")
+            print(f"🔧 use_qdrant flag set to: {self.use_qdrant}")
             
         except Exception as e:
-            print(f"⚠️ Failed to initialize Qdrant: {e}, falling back to memory store")
+            print(f"⚠️ Failed to initialize embedded Qdrant: {e}, falling back to memory store")
             self._init_memory_store()
     
     def _init_memory_store(self):
@@ -118,7 +118,7 @@ class VectorService:
         try:
             if self.use_qdrant:
                 collections = self.client.get_collections()
-                return collection_name in [c.name for c in collections.collections]
+                return any(col.name == collection_name for col in collections.collections)
             else:
                 return collection_name in self.collections
         except Exception:
@@ -133,11 +133,23 @@ class VectorService:
             if self.use_qdrant:
                 points = []
                 for vector_data in vectors:
-                    points.append(PointStruct(
-                        id=vector_data["id"],
+                    # Convert string ID to UUID if needed
+                    point_id = vector_data["id"]
+                    if isinstance(point_id, str):
+                        import uuid
+                        # Generate UUID from string ID for consistency
+                        point_id = uuid.uuid5(uuid.NAMESPACE_DNS, point_id)
+                    
+                    # Convert UUID to string for Qdrant
+                    if hasattr(point_id, 'hex'):
+                        point_id = str(point_id)
+                    
+                    point = PointStruct(
+                        id=point_id,
                         vector=vector_data["vector"],
                         payload=vector_data["payload"]
-                    ))
+                    )
+                    points.append(point)
                 
                 self.client.upsert(
                     collection_name=collection_name,
@@ -258,7 +270,7 @@ class VectorService:
             if self.use_qdrant:
                 collection_info = self.client.get_collection(collection_name=collection_name)
                 return {
-                    "name": collection_info.name,
+                    "name": collection_name,  # Use the input collection_name instead of collection_info.name
                     "vector_size": collection_info.config.params.vectors.size,
                     "count": collection_info.points_count
                 }
@@ -284,41 +296,79 @@ class VectorService:
             # Initialize embedding service
             embedding_service = EmbeddingService(self.config)
             
-            # Create query for project summary
-            summary_query = "high level project summary with key frameworks and technologies"
-            
-            # Generate embedding for the query
-            query_embedding = embedding_service.embed_single(summary_query)
-            
-            if not query_embedding:
-                return self._get_fallback_project_summary(repo_url)
-            
             # Search in main repository collection
             main_collection = f"repo_{scan_id}"
             cd_collection = f"repo_{scan_id}_cd"
             
-            # Search in main collection
-            main_results = self.search_similar(
-                collection_name=main_collection,
-                query_vector=query_embedding,
-                limit=5,
-                score_threshold=0.3
-            )
+            # Try multiple queries to get better results
+            queries = [
+                "project technologies frameworks dependencies",
+                "main application setup configuration",
+                "spring boot java application",
+                "project structure and dependencies",
+                "application configuration files",
+                "main technologies used in project",
+                "framework and library dependencies",
+                "project setup and requirements"
+            ]
             
-            # Search in CD collection if it exists
-            cd_results = []
-            try:
-                cd_results = self.search_similar(
-                    collection_name=cd_collection,
-                    query_vector=query_embedding,
-                    limit=3,
-                    score_threshold=0.3
-                )
-            except:
-                pass  # CD collection might not exist
+            all_main_results = []
+            all_cd_results = []
+            
+            for query in queries:
+                try:
+                    # Generate embedding for the query
+                    query_embedding = embedding_service.embed_single(query)
+                    
+                    if not query_embedding:
+                        continue
+                    
+                    # Search in main collection with lower threshold
+                    main_results = self.search_similar(
+                        collection_name=main_collection,
+                        query_vector=query_embedding,
+                        limit=10,
+                        score_threshold=0.1  # Lower threshold for better results
+                    )
+                    all_main_results.extend(main_results)
+                    
+                    # Search in CD collection if it exists
+                    try:
+                        if self.collection_exists(cd_collection):
+                            cd_results = self.search_similar(
+                                collection_name=cd_collection,
+                                query_vector=query_embedding,
+                                limit=5,
+                                score_threshold=0.1
+                            )
+                            all_cd_results.extend(cd_results)
+                    except Exception as e:
+                        # Silently ignore CD collection errors - it's expected for repos without CD
+                        pass
+                        
+                except Exception as e:
+                    print(f"⚠️ Query '{query}' failed: {e}")
+                    continue
+            
+            # Remove duplicates based on content hash
+            seen_hashes = set()
+            unique_main_results = []
+            for result in all_main_results:
+                content_hash = result.payload.get("content_hash", "")
+                if content_hash not in seen_hashes:
+                    seen_hashes.add(content_hash)
+                    unique_main_results.append(result)
+            
+            seen_hashes = set()
+            unique_cd_results = []
+            for result in all_cd_results:
+                content_hash = result.payload.get("content_hash", "")
+                if content_hash not in seen_hashes:
+                    seen_hashes.add(content_hash)
+                    unique_cd_results.append(result)
             
             # Extract relevant information from search results
-            project_info = self._extract_project_info(main_results, cd_results, repo_url)
+            project_info = self._extract_project_info(unique_main_results, unique_cd_results, repo_url)
             
             return project_info
             
@@ -354,22 +404,26 @@ class VectorService:
                 
                 # Detect technologies and frameworks
                 tech_patterns = {
-                    "python": ["python", "django", "flask", "fastapi", "pandas", "numpy"],
-                    "javascript": ["javascript", "node.js", "react", "vue", "angular", "express"],
-                    "java": ["java", "spring", "maven", "gradle", "junit"],
-                    "go": ["go", "golang"],
-                    "rust": ["rust", "cargo"],
-                    "php": ["php", "laravel", "symfony"],
-                    "ruby": ["ruby", "rails"],
-                    "csharp": ["c#", "dotnet", "asp.net"],
-                    "docker": ["docker", "dockerfile"],
-                    "kubernetes": ["kubernetes", "k8s", "helm"],
-                    "aws": ["aws", "amazon", "lambda", "ec2", "s3"],
-                    "azure": ["azure", "microsoft"],
-                    "gcp": ["gcp", "google cloud", "firebase"],
-                    "database": ["mysql", "postgresql", "mongodb", "redis", "elasticsearch"],
-                    "monitoring": ["prometheus", "grafana", "jaeger", "zipkin"],
-                    "testing": ["jest", "pytest", "junit", "cypress", "selenium"]
+                    "python": ["python", "django", "flask", "fastapi", "pandas", "numpy", "pip", "requirements.txt", "py", "python3"],
+                    "javascript": ["javascript", "node.js", "react", "vue", "angular", "express", "npm", "package.json", "js", "ts", "typescript"],
+                    "java": ["java", "spring", "maven", "gradle", "junit", "javax", "jakarta", "spring boot", "spring framework", "pom.xml", "build.gradle"],
+                    "go": ["go", "golang", "go.mod", "go.sum"],
+                    "rust": ["rust", "cargo", "cargo.toml", "cargo.lock"],
+                    "php": ["php", "laravel", "symfony", "composer.json"],
+                    "ruby": ["ruby", "rails", "gemfile", "gemfile.lock"],
+                    "csharp": ["c#", "dotnet", "asp.net", ".csproj", ".sln"],
+                    "docker": ["docker", "dockerfile", "docker-compose", "container"],
+                    "kubernetes": ["kubernetes", "k8s", "helm", "deployment.yaml", "service.yaml"],
+                    "aws": ["aws", "amazon", "lambda", "ec2", "s3", "cloudformation"],
+                    "azure": ["azure", "microsoft", "azure devops"],
+                    "gcp": ["gcp", "google cloud", "firebase", "cloud run"],
+                    "database": ["mysql", "postgresql", "mongodb", "redis", "elasticsearch", "h2", "hibernate", "jpa"],
+                    "monitoring": ["prometheus", "grafana", "jaeger", "zipkin", "actuator"],
+                    "testing": ["jest", "pytest", "junit", "cypress", "selenium", "test", "spec"],
+                    "build_tools": ["maven", "gradle", "ant", "make", "cmake"],
+                    "web_frameworks": ["spring boot", "spring mvc", "express", "fastapi", "django", "flask"],
+                    "orm": ["hibernate", "jpa", "sqlalchemy", "sequelize", "prisma"],
+                    "logging": ["logback", "log4j", "slf4j", "winston", "logging"]
                 }
                 
                 for tech, patterns in tech_patterns.items():
@@ -377,22 +431,57 @@ class VectorService:
                         technologies.add(tech)
                 
                 # Extract dependencies from specific files
-                if "requirements.txt" in payload.get("file_path", ""):
+                file_path = payload.get("file_path", "").lower()
+                
+                if "requirements.txt" in file_path:
                     deps = content.split("\n")
                     for dep in deps:
                         dep = dep.strip().split("==")[0].split(">=")[0].split("<=")[0]
-                        if dep and not dep.startswith("#"):
+                        if dep and not dep.startswith("#") and len(dep) > 0:
                             dependencies.add(dep)
                 
-                if "package.json" in payload.get("file_path", ""):
+                elif "package.json" in file_path:
                     # Extract npm dependencies
                     if "dependencies" in content:
-                        deps = content.split("dependencies")[1].split("}")[0]
-                        for line in deps.split("\n"):
-                            if '"' in line and ":" in line:
-                                dep = line.split('"')[1]
-                                if dep and not dep.startswith("@"):
-                                    dependencies.add(dep)
+                        try:
+                            # Simple regex-like extraction
+                            deps_section = content.split('"dependencies"')[1].split('}')[0]
+                            for line in deps_section.split('\n'):
+                                if '"' in line and ':' in line:
+                                    parts = line.split('"')
+                                    if len(parts) >= 2:
+                                        dep = parts[1]
+                                        if dep and not dep.startswith('@') and not dep.startswith('_'):
+                                            dependencies.add(dep)
+                        except:
+                            pass
+                
+                elif "pom.xml" in file_path:
+                    # Extract Maven dependencies
+                    if "<dependency>" in content:
+                        try:
+                            deps = content.split("<dependency>")
+                            for dep in deps[1:]:  # Skip first split
+                                if "<artifactId>" in dep and "</artifactId>" in dep:
+                                    artifact = dep.split("<artifactId>")[1].split("</artifactId>")[0]
+                                    if artifact:
+                                        dependencies.add(artifact)
+                        except:
+                            pass
+                
+                elif "build.gradle" in file_path:
+                    # Extract Gradle dependencies
+                    if "implementation" in content or "compile" in content:
+                        lines = content.split('\n')
+                        for line in lines:
+                            if 'implementation' in line or 'compile' in line:
+                                if "'" in line or '"' in line:
+                                    try:
+                                        dep = line.split("'")[1] if "'" in line else line.split('"')[1]
+                                        if dep and not dep.startswith(':'):
+                                            dependencies.add(dep)
+                                    except:
+                                        pass
             
             # Generate summary
             summary = f"Project analysis for {repo_url} reveals a "
