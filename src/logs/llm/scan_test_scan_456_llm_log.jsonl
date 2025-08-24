@@ -1,1 +1,0 @@
-{"timestamp": "2025-08-24T11:31:28.485742", "scan_id": "test_scan_456", "node_name": "TestNode", "prompt": "Analyze code quality and provide recommendations", "response": "Mock response: This is a development fallback when LLM service is not available.", "metadata": {}, "error": "Mock response used", "duration": 0.1, "prompt_length": 48, "response_length": 80}

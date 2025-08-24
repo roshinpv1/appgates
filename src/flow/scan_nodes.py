@@ -662,43 +662,137 @@ Focus on patterns relevant to the project's technology stack and domain.
             return self._create_fallback_patterns()
     
     def _create_fallback_patterns(self) -> List[Dict[str, Any]]:
-        """Create fallback patterns when LLM response parsing fails"""
+        """Create fallback patterns focused on hard gates when LLM response parsing fails"""
         return [
+            # Auditability Hard Gates
             {
-                "gate_id": "security_auth",
-                "name": "Authentication Check",
-                "description": "Basic authentication pattern check",
-                "pattern": r"auth|login|password",
+                "gate_id": "1.1",
+                "name": "Logs Searchable/Available",
+                "description": "Logs are searchable and available for both the platform and development team",
+                "pattern": r"log|logger|logging|syslog|centralized.*log",
                 "severity": "HIGH",
-                "category": "SECURITY",
-                "examples": ["authentication", "login system"]
+                "category": "AUDITABILITY",
+                "examples": ["logging configuration", "centralized logging", "log aggregation"]
             },
             {
-                "gate_id": "security_password",
-                "name": "Password Security",
-                "description": "Password security pattern check",
-                "pattern": r"password|passwd|pwd",
+                "gate_id": "1.3",
+                "name": "Audit Trail",
+                "description": "Maintain logs of user and system activity",
+                "pattern": r"audit|audit.*trail|user.*activity|system.*activity",
                 "severity": "HIGH",
-                "category": "SECURITY",
-                "examples": ["password validation", "password hashing"]
+                "category": "AUDITABILITY",
+                "examples": ["audit trail", "user activity logging", "system audit"]
             },
             {
-                "gate_id": "performance_cache",
-                "name": "Caching Implementation",
-                "description": "Caching pattern check",
-                "pattern": r"cache|redis|memcached",
+                "gate_id": "1.5",
+                "name": "Implement tracking ID for log messages",
+                "description": "Log messages include a tracking ID where possible",
+                "pattern": r"tracking.*id|request.*id|correlation.*id|trace.*id",
                 "severity": "MEDIUM",
-                "category": "PERFORMANCE",
-                "examples": ["cache implementation", "redis cache"]
+                "category": "AUDITABILITY",
+                "examples": ["request tracking", "correlation ID", "trace ID"]
             },
             {
-                "gate_id": "quality_logging",
-                "name": "Logging Implementation",
-                "description": "Logging pattern check",
-                "pattern": r"log|logger|logging",
+                "gate_id": "1.6",
+                "name": "Log API Calls",
+                "description": "Log REST API calls to capture external component interaction",
+                "pattern": r"api.*log|rest.*log|http.*log|request.*log",
+                "severity": "HIGH",
+                "category": "AUDITABILITY",
+                "examples": ["API logging", "REST call logging", "HTTP request logging"]
+            },
+            {
+                "gate_id": "1.8",
+                "name": "Log Application Messages",
+                "description": "Log application messages with standard log libraries",
+                "pattern": r"log.*library|logging.*framework|app.*log|application.*log",
+                "severity": "HIGH",
+                "category": "AUDITABILITY",
+                "examples": ["logging library", "application logging", "log framework"]
+            },
+            {
+                "gate_id": "1.10",
+                "name": "Avoid Logging Sensitive Data",
+                "description": "Prevent logging confidential and/or restricted data",
+                "pattern": r"mask.*log|redact.*log|sensitive.*data|password.*log|token.*log",
+                "severity": "CRITICAL",
+                "category": "AUDITABILITY",
+                "examples": ["log masking", "sensitive data redaction", "password masking"]
+            },
+            # Error Handling Hard Gates
+            {
+                "gate_id": "1.1",
+                "name": "Log system errors",
+                "description": "Log system errors for troubleshooting",
+                "pattern": r"error.*log|system.*error|exception.*log|crash.*log",
+                "severity": "HIGH",
+                "category": "ERROR_HANDLING",
+                "examples": ["error logging", "system error handling", "exception logging"]
+            },
+            {
+                "gate_id": "1.3",
+                "name": "Use HTTP standard error codes",
+                "description": "All APIs must return standardized HTTP status codes",
+                "pattern": r"http.*status|status.*code|error.*code|response.*code",
+                "severity": "HIGH",
+                "category": "ERROR_HANDLING",
+                "examples": ["HTTP status codes", "error response codes", "status code handling"]
+            },
+            # Availability Hard Gates
+            {
+                "gate_id": "1.5",
+                "name": "Timeouts",
+                "description": "Set timeouts on I/O operations to prevent waiting",
+                "pattern": r"timeout|time.*out|connection.*timeout|request.*timeout",
+                "severity": "HIGH",
+                "category": "AVAILABILITY",
+                "examples": ["connection timeout", "request timeout", "I/O timeout"]
+            },
+            {
+                "gate_id": "1.12",
+                "name": "Retry Logic",
+                "description": "Use retry logic to handle system failures",
+                "pattern": r"retry|retry.*logic|retry.*mechanism|retry.*policy",
+                "severity": "HIGH",
+                "category": "AVAILABILITY",
+                "examples": ["retry logic", "retry mechanism", "retry policy"]
+            },
+            {
+                "gate_id": "3.6",
+                "name": "Throttling, drop request",
+                "description": "Throttling requests when capacity limit is reached",
+                "pattern": r"throttle|throttling|rate.*limit|request.*limit",
                 "severity": "MEDIUM",
-                "category": "QUALITY",
-                "examples": ["logging configuration", "error logging"]
+                "category": "AVAILABILITY",
+                "examples": ["request throttling", "rate limiting", "throttle mechanism"]
+            },
+            {
+                "gate_id": "3.9",
+                "name": "Set circuit breakers on outgoing requests",
+                "description": "Circuit breaker to detect failures and prevent reoccurring",
+                "pattern": r"circuit.*breaker|circuit.*break|breaker.*pattern",
+                "severity": "HIGH",
+                "category": "AVAILABILITY",
+                "examples": ["circuit breaker", "circuit break pattern", "breaker implementation"]
+            },
+            {
+                "gate_id": "3.18",
+                "name": "Auto Scale",
+                "description": "System can automatically scale based on usage telemetry",
+                "pattern": r"auto.*scale|auto.*scaling|scale.*up|scale.*down",
+                "severity": "MEDIUM",
+                "category": "AVAILABILITY",
+                "examples": ["auto scaling", "scale up/down", "automatic scaling"]
+            },
+            # Testing Hard Gates
+            {
+                "gate_id": "2",
+                "name": "Automated Regression Testing",
+                "description": "Regression test cases must cover all critical areas",
+                "pattern": r"regression.*test|automated.*test|test.*suite|test.*coverage",
+                "severity": "HIGH",
+                "category": "TESTING",
+                "examples": ["regression testing", "automated tests", "test coverage"]
             }
         ]
     
@@ -1423,6 +1517,29 @@ class ReportGenerationNode(AsyncNode):
             # Calculate risk score
             risk_score = self._calculate_risk_score(gate_results)
             
+            # Add vector configuration to metadata for project summary generation
+            # Use the same configuration as the scan flow to access the same vector data
+            vector_config = {
+                "vector_size": 768,
+                "distance_metric": "cosine",
+                "use_qdrant": self.vector_service.use_qdrant if hasattr(self, 'vector_service') else True,
+                "qdrant_path": "./qdrant_data"
+            }
+            
+            # Generate project summary from vector database
+            from services.vector_service import VectorService
+            vector_service = VectorService(vector_config)
+            
+            project_info = vector_service.generate_project_summary(
+                repo_url=metadata.get("main_repo", {}).get("repo_url", "Unknown"),
+                scan_id=scan_id
+            )
+            
+            # Update metadata with vector config and project info
+            metadata_with_vector = metadata.copy()
+            metadata_with_vector["vector_config"] = vector_config
+            metadata_with_vector["project_summary"] = project_info
+            
             # Create scan result object
             scan_result = ScanResult(
                 scan_id=scan_id or f"scan_{int(time.time())}",
@@ -1435,21 +1552,26 @@ class ReportGenerationNode(AsyncNode):
                 partial_gates=len([g for g in gate_results if g.status == GateStatus.PARTIAL]),
                 skipped_gates=len([g for g in gate_results if g.status == GateStatus.SKIPPED]),
                 gate_results=gate_results,
-                recommendations=post_analysis.get("recommendations", []) if post_analysis else [],
+                recommendations=self._convert_recommendations_to_strings(post_analysis.get("recommendations", []) if post_analysis else []),
                 risk_score=risk_score,
                 scan_duration=0.0,  # Would be calculated from start time
-                metadata=metadata
+                metadata=metadata_with_vector
             )
             
             # Generate HTML report
             html_report = self.html_service.generate_html_report(scan_result)
             
+            # Store reports to filesystem
+            report_paths = self._save_reports_to_filesystem(scan_result, html_report, scan_id)
+            
             # Store scan result and HTML report
             self.context.scan_result = scan_result
             self.context.html_report = html_report
+            self.context.report_paths = report_paths
             
             print(f"✅ Report generated: {scan_result.passed_gates}/{scan_result.total_gates} gates passed")
             print(f"📄 HTML report generated ({len(html_report)} characters)")
+            print(f"💾 Reports saved to: {report_paths}")
             
             return "success"
             
@@ -1487,6 +1609,137 @@ class ReportGenerationNode(AsyncNode):
             total_weight += weight
         
         return total_score / total_weight if total_weight > 0 else 0.0
+    
+    def _convert_recommendations_to_strings(self, recommendations: List[Any]) -> List[str]:
+        """Convert recommendations to strings for JSON serialization"""
+        if not recommendations:
+            return []
+        
+        converted = []
+        for rec in recommendations:
+            if isinstance(rec, str):
+                converted.append(rec)
+            elif hasattr(rec, 'title') and hasattr(rec, 'description'):
+                # ContextualRecommendation object
+                converted.append(f"{rec.title}: {rec.description}")
+            elif isinstance(rec, dict):
+                # Dictionary recommendation
+                title = rec.get('title', '')
+                description = rec.get('description', '')
+                converted.append(f"{title}: {description}")
+            else:
+                # Fallback
+                converted.append(str(rec))
+        
+        return converted
+    
+    def _save_reports_to_filesystem(self, scan_result: ScanResult, html_report: str, scan_id: str) -> Dict[str, str]:
+        """Save HTML and JSON reports to filesystem with scan ID subfolder"""
+        try:
+            # Create reports directory structure
+            reports_dir = "reports"
+            scan_dir = os.path.join(reports_dir, scan_id)
+            
+            # Ensure directories exist
+            os.makedirs(reports_dir, exist_ok=True)
+            os.makedirs(scan_dir, exist_ok=True)
+            
+            report_paths = {}
+            
+            # Save HTML report
+            html_filename = f"codegates_report_{scan_id}.html"
+            html_path = os.path.join(scan_dir, html_filename)
+            
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(html_report)
+            
+            report_paths["html"] = html_path
+            print(f"💾 HTML report saved: {html_path}")
+            
+            # Save JSON report
+            json_filename = f"codegates_report_{scan_id}.json"
+            json_path = os.path.join(scan_dir, json_filename)
+            
+            # Convert ScanResult to JSON-serializable dict
+            json_data = {
+                "scan_id": scan_result.scan_id,
+                "repo_url": scan_result.repo_url,
+                "branch": scan_result.branch,
+                "scan_timestamp": scan_result.scan_timestamp.isoformat(),
+                "total_gates": scan_result.total_gates,
+                "passed_gates": scan_result.passed_gates,
+                "failed_gates": scan_result.failed_gates,
+                "partial_gates": scan_result.partial_gates,
+                "skipped_gates": scan_result.skipped_gates,
+                "risk_score": scan_result.risk_score,
+                "scan_duration": scan_result.scan_duration,
+                "gate_results": [
+                    {
+                        "gate_id": gate.gate_id,
+                        "gate_name": gate.gate_name,
+                        "status": gate.status.value,
+                        "expected_count": gate.expected_count,
+                        "actual_count": gate.actual_count,
+                        "threshold": gate.threshold,
+                        "patterns_found": gate.patterns_found,
+                        "recommendations": gate.recommendations,
+                        "confidence_score": gate.confidence_score,
+                        "reasoning": gate.reasoning
+                    }
+                    for gate in scan_result.gate_results
+                ],
+                "recommendations": scan_result.recommendations,
+                "metadata": scan_result.metadata
+            }
+            
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(json_data, f, indent=2, ensure_ascii=False)
+            
+            report_paths["json"] = json_path
+            print(f"💾 JSON report saved: {json_path}")
+            
+            # Create a summary file with report locations
+            summary_filename = f"report_summary_{scan_id}.txt"
+            summary_path = os.path.join(scan_dir, summary_filename)
+            
+            summary_content = f"""
+CodeGates Scan Report Summary
+============================
+
+Scan ID: {scan_id}
+Repository: {scan_result.repo_url}
+Branch: {scan_result.branch}
+Scan Timestamp: {scan_result.scan_timestamp}
+
+Results Summary:
+- Total Gates: {scan_result.total_gates}
+- Passed: {scan_result.passed_gates}
+- Failed: {scan_result.failed_gates}
+- Partial: {scan_result.partial_gates}
+- Skipped: {scan_result.skipped_gates}
+- Risk Score: {scan_result.risk_score:.2f}
+
+Report Files:
+- HTML Report: {html_filename}
+- JSON Report: {json_filename}
+- Summary: {summary_filename}
+
+Report Directory: {scan_dir}
+
+Generated on: {datetime.now().isoformat()}
+"""
+            
+            with open(summary_path, 'w', encoding='utf-8') as f:
+                f.write(summary_content)
+            
+            report_paths["summary"] = summary_path
+            print(f"💾 Summary file saved: {summary_path}")
+            
+            return report_paths
+            
+        except Exception as e:
+            print(f"❌ Failed to save reports to filesystem: {e}")
+            return {}
     
     async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
         """Post-report generation processing"""

@@ -23,6 +23,7 @@ sys.path.insert(0, str(src_path))
 from flow.scan_flow import ScanFlow
 from core.base import ScanContext
 from fastapi.responses import HTMLResponse
+from services.question_service import QuestionService
 
 
 # Pydantic models for API requests/responses
@@ -50,6 +51,12 @@ class ConfigRequest(BaseModel):
     ast_parser: Dict[str, Any] = Field(default_factory=dict)
     llm: Dict[str, Any] = Field(default_factory=dict)
 
+class QuestionRequest(BaseModel):
+    scan_id: str = Field(..., description="Scan ID of the repository to query")
+    question: str = Field(..., description="Question to ask about the repository")
+    max_context_chunks: int = Field(default=8, description="Maximum number of context chunks to retrieve")
+    include_metadata: bool = Field(default=True, description="Whether to include metadata in the response")
+
 # Global variables
 app = FastAPI(
     title="CodeGates Scan API",
@@ -69,6 +76,7 @@ app.add_middleware(
 # Global scan flow instance
 scan_flow: Optional[ScanFlow] = None
 scan_results: Dict[str, Dict[str, Any]] = {}
+question_service: Optional[QuestionService] = None
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -102,13 +110,15 @@ DEFAULT_CONFIG = {
 
 def initialize_scan_flow(config: Dict[str, Any] = None):
     """Initialize the scan flow with configuration"""
-    global scan_flow
+    global scan_flow, question_service
     try:
         if config is None:
             config = DEFAULT_CONFIG
         
         scan_flow = ScanFlow(config)
+        question_service = QuestionService(config)
         print("✅ Scan flow initialized successfully")
+        print("✅ Question service initialized successfully")
         return True
     except Exception as e:
         print(f"❌ Failed to initialize scan flow: {e}")
@@ -403,6 +413,10 @@ async def get_html_report(scan_id: str):
             # Store the generated report
             scan_data["html_report"] = html_report
             
+            # Also store report paths if available
+            if "report_paths" in scan_data:
+                scan_data["report_paths"] = scan_data["report_paths"]
+            
             return HTMLResponse(
                 content=html_report,
                 status_code=200
@@ -438,6 +452,177 @@ async def get_html_report(scan_id: str):
             </html>
             """,
             status_code=500
+        )
+
+
+@app.get("/api/v1/report/{scan_id}/files")
+async def get_report_files(scan_id: str):
+    """Get report file paths for a specific scan"""
+    try:
+        # Check if scan exists
+        scan_data = None
+        if scan_id in scan_results:
+            scan_data = scan_results[scan_id]
+        elif f"{scan_id}_data" in scan_results:
+            scan_data = scan_results[f"{scan_id}_data"]
+        
+        if not scan_data:
+            raise HTTPException(status_code=404, detail="Scan not found")
+        
+        # Get report paths if available
+        report_paths = scan_data.get("report_paths", {})
+        
+        if not report_paths:
+            # Try to find files in the reports directory
+            reports_dir = "reports"
+            scan_dir = os.path.join(reports_dir, scan_id)
+            
+            if os.path.exists(scan_dir):
+                report_paths = {
+                    "html": os.path.join(scan_dir, f"codegates_report_{scan_id}.html"),
+                    "json": os.path.join(scan_dir, f"codegates_report_{scan_id}.json"),
+                    "summary": os.path.join(scan_dir, f"report_summary_{scan_id}.txt")
+                }
+                
+                # Check which files actually exist
+                existing_paths = {}
+                for report_type, path in report_paths.items():
+                    if os.path.exists(path):
+                        existing_paths[report_type] = path
+                
+                report_paths = existing_paths
+        
+        return {
+            "scan_id": scan_id,
+            "report_paths": report_paths,
+            "report_directory": f"reports/{scan_id}" if report_paths else None
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get report files: {str(e)}")
+
+
+@app.get("/api/v1/reports/list")
+async def list_all_reports():
+    """List all available reports"""
+    try:
+        reports_dir = "reports"
+        if not os.path.exists(reports_dir):
+            return {"reports": [], "total": 0}
+        
+        reports = []
+        for scan_id in os.listdir(reports_dir):
+            scan_dir = os.path.join(reports_dir, scan_id)
+            if os.path.isdir(scan_dir):
+                # Check what files exist
+                files = {
+                    "html": os.path.exists(os.path.join(scan_dir, f"codegates_report_{scan_id}.html")),
+                    "json": os.path.exists(os.path.join(scan_dir, f"codegates_report_{scan_id}.json")),
+                    "summary": os.path.exists(os.path.join(scan_dir, f"report_summary_{scan_id}.txt"))
+                }
+                
+                reports.append({
+                    "scan_id": scan_id,
+                    "report_directory": scan_dir,
+                    "files_available": files,
+                    "has_html": files["html"],
+                    "has_json": files["json"],
+                    "has_summary": files["summary"]
+                })
+        
+        return {
+            "reports": reports,
+            "total": len(reports),
+            "reports_directory": reports_dir
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list reports: {str(e)}")
+
+
+@app.post("/api/v1/ask")
+async def ask_question_about_repository(request: QuestionRequest):
+    """Ask questions about a repository using vector embeddings and LLM"""
+    global question_service
+    
+    if not question_service:
+        raise HTTPException(
+            status_code=503, 
+            detail="Question service not initialized"
+        )
+    
+    try:
+        print(f"❓ Question request: {request.question}")
+        print(f"📋 Scan ID: {request.scan_id}")
+        
+        # Ask the question
+        result = await question_service.ask_question(
+            scan_id=request.scan_id,
+            question=request.question,
+            max_context_chunks=request.max_context_chunks,
+            include_metadata=request.include_metadata
+        )
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Failed to answer question: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to answer question: {str(e)}"
+        )
+
+
+@app.get("/api/v1/ask/scans")
+async def get_available_scans():
+    """Get list of available scan IDs that can be queried"""
+    global question_service
+    
+    if not question_service:
+        raise HTTPException(
+            status_code=503, 
+            detail="Question service not initialized"
+        )
+    
+    try:
+        scan_ids = question_service.get_available_scans()
+        return {
+            "status": "success",
+            "available_scans": scan_ids,
+            "total_scans": len(scan_ids)
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get available scans: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get available scans: {str(e)}"
+        )
+
+
+@app.get("/api/v1/ask/scan/{scan_id}")
+async def get_scan_info(scan_id: str):
+    """Get information about a specific scan"""
+    global question_service
+    
+    if not question_service:
+        raise HTTPException(
+            status_code=503, 
+            detail="Question service not initialized"
+        )
+    
+    try:
+        info = question_service.get_scan_info(scan_id)
+        return {
+            "status": "success",
+            "scan_info": info
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get scan info: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get scan info: {str(e)}"
         )
 
 

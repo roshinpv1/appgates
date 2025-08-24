@@ -275,3 +275,167 @@ class VectorService:
         except Exception as e:
             print(f"❌ Failed to get collection info for {collection_name}: {e}")
             return None
+    
+    def generate_project_summary(self, repo_url: str, scan_id: str) -> Dict[str, Any]:
+        """Generate project summary from vector database"""
+        try:
+            from services.embedding_service import EmbeddingService
+            
+            # Initialize embedding service
+            embedding_service = EmbeddingService(self.config)
+            
+            # Create query for project summary
+            summary_query = "high level project summary with key frameworks and technologies"
+            
+            # Generate embedding for the query
+            query_embedding = embedding_service.embed_single(summary_query)
+            
+            if not query_embedding:
+                return self._get_fallback_project_summary(repo_url)
+            
+            # Search in main repository collection
+            main_collection = f"repo_{scan_id}"
+            cd_collection = f"repo_{scan_id}_cd"
+            
+            # Search in main collection
+            main_results = self.search_similar(
+                collection_name=main_collection,
+                query_vector=query_embedding,
+                limit=5,
+                score_threshold=0.3
+            )
+            
+            # Search in CD collection if it exists
+            cd_results = []
+            try:
+                cd_results = self.search_similar(
+                    collection_name=cd_collection,
+                    query_vector=query_embedding,
+                    limit=3,
+                    score_threshold=0.3
+                )
+            except:
+                pass  # CD collection might not exist
+            
+            # Extract relevant information from search results
+            project_info = self._extract_project_info(main_results, cd_results, repo_url)
+            
+            return project_info
+            
+        except Exception as e:
+            print(f"❌ Failed to generate project summary: {e}")
+            return self._get_fallback_project_summary(repo_url)
+    
+    def _extract_project_info(self, main_results: List[SearchResult], 
+                             cd_results: List[SearchResult], repo_url: str) -> Dict[str, Any]:
+        """Extract project information from search results"""
+        try:
+            # Combine all results
+            all_results = main_results + cd_results
+            
+            # Extract technologies and frameworks
+            technologies = set()
+            frameworks = set()
+            file_types = set()
+            dependencies = set()
+            
+            for result in all_results:
+                payload = result.payload
+                
+                # Extract file information
+                if "file_path" in payload:
+                    file_path = payload["file_path"]
+                    file_ext = file_path.split(".")[-1].lower() if "." in file_path else ""
+                    if file_ext:
+                        file_types.add(file_ext)
+                
+                # Extract content for technology detection
+                content = payload.get("content", "").lower()
+                
+                # Detect technologies and frameworks
+                tech_patterns = {
+                    "python": ["python", "django", "flask", "fastapi", "pandas", "numpy"],
+                    "javascript": ["javascript", "node.js", "react", "vue", "angular", "express"],
+                    "java": ["java", "spring", "maven", "gradle", "junit"],
+                    "go": ["go", "golang"],
+                    "rust": ["rust", "cargo"],
+                    "php": ["php", "laravel", "symfony"],
+                    "ruby": ["ruby", "rails"],
+                    "csharp": ["c#", "dotnet", "asp.net"],
+                    "docker": ["docker", "dockerfile"],
+                    "kubernetes": ["kubernetes", "k8s", "helm"],
+                    "aws": ["aws", "amazon", "lambda", "ec2", "s3"],
+                    "azure": ["azure", "microsoft"],
+                    "gcp": ["gcp", "google cloud", "firebase"],
+                    "database": ["mysql", "postgresql", "mongodb", "redis", "elasticsearch"],
+                    "monitoring": ["prometheus", "grafana", "jaeger", "zipkin"],
+                    "testing": ["jest", "pytest", "junit", "cypress", "selenium"]
+                }
+                
+                for tech, patterns in tech_patterns.items():
+                    if any(pattern in content for pattern in patterns):
+                        technologies.add(tech)
+                
+                # Extract dependencies from specific files
+                if "requirements.txt" in payload.get("file_path", ""):
+                    deps = content.split("\n")
+                    for dep in deps:
+                        dep = dep.strip().split("==")[0].split(">=")[0].split("<=")[0]
+                        if dep and not dep.startswith("#"):
+                            dependencies.add(dep)
+                
+                if "package.json" in payload.get("file_path", ""):
+                    # Extract npm dependencies
+                    if "dependencies" in content:
+                        deps = content.split("dependencies")[1].split("}")[0]
+                        for line in deps.split("\n"):
+                            if '"' in line and ":" in line:
+                                dep = line.split('"')[1]
+                                if dep and not dep.startswith("@"):
+                                    dependencies.add(dep)
+            
+            # Generate summary
+            summary = f"Project analysis for {repo_url} reveals a "
+            
+            if technologies:
+                tech_list = list(technologies)[:5]  # Top 5 technologies
+                summary += f"technology stack primarily using {', '.join(tech_list)}. "
+            
+            if file_types:
+                file_list = list(file_types)[:5]  # Top 5 file types
+                summary += f"The codebase contains {', '.join(file_list)} files. "
+            
+            if dependencies:
+                dep_list = list(dependencies)[:5]  # Top 5 dependencies
+                summary += f"Key dependencies include {', '.join(dep_list)}. "
+            
+            if cd_results:
+                summary += "The project includes a separate CD (Continuous Deployment) repository for infrastructure and deployment configurations. "
+            
+            summary += "The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories."
+            
+            return {
+                "summary": summary,
+                "technologies": list(technologies),
+                "frameworks": list(frameworks),
+                "file_types": list(file_types),
+                "dependencies": list(dependencies),
+                "has_cd_repo": len(cd_results) > 0,
+                "total_files_analyzed": len(all_results)
+            }
+            
+        except Exception as e:
+            print(f"❌ Failed to extract project info: {e}")
+            return self._get_fallback_project_summary(repo_url)
+    
+    def _get_fallback_project_summary(self, repo_url: str) -> Dict[str, Any]:
+        """Get fallback project summary when vector search fails"""
+        return {
+            "summary": f"Project analysis for {repo_url}. The codebase has been analyzed for compliance with hard gates across auditability, error handling, availability, and testing categories. Detailed analysis results are provided in the gate evaluation sections below.",
+            "technologies": [],
+            "frameworks": [],
+            "file_types": [],
+            "dependencies": [],
+            "has_cd_repo": False,
+            "total_files_analyzed": 0
+        }

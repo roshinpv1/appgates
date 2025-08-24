@@ -46,6 +46,9 @@ class HTMLReportService:
         # Report type display
         report_type_display = "Enhanced Scan"
         
+        # Generate project summary from vector database
+        project_summary_html = self._generate_project_summary_html(scan_result)
+        
         # Generate gates table HTML
         gates_table_html = self._generate_gates_table_html(scan_result.gate_results)
         
@@ -85,6 +88,19 @@ class HTMLReportService:
         </div>
         
         <h2>Executive Summary</h2>
+        
+        <div class="hard-gates-notice" style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="color: #92400e; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5em;">⚠️</span>
+                Hard Gates Assessment - Primary Focus
+            </h3>
+            <p style="color: #92400e; margin-bottom: 0; font-weight: 500;">
+                This report focuses on the evaluation of <strong>16 critical hard gates</strong> across Auditability, Error Handling, Availability, and Testing categories. 
+                These gates represent the primary compliance requirements and must be addressed for production deployment.
+            </p>
+        </div>
+        
+        {project_summary_html}
         
         <div class="summary-stats">
             <div class="stat-card">
@@ -169,12 +185,32 @@ class HTMLReportService:
         return (total_score / len(applicable_gates)) * 100
     
     def _generate_gates_table_html(self, gate_results: List[GateResult]) -> str:
-        """Generate gates table HTML that matches the gates report structure exactly"""
+        """Generate gates table HTML with hard gates as primary focus"""
         
         if not gate_results:
             return "<p>No gate results available.</p>"
         
-        # Define the actual gates in scope categories
+        # Define the hard gates that are the primary focus of evaluation
+        hard_gates = {
+            '1.1': 'Logs Searchable/Available',
+            '1.3': 'Audit Trail', 
+            '1.5': 'Implement tracking ID for log messages',
+            '1.6': 'Log API Calls',
+            '1.8': 'Log Application Messages',
+            '1.10': 'Avoid Logging Sensitive Data',
+            '2.7': 'UI Error Handling',
+            '1.1': 'Log system errors',
+            '1.3': 'Use HTTP standard error codes',
+            '2.4': 'Include Client error tracking',
+            '1.5': 'Timeouts',
+            '1.12': 'Retry Logic',
+            '3.6': 'Throttling, drop request',
+            '3.9': 'Set circuit breakers on outgoing requests',
+            '3.18': 'Auto Scale',
+            '2': 'Automated Regression Testing'
+        }
+        
+        # Define the actual gates in scope categories (hard gates)
         predefined_categories = {
             'Auditability': ['1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7'],
             'Error Handling': ['1.1', '1.3', '2.4'],
@@ -182,13 +218,19 @@ class HTMLReportService:
             'Testing': ['2']
         }
         
-        # Group gates by predefined categories
+        # Group gates by predefined categories, prioritizing hard gates
         categories = {}
         for category_name, gate_ids in predefined_categories.items():
             categories[category_name] = []
             for gate in gate_results:
                 if gate.gate_id in gate_ids:
+                    # Mark hard gates for special emphasis
+                    gate.is_hard_gate = gate.gate_id in hard_gates or gate.gate_name in hard_gates.values()
                     categories[category_name].append(gate)
+        
+        # Sort gates within each category to prioritize hard gates first
+        for category_name in categories:
+            categories[category_name].sort(key=lambda x: (not getattr(x, 'is_hard_gate', False), x.gate_id))
         
         # Also add any gates that don't match predefined categories
         unmatched_gates = []
@@ -199,6 +241,7 @@ class HTMLReportService:
                     matched = True
                     break
             if not matched:
+                gate.is_hard_gate = False
                 unmatched_gates.append(gate)
         
         if unmatched_gates:
@@ -240,23 +283,33 @@ class HTMLReportService:
                 # Get recommendation
                 recommendation = self._get_recommendation(gate)
                 
+                # Check if this is a hard gate for special styling
+                is_hard_gate = getattr(gate, 'is_hard_gate', False)
+                hard_gate_class = "hard-gate-row" if is_hard_gate else ""
+                hard_gate_badge = '<span class="hard-gate-badge">HARD GATE</span>' if is_hard_gate else ""
+                
                 # Generate the table row
                 gate_html = f'''
-                                    <tr>
+                                    <tr class="{hard_gate_class}">
                                         <td style="text-align: center">
                                             <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
                                                 <button class="details-toggle" onclick="toggleDetails(this, 'details-{category_name.lower().replace(' ', '-')}-{gate.gate_id}-{i}')" aria-expanded="false" aria-label="Show details for {gate.gate_name}">+</button>
                                                 <span style="font-weight: bold; color: #374151; font-size: 0.9em;">{gate.gate_id}</span>
                                             </div>
                                         </td>
-                                        <td><strong>{gate.gate_name}</strong></td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>{gate.gate_name}</strong>
+                                                {hard_gate_badge}
+                                            </div>
+                                        </td>
                                         <td><span class="status-{status_class}">{status_text}</span></td>
                                         <td>{evidence}</td>
                                         <td>{recommendation}</td>
                                     </tr>
-                                    <tr id="details-{category_name.lower().replace(' ', '-')}-{gate.gate_id}-{i}" class="gate-details" aria-hidden="true">
+                                    <tr id="details-{category_name.lower().replace(' ', '-')}-{gate.gate_id}-{i}" class="gate-details {hard_gate_class}" aria-hidden="true">
                                         <td colspan="5" class="details-content">
-                                            <h4>Gate Details</h4>
+                                            <h4>Gate Details {hard_gate_badge}</h4>
                                             <div class="metrics-grid">
                                                 <div class="metric-card">
                                                     <strong>Expected Count:</strong> {gate.expected_count}
@@ -559,6 +612,118 @@ class HTMLReportService:
         .recommendation-type { background: #e0f2fe; color: #0277bd; }
         .recommendation-priority { background: #fff3e0; color: #f57c00; }
         .recommendation-confidence { background: #f3e5f5; color: #7b1fa2; }
+        
+        /* Hard Gate Styling */
+        .hard-gate-row {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+        }
+        .hard-gate-row:hover {
+            background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+        }
+        .hard-gate-badge {
+            background: #dc2626;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .hard-gate-row .details-content {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        /* Project Summary Styling */
+        .project-summary-section {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .project-description {
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+        
+        .project-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .detail-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .detail-card h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+        
+        .tech-tags, .file-type-tags, .dependency-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .tech-tag, .file-type-tag, .dependency-tag {
+            background: #2563eb;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .file-type-tag {
+            background: #059669;
+        }
+        
+        .dependency-tag {
+            background: #7c3aed;
+        }
+        
+        .no-data {
+            color: #6b7280;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+        
+        .stats-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+        
+        .stat-value {
+            color: #1f2937;
+            font-weight: 600;
+        }
         """
 
     def _format_evidence(self, gate: GateResult) -> str:
@@ -600,3 +765,124 @@ class HTMLReportService:
                                             </div>"""
         
         return html
+    
+    def _generate_project_summary_html(self, scan_result: ScanResult) -> str:
+        """Generate project summary HTML section from vector database"""
+        try:
+            # Get project summary from scan metadata (pre-generated during scan)
+            project_info = scan_result.metadata.get("project_summary")
+            
+            # If not available, generate it from vector database
+            if not project_info:
+                # Get vector service configuration from scan metadata
+                vector_config = scan_result.metadata.get("vector_config", {
+                    "vector_size": 768,
+                    "distance_metric": "cosine",
+                    "use_qdrant": False
+                })
+                
+                # Initialize vector service
+                from services.vector_service import VectorService
+                vector_service = VectorService(vector_config)
+                
+                # Generate project summary
+                project_info = vector_service.generate_project_summary(
+                    repo_url=scan_result.repo_url,
+                    scan_id=scan_result.scan_id
+                )
+            
+            # Create HTML for project summary section
+            html = f"""
+        <h2>Project Summary</h2>
+        
+        <div class="project-summary-section">
+            <div class="summary-content">
+                <p class="project-description">{project_info.get('summary', 'Project analysis completed.')}</p>
+            </div>
+            
+            <div class="project-details-grid">
+                <div class="detail-card">
+                    <h4>Technologies</h4>
+                    <div class="tech-tags">
+                        {self._generate_tech_tags_html(project_info.get('technologies', []))}
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>File Types</h4>
+                    <div class="file-type-tags">
+                        {self._generate_file_type_tags_html(project_info.get('file_types', []))}
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Key Dependencies</h4>
+                    <div class="dependency-tags">
+                        {self._generate_dependency_tags_html(project_info.get('dependencies', []))}
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Analysis Stats</h4>
+                    <div class="stats-info">
+                        <div class="stat-item">
+                            <span class="stat-label">Files Analyzed:</span>
+                            <span class="stat-value">{project_info.get('total_files_analyzed', 0)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">CD Repository:</span>
+                            <span class="stat-value">{'Yes' if project_info.get('has_cd_repo', False) else 'No'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+"""
+            
+            return html
+            
+        except Exception as e:
+            print(f"⚠️ Failed to generate project summary HTML: {e}")
+            # Return fallback project summary
+            return f"""
+        <h2>Project Summary</h2>
+        
+        <div class="project-summary-section">
+            <div class="summary-content">
+                <p class="project-description">Project analysis for {scan_result.repo_url}. The codebase has been analyzed for compliance with hard gates across auditability, error handling, availability, and testing categories. Detailed analysis results are provided in the gate evaluation sections below.</p>
+            </div>
+        </div>
+"""
+    
+    def _generate_tech_tags_html(self, technologies: List[str]) -> str:
+        """Generate HTML for technology tags"""
+        if not technologies:
+            return '<span class="no-data">No technologies detected</span>'
+        
+        tags_html = []
+        for tech in technologies[:8]:  # Limit to 8 technologies
+            tags_html.append(f'<span class="tech-tag">{tech}</span>')
+        
+        return ''.join(tags_html)
+    
+    def _generate_file_type_tags_html(self, file_types: List[str]) -> str:
+        """Generate HTML for file type tags"""
+        if not file_types:
+            return '<span class="no-data">No file types detected</span>'
+        
+        tags_html = []
+        for file_type in file_types[:6]:  # Limit to 6 file types
+            tags_html.append(f'<span class="file-type-tag">{file_type}</span>')
+        
+        return ''.join(tags_html)
+    
+    def _generate_dependency_tags_html(self, dependencies: List[str]) -> str:
+        """Generate HTML for dependency tags"""
+        if not dependencies:
+            return '<span class="no-data">No dependencies detected</span>'
+        
+        tags_html = []
+        for dep in dependencies[:6]:  # Limit to 6 dependencies
+            tags_html.append(f'<span class="dependency-tag">{dep}</span>')
+        
+        return ''.join(tags_html)

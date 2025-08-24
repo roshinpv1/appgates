@@ -141,7 +141,7 @@ class ScanResult:
     partial_gates: int
     skipped_gates: int
     gate_results: List[GateResult]
-    recommendations: List[ContextualRecommendation]
+    recommendations: List[str]
     risk_score: float
     scan_duration: float
     metadata: Dict[str, Any] = field(default_factory=dict)
