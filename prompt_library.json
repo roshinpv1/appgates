@@ -1,0 +1,156 @@
+{
+  "llm_pre_analysis": {
+    "use_case": "pre_analysis",
+    "description": "LLM pre-analysis to generate dynamic patterns and assess gate applicability",
+    "prompt_template": "Analyze the following repository for hard gate compliance:\n\nRepository Structure: {code_structure}\nKey Config Files: {config_files}\nHard Gate Summary: {hard_gate_summary}\n\nGenerate:\n1. Regex patterns for each applicable gate\n2. Gate applicability assessment\n3. Expected implementation patterns\n\nFormat output as JSON with the following structure:\n{\n    \"patterns\": [\n        {\n            \"gate_id\": \"gate_name\",\n            \"pattern\": \"regex_pattern\",\n            \"description\": \"pattern_description\",\n            \"severity\": \"high|medium|low\",\n            \"applicable\": true|false\n        }\n    ],\n    \"gate_applicability\": [\n        {\n            \"gate_id\": \"gate_name\",\n            \"applicable\": true|false,\n            \"reasoning\": \"why applicable or not\"\n        }\n    ]\n}",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000,
+      "top_p": 0.9,
+      "frequency_penalty": 0.1,
+      "presence_penalty": 0.1
+    },
+    "examples": [
+      {
+        "input": "Repository contains Python web application with Flask",
+        "output": {
+          "patterns": [
+            {
+              "gate_id": "security_auth",
+              "pattern": "\\b(login|authenticate|auth|session)\\b",
+              "description": "Authentication mechanism",
+              "severity": "high",
+              "applicable": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "llm_post_analysis": {
+    "use_case": "post_analysis",
+    "description": "LLM post-analysis to generate recommendations and risk assessment",
+    "prompt_template": "Analyze the scan results and provide recommendations:\n\nScan Results: {scan_results}\nProject Config: {project_config}\nEmbedding Extracts: {embedding_extracts}\n\nProvide:\n1. Detailed recommendations for failed/partial gates\n2. Risk analysis and impact assessment\n3. Remediation steps and best practices\n4. Priority levels (Critical, High, Medium, Low)\n\nFormat as structured recommendations with:\n- Clear action items\n- Code examples where applicable\n- Risk impact assessment\n- Implementation priority",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 3000,
+      "top_p": 0.9,
+      "frequency_penalty": 0.1,
+      "presence_penalty": 0.1
+    },
+    "examples": [
+      {
+        "input": "Security gate failed - no authentication found",
+        "output": "CRITICAL: Implement authentication mechanism\n- Add Flask-Login or similar authentication library\n- Create login/logout endpoints\n- Implement session management\n- Add password hashing with bcrypt\n\nRisk: High - application vulnerable to unauthorized access"
+      }
+    ]
+  },
+  "gate_applicability_assessment": {
+    "use_case": "gate_assessment",
+    "description": "Assess which gates are applicable to the repository",
+    "prompt_template": "Assess gate applicability for the repository:\n\nRepository Type: {repo_type}\nLanguage: {language}\nFramework: {framework}\nDomain: {domain}\n\nAvailable Gates:\n{available_gates}\n\nFor each gate, determine:\n1. Is it applicable to this repository?\n2. What is the reasoning?\n3. What is the expected implementation complexity?\n\nFormat as JSON with applicability scores (0-1) and reasoning.",
+    "parameters": {
+      "temperature": 0.2,
+      "max_tokens": 1500
+    }
+  },
+  "pattern_generation": {
+    "use_case": "pattern_generation",
+    "description": "Generate regex patterns for specific gates",
+    "prompt_template": "Generate regex patterns for the following gate:\n\nGate: {gate_name}\nDescription: {gate_description}\nLanguage: {language}\nFramework: {framework}\n\nRequirements:\n- Pattern should be specific and accurate\n- Avoid false positives\n- Consider language-specific syntax\n- Include common variations\n\nGenerate patterns for:\n1. Positive matches (what should be present)\n2. Negative matches (what should not be present)\n3. Context patterns (surrounding code context)",
+    "parameters": {
+      "temperature": 0.1,
+      "max_tokens": 1000
+    }
+  },
+  "risk_assessment": {
+    "use_case": "risk_assessment",
+    "description": "Assess risk level based on gate failures",
+    "prompt_template": "Assess the risk level for the following gate failures:\n\nFailed Gates: {failed_gates}\nPartial Gates: {partial_gates}\nRepository Context: {repo_context}\n\nConsider:\n1. Security implications\n2. Compliance requirements\n3. Business impact\n4. Technical debt\n5. Maintenance overhead\n\nProvide:\n- Overall risk score (1-10)\n- Risk breakdown by category\n- Mitigation recommendations\n- Timeline for remediation",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "remediation_planning": {
+    "use_case": "remediation_planning",
+    "description": "Generate detailed remediation plans",
+    "prompt_template": "Create a detailed remediation plan for the following issues:\n\nIssues: {issues}\nRepository: {repo_info}\nTeam Size: {team_size}\nTimeline: {timeline}\n\nProvide:\n1. Step-by-step remediation steps\n2. Code examples and templates\n3. Testing requirements\n4. Rollback plans\n5. Resource requirements\n6. Timeline estimates\n\nFormat as actionable tasks with priorities and dependencies.",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 2500
+    }
+  },
+  "code_quality_assessment": {
+    "use_case": "code_quality",
+    "description": "Assess overall code quality and maintainability",
+    "prompt_template": "Assess the code quality for the repository:\n\nCode Metrics: {metrics}\nPattern Matches: {pattern_matches}\nFile Structure: {file_structure}\n\nEvaluate:\n1. Code complexity and maintainability\n2. Documentation quality\n3. Testing coverage\n4. Security practices\n5. Performance considerations\n6. Best practices adherence\n\nProvide:\n- Quality score (1-10)\n- Specific improvement areas\n- Quick wins vs long-term improvements\n- Industry benchmarks comparison",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "compliance_check": {
+    "use_case": "compliance",
+    "description": "Check compliance with industry standards and regulations",
+    "prompt_template": "Check compliance with the following standards:\n\nStandards: {standards}\nRepository: {repo_info}\nIndustry: {industry}\n\nStandards to check:\n1. Security standards (OWASP, NIST)\n2. Privacy regulations (GDPR, CCPA)\n3. Industry-specific requirements\n4. Licensing compliance\n5. Documentation requirements\n\nProvide:\n- Compliance status for each standard\n- Missing requirements\n- Implementation recommendations\n- Audit trail requirements",
+    "parameters": {
+      "temperature": 0.2,
+      "max_tokens": 2000
+    }
+  },
+  "performance_analysis": {
+    "use_case": "performance",
+    "description": "Analyze performance implications and optimization opportunities",
+    "prompt_template": "Analyze performance aspects of the repository:\n\nCode Patterns: {patterns}\nArchitecture: {architecture}\nDependencies: {dependencies}\n\nAnalyze:\n1. Performance bottlenecks\n2. Scalability concerns\n3. Resource utilization\n4. Caching opportunities\n5. Database optimization\n6. Memory management\n\nProvide:\n- Performance score (1-10)\n- Bottleneck identification\n- Optimization recommendations\n- Monitoring suggestions",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "architecture_review": {
+    "use_case": "architecture",
+    "description": "Review and assess system architecture",
+    "prompt_template": "Review the system architecture:\n\nArchitecture: {architecture}\nComponents: {components}\nDependencies: {dependencies}\n\nReview:\n1. Design patterns usage\n2. Separation of concerns\n3. Modularity and reusability\n4. Scalability design\n5. Maintainability\n6. Technology choices\n\nProvide:\n- Architecture score (1-10)\n- Design pattern recommendations\n- Refactoring suggestions\n- Technology stack assessment",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 2000
+    }
+  },
+  "testing_strategy": {
+    "use_case": "testing",
+    "description": "Assess testing strategy and coverage",
+    "prompt_template": "Assess the testing strategy:\n\nTest Files: {test_files}\nCoverage: {coverage}\nTest Types: {test_types}\n\nEvaluate:\n1. Test coverage adequacy\n2. Test quality and effectiveness\n3. Testing strategy alignment\n4. Automation level\n5. CI/CD integration\n6. Test maintenance\n\nProvide:\n- Testing score (1-10)\n- Coverage gaps\n- Test strategy improvements\n- Automation recommendations",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "documentation_assessment": {
+    "use_case": "documentation",
+    "description": "Assess documentation quality and completeness",
+    "prompt_template": "Assess the documentation:\n\nDocumentation Files: {doc_files}\nREADME: {readme}\nAPI Docs: {api_docs}\n\nEvaluate:\n1. Documentation completeness\n2. Clarity and readability\n3. API documentation\n4. Setup instructions\n5. Maintenance guides\n6. Code comments\n\nProvide:\n- Documentation score (1-10)\n- Missing documentation areas\n- Improvement recommendations\n- Documentation standards",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "security_audit": {
+    "use_case": "security_audit",
+    "description": "Comprehensive security audit and vulnerability assessment",
+    "prompt_template": "Conduct a security audit:\n\nCode Patterns: {patterns}\nDependencies: {dependencies}\nConfiguration: {config}\n\nAudit:\n1. Authentication mechanisms\n2. Authorization controls\n3. Input validation\n4. Data encryption\n5. Secure communication\n6. Dependency vulnerabilities\n7. Configuration security\n\nProvide:\n- Security score (1-10)\n- Vulnerability assessment\n- Security recommendations\n- Compliance gaps",
+    "parameters": {
+      "temperature": 0.2,
+      "max_tokens": 2500
+    }
+  },
+  "observability_assessment": {
+    "use_case": "observability",
+    "description": "Assess observability and monitoring capabilities",
+    "prompt_template": "Assess observability capabilities:\n\nLogging: {logging}\nMonitoring: {monitoring}\nTracing: {tracing}\nMetrics: {metrics}\n\nEvaluate:\n1. Logging strategy and quality\n2. Monitoring coverage\n3. Distributed tracing\n4. Metrics collection\n5. Alerting mechanisms\n6. Debugging capabilities\n\nProvide:\n- Observability score (1-10)\n- Monitoring gaps\n- Implementation recommendations\n- Tool suggestions",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  }
+}

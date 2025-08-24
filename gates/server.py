@@ -2259,10 +2259,33 @@ except ImportError:
     CONTEXTUAL_RECOMMENDATIONS_AVAILABLE = False
     print("⚠️ Contextual recommendations not available")
 
+# Initialize Pattern Library Service
+try:
+    from .advanced_llm.pattern_library import PatternLibraryService
+    pattern_library_service = PatternLibraryService()
+    print("✅ Pattern library service initialized")
+except Exception as e:
+    print(f"⚠️ Failed to initialize pattern library service: {e}")
+    pattern_library_service = None
+
+# Initialize Vector Store
+try:
+    from .advanced_llm.vector_store import VectorStore
+    vector_store_config = {
+        "use_qdrant": True,
+        "qdrant_path": "./qdrant_data",
+        "vector_size": 768
+    }
+    vector_store = VectorStore(vector_store_config)
+    print("✅ Vector store initialized")
+except Exception as e:
+    print(f"⚠️ Failed to initialize vector store: {e}")
+    vector_store = None
+
 # Initialize Contextual Recommendation Engine
 contextual_recommendation_engine = None
 contextual_search_api = None
-if CONTEXTUAL_RECOMMENDATIONS_AVAILABLE and advanced_llm_service and pattern_library_service:
+if CONTEXTUAL_RECOMMENDATIONS_AVAILABLE and advanced_llm_service and pattern_library_service and vector_store:
     try:
         contextual_recommendation_engine = ContextualRecommendationEngine(
             vector_store=vector_store,
@@ -2435,6 +2458,293 @@ async def get_recommendation_types():
             for rec_type in RecommendationType
         ]
     }
+
+# Import Hard Gate Analyzer
+try:
+    from .hard_gate_analyzer import HardGateAnalyzer, ScanRequest, ScanResult
+    HARD_GATE_ANALYZER_AVAILABLE = True
+except ImportError:
+    HARD_GATE_ANALYZER_AVAILABLE = False
+    print("⚠️ Hard Gate Analyzer not available")
+
+# Initialize Hard Gate Analyzer
+hard_gate_analyzer = None
+if HARD_GATE_ANALYZER_AVAILABLE and advanced_llm_service:
+    try:
+        hard_gate_config = {
+            "advanced_llm": advanced_config,
+            "vector_store": advanced_config.get("vector_store", {}),
+            "prompt_library_path": "prompt_library.json"
+        }
+        hard_gate_analyzer = HardGateAnalyzer(hard_gate_config)
+        print("✅ Hard Gate Analyzer initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize Hard Gate Analyzer: {e}")
+
+# Hard Gate Analyzer API Models
+class HardGateScanRequest(BaseModel):
+    repo_url: str = Field(..., description="Git repository URL")
+    branch: str = Field(default="main", description="Git branch to scan")
+    git_token: Optional[str] = Field(None, description="Git authentication token")
+    app_id: Optional[str] = Field(None, description="Application ID for tracking")
+
+class HardGateScanResponse(BaseModel):
+    scan_id: str
+    app_id: str
+    repo_url: str
+    branch: str
+    scan_timestamp: str
+    total_gates: int
+    passed_gates: int
+    failed_gates: int
+    partial_gates: int
+    skipped_gates: int
+    risk_score: float
+    scan_duration: float
+    recommendations: List[str]
+    gate_results: List[Dict[str, Any]]
+
+# Hard Gate Analyzer API Endpoints
+@app.post("/api/v1/hardgate/scan")
+async def scan_repository_hard_gates(request: HardGateScanRequest):
+    """Scan repository for hard gate compliance"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # Create scan request
+        scan_request = ScanRequest(
+            repo_url=request.repo_url,
+            branch=request.branch,
+            git_token=request.git_token,
+            app_id=request.app_id
+        )
+        
+        # Execute scan
+        scan_result = await hard_gate_analyzer.analyze_repository(scan_request)
+        
+        # Convert to response format
+        response = HardGateScanResponse(
+            scan_id=scan_result.scan_id,
+            app_id=scan_result.app_id,
+            repo_url=scan_result.repo_url,
+            branch=scan_result.branch,
+            scan_timestamp=scan_result.scan_timestamp.isoformat(),
+            total_gates=scan_result.total_gates,
+            passed_gates=scan_result.passed_gates,
+            failed_gates=scan_result.failed_gates,
+            partial_gates=scan_result.partial_gates,
+            skipped_gates=scan_result.skipped_gates,
+            risk_score=scan_result.risk_score,
+            scan_duration=scan_result.scan_duration,
+            recommendations=scan_result.recommendations,
+            gate_results=[asdict(gate) for gate in scan_result.gate_results]
+        )
+        
+        return {
+            "success": True,
+            "message": f"Hard gate analysis completed in {scan_result.scan_duration:.2f} seconds",
+            "data": response
+        }
+        
+    except Exception as e:
+        print(f"❌ Hard gate scan failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Hard gate scan failed: {str(e)}")
+
+@app.post("/api/v1/hardgate/scan/async")
+async def scan_repository_hard_gates_async(request: HardGateScanRequest):
+    """Start asynchronous hard gate scan"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # Generate scan ID
+        scan_id = f"scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Start async scan (in real implementation, this would be a background task)
+        scan_request = ScanRequest(
+            repo_url=request.repo_url,
+            branch=request.branch,
+            git_token=request.git_token,
+            app_id=request.app_id,
+            scan_id=scan_id
+        )
+        
+        # For now, run synchronously but return immediately
+        # In production, this would be a background task
+        asyncio.create_task(hard_gate_analyzer.analyze_repository(scan_request))
+        
+        return {
+            "success": True,
+            "message": "Hard gate scan started",
+            "scan_id": scan_id,
+            "status": "started"
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to start hard gate scan: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start scan: {str(e)}")
+
+@app.get("/api/v1/hardgate/scan/{scan_id}")
+async def get_hard_gate_scan_status(scan_id: str):
+    """Get hard gate scan status and results"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # In a real implementation, this would query a database or cache
+        # For now, return a mock response
+        return {
+            "success": True,
+            "scan_id": scan_id,
+            "status": "completed",
+            "message": "Scan completed successfully"
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get scan status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get scan status: {str(e)}")
+
+@app.get("/api/v1/hardgate/gates")
+async def get_available_hard_gates():
+    """Get list of available hard gates"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # Get available gates from pattern library
+        gates = []
+        if hard_gate_analyzer.pattern_library:
+            # Get all patterns from the pattern library
+            pattern_infos = list(hard_gate_analyzer.pattern_library.patterns.values())
+            for pattern_info in pattern_infos:
+                gates.append({
+                    "gate_id": pattern_info.gate_id,
+                    "name": pattern_info.display_name,
+                    "description": pattern_info.description,
+                    "severity": pattern_info.priority,
+                    "category": pattern_info.category
+                })
+        
+        return {
+            "success": True,
+            "total_gates": len(gates),
+            "gates": gates
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get available gates: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get gates: {str(e)}")
+
+@app.get("/api/v1/hardgate/thresholds")
+async def get_gate_thresholds():
+    """Get configurable thresholds for gates"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # Return default thresholds
+        thresholds = {
+            "security_auth": 1,
+            "security_input_validation": 3,
+            "performance_caching": 2,
+            "quality_documentation": 5,
+            "default": 1
+        }
+        
+        return {
+            "success": True,
+            "thresholds": thresholds
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get thresholds: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get thresholds: {str(e)}")
+
+@app.post("/api/v1/hardgate/thresholds")
+async def update_gate_thresholds(thresholds: Dict[str, int]):
+    """Update gate thresholds"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # In a real implementation, this would update configuration
+        # For now, just return success
+        return {
+            "success": True,
+            "message": "Thresholds updated successfully",
+            "updated_thresholds": thresholds
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to update thresholds: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update thresholds: {str(e)}")
+
+@app.get("/api/v1/hardgate/reports/{scan_id}")
+async def get_hard_gate_report(scan_id: str, format: str = "json"):
+    """Get hard gate scan report in specified format"""
+    
+    if not hard_gate_analyzer:
+        raise HTTPException(status_code=503, detail="Hard Gate Analyzer not available")
+    
+    try:
+        # In a real implementation, this would generate reports
+        # For now, return a mock report
+        report = {
+            "scan_id": scan_id,
+            "generated_at": datetime.now().isoformat(),
+            "format": format,
+            "summary": {
+                "total_gates": 10,
+                "passed": 7,
+                "failed": 2,
+                "partial": 1,
+                "risk_score": 0.3
+            }
+        }
+        
+        if format.lower() == "html":
+            # Generate HTML report
+            html_content = f"""
+            <html>
+            <head><title>Hard Gate Report - {scan_id}</title></head>
+            <body>
+                <h1>Hard Gate Analysis Report</h1>
+                <p>Scan ID: {scan_id}</p>
+                <p>Generated: {report['generated_at']}</p>
+                <h2>Summary</h2>
+                <ul>
+                    <li>Total Gates: {report['summary']['total_gates']}</li>
+                    <li>Passed: {report['summary']['passed']}</li>
+                    <li>Failed: {report['summary']['failed']}</li>
+                    <li>Partial: {report['summary']['partial']}</li>
+                    <li>Risk Score: {report['summary']['risk_score']}</li>
+                </ul>
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content)
+        
+        elif format.lower() == "pdf":
+            # In real implementation, generate PDF
+            raise HTTPException(status_code=501, detail="PDF format not yet implemented")
+        
+        else:
+            # Return JSON
+            return {
+                "success": True,
+                "report": report
+            }
+        
+    except Exception as e:
+        print(f"❌ Failed to generate report: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

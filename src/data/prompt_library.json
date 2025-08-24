@@ -1,0 +1,229 @@
+{
+  "gates_in_scope": {
+    "auditability": [
+      {
+        "gate_id": "1.1",
+        "gate_name": "Logs Searchable/Available",
+        "prompt": "Logs are searchable and available for both the platform and development team. Application logs written to standard output and log files must be sent to a central application for troubleshooting. The Enterprise Architecture NFR needs to be completed by the app team prior to release deployment.",
+        "category": "Auditability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "1.3",
+        "gate_name": "Audit Trail",
+        "prompt": "Maintain logs of user and system activity to support system failure, system response, issues, and incident response.",
+        "category": "Auditability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "1.5",
+        "gate_name": "Implement tracking ID for log messages",
+        "prompt": "Log messages include a tracking ID where possible to implement. A unique request tracking ID can help in understanding the flow of requests.",
+        "category": "Auditability",
+        "severity": "medium"
+      },
+      {
+        "gate_id": "1.6",
+        "gate_name": "Log API Calls",
+        "prompt": "Log REST API calls to capture external component interaction for troubleshooting. The Enterprise NFR needs to be completed by the app team.",
+        "category": "Auditability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "1.8",
+        "gate_name": "Log Application Messages",
+        "prompt": "Log application messages with standard log libraries to make it easier to capture the right information in the right format. The Enterprise NFR needs to be completed by the app team and validated prior to release deployment.",
+        "category": "Auditability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "1.10",
+        "gate_name": "Avoid Logging Sensitive Data",
+        "prompt": "Prevent logging confidential and/or restricted data. Mask or remove confidential information from logs prior to saving. The Enterprise NFR needs to be completed by the app team and validated.",
+        "category": "Auditability",
+        "severity": "critical"
+      },
+      {
+        "gate_id": "2.7",
+        "gate_name": "UI Error Handling",
+        "prompt": "Critical and error log messages created in the client device (mobile or browser) need to be sent to the application central log system.",
+        "category": "Auditability",
+        "severity": "medium"
+      }
+    ],
+    "error_handling": [
+      {
+        "gate_id": "1.1",
+        "gate_name": "Log system errors",
+        "prompt": "Log system errors. The Enterprise Architecture NFR needs to be completed by the app team prior to release deployment into production.",
+        "category": "Error Handling",
+        "severity": "high"
+      },
+      {
+        "gate_id": "1.3",
+        "gate_name": "Use HTTP standard error codes",
+        "prompt": "All APIs and internal REST controllers must return standardized HTTP status codes and headers to help consumers handle errors.",
+        "category": "Error Handling",
+        "severity": "high"
+      },
+      {
+        "gate_id": "2.4",
+        "gate_name": "Include Client error tracking",
+        "prompt": "Include client error tracking. The Enterprise NFR needs to be completed by the app team and validated, prior to release deployment into production.",
+        "category": "Error Handling",
+        "severity": "medium"
+      }
+    ],
+    "availability": [
+      {
+        "gate_id": "1.5",
+        "gate_name": "Timeouts",
+        "prompt": "Latency control, set timeouts on I/O operations to prevent the application from waiting longer than acceptable. The Enterprise NFR needs to be completed by the app team.",
+        "category": "Availability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "1.12",
+        "gate_name": "Retry Logic",
+        "prompt": "Use retry logic to handle system failures. The Enterprise NFR needs to be completed by the app team and validated, prior to release deployment into production.",
+        "category": "Availability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "3.6",
+        "gate_name": "Throttling, drop request",
+        "prompt": "Throttling requests when capacity limit is reached to avoid impacting all ongoing requests. The Enterprise Architecture NFR needs to be completed by the app team.",
+        "category": "Availability",
+        "severity": "medium"
+      },
+      {
+        "gate_id": "3.9",
+        "gate_name": "Set circuit breakers on outgoing requests",
+        "prompt": "A circuit breaker is used to detect failures and encapsulates the logic of preventing a failure from constantly reoccurring during maintenance, temporary external system failures, or unexpected difficulties.",
+        "category": "Availability",
+        "severity": "high"
+      },
+      {
+        "gate_id": "3.18",
+        "gate_name": "Auto Scale",
+        "prompt": "System can automatically scale as a whole or scale parts of its services as necessary based on probes/monitors providing current usage telemetry to avoid outages or degraded performance.",
+        "category": "Availability",
+        "severity": "medium"
+      }
+    ],
+    "testing": [
+      {
+        "gate_id": "2",
+        "gate_name": "Automated Regression Testing",
+        "prompt": "Regression test cases must cover all critical and functional areas of the application/component.",
+        "category": "Testing",
+        "severity": "high"
+      }
+    ]
+  },
+  "llm_pre_analysis": {
+    "use_case": "pre_analysis",
+    "description": "LLM pre-analysis to generate dynamic patterns and assess gate applicability using the actual gates in scope",
+    "prompt_template": "Analyze the following repository for hard gate compliance using the specific gates in scope:\n\nRepository Structure: {code_structure}\nKey Config Files: {config_files}\nHard Gate Summary: {hard_gate_summary}\n\nAvailable Gates:\n{available_gates}\n\nGenerate:\n1. Regex patterns for each applicable gate from the scope\n2. Gate applicability assessment for each gate in scope\n3. Expected implementation patterns\n\nFormat output as JSON with the following structure:\n{{\n    \"patterns\": [\n        {{\n            \"gate_id\": \"gate_number\",\n            \"gate_name\": \"gate_name\",\n            \"pattern\": \"regex_pattern\",\n            \"description\": \"pattern_description\",\n            \"severity\": \"critical|high|medium|low\",\n            \"applicable\": true|false,\n            \"category\": \"Auditability|Error Handling|Availability|Testing\"\n        }}\n    ],\n    \"gate_applicability\": [\n        {{\n            \"gate_id\": \"gate_number\",\n            \"gate_name\": \"gate_name\",\n            \"applicable\": true|false,\n            \"reasoning\": \"why applicable or not\",\n            \"category\": \"Auditability|Error Handling|Availability|Testing\"\n        }}\n    ]\n}}",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000,
+      "top_p": 0.9,
+      "frequency_penalty": 0.1,
+      "presence_penalty": 0.1
+    },
+    "examples": [
+      {
+        "input": "Repository contains Python web application with Flask",
+        "output": {
+          "patterns": [
+            {
+              "gate_id": "1.1",
+              "gate_name": "Logs Searchable/Available",
+              "pattern": "\\b(logging|logger|log)\\b.*\\b(config|setup|init)\\b",
+              "description": "Logging configuration setup",
+              "severity": "high",
+              "applicable": true,
+              "category": "Auditability"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "llm_post_analysis": {
+    "use_case": "post_analysis",
+    "description": "LLM post-analysis to generate final report and recommendations based on actual gates",
+    "prompt_template": "Analyze the scan results and generate a comprehensive report based on the actual gates in scope:\n\nScan Results: {scan_results}\nPattern Matches: {pattern_matches}\nGate Evaluations: {gate_evaluations}\nRepository Context: {repo_context}\n\nAvailable Gates:\n{available_gates}\n\nGenerate:\n1. Executive summary\n2. Detailed findings by gate category (Auditability, Error Handling, Availability, Testing)\n3. Risk assessment based on gate severity levels\n4. Remediation recommendations\n5. Compliance status\n6. Next steps\n\nFormat as structured report with clear sections and actionable insights.",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 3000,
+      "top_p": 0.9,
+      "frequency_penalty": 0.1,
+      "presence_penalty": 0.1
+    }
+  },
+  "pattern_generation": {
+    "use_case": "pattern_generation",
+    "description": "Generate regex patterns for specific gates from the actual scope",
+    "prompt_template": "Generate regex patterns for the following gate from the actual scope:\n\nGate: {gate_name}\nGate ID: {gate_id}\nDescription: {gate_description}\nCategory: {category}\nSeverity: {severity}\nLanguage: {language}\nFramework: {framework}\n\nRequirements:\n- Pattern should be specific and accurate for this gate\n- Avoid false positives\n- Consider language-specific syntax\n- Include common variations\n- Focus on the specific requirement of this gate\n\nGenerate patterns for:\n1. Positive matches (what should be present for compliance)\n2. Negative matches (what should not be present)\n3. Context patterns (surrounding code context)",
+    "parameters": {
+      "temperature": 0.1,
+      "max_tokens": 1000
+    }
+  },
+  "risk_assessment": {
+    "use_case": "risk_assessment",
+    "description": "Assess risk level based on gate failures using actual gate severity levels",
+    "prompt_template": "Assess the risk level for the following gate failures based on the actual gates in scope:\n\nFailed Gates: {failed_gates}\nPartial Gates: {partial_gates}\nRepository Context: {repo_context}\n\nGate Severity Levels:\n- Critical: Immediate action required\n- High: High priority remediation\n- Medium: Moderate priority\n- Low: Low priority\n\nConsider:\n1. Security implications\n2. Compliance requirements\n3. Business impact\n4. Technical debt\n5. Maintenance overhead\n\nProvide:\n- Overall risk score (1-10)\n- Risk breakdown by category (Auditability, Error Handling, Availability, Testing)\n- Mitigation recommendations\n- Timeline for remediation",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "remediation_planning": {
+    "use_case": "remediation_planning",
+    "description": "Generate detailed remediation plans for actual gates",
+    "prompt_template": "Create a detailed remediation plan for the following gate issues:\n\nIssues: {issues}\nRepository: {repo_info}\nTeam Size: {team_size}\nTimeline: {timeline}\n\nAvailable Gates:\n{available_gates}\n\nProvide:\n1. Step-by-step remediation steps for each failed gate\n2. Code examples and templates\n3. Testing requirements\n4. Rollback plans\n5. Resource requirements\n6. Timeline estimates\n\nFormat as actionable tasks with priorities and dependencies.",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 2500
+    }
+  },
+  "code_quality_assessment": {
+    "use_case": "code_quality",
+    "description": "Assess overall code quality and maintainability based on gate compliance",
+    "prompt_template": "Assess the code quality for the repository based on gate compliance:\n\nCode Metrics: {metrics}\nPattern Matches: {pattern_matches}\nFile Structure: {file_structure}\nGate Compliance: {gate_compliance}\n\nEvaluate:\n1. Code complexity and maintainability\n2. Documentation quality\n3. Testing coverage\n4. Security practices\n5. Performance considerations\n6. Best practices adherence\n7. Gate compliance status\n\nProvide:\n- Quality score (1-10)\n- Specific improvement areas\n- Quick wins vs long-term improvements\n- Industry benchmarks comparison",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "compliance_check": {
+    "use_case": "compliance",
+    "description": "Check compliance with industry standards and regulations based on actual gates",
+    "prompt_template": "Check compliance with the following standards and actual gates:\n\nStandards: {standards}\nRepository: {repo_info}\nIndustry: {industry}\nAvailable Gates: {available_gates}\n\nStandards to check:\n1. Security standards (OWASP, NIST)\n2. Privacy regulations (GDPR, CCPA)\n3. Industry-specific requirements\n4. Licensing compliance\n5. Documentation requirements\n6. Gate compliance requirements\n\nProvide:\n- Compliance status for each standard\n- Gate compliance status\n- Missing requirements\n- Implementation recommendations\n- Audit trail requirements",
+    "parameters": {
+      "temperature": 0.2,
+      "max_tokens": 2000
+    }
+  },
+  "performance_analysis": {
+    "use_case": "performance",
+    "description": "Analyze performance characteristics and bottlenecks based on availability gates",
+    "prompt_template": "Analyze performance characteristics based on availability gates:\n\nCode Patterns: {patterns}\nArchitecture: {architecture}\nDependencies: {dependencies}\nAvailability Gates: {availability_gates}\n\nAnalyze:\n1. Algorithm efficiency\n2. Database query optimization\n3. Memory usage patterns\n4. I/O operations\n5. Caching strategies\n6. Scalability considerations\n7. Availability gate compliance\n\nProvide:\n- Performance score (1-10)\n- Identified bottlenecks\n- Optimization recommendations\n- Monitoring suggestions\n- Availability improvements",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 2000
+    }
+  },
+  "documentation_assessment": {
+    "use_case": "documentation",
+    "description": "Assess documentation quality and completeness",
+    "prompt_template": "Assess the documentation:\n\nDocumentation Files: {doc_files}\nREADME: {readme}\nAPI Docs: {api_docs}\n\nEvaluate:\n1. Documentation completeness\n2. Clarity and readability\n3. API documentation\n4. Setup instructions\n5. Maintenance guides\n6. Code comments\n\nProvide:\n- Documentation score (1-10)\n- Missing documentation areas\n- Improvement recommendations\n- Documentation standards",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 1500
+    }
+  }
+}
