@@ -375,6 +375,20 @@ async def get_html_report(scan_id: str):
             # Convert scan data to ScanResult object
             gate_results = []
             for gate_data in result_data.get("gate_results", []):
+                # Convert detailed matches to PatternMatch objects
+                detailed_matches = []
+                for match_data in gate_data.get("detailed_matches", []):
+                    from models.scan_models import PatternMatch
+                    detailed_matches.append(PatternMatch(
+                        file_path=match_data.get("file_path", ""),
+                        line_number=match_data.get("line_number", 0),
+                        match_text=match_data.get("match_text", ""),
+                        repo_type=match_data.get("repo_type", "main"),
+                        start_pos=match_data.get("start_pos", 0),
+                        end_pos=match_data.get("end_pos", 0),
+                        pattern=match_data.get("pattern", "")
+                    ))
+                
                 gate_result = GateResult(
                     gate_id=gate_data.get("gate_id", ""),
                     gate_name=gate_data.get("gate_name", ""),
@@ -385,7 +399,8 @@ async def get_html_report(scan_id: str):
                     patterns_found=gate_data.get("patterns_found", []),
                     recommendations=gate_data.get("recommendations", []),
                     confidence_score=gate_data.get("confidence_score", 0.0),
-                    reasoning=gate_data.get("reasoning", "")
+                    reasoning=gate_data.get("reasoning", ""),
+                    detailed_matches=detailed_matches
                 )
                 gate_results.append(gate_result)
             

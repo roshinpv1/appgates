@@ -225,5 +225,32 @@
       "temperature": 0.3,
       "max_tokens": 1500
     }
+  },
+  "enhanced_gate_reasoning": {
+    "use_case": "gate_reasoning",
+    "description": "Generate enhanced reasoning for gate evaluation using vector context",
+    "prompt_template": "Generate enhanced reasoning for gate evaluation:\n\nGate: {gate_name}\nStatus: {gate_status}\nExpected Count: {expected_count}\nActual Count: {actual_count}\nCategory: {gate_category}\nSeverity: {gate_severity}\n\nCode Context:\n{code_context}\n\nGenerate enhanced reasoning that:\n1. Explains the current implementation status\n2. Provides context from the codebase\n3. Identifies specific areas of concern or success\n4. Suggests improvement opportunities\n5. Considers the gate's importance and impact\n\nFormat as a clear, actionable reasoning statement.",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 500
+    }
+  },
+  "contextual_recommendations": {
+    "use_case": "recommendations",
+    "description": "Generate contextual recommendations using vector data and LLM",
+    "prompt_template": "Generate specific, actionable recommendations for gate: {gate_name}\n\nGate Details:\n- Status: {gate_status}\n- Expected Count: {expected_count}\n- Actual Count: {actual_count}\n- Category: {gate_category}\n- Severity: {gate_severity}\n- Current Reasoning: {current_reasoning}\n\nCodebase Analysis:\n{code_context}\n\nGenerate 3-5 specific, actionable recommendations that:\n1. Are specifically tailored to the {gate_name} gate and this codebase\n2. Reference specific files, components, or patterns found in the codebase\n3. Provide concrete implementation guidance based on the actual code structure\n4. Address the specific gap (expected vs actual count) with codebase-specific solutions\n5. Consider the technology stack and patterns used in this project\n6. Suggest immediate fixes and long-term improvements based on the current implementation\n\nIMPORTANT:\n- Make recommendations specific to {gate_name} and this codebase\n- Reference specific files, classes, or methods when relevant\n- Consider the technology stack (Java, Spring, etc.) and project structure\n- Do not use markdown formatting (no **, ##, etc.)\n- Use clear, actionable language with specific implementation details\n\nFormat as a numbered list of specific recommendations without any markdown formatting.",
+    "parameters": {
+      "temperature": 0.4,
+      "max_tokens": 800
+    }
+  },
+  "vector_context_analysis": {
+    "use_case": "vector_analysis",
+    "description": "Analyze vector search results for contextual insights",
+    "prompt_template": "Analyze the following code context for gate: {gate_name}\n\nVector Search Results:\n{vector_results}\n\nGate Requirements:\n{gate_requirements}\n\nAnalyze:\n1. Current implementation patterns\n2. Missing or incomplete implementations\n3. Code quality and best practices\n4. Potential improvements\n5. Compliance with gate requirements\n\nProvide insights that can be used for:\n- Enhanced reasoning\n- Specific recommendations\n- Implementation guidance\n- Risk assessment",
+    "parameters": {
+      "temperature": 0.3,
+      "max_tokens": 600
+    }
   }
 }

@@ -328,6 +328,7 @@ class HTMLReportService:
                                                 <h5>Reasoning</h5>
                                                 <p>{gate.reasoning}</p>
                                             </div>
+                                            {self._generate_detailed_pattern_matches_html(gate)}
                                             {self._generate_patterns_html(gate.patterns_found)}
                                             {self._generate_gate_recommendations_html(gate.recommendations)}
                                         </td>
@@ -355,6 +356,64 @@ class HTMLReportService:
         if len(patterns) > 10:
             html += f"<li><em>... and {len(patterns) - 10} more patterns</em></li>"
         html += "</ul>"
+        return html
+    
+    def _generate_detailed_pattern_matches_html(self, gate_result) -> str:
+        """Generate detailed pattern matches table HTML"""
+        if not hasattr(gate_result, 'detailed_matches') or not gate_result.detailed_matches:
+            return ""
+        
+        # Limit to first 20 matches to avoid overwhelming the report
+        matches = gate_result.detailed_matches[:20]
+        
+        html = """
+        <h4>Detailed Pattern Matches</h4>
+        <div style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
+                <thead>
+                    <tr style="background: #f3f4f6;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 350px; white-space: pre-line;">File</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 80px; white-space: pre-line;">Line</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Pattern Match</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Actual Pattern</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for match in matches:
+            # Truncate match text if too long
+            match_text = match.match_text
+            if len(match_text) > 200:
+                match_text = match_text[:200] + "..."
+            
+            # Escape HTML in match text
+            match_text = match_text.replace('<', '&lt;').replace('>', '&gt;')
+            
+            html += f"""
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">{match.file_path}</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">{match.line_number}</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">{match_text}</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">{match.pattern}</td>
+                    </tr>
+            """
+        
+        if len(gate_result.detailed_matches) > 20:
+            html += f"""
+                    <tr>
+                        <td colspan="4" style="padding: 8px; text-align: center; color: #6b7280; font-style: italic;">
+                            ... and {len(gate_result.detailed_matches) - 20} more matches
+                        </td>
+                    </tr>
+            """
+        
+        html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        
         return html
     
     def _generate_recommendations_html(self, recommendations: List[Any]) -> str:

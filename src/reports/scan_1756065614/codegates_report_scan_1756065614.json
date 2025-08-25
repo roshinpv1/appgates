@@ -1,0 +1,337 @@
+{
+  "scan_id": "scan_1756065614",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-25T01:34:33.786979",
+  "total_gates": 13,
+  "passed_gates": 2,
+  "failed_gates": 3,
+  "partial_gates": 1,
+  "skipped_gates": 7,
+  "risk_score": 0.2692307692307692,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "1.6",
+      "gate_name": "Log API Calls",
+      "status": "fail",
+      "expected_count": 20,
+      "actual_count": 2,
+      "threshold": 10,
+      "patterns_found": [
+        "https://github.com/spring-petclinic). If you are interested in using a different technolog",
+        "https://spring.io/blog"
+      ],
+      "recommendations": [
+        "Implement logging for all API calls: Ensure that every API call made by your application is logged with sufficient details, including the request method, URL, headers, and response status code. This will help increase the actual count of logged API calls.",
+        "Add a logger to each API client or service that makes requests.",
+        "Log all API calls, regardless of whether they are successful or not.",
+        "Consider using a logging library like Serilog or NLog to handle logging in your application.",
+        "Implement logging for all API calls within the next 2 weeks."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❌ FAIL: Found 2 implementations, below expected 20 - HIGH: Priority remediation needed"
+    },
+    {
+      "gate_id": "1.8",
+      "gate_name": "Log Application Messages",
+      "status": "fail",
+      "expected_count": 20,
+      "actual_count": 5,
+      "threshold": 10,
+      "patterns_found": [
+        "logging.level.org.springframework",
+        "logging.level.org.springframework",
+        "logging.level.org.springframework",
+        "apper/Log",
+        "apperDistributionUrlConverter.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000>\u0001\u0000\u0000\u001e\u0002\u0000\u0000/\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000C\u0000\u0000org/gradle/wrapper/BootstrapMainStarter$1.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u00004>t*\u0003\u0000\u0000\u0004\u0000\u0000A\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000E\u0000\u0000org/gradle/wrapper/Download$DefaultDownloadProgressListener.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000\u001b\u0002\u0000\u0000\u0011\u0005\u0000\u00004\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000*I\u0000\u0000org/gradle/wrapper/Download$ProxyAuthenticator.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000Af\t\u0000\u0000*\u0012\u0000\u0000!\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000{L\u0000\u0000org/gradle/wrapper/Download.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000P\u0001\u0000\u0000\u0002\u0000\u0000-\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00009V\u0000\u0000org/gradle/wrapper/GradleUserHomeLookup.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000U\u0000C%\u0015\u0000\u0000)\u0000\u0000*\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000vX\u0000\u0000org/gradle/wrapper/GradleWrapperMain.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000N!\u000b\u0000\u0000\u0015\u0000\u0000\"\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000m\u0000\u0000org/gradle/wrapper/Install$1.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000D;\u0002k\u0001\u0000\u0000\u0001\u0000\u0000-\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000:z\u0000\u0000org/gradle/wrapper/Install$InstallCheck.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u00001\"K\u000e\u0000\u0000x\u001c\u0000\u0000 \u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\t|\u0000\u0000org/gradle/wrapper/Install.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000\t\u0005<\u0002\u0000\u0000\u001e\u0004\u0000\u0000\u001f\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000Y\u0000\u0000org/gradle/wrapper/Log"
+      ],
+      "recommendations": [
+        "Implement logging for all audit-related functionality:",
+        "Enhance logging for specific audit categories:",
+        "Introduce logging for failed audits:",
+        "Consider using a centralized logging solution:"
+      ],
+      "confidence_score": 0.3,
+      "reasoning": "❌ FAIL: Found 5 implementations, below expected 20 - HIGH: Priority remediation needed"
+    },
+    {
+      "gate_id": "2.4",
+      "gate_name": "Include Client error tracking",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 6,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement Client Error Tracking:",
+        "Update Auditability Configuration:",
+        "Review and Refactor Codebase:",
+        "Implement Error Tracking for Specific Routes:",
+        "Long-term Improvement: Implement Centralized Error Tracking:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for Include Client error tracking - Implementation status unclear"
+    },
+    {
+      "gate_id": "3.9",
+      "gate_name": "Set circuit breakers on outgoing requests",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 10,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement Circuit Breaker Pattern for Outgoing Requests:",
+        "Monitor and Log Circuit Breaker Events:",
+        "Implement a Circuit Breaker Reset Mechanism:",
+        "Consider Implementing a Global Circuit Breaker Configuration:",
+        "Document Circuit Breaker Implementation:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for Set circuit breakers on outgoing requests - Implementation status unclear"
+    },
+    {
+      "gate_id": "3.18",
+      "gate_name": "Auto Scale",
+      "status": "partial",
+      "expected_count": 20,
+      "actual_count": 6,
+      "threshold": 6,
+      "patterns_found": [
+        "scale-down",
+        "scale-down",
+        "scale-down",
+        "scale-down",
+        "scale-down"
+      ],
+      "recommendations": [
+        "Conduct a thorough review of existing implementations:",
+        "Develop a plan for implementing new features:",
+        "Improve code organization and maintainability:",
+        "Establish a testing strategy:",
+        "Monitor progress and adjust as needed:"
+      ],
+      "confidence_score": 0.3,
+      "reasoning": "⚠️ PARTIAL: Found 6 implementations, partially meeting expected 20 - Need 14 more implementations - MEDIUM priority improvement required"
+    },
+    {
+      "gate_id": "1.1",
+      "gate_name": "Log system errors",
+      "status": "fail",
+      "expected_count": 20,
+      "actual_count": 2,
+      "threshold": 10,
+      "patterns_found": [
+        "error_log",
+        "error_log"
+      ],
+      "recommendations": [
+        "Analyze and Refactor Duplicate Implementations",
+        "Implement a Centralized Configuration Management System",
+        "Conduct a Code Review and Implement Best Practices",
+        "Monitor and Analyze Codebase Trends"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❌ FAIL: Found 2 implementations, below expected 20 - HIGH: Priority remediation needed"
+    },
+    {
+      "gate_id": "1.3",
+      "gate_name": "Use HTTP standard error codes",
+      "status": "pass",
+      "expected_count": 20,
+      "actual_count": 22,
+      "threshold": 10,
+      "patterns_found": [
+        "https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status",
+        "http.HttpStatus",
+        "StatusCode",
+        "HttpStatus",
+        "http.HttpStatus"
+      ],
+      "recommendations": [
+        "Implement a more robust count calculation: The current implementation seems to be simply counting the number of implementations found, which may not accurately reflect the expected count. To improve this, consider using a more sophisticated method such as:",
+        "Introduce a tolerance for unexpected counts: In some cases, it's possible that the actual count may exceed the expected count due to factors such as:",
+        "Consider the codebase context and patterns: The gate is currently checking for a specific number of implementations, but this may not be relevant in certain contexts (e.g., when working with microservices or APIs).",
+        "Best practices for this gate type: To improve the overall quality of the gate, consider following best practices such as:",
+        "Immediate and long-term improvements: To further improve the gate, consider implementing immediate fixes (e.g., updating the implementation count) and long-term solutions (e.g., refactoring the codebase to reduce unexpected counts)."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 22 implementations, meeting expected 20"
+    },
+    {
+      "gate_id": "1.5",
+      "gate_name": "Timeouts",
+      "status": "pass",
+      "expected_count": 20,
+      "actual_count": 29,
+      "threshold": 10,
+      "patterns_found": [
+        "Timestamp>2024-11-28T14:37:52Z</project.build.out",
+        "Timeout",
+        "timeout",
+        "timeout",
+        "timeout"
+      ],
+      "recommendations": [
+        "Implement a more accurate implementation count calculation:",
+        "Add a manual review process for edge cases:",
+        "Consider implementing a more granular count calculation:",
+        "Regularly review and update the gate's configuration:",
+        "Consider implementing a more robust testing framework:"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 29 implementations, meeting expected 20"
+    },
+    {
+      "gate_id": "1.10",
+      "gate_name": "Avoid Logging Sensitive Data",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 5,
+      "patterns_found": [],
+      "recommendations": [
+        "Conduct a thorough review of sensitive data handling:",
+        "Implement logging filters for sensitive data:",
+        "Integrate with existing security frameworks and tools:",
+        "Monitor and audit logging activity:",
+        "Implement long-term improvements:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for Avoid Logging Sensitive Data - Implementation status unclear"
+    },
+    {
+      "gate_id": "2.7",
+      "gate_name": "UI Error Handling",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 6,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement UI Error Handling in Core Components:",
+        "Create a Centralized Error Handling Service:",
+        "Integrate Error Handling with Existing UI Components:",
+        "Implement Error Handling for Specific Error Types:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for UI Error Handling - Implementation status unclear"
+    },
+    {
+      "gate_id": "1.12",
+      "gate_name": "Retry Logic",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 10,
+      "patterns_found": [],
+      "recommendations": [
+        "❓ Review Retry Logic requirements and implementation strategy"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for Retry Logic - Implementation status unclear"
+    },
+    {
+      "gate_id": "3.6",
+      "gate_name": "Throttling, drop request",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 6,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement Throttling Mechanism:",
+        "Monitor and Analyze Request Patterns:",
+        "Implement Drop Request Mechanism:",
+        "Consider Codebase Context and Patterns:",
+        "Best Practices and Long-term Improvements:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for Throttling, drop request - Implementation status unclear"
+    },
+    {
+      "gate_id": "2",
+      "gate_name": "Automated Regression Testing",
+      "status": "skipped",
+      "expected_count": 20,
+      "actual_count": 0,
+      "threshold": 10,
+      "patterns_found": [],
+      "recommendations": [
+        "❓ Review Automated Regression Testing requirements and implementation strategy"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "❓ UNKNOWN: No implementations found for Automated Regression Testing - Implementation status unclear"
+    }
+  ],
+  "recommendations": [
+    "Improve Log API Calls: Implement Log API Calls to address log api calls concerns",
+    "Improve Log Application Messages: Implement Log Application Messages to address log application messages concerns",
+    "Improve Log system errors: Implement Log system errors to address log system errors concerns"
+  ],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250825_013014",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "Project analysis for https://github.com/spring-projects/spring-petclinic reveals a comprehensive technology stack. The codebase contains jmx, yml, xml, properties, md file types. The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.",
+      "technologies": [],
+      "frameworks": [],
+      "file_types": [
+        "jmx",
+        "yml",
+        "xml",
+        "properties",
+        "md",
+        "txt",
+        "cmd",
+        "json",
+        "editorconfig",
+        "scss",
+        "java",
+        "gradle",
+        "bat",
+        "sql",
+        "devcontainer/dockerfile",
+        "css"
+      ],
+      "dependencies": [],
+      "architecture_patterns": [],
+      "security_features": [],
+      "testing_frameworks": [],
+      "build_tools": [],
+      "deployment_configs": [],
+      "database_technologies": [],
+      "monitoring_tools": [],
+      "has_cd_repo": false,
+      "total_files_analyzed": 211
+    }
+  }
+}

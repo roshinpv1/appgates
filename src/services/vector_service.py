@@ -174,6 +174,21 @@ class VectorService:
             print(f"❌ Failed to upsert vectors to {collection_name}: {e}")
             return False
     
+    def search(self, collection_name: str, query: str, 
+               limit: int = 10, score_threshold: float = 0.7) -> List[SearchResult]:
+        """Search for similar vectors using text query"""
+        try:
+            # Convert text query to embedding
+            from services.embedding_service import EmbeddingService
+            embedding_service = EmbeddingService(self.config)
+            query_vector = embedding_service.embed_single(query)
+            
+            return self.search_similar(collection_name, query_vector, limit, score_threshold)
+            
+        except Exception as e:
+            print(f"❌ Failed to search collection {collection_name} with query '{query}': {e}")
+            return []
+
     def search_similar(self, collection_name: str, query_vector: List[float], 
                       limit: int = 10, score_threshold: float = 0.7) -> List[SearchResult]:
         """Search for similar vectors"""

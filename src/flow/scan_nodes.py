@@ -12,7 +12,7 @@ from pathlib import Path
 
 from core.base import AsyncNode, ScanContext
 from models.scan_models import (
-    RepositoryInfo, CodeChunk, Pattern, GateResult, GateStatus,
+    RepositoryInfo, CodeChunk, Pattern, PatternMatch, GateResult, GateStatus,
     ContextualRecommendation, RecommendationType, ScanResult
 )
 from utils.git_utils import GitUtils
@@ -473,29 +473,63 @@ class VectorizationNode(AsyncNode):
         return language_map.get(ext, 'text')
     
     def _should_ignore_file(self, file_path: Path) -> bool:
-        """Check if file should be ignored"""
-        ignore_patterns = [
-            '.git', '.svn', '.hg', 'node_modules', '__pycache__', 
-            '.pytest_cache', 'target', 'build', 'dist', 'out',
-            '.idea', '.vscode', '.vs', '.DS_Store'
-        ]
-        
-        for pattern in ignore_patterns:
-            if pattern in str(file_path):
+        """Check if file should be ignored using enhanced filtering"""
+        try:
+            # Load file filtering configuration
+            import json
+            import os
+            
+            config_path = os.path.join(os.path.dirname(__file__), "..", "data", "file_filtering_config.json")
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                
+                filtering_config = config.get("file_filtering", {})
+                ignore_patterns = filtering_config.get("ignore_patterns", [])
+                binary_extensions = set(filtering_config.get("binary_extensions", []))
+                size_limits = filtering_config.get("size_limits", {})
+            else:
+                # Fallback to default patterns
+                ignore_patterns = [
+                    '.git', '.svn', '.hg', 'node_modules', '__pycache__', 
+                    '.pytest_cache', 'target', 'build', 'dist', 'out',
+                    '.idea', '.vscode', '.vs', '.DS_Store'
+                ]
+                binary_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico',
+                                   '.mp4', '.avi', '.mov', '.mp3', '.wav',
+                                   '.zip', '.tar', '.gz', '.rar', '.7z',
+                                   '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+                                   '.exe', '.dll', '.so', '.dylib',
+                                   '.jar', '.war', '.ear', '.class'}
+                size_limits = {"max_file_size_mb": 10, "skip_large_files": True}
+            
+            # Check ignore patterns
+            file_path_str = str(file_path)
+            for pattern in ignore_patterns:
+                if pattern in file_path_str:
+                    return True
+            
+            # Check binary extensions
+            if file_path.suffix.lower() in binary_extensions:
                 return True
-        
-        # Ignore binary files
-        binary_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico',
-                           '.mp4', '.avi', '.mov', '.mp3', '.wav',
-                           '.zip', '.tar', '.gz', '.rar', '.7z',
-                           '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-                           '.exe', '.dll', '.so', '.dylib',
-                           '.jar', '.war', '.ear', '.class'}
-        
-        if file_path.suffix.lower() in binary_extensions:
-            return True
-        
-        return False
+            
+            # Check file size limits
+            if size_limits.get("skip_large_files", False):
+                try:
+                    file_size_mb = file_path.stat().st_size / (1024 * 1024)
+                    max_size_mb = size_limits.get("max_file_size_mb", 10)
+                    if file_size_mb > max_size_mb:
+                        return True
+                except (OSError, AttributeError):
+                    pass
+            
+            return False
+            
+        except Exception as e:
+            print(f"⚠️ Error in file filtering: {e}")
+            # Fallback to basic filtering
+            basic_patterns = ['.git', '.svn', '.hg', 'node_modules', '__pycache__']
+            return any(pattern in str(file_path) for pattern in basic_patterns)
     
     async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
         """Post-vectorization processing"""
@@ -1464,18 +1498,40 @@ class FileScanningNode(AsyncNode):
         return matches
     
     def _should_ignore_file(self, file_path: Path) -> bool:
-        """Check if file should be ignored"""
-        ignore_patterns = [
-            '.git', '.svn', '.hg', 'node_modules', '__pycache__', 
-            '.pytest_cache', 'target', 'build', 'dist', 'out',
-            '.idea', '.vscode', '.vs', '.DS_Store'
-        ]
-        
-        for pattern in ignore_patterns:
-            if pattern in str(file_path):
-                return True
-        
-        return False
+        """Check if file should be ignored using enhanced filtering"""
+        try:
+            # Load file filtering configuration
+            import json
+            import os
+            
+            config_path = os.path.join(os.path.dirname(__file__), "..", "data", "file_filtering_config.json")
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                
+                filtering_config = config.get("file_filtering", {})
+                ignore_patterns = filtering_config.get("ignore_patterns", [])
+            else:
+                # Fallback to default patterns
+                ignore_patterns = [
+                    '.git', '.svn', '.hg', 'node_modules', '__pycache__', 
+                    '.pytest_cache', 'target', 'build', 'dist', 'out',
+                    '.idea', '.vscode', '.vs', '.DS_Store'
+                ]
+            
+            # Check ignore patterns
+            file_path_str = str(file_path)
+            for pattern in ignore_patterns:
+                if pattern in file_path_str:
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"⚠️ Error in file filtering: {e}")
+            # Fallback to basic filtering
+            basic_patterns = ['.git', '.svn', '.hg', 'node_modules', '__pycache__']
+            return any(pattern in str(file_path) for pattern in basic_patterns)
     
     async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
         """Post-scanning processing"""
@@ -1538,9 +1594,12 @@ class GateEvaluationNode(AsyncNode):
                 cd_matches = scan_result.get("cd_matches", [])
                 total_matches = scan_result.get("total_matches", 0)
                 
-                # Get expected implementation
-                expected = expected_implementations.get(gate_id, {})
-                expected_count = expected.get("expected_count", 0)
+                # Check if gate should be skipped based on technology stack
+                if self._should_skip_gate(gate_id, pattern, metadata, scan_results):
+                    continue
+                
+                # Calculate intelligent expected count based on technology and codebase
+                expected_count = self._calculate_intelligent_expected_count(gate_id, pattern, metadata, scan_results)
                 
                 # Determine threshold (simplified logic)
                 threshold = self._calculate_threshold(pattern, expected_count)
@@ -1548,7 +1607,24 @@ class GateEvaluationNode(AsyncNode):
                 # Evaluate gate status
                 status = self._evaluate_gate_status(total_matches, expected_count, threshold)
                 
-                # Create gate result
+                # Convert scan results to PatternMatch objects
+                detailed_matches = []
+                for match in main_matches + cd_matches:
+                    detailed_matches.append(PatternMatch(
+                        file_path=match["file_path"],
+                        line_number=match["line_number"],
+                        match_text=match["match_text"],
+                        repo_type=match["repo_type"],
+                        start_pos=match["start_pos"],
+                        end_pos=match["end_pos"],
+                        pattern=pattern["pattern"]
+                    ))
+                
+                # Generate base reasoning and recommendations
+                base_reasoning = self._generate_reasoning(status, pattern, total_matches, expected_count, len(main_matches), len(cd_matches))
+                base_recommendations = self._generate_recommendations(status, pattern, total_matches, expected_count)
+                
+                # Create gate result with enhanced reasoning and recommendations
                 gate_result = GateResult(
                     gate_id=gate_id,
                     gate_name=pattern["name"],
@@ -1557,10 +1633,36 @@ class GateEvaluationNode(AsyncNode):
                     actual_count=total_matches,
                     threshold=threshold,
                     patterns_found=[match["match_text"] for match in (main_matches + cd_matches)[:5]],  # Top 5 matches
-                    recommendations=self._generate_recommendations(status, pattern, total_matches, expected_count),
+                    detailed_matches=detailed_matches,
+                    recommendations=base_recommendations,
                     confidence_score=self._calculate_confidence(total_matches, expected_count),
-                    reasoning=self._generate_reasoning(status, pattern, total_matches, expected_count, len(main_matches), len(cd_matches))
+                    reasoning=base_reasoning
                 )
+                
+                # Enhance reasoning and recommendations with vector context and LLM (async)
+                try:
+                    # Get vector service and LLM service from context
+                    vector_service = getattr(self.context, 'vector_service', None)
+                    llm_service = getattr(self.context, 'llm_service', None)
+                    scan_id = getattr(self.context, 'scan_id', 'unknown')
+                    
+                    if vector_service:
+                        # Enhance reasoning with vector context
+                        enhanced_reasoning = await self._generate_enhanced_reasoning_with_vector_context(
+                            gate_result, vector_service, scan_id
+                        )
+                        gate_result.reasoning = enhanced_reasoning
+                    
+                    if llm_service and vector_service:
+                        # Generate contextual recommendations with LLM
+                        contextual_recommendations = await self._generate_contextual_recommendations_with_llm(
+                            gate_result, vector_service, scan_id, llm_service
+                        )
+                        gate_result.recommendations = contextual_recommendations
+                        
+                except Exception as e:
+                    print(f"⚠️ Failed to enhance gate {gate_id} with vector/LLM context: {e}")
+                    # Keep base reasoning and recommendations if enhancement fails
                 
                 gate_results.append(gate_result)
             
@@ -1591,7 +1693,12 @@ class GateEvaluationNode(AsyncNode):
             return max(1, expected_count // 4)
     
     def _evaluate_gate_status(self, actual_count: int, expected_count: int, threshold: int) -> GateStatus:
-        """Evaluate gate status"""
+        """Evaluate gate status with improved logic"""
+        # If expected count is 0 or very low, this gate might not be applicable
+        if expected_count <= 0:
+            return GateStatus.SKIPPED
+        
+        # If we found implementations, evaluate based on expected count
         if actual_count >= expected_count:
             return GateStatus.PASS
         elif actual_count >= threshold:
@@ -1599,53 +1706,499 @@ class GateEvaluationNode(AsyncNode):
         elif actual_count > 0:
             return GateStatus.FAIL
         else:
-            return GateStatus.SKIPPED
+            # Only mark as SKIPPED if we have a reasonable expected count but found nothing
+            # This indicates the gate is applicable but not implemented
+            if expected_count >= 2:
+                return GateStatus.FAIL  # Should have implementations but doesn't
+            else:
+                return GateStatus.SKIPPED  # Low expectation, might not be applicable
     
     def _generate_recommendations(self, status: GateStatus, pattern: Dict[str, Any], 
                                 actual_count: int, expected_count: int) -> List[str]:
-        """Generate recommendations based on gate status"""
+        """Generate enhanced recommendations based on gate status and context"""
         recommendations = []
         
         if status == GateStatus.FAIL:
-            recommendations.append(f"Implement {pattern['name']} to improve {pattern.get('category', 'quality').lower()}")
+            # Enhanced failure recommendations
+            if "security" in pattern.get('category', '').lower():
+                recommendations.append(f"🔒 CRITICAL: Implement {pattern['name']} immediately to address security vulnerabilities")
+                recommendations.append(f"💡 Consider implementing {pattern['name']} using industry best practices and security frameworks")
+            elif "auditability" in pattern.get('category', '').lower():
+                recommendations.append(f"📊 HIGH PRIORITY: Implement {pattern['name']} for compliance and audit requirements")
+                recommendations.append(f"🔍 Add comprehensive logging and monitoring for {pattern['name']}")
+            elif "error_handling" in pattern.get('category', '').lower():
+                recommendations.append(f"⚠️ MEDIUM PRIORITY: Implement robust {pattern['name']} to improve system reliability")
+                recommendations.append(f"🛠️ Add proper error handling, logging, and user feedback for {pattern['name']}")
+            elif "availability" in pattern.get('category', '').lower():
+                recommendations.append(f"⚡ MEDIUM PRIORITY: Implement {pattern['name']} to enhance system availability")
+                recommendations.append(f"🔄 Add retry logic, timeouts, and circuit breakers for {pattern['name']}")
+            else:
+                recommendations.append(f"📋 Implement {pattern['name']} to improve {pattern.get('category', 'quality').lower()}")
+            
+            # Add specific implementation guidance
+            if actual_count == 0:
+                recommendations.append(f"🚀 Start with basic implementation of {pattern['name']} and gradually enhance")
+            else:
+                recommendations.append(f"📈 Enhance existing {pattern['name']} implementation for better coverage")
+                
         elif status == GateStatus.PARTIAL:
-            recommendations.append(f"Enhance {pattern['name']} implementation for better coverage")
+            recommendations.append(f"📊 Enhance {pattern['name']} implementation for better coverage")
+            recommendations.append(f"🎯 Focus on areas with missing {pattern['name']} implementations")
+            if actual_count < expected_count:
+                recommendations.append(f"📝 Review and expand {pattern['name']} coverage across all relevant components")
         elif status == GateStatus.PASS:
-            recommendations.append(f"Good implementation of {pattern['name']}")
+            recommendations.append(f"✅ Good implementation of {pattern['name']}")
+            recommendations.append(f"🔄 Continue monitoring and maintaining {pattern['name']} standards")
+        elif status == GateStatus.SKIPPED:
+            # Provide context for why gate was skipped
+            if expected_count <= 0:
+                recommendations.append(f"ℹ️ Gate {pattern['name']} not applicable to current technology stack")
+                recommendations.append(f"📋 This gate is designed for different technology frameworks")
+            else:
+                recommendations.append(f"ℹ️ Gate {pattern['name']} has low applicability to current codebase")
+                recommendations.append(f"📋 Consider implementing if project scope expands")
+        else:
+            recommendations.append(f"❓ Review {pattern['name']} requirements and implementation strategy")
         
         return recommendations
     
     def _calculate_confidence(self, actual_count: int, expected_count: int) -> float:
-        """Calculate confidence score"""
+        """Calculate enhanced confidence score"""
         if expected_count == 0:
             return 0.5
         
         ratio = actual_count / expected_count
-        return min(1.0, max(0.0, ratio))
+        # Enhanced confidence calculation with better granularity
+        if ratio >= 1.0:
+            return 1.0  # Full compliance
+        elif ratio >= 0.8:
+            return 0.9  # Near compliance
+        elif ratio >= 0.6:
+            return 0.7  # Good progress
+        elif ratio >= 0.4:
+            return 0.5  # Moderate progress
+        elif ratio >= 0.2:
+            return 0.3  # Limited progress
+        else:
+            return 0.1  # Minimal progress
     
     def _generate_reasoning(self, status: GateStatus, pattern: Dict[str, Any], 
                           actual_count: int, expected_count: int, main_count: int, cd_count: int) -> str:
-        """Generate reasoning for gate evaluation"""
+        """Generate enhanced reasoning for gate evaluation with context"""
+        category = pattern.get('category', 'quality').lower()
+        severity = pattern.get('severity', 'medium').lower()
+        
+        # Base reasoning with enhanced context
         if status == GateStatus.PASS:
-            base_reason = f"Found {actual_count} implementations, meeting expected {expected_count}"
+            base_reason = f"✅ PASS: Found {actual_count} implementations, meeting expected {expected_count}"
             if cd_count > 0:
-                return f"{base_reason} (Main: {main_count}, CD: {cd_count})"
-            return base_reason
+                base_reason += f" (Main: {main_count}, CD: {cd_count})"
+            
+            # Add category-specific context
+            if "security" in category:
+                base_reason += f" - Security requirements satisfied"
+            elif "auditability" in category:
+                base_reason += f" - Audit trail requirements met"
+            elif "error_handling" in category:
+                base_reason += f" - Error handling properly implemented"
+            elif "availability" in category:
+                base_reason += f" - Availability requirements fulfilled"
+                
         elif status == GateStatus.PARTIAL:
-            base_reason = f"Found {actual_count} implementations, partially meeting expected {expected_count}"
+            base_reason = f"⚠️ PARTIAL: Found {actual_count} implementations, partially meeting expected {expected_count}"
             if cd_count > 0:
-                return f"{base_reason} (Main: {main_count}, CD: {cd_count})"
-            return base_reason
+                base_reason += f" (Main: {main_count}, CD: {cd_count})"
+            
+            # Add improvement guidance
+            if actual_count < expected_count:
+                base_reason += f" - Need {expected_count - actual_count} more implementations"
+            base_reason += f" - {severity.upper()} priority improvement required"
+            
         elif status == GateStatus.FAIL:
-            base_reason = f"Found {actual_count} implementations, below expected {expected_count}"
+            base_reason = f"❌ FAIL: Found {actual_count} implementations, below expected {expected_count}"
             if cd_count > 0:
-                return f"{base_reason} (Main: {main_count}, CD: {cd_count})"
-            return base_reason
+                base_reason += f" (Main: {main_count}, CD: {cd_count})"
+            
+            # Add severity-based context
+            if severity == "critical":
+                base_reason += f" - CRITICAL: Immediate action required"
+            elif severity == "high":
+                base_reason += f" - HIGH: Priority remediation needed"
+            else:
+                base_reason += f" - {severity.upper()}: Improvement recommended"
+                
+        elif status == GateStatus.SKIPPED:
+            if expected_count <= 0:
+                base_reason = f"ℹ️ NOT APPLICABLE: {pattern['name']} not applicable to current technology stack"
+                base_reason += f" - Expected count: {expected_count} (technology mismatch)"
+            else:
+                base_reason = f"ℹ️ NOT APPLICABLE: {pattern['name']} has low applicability to current codebase"
+                base_reason += f" - Found {actual_count} implementations, expected {expected_count}"
+            if cd_count > 0:
+                base_reason += f" (Main: {main_count}, CD: {cd_count})"
         else:
-            base_reason = f"No implementations found for {pattern['name']}"
+            base_reason = f"❓ UNKNOWN: No implementations found for {pattern['name']}"
             if cd_count > 0:
-                return f"{base_reason} (Main: {main_count}, CD: {cd_count})"
-            return base_reason
+                base_reason += f" (Main: {main_count}, CD: {cd_count})"
+            base_reason += f" - Implementation status unclear"
+        
+        return base_reason
+
+    async def _generate_enhanced_reasoning_with_vector_context(self, gate_result: GateResult, 
+                                                              vector_service, scan_id: str) -> str:
+        """Generate enhanced reasoning using vector database context and LLM"""
+        try:
+            # Search for relevant code patterns in vector database
+            collection_name = f"repo_{scan_id}"
+            
+            # Create search queries based on gate context
+            search_queries = [
+                f"{gate_result.gate_name} implementation",
+                f"{gate_result.gate_name} pattern",
+                f"{gate_result.gate_name} code",
+                f"{gate_result.gate_name} example"
+            ]
+            
+            relevant_contexts = []
+            for query in search_queries:
+                results = vector_service.search(
+                    collection_name=collection_name,
+                    query=query,
+                    limit=5,
+                    score_threshold=0.3
+                )
+                
+                for result in results:
+                    if result.payload and result.payload.get("content"):
+                        relevant_contexts.append({
+                            "content": result.payload["content"][:200],  # Truncate for context
+                            "file_path": result.payload.get("file_path", "Unknown"),
+                            "score": result.score
+                        })
+            
+            # Generate enhanced reasoning with context
+            if relevant_contexts:
+                context_summary = " | ".join([ctx["content"] for ctx in relevant_contexts[:3]])
+                enhanced_reasoning = f"{gate_result.reasoning} | Context: {context_summary}"
+                return enhanced_reasoning
+            else:
+                return gate_result.reasoning
+                
+        except Exception as e:
+            print(f"⚠️ Failed to generate enhanced reasoning with vector context: {e}")
+            return gate_result.reasoning
+
+    def _extract_gate_category(self, gate_name: str) -> str:
+        """Extract gate category from gate name"""
+        gate_name_lower = gate_name.lower()
+        
+        if any(keyword in gate_name_lower for keyword in ['log', 'audit', 'tracking']):
+            return "Auditability"
+        elif any(keyword in gate_name_lower for keyword in ['error', 'exception', 'handling']):
+            return "Error Handling"
+        elif any(keyword in gate_name_lower for keyword in ['timeout', 'retry', 'throttling', 'availability']):
+            return "Availability"
+        elif any(keyword in gate_name_lower for keyword in ['test', 'testing', 'validation']):
+            return "Testing"
+        elif any(keyword in gate_name_lower for keyword in ['security', 'authentication', 'authorization']):
+            return "Security"
+        else:
+            return "Quality"
+
+    def _extract_gate_severity(self, gate_name: str) -> str:
+        """Extract gate severity from gate name"""
+        gate_name_lower = gate_name.lower()
+        
+        if any(keyword in gate_name_lower for keyword in ['critical', 'security', 'authentication']):
+            return "critical"
+        elif any(keyword in gate_name_lower for keyword in ['high', 'error', 'timeout', 'retry']):
+            return "high"
+        elif any(keyword in gate_name_lower for keyword in ['medium', 'log', 'audit']):
+            return "medium"
+        else:
+            return "medium"
+
+    def _remove_markdown_formatting(self, text: str) -> str:
+        """Remove markdown formatting from text"""
+        import re
+        
+        # Remove markdown formatting
+        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Bold
+        text = re.sub(r'\*(.*?)\*', r'\1', text)      # Italic
+        text = re.sub(r'`(.*?)`', r'\1', text)        # Inline code
+        text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)  # Code blocks
+        text = re.sub(r'__(.*?)__', r'\1', text)      # Bold (alternative)
+        text = re.sub(r'~~(.*?)~~', r'\1', text)      # Strikethrough
+        text = re.sub(r'#{1,6}\s*', '', text)         # Headers
+        text = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', text)  # Links
+        text = re.sub(r'!\[(.*?)\]\(.*?\)', r'\1', text)  # Images
+        
+        # Remove extra whitespace
+        text = ' '.join(text.split())
+        
+        return text
+
+    async def _get_detailed_code_context(self, vector_service, scan_id: str, gate_name: str, detailed_matches: List[PatternMatch]) -> str:
+        """Get detailed code context for recommendations"""
+        try:
+            collection_name = f"repo_{scan_id}"
+            
+            # Get technology stack and project structure
+            tech_context = await self._get_technology_context(vector_service, collection_name)
+            
+            # Get specific implementation patterns
+            implementation_context = self._get_implementation_context(detailed_matches)
+            
+            # Get related code patterns
+            related_patterns = await self._get_related_patterns(vector_service, collection_name, gate_name)
+            
+            context_parts = []
+            
+            if tech_context:
+                context_parts.append(f"Technology Stack: {tech_context}")
+            
+            if implementation_context:
+                context_parts.append(f"Current Implementations: {implementation_context}")
+            
+            if related_patterns:
+                context_parts.append(f"Related Patterns: {related_patterns}")
+            
+            return "\n\n".join(context_parts) if context_parts else "No detailed context available"
+            
+        except Exception as e:
+            print(f"⚠️ Failed to get detailed code context: {e}")
+            return "No detailed context available"
+
+    async def _get_technology_context(self, vector_service, collection_name: str) -> str:
+        """Get technology stack context"""
+        try:
+            # Search for technology indicators
+            tech_queries = [
+                "spring framework",
+                "java application",
+                "maven gradle",
+                "database configuration",
+                "logging framework",
+                "testing framework"
+            ]
+            
+            tech_info = []
+            for query in tech_queries:
+                results = vector_service.search(collection_name, query, limit=3, score_threshold=0.3)
+                for result in results:
+                    if result.payload and result.payload.get("content"):
+                        content = result.payload["content"][:200]
+                        file_path = result.payload.get("file_path", "Unknown")
+                        tech_info.append(f"{query}: {content} (in {file_path})")
+            
+            return "; ".join(tech_info[:5]) if tech_info else "Technology stack not clearly identified"
+            
+        except Exception as e:
+            print(f"⚠️ Failed to get technology context: {e}")
+            return "Technology stack not clearly identified"
+
+    def _get_implementation_context(self, detailed_matches: List[PatternMatch]) -> str:
+        """Get context about current implementations"""
+        if not detailed_matches:
+            return "No implementations found"
+        
+        # Group by file type and analyze patterns
+        file_types = {}
+        for match in detailed_matches:
+            file_ext = match.file_path.split('.')[-1] if '.' in match.file_path else 'unknown'
+            if file_ext not in file_types:
+                file_types[file_ext] = []
+            file_types[file_ext].append(match)
+        
+        context_parts = []
+        for file_ext, matches in file_types.items():
+            files = list(set([m.file_path for m in matches]))
+            context_parts.append(f"{file_ext.upper()} files ({len(files)}): {', '.join(files[:3])}")
+        
+        return "; ".join(context_parts)
+
+    async def _get_related_patterns(self, vector_service, collection_name: str, gate_name: str) -> str:
+        """Get related code patterns"""
+        try:
+            # Search for related patterns
+            related_queries = [
+                f"{gate_name} implementation",
+                f"{gate_name} configuration",
+                f"{gate_name} setup",
+                f"{gate_name} examples"
+            ]
+            
+            related_info = []
+            for query in related_queries:
+                results = vector_service.search(collection_name, query, limit=2, score_threshold=0.2)
+                for result in results:
+                    if result.payload and result.payload.get("content"):
+                        content = result.payload["content"][:150]
+                        file_path = result.payload.get("file_path", "Unknown")
+                        related_info.append(f"{content} (in {file_path})")
+            
+            return "; ".join(related_info[:3]) if related_info else "No related patterns found"
+            
+        except Exception as e:
+            print(f"⚠️ Failed to get related patterns: {e}")
+            return "No related patterns found"
+
+    def _get_implementation_files(self, detailed_matches: List[PatternMatch]) -> str:
+        """Get list of files with implementations"""
+        if not detailed_matches:
+            return "None"
+        
+        files = list(set([match.file_path for match in detailed_matches]))
+        return ", ".join(files[:5]) + ("..." if len(files) > 5 else "")
+
+    def _get_pattern_summary(self, detailed_matches: List[PatternMatch]) -> str:
+        """Get summary of pattern matches"""
+        if not detailed_matches:
+            return "None"
+        
+        patterns = list(set([match.pattern for match in detailed_matches]))
+        return ", ".join(patterns[:3]) + ("..." if len(patterns) > 3 else "")
+
+    async def _generate_contextual_recommendations_with_llm(self, gate_result: GateResult, 
+                                                          vector_service, scan_id: str,
+                                                          llm_service) -> List[str]:
+        """Generate contextual recommendations using LLM and vector data"""
+        try:
+            # Get relevant code context from vector database
+            collection_name = f"repo_{scan_id}"
+            
+            # Search for similar implementations
+            similar_results = vector_service.search(
+                collection_name=collection_name,
+                query=f"{gate_result.gate_name} implementation examples",
+                limit=10,
+                score_threshold=0.2
+            )
+            
+            # Extract relevant code examples
+            code_examples = []
+            for result in similar_results:
+                if result.payload and result.payload.get("content"):
+                    code_examples.append(result.payload["content"][:300])
+            
+            # Create LLM prompt for contextual recommendations using prompt library
+            from services.prompt_service import PromptService
+            prompt_service = PromptService()
+            
+            # Extract gate category and severity from the gate name
+            gate_category = self._extract_gate_category(gate_result.gate_name)
+            gate_severity = self._extract_gate_severity(gate_result.gate_name)
+            
+            # Get detailed code context from vector database
+            detailed_context = await self._get_detailed_code_context(
+                vector_service, scan_id, gate_result.gate_name, gate_result.detailed_matches
+            )
+            
+            # Format the prompt using the prompt library
+            prompt = prompt_service.format_prompt(
+                "contextual_recommendations",
+                gate_name=gate_result.gate_name,
+                gate_status=gate_result.status.value,
+                expected_count=gate_result.expected_count,
+                actual_count=gate_result.actual_count,
+                gate_category=gate_category,
+                gate_severity=gate_severity,
+                current_reasoning=gate_result.reasoning,
+                code_context=detailed_context
+            ) or f"""
+Generate specific, actionable recommendations for improving the implementation of gate: {gate_result.gate_name}
+
+Gate Details:
+- Gate Name: {gate_result.gate_name}
+- Status: {gate_result.status.value}
+- Expected Count: {gate_result.expected_count}
+- Actual Count: {gate_result.actual_count}
+- Category: {gate_category}
+- Severity: {gate_severity}
+- Current Reasoning: {gate_result.reasoning}
+
+Codebase Analysis:
+{detailed_context}
+
+Current Implementation Status:
+- Found {gate_result.actual_count} implementations out of {gate_result.expected_count} expected
+- Files with implementations: {self._get_implementation_files(gate_result.detailed_matches)}
+- Pattern matches: {self._get_pattern_summary(gate_result.detailed_matches)}
+
+Generate 3-5 specific, actionable recommendations that:
+1. Are specifically tailored to the {gate_result.gate_name} gate and this codebase
+2. Reference specific files, components, or patterns found in the codebase
+3. Provide concrete implementation guidance based on the actual code structure
+4. Address the specific gap (expected vs actual count) with codebase-specific solutions
+5. Consider the technology stack and patterns used in this project
+6. Suggest immediate fixes and long-term improvements based on the current implementation
+
+IMPORTANT: 
+- Make recommendations specific to {gate_result.gate_name} and this codebase
+- Reference specific files, classes, or methods when relevant
+- Consider the technology stack (Java, Spring, etc.) and project structure
+- Do not use markdown formatting (no **, ##, etc.)
+- Use clear, actionable language with specific implementation details
+
+Format as a numbered list of specific recommendations without any markdown formatting.
+"""
+            
+            # Call LLM for contextual recommendations
+            response = await llm_service.generate(
+                prompt,
+                scan_id=scan_id,
+                node_name="GateEvaluationNode",
+                metadata={
+                    "gate_name": gate_result.gate_name,
+                    "gate_status": gate_result.status.value,
+                    "context_examples_count": len(code_examples)
+                }
+            )
+            
+            # Parse LLM response into recommendations
+            if response and len(response.strip()) > 0:
+                # Extract numbered recommendations
+                lines = response.strip().split('\n')
+                recommendations = []
+                
+                for line in lines:
+                    line = line.strip()
+                    if line and (line[0].isdigit() or line.startswith('-') or line.startswith('•')):
+                        # Clean up the recommendation
+                        clean_rec = line.lstrip('0123456789.-• ').strip()
+                        if clean_rec and len(clean_rec) > 10:
+                            # Remove markdown formatting
+                            clean_rec = self._remove_markdown_formatting(clean_rec)
+                            recommendations.append(clean_rec)
+                
+                # If LLM didn't provide structured recommendations, create fallback
+                if not recommendations:
+                    recommendations = self._generate_recommendations(
+                        gate_result.status, 
+                        {"name": gate_result.gate_name, "category": "quality"}, 
+                        gate_result.actual_count, 
+                        gate_result.expected_count
+                    )
+                
+                return recommendations[:5]  # Limit to 5 recommendations
+            else:
+                # Fallback to basic recommendations
+                return self._generate_recommendations(
+                    gate_result.status, 
+                    {"name": gate_result.gate_name, "category": "quality"}, 
+                    gate_result.actual_count, 
+                    gate_result.expected_count
+                )
+                
+        except Exception as e:
+            print(f"⚠️ Failed to generate contextual recommendations with LLM: {e}")
+            # Fallback to basic recommendations
+            return self._generate_recommendations(
+                gate_result.status, 
+                {"name": gate_result.gate_name, "category": "quality"}, 
+                gate_result.actual_count, 
+                gate_result.expected_count
+            )
     
     async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
         """Post-evaluation processing"""
@@ -2167,3 +2720,160 @@ class AgenticStorageNode(AsyncNode):
         if exec_res == "success":
             context.stored_result = self.context.stored_result
         return exec_res
+
+    def _calculate_intelligent_expected_count(self, gate_id: str, pattern: Dict[str, Any], 
+                                            metadata: Dict[str, Any], scan_results: Dict[str, Any]) -> int:
+        """Calculate intelligent expected count based on technology stack and codebase analysis"""
+        try:
+            # Get technology stack from metadata
+            tech_stack = metadata.get("tech_stack", {})
+            file_types = metadata.get("file_types", {})
+            total_files = metadata.get("total_files", 0)
+            
+            # Base expected counts by technology and gate category
+            base_expected_counts = {
+                # Security gates
+                "1.1": {"java": 3, "python": 2, "javascript": 2, "default": 1},  # Authentication
+                "1.3": {"java": 5, "python": 3, "javascript": 3, "default": 2},  # Authorization
+                "1.5": {"java": 4, "python": 2, "javascript": 2, "default": 1},  # Input validation
+                "1.6": {"java": 3, "python": 2, "javascript": 2, "default": 1},  # Output encoding
+                "1.8": {"java": 2, "python": 1, "javascript": 1, "default": 1},  # Session management
+                "1.10": {"java": 3, "python": 2, "javascript": 2, "default": 1}, # Error handling
+                "2.7": {"java": 2, "python": 1, "javascript": 1, "default": 1},  # Logging
+                
+                # Error Handling gates
+                "2.4": {"java": 4, "python": 3, "javascript": 3, "default": 2},  # Exception handling
+                
+                # Availability gates
+                "1.12": {"java": 3, "python": 2, "javascript": 2, "default": 1}, # Timeouts
+                "3.6": {"java": 2, "python": 1, "javascript": 1, "default": 1},  # Circuit breakers
+                "3.9": {"java": 3, "python": 2, "javascript": 2, "default": 1},  # Retry logic
+                "3.18": {"java": 2, "python": 1, "javascript": 1, "default": 1}, # Health checks
+                
+                # Testing gates
+                "2": {"java": 5, "python": 4, "javascript": 4, "default": 3},     # Unit tests
+            }
+            
+            # Determine primary technology
+            primary_tech = "default"
+            if tech_stack.get("java", 0) > 0:
+                primary_tech = "java"
+            elif tech_stack.get("python", 0) > 0:
+                primary_tech = "python"
+            elif tech_stack.get("javascript", 0) > 0:
+                primary_tech = "javascript"
+            
+            # Get base expected count for this gate and technology
+            gate_expected = base_expected_counts.get(gate_id, {"default": 1})
+            base_count = gate_expected.get(primary_tech, gate_expected.get("default", 1))
+            
+            # Adjust based on codebase size
+            size_multiplier = 1.0
+            if total_files > 100:
+                size_multiplier = 1.5
+            elif total_files > 50:
+                size_multiplier = 1.2
+            elif total_files < 10:
+                size_multiplier = 0.5
+            
+            # Adjust based on specific file types present
+            file_type_multiplier = 1.0
+            
+            # For Java projects, check for specific file types
+            if primary_tech == "java":
+                if file_types.get("java", 0) > 0:
+                    file_type_multiplier = 1.2
+                if file_types.get("xml", 0) > 0:  # Spring configs
+                    file_type_multiplier += 0.3
+                if file_types.get("properties", 0) > 0:  # Properties files
+                    file_type_multiplier += 0.2
+                    
+            # For Python projects
+            elif primary_tech == "python":
+                if file_types.get("py", 0) > 0:
+                    file_type_multiplier = 1.2
+                if file_types.get("requirements", 0) > 0 or file_types.get("txt", 0) > 0:
+                    file_type_multiplier += 0.2
+                    
+            # For JavaScript projects
+            elif primary_tech == "javascript":
+                if file_types.get("js", 0) > 0 or file_types.get("ts", 0) > 0:
+                    file_type_multiplier = 1.2
+                if file_types.get("json", 0) > 0:
+                    file_type_multiplier += 0.2
+                if file_types.get("package", 0) > 0:
+                    file_type_multiplier += 0.3
+            
+            # Calculate final expected count
+            final_expected = max(1, int(base_count * size_multiplier * file_type_multiplier))
+            
+            # Special adjustments for specific gates based on actual codebase
+            if gate_id == "2":  # Testing gate
+                # Check if test files exist
+                test_files = sum([
+                    file_types.get("test", 0),
+                    file_types.get("spec", 0),
+                    file_types.get("specs", 0)
+                ])
+                if test_files == 0:
+                    final_expected = max(1, final_expected // 2)  # Reduce expectation if no test files
+            
+            print(f"   📊 Gate {gate_id} expected count: {final_expected} (tech: {primary_tech}, files: {total_files}, multiplier: {size_multiplier:.1f}x{file_type_multiplier:.1f})")
+            
+            return final_expected
+            
+        except Exception as e:
+            print(f"⚠️ Error calculating expected count for gate {gate_id}: {e}")
+            return 1  # Default fallback
+    
+    def _should_skip_gate(self, gate_id: str, pattern: Dict[str, Any], 
+                         metadata: Dict[str, Any], scan_results: Dict[str, Any]) -> bool:
+        """Determine if a gate should be skipped based on technology and codebase analysis"""
+        try:
+            # Get technology stack
+            tech_stack = metadata.get("tech_stack", {})
+            file_types = metadata.get("file_types", {})
+            
+            # Technology-specific gate skipping rules
+            skip_rules = {
+                # Java-specific gates that should be skipped for non-Java projects
+                "1.1": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.3": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.5": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.6": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.8": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.10": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "2.7": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                
+                # Python-specific gates
+                "2.4": lambda tech, files: tech.get("python", 0) == 0 and tech.get("django", 0) == 0 and tech.get("flask", 0) == 0,
+                
+                # JavaScript-specific gates
+                "1.12": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+                "3.6": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+                "3.9": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+                "3.18": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+            }
+            
+            # Check if this gate should be skipped
+            skip_rule = skip_rules.get(gate_id)
+            if skip_rule and skip_rule(tech_stack, file_types):
+                print(f"   ⏭️ Skipping gate {gate_id} - not applicable for current technology stack")
+                return True
+            
+            # Check if no relevant files exist for this gate
+            pattern_category = pattern.get("category", "").lower()
+            if "security" in pattern_category and not any([
+                file_types.get("java", 0) > 0,
+                file_types.get("py", 0) > 0,
+                file_types.get("js", 0) > 0,
+                file_types.get("ts", 0) > 0
+            ]):
+                print(f"   ⏭️ Skipping gate {gate_id} - no relevant source files found")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"⚠️ Error checking if gate {gate_id} should be skipped: {e}")
+            return False

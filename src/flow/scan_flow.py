@@ -88,6 +88,10 @@ class ScanFlow(AsyncFlow):
                 scan_id=scan_id or f"scan_{int(datetime.now().timestamp())}"
             )
             
+            # Add services to context for enhanced reasoning and recommendations
+            context.vector_service = self.vector_service
+            context.llm_service = self.llm_service
+            
             # Run the flow
             result = await self.run_async(context)
             

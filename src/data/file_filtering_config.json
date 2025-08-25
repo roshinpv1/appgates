@@ -1,0 +1,69 @@
+{
+  "file_filtering": {
+    "ignore_patterns": [
+      ".git", ".svn", ".hg", "node_modules", "__pycache__", 
+      ".pytest_cache", "target", "build", "dist", "out",
+      ".idea", ".vscode", ".vs", ".DS_Store", "*.min.js",
+      "*.bundle.js", "*.chunk.js", "*.map", "*.log"
+    ],
+    "binary_extensions": [
+      ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".ico",
+      ".mp4", ".avi", ".mov", ".mp3", ".wav",
+      ".zip", ".tar", ".gz", ".rar", ".7z",
+      ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+      ".exe", ".dll", ".so", ".dylib",
+      ".jar", ".war", ".ear", ".class"
+    ],
+    "gate_file_relevance": {
+      "security": {
+        "java": [".java", ".xml", ".properties", ".yml", ".yaml"],
+        "python": [".py", ".pyc", "requirements.txt", "setup.py", "Pipfile"],
+        "javascript": [".js", ".ts", ".jsx", ".tsx", "package.json", ".json"],
+        "default": [".java", ".py", ".js", ".ts", ".xml", ".json"]
+      },
+      "auditability": {
+        "java": [".java", ".xml", ".properties", ".yml", ".yaml"],
+        "python": [".py", "requirements.txt", "setup.py"],
+        "javascript": [".js", ".ts", ".jsx", ".tsx", "package.json"],
+        "default": [".java", ".py", ".js", ".ts", ".xml", ".json"]
+      },
+      "error_handling": {
+        "java": [".java", ".xml"],
+        "python": [".py"],
+        "javascript": [".js", ".ts", ".jsx", ".tsx"],
+        "default": [".java", ".py", ".js", ".ts"]
+      },
+      "availability": {
+        "java": [".java", ".xml", ".properties"],
+        "python": [".py", "requirements.txt"],
+        "javascript": [".js", ".ts", "package.json"],
+        "default": [".java", ".py", ".js", ".ts"]
+      },
+      "testing": {
+        "java": [".java", ".xml"],
+        "python": [".py"],
+        "javascript": [".js", ".ts", ".jsx", ".tsx"],
+        "default": [".java", ".py", ".js", ".ts"]
+      }
+    },
+    "technology_detection": {
+      "java": {
+        "indicators": ["pom.xml", "build.gradle", "application.properties", "application.yml", "*.java"],
+        "frameworks": ["spring", "hibernate", "maven", "gradle"]
+      },
+      "python": {
+        "indicators": ["requirements.txt", "setup.py", "Pipfile", "*.py", "manage.py"],
+        "frameworks": ["django", "flask", "fastapi", "pytest"]
+      },
+      "javascript": {
+        "indicators": ["package.json", "*.js", "*.ts", "*.jsx", "*.tsx"],
+        "frameworks": ["react", "angular", "vue", "express", "node"]
+      }
+    },
+    "size_limits": {
+      "max_file_size_mb": 10,
+      "max_line_count": 5000,
+      "skip_large_files": true
+    }
+  }
+}

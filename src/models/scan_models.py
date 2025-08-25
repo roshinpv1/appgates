@@ -86,6 +86,18 @@ class CodeChunk:
 
 
 @dataclass
+class PatternMatch:
+    """Detailed pattern match information"""
+    file_path: str
+    line_number: int
+    match_text: str
+    repo_type: str  # "main" or "cd"
+    start_pos: int
+    end_pos: int
+    pattern: str  # The regex pattern that matched
+
+
+@dataclass
 class Pattern:
     """Pattern definition"""
     gate_id: str
@@ -107,10 +119,11 @@ class GateResult:
     expected_count: int
     actual_count: int
     threshold: int
-    patterns_found: List[str]
+    patterns_found: List[str]  # Keep for backward compatibility
     recommendations: List[str]
     confidence_score: float
     reasoning: str
+    detailed_matches: List[PatternMatch] = field(default_factory=list)  # New detailed matches
 
 
 @dataclass
