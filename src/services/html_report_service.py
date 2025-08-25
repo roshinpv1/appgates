@@ -783,6 +783,50 @@ class HTMLReportService:
             color: #1f2937;
             font-weight: 600;
         }
+        
+        /* Enhanced Project Summary Styling */
+        .tech-stack-info, .architecture-info, .practices-info, .infrastructure-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .tech-item, .arch-item, .practice-item, .infra-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .tech-item strong, .arch-item strong, .practice-item strong, .infra-item strong {
+            color: #374151;
+            font-size: 0.9em;
+        }
+        
+        .features-list, .recommendations-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .feature-item, .recommendation-item {
+            color: #374151;
+            font-size: 0.9em;
+            line-height: 1.4;
+            padding: 4px 0;
+        }
+        
+        .recommendations-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .recommendations-section h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
         """
 
     def _format_evidence(self, gate: GateResult) -> str:
@@ -826,31 +870,16 @@ class HTMLReportService:
         return html
     
     def _generate_project_summary_html(self, scan_result: ScanResult) -> str:
-        """Generate project summary HTML section from vector database"""
+        """Generate project summary HTML section from LLM-based analysis"""
         try:
             # Get project summary from scan metadata (pre-generated during scan)
             project_info = scan_result.metadata.get("project_summary")
             
-            # If not available, generate it from vector database
+            # If not available, return fallback
             if not project_info:
-                # Get vector service configuration from scan metadata
-                vector_config = scan_result.metadata.get("vector_config", {
-                    "vector_size": 768,
-                    "distance_metric": "cosine",
-                    "use_qdrant": False
-                })
-                
-                # Initialize vector service
-                from services.vector_service import VectorService
-                vector_service = VectorService(vector_config)
-                
-                # Generate project summary
-                project_info = vector_service.generate_project_summary(
-                    repo_url=scan_result.repo_url,
-                    scan_id=scan_result.scan_id
-                )
+                return self._generate_fallback_project_summary_html(scan_result)
             
-            # Create HTML for project summary section
+            # Create HTML for enhanced LLM-based project summary section
             html = f"""
         <h2>Project Summary</h2>
         
@@ -861,23 +890,84 @@ class HTMLReportService:
             
             <div class="project-details-grid">
                 <div class="detail-card">
-                    <h4>Technologies</h4>
-                    <div class="tech-tags">
-                        {self._generate_tech_tags_html(project_info.get('technologies', []))}
+                    <h4>Technology Stack</h4>
+                    <div class="tech-stack-info">
+                        <div class="tech-item">
+                            <strong>Primary Language:</strong> {project_info.get('technology_stack', {}).get('primary_language', 'Unknown')}
+                        </div>
+                        <div class="tech-item">
+                            <strong>Frameworks:</strong>
+                            <div class="tech-tags">
+                                {self._generate_tech_tags_html(project_info.get('technology_stack', {}).get('frameworks', []))}
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <strong>Build Tools:</strong>
+                            <div class="tech-tags">
+                                {self._generate_tech_tags_html(project_info.get('technology_stack', {}).get('build_tools', []))}
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <strong>Databases:</strong>
+                            <div class="tech-tags">
+                                {self._generate_tech_tags_html(project_info.get('technology_stack', {}).get('databases', []))}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="detail-card">
-                    <h4>File Types</h4>
-                    <div class="file-type-tags">
-                        {self._generate_file_type_tags_html(project_info.get('file_types', []))}
+                    <h4>Architecture & Design</h4>
+                    <div class="architecture-info">
+                        <div class="arch-item">
+                            <strong>Pattern:</strong> {project_info.get('architecture', {}).get('pattern', 'Unknown')}
+                        </div>
+                        <div class="arch-item">
+                            <strong>Layers:</strong>
+                            <div class="tech-tags">
+                                {self._generate_tech_tags_html(project_info.get('architecture', {}).get('layers', []))}
+                            </div>
+                        </div>
+                        <div class="arch-item">
+                            <strong>Application Type:</strong> {project_info.get('application_type', 'Unknown')}
+                        </div>
                     </div>
                 </div>
                 
                 <div class="detail-card">
-                    <h4>Key Dependencies</h4>
-                    <div class="dependency-tags">
-                        {self._generate_dependency_tags_html(project_info.get('dependencies', []))}
+                    <h4>Key Features</h4>
+                    <div class="features-list">
+                        {self._generate_features_html(project_info.get('key_features', []))}
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Development Practices</h4>
+                    <div class="practices-info">
+                        <div class="practice-item">
+                            <strong>Testing:</strong> {project_info.get('development_practices', {}).get('testing', 'Unknown')}
+                        </div>
+                        <div class="practice-item">
+                            <strong>Logging:</strong> {project_info.get('development_practices', {}).get('logging', 'Unknown')}
+                        </div>
+                        <div class="practice-item">
+                            <strong>Security:</strong> {project_info.get('development_practices', {}).get('security', 'Unknown')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Infrastructure</h4>
+                    <div class="infrastructure-info">
+                        <div class="infra-item">
+                            <strong>Deployment:</strong> {project_info.get('infrastructure', {}).get('deployment', 'Unknown')}
+                        </div>
+                        <div class="infra-item">
+                            <strong>Monitoring:</strong> {project_info.get('infrastructure', {}).get('monitoring', 'Unknown')}
+                        </div>
+                        <div class="infra-item">
+                            <strong>Scalability:</strong> {project_info.get('infrastructure', {}).get('scalability', 'Unknown')}
+                        </div>
                     </div>
                 </div>
                 
@@ -886,13 +976,28 @@ class HTMLReportService:
                     <div class="stats-info">
                         <div class="stat-item">
                             <span class="stat-label">Files Analyzed:</span>
-                            <span class="stat-value">{project_info.get('total_files_analyzed', 0)}</span>
+                            <span class="stat-value">{project_info.get('vector_analysis', {}).get('total_files_analyzed', 0)}</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-label">CD Repository:</span>
-                            <span class="stat-value">{'Yes' if project_info.get('has_cd_repo', False) else 'No'}</span>
+                            <span class="stat-label">Java Files:</span>
+                            <span class="stat-value">{project_info.get('vector_analysis', {}).get('java_files_analyzed', 0)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Config Files:</span>
+                            <span class="stat-value">{project_info.get('vector_analysis', {}).get('config_files_analyzed', 0)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Analysis Time:</span>
+                            <span class="stat-value">{project_info.get('analysis_timestamp', 'Unknown')}</span>
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <div class="recommendations-section">
+                <h4>Recommendations</h4>
+                <div class="recommendations-list">
+                    {self._generate_recommendations_html(project_info.get('recommendations', []))}
                 </div>
             </div>
         </div>
@@ -902,8 +1007,11 @@ class HTMLReportService:
             
         except Exception as e:
             print(f"⚠️ Failed to generate project summary HTML: {e}")
-            # Return fallback project summary
-            return f"""
+            return self._generate_fallback_project_summary_html(scan_result)
+    
+    def _generate_fallback_project_summary_html(self, scan_result: ScanResult) -> str:
+        """Generate fallback project summary HTML"""
+        return f"""
         <h2>Project Summary</h2>
         
         <div class="project-summary-section">
@@ -912,6 +1020,28 @@ class HTMLReportService:
             </div>
         </div>
 """
+    
+    def _generate_features_html(self, features: List[str]) -> str:
+        """Generate HTML for key features list"""
+        if not features:
+            return '<span class="no-data">No key features identified</span>'
+        
+        features_html = []
+        for feature in features[:5]:  # Limit to 5 features
+            features_html.append(f'<div class="feature-item">• {feature}</div>')
+        
+        return ''.join(features_html)
+    
+    def _generate_recommendations_html(self, recommendations: List[str]) -> str:
+        """Generate HTML for recommendations list"""
+        if not recommendations:
+            return '<span class="no-data">No recommendations available</span>'
+        
+        recommendations_html = []
+        for rec in recommendations[:5]:  # Limit to 5 recommendations
+            recommendations_html.append(f'<div class="recommendation-item">• {rec}</div>')
+        
+        return ''.join(recommendations_html)
     
     def _generate_tech_tags_html(self, technologies: List[str]) -> str:
         """Generate HTML for technology tags"""

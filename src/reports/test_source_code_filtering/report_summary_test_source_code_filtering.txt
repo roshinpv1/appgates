@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_source_code_filtering
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-25 16:08:39.640621
+
+Results Summary:
+- Total Gates: 13
+- Passed: 4
+- Failed: 0
+- Partial: 0
+- Skipped: 9
+- Risk Score: 0.00
+
+Report Files:
+- HTML Report: codegates_report_test_source_code_filtering.html
+- JSON Report: codegates_report_test_source_code_filtering.json
+- Summary: report_summary_test_source_code_filtering.txt
+
+Report Directory: reports/test_source_code_filtering
+
+Generated on: 2025-08-25T16:08:39.643503

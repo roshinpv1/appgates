@@ -106,7 +106,7 @@ class EmbeddingService:
                 f"{self.base_url}/v1/embeddings",
                 json=payload,
                 headers=headers,
-                timeout=30
+                timeout=300
             )
             
             if response.status_code == 200:

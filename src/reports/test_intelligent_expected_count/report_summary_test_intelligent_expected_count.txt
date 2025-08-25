@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_intelligent_expected_count
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-25 13:23:36.052881
+
+Results Summary:
+- Total Gates: 13
+- Passed: 5
+- Failed: 0
+- Partial: 0
+- Skipped: 8
+- Risk Score: 0.00
+
+Report Files:
+- HTML Report: codegates_report_test_intelligent_expected_count.html
+- JSON Report: codegates_report_test_intelligent_expected_count.json
+- Summary: report_summary_test_intelligent_expected_count.txt
+
+Report Directory: reports/test_intelligent_expected_count
+
+Generated on: 2025-08-25T13:23:36.054685

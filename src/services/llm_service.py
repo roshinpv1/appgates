@@ -130,7 +130,7 @@ class EnterpriseTokenManager:
                 self.refresh_url,
                 headers=headers,
                 json=data,
-                timeout=30
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -174,7 +174,7 @@ class LLMService:
             base_url=config.get("base_url", "http://localhost:1234"),
             temperature=config.get("temperature", 0.3),
             max_tokens=config.get("max_tokens", 2000),
-            timeout=config.get("timeout", 60),  # Increased default timeout
+            timeout=config.get("timeout", 300),  # Increased default timeout to 300 seconds
             max_retries=config.get("max_retries", 3)
         )
         
@@ -414,8 +414,8 @@ class LLMService:
             
             headers = {"Content-Type": "application/json"}
             
-            # Use shorter timeout for local LLMs
-            local_timeout = min(config.timeout, 30)
+            # Use timeout for local LLMs (increased to 300 seconds)
+            local_timeout = min(config.timeout, 300)
             
             response = requests.post(
                 f"{base_url}/v1/chat/completions",

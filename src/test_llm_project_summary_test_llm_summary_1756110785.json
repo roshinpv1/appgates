@@ -1,0 +1,49 @@
+{
+  "summary": "",
+  "technology_stack": {
+    "primary_language": "Unknown",
+    "frameworks": [],
+    "build_tools": [],
+    "databases": [],
+    "testing_frameworks": [],
+    "deployment_tools": []
+  },
+  "architecture": {
+    "pattern": "Unknown",
+    "layers": [],
+    "design_principles": []
+  },
+  "application_type": "Unknown",
+  "key_features": [],
+  "development_practices": {
+    "testing": "Unknown",
+    "logging": "Unknown",
+    "security": "Unknown",
+    "documentation": "Unknown"
+  },
+  "code_quality": {
+    "organization": "Unknown",
+    "patterns": "Unknown",
+    "maintainability": "Unknown"
+  },
+  "infrastructure": {
+    "deployment": "Unknown",
+    "monitoring": "Unknown",
+    "scalability": "Unknown"
+  },
+  "dependencies": {
+    "external": [],
+    "internal": []
+  },
+  "recommendations": [],
+  "vector_analysis": {
+    "total_files_analyzed": 0,
+    "java_files_analyzed": 0,
+    "config_files_analyzed": 0,
+    "build_files_analyzed": 0,
+    "test_files_analyzed": 0,
+    "deployment_files_analyzed": 0,
+    "documentation_files_analyzed": 0
+  },
+  "analysis_timestamp": "2025-08-25T14:03:05.583719"
+}

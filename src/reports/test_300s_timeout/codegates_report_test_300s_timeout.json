@@ -1,0 +1,98 @@
+{
+  "scan_id": "test_300s_timeout",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-25T12:28:19.474744",
+  "total_gates": 1,
+  "passed_gates": 0,
+  "failed_gates": 0,
+  "partial_gates": 0,
+  "skipped_gates": 1,
+  "risk_score": 0.0,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "2",
+      "gate_name": "Automated Regression Testing",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement automated tests for the UserController class in the com.example.springapp.controller package, specifically testing the login and register methods. This will ensure that changes to these methods do not break existing functionality. Create a new test class UserControllerTest.java with the following structure:",
+        "Create a new package com.example.springapp.util and move the StringUtils class from the root package to this new location. This will allow for easier maintenance and reuse of the utility methods in automated tests. Update the UserController class to import the new StringUtils class.",
+        "Identify the database schema used by the application (e.g., MySQL, PostgreSQL) and create a migration script to update the schema with any necessary changes. This will ensure that automated tests can accurately reflect the current state of the database schema. Create a new file db/migration/20230220_143145_update_schema.sql with the following content:",
+        "Implement a simple test framework (e.g., JUnit 5) to automate testing of the application's business logic. Create a new package com.example.springapp.test and move the existing test class UserControllerTest.java to this new location. Update the test class to use the new test framework.",
+        "Set up continuous integration/continuous deployment (CI/CD) pipeline using tools like Jenkins or GitLab CI/CD to automate testing of the application on each code push. This will ensure that automated tests are executed regularly and any issues are caught early in the development cycle. Configure the CI/CD pipeline to run the automated tests for the UserControllerTest.java class, as well as other relevant test classes."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Automated Regression Testing has low applicability to current codebase - Found 0 implementations, expected 1"
+    }
+  ],
+  "recommendations": [],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250825_122708",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "Project analysis for https://github.com/spring-projects/spring-petclinic reveals a comprehensive technology stack. The codebase contains devcontainer/dockerfile, editorconfig, txt, sql, gradle file types. The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.",
+      "technologies": [],
+      "frameworks": [],
+      "file_types": [
+        "devcontainer/dockerfile",
+        "editorconfig",
+        "txt",
+        "sql",
+        "gradle",
+        "jmx",
+        "scss",
+        "css",
+        "json",
+        "xml",
+        "md",
+        "properties",
+        "cmd",
+        "bat",
+        "java",
+        "yml"
+      ],
+      "dependencies": [],
+      "architecture_patterns": [],
+      "security_features": [],
+      "testing_frameworks": [],
+      "build_tools": [],
+      "deployment_configs": [],
+      "database_technologies": [],
+      "monitoring_tools": [],
+      "has_cd_repo": false,
+      "total_files_analyzed": 211
+    }
+  }
+}

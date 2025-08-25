@@ -716,25 +716,47 @@ CD Repository:
             return f"Error reading file: {str(e)}"
     
     def _create_pre_analysis_prompt(self, project_summary: str, build_configs: str) -> str:
-        """Create prompt for LLM pre-analysis"""
+        """Create prompt for LLM pre-analysis with extracted code snippets"""
         from services.prompt_service import PromptService
         
         prompt_service = PromptService()
+        
+        # Extract relevant code snippets from vector database
+        extracted_code = self._extract_relevant_code_snippets()
         
         return prompt_service.format_prompt(
             "llm_pre_analysis",
             code_structure=project_summary,
             config_files=build_configs,
-            hard_gate_summary="Project analysis for hard gate compliance"
+            available_gates=self._get_available_gates_summary(),
+            extracted_code=extracted_code
         ) or f"""
-Analyze the following project and generate applicable security, performance, and quality patterns:
+CRITICAL: You must respond with ONLY valid JSON. No explanations, no markdown, no other text.
 
-{project_summary}
+Analyze the repository for hard gate compliance:
 
-Build Configurations:
-{build_configs}
+Repository Structure: {project_summary}
+Key Config Files: {build_configs}
 
-IMPORTANT: You must respond with ONLY valid JSON in the following format. Do not include any other text, explanations, or markdown formatting:
+Available Gates:
+{self._get_available_gates_summary()}
+
+Extracts From the Code:
+{extracted_code}
+
+Generate regex patterns for applicable gates. 
+CRITICAL RULES for patterns:
+- Use ONLY simple Python regex patterns with basic syntax
+- Allowed: word1.*word2|word3.*word4
+- Forbidden: lookbehind (?<=...), lookahead (?=...), (?i) flags, complex assertions
+
+For each gate, determine:
+1. Whether the gate is APPLICABLE (true/false) based on the repository structure and config files
+2. The REASON for applicability/non-applicability
+3. If applicable, generate a regex pattern and supporting examples
+4. If not applicable, leave pattern/examples empty
+
+Respond with ONLY this JSON structure:
 
 {{
     "patterns": [
@@ -742,6 +764,8 @@ IMPORTANT: You must respond with ONLY valid JSON in the following format. Do not
             "gate_id": "1.1",
             "name": "Log system errors",
             "description": "Log system errors for troubleshooting",
+            "applicable": true,
+            "reason": "Repository contains multiple logging utility files with error handling code",
             "pattern": "error.*log|system.*error|exception.*log",
             "severity": "HIGH",
             "category": "ERROR_HANDLING",
@@ -751,15 +775,17 @@ IMPORTANT: You must respond with ONLY valid JSON in the following format. Do not
             "gate_id": "1.3",
             "name": "Use HTTP standard error codes",
             "description": "All APIs must return standardized HTTP status codes",
-            "pattern": "http.*status|status.*code|error.*code",
+            "applicable": false,
+            "reason": "No API-related files or HTTP handlers found in repository",
+            "pattern": "",
             "severity": "HIGH",
             "category": "ERROR_HANDLING",
-            "examples": ["HTTP status codes", "error response codes"]
+            "examples": []
         }}
     ]
 }}
 
-Focus on patterns relevant to the project's technology stack and domain. Generate 5-10 specific patterns.
+Generate 5–10 specific entries. Focus ONLY on the actual gates in scope. Use simple regex patterns ONLY.
 """
     
     def _parse_llm_response(self, response: str) -> List[Dict[str, Any]]:
@@ -851,6 +877,111 @@ Focus on patterns relevant to the project's technology stack and domain. Generat
                 pass
             
             raise ValueError("Manual JSON fix failed")
+    
+    def _extract_relevant_code_snippets(self) -> str:
+        """Extract relevant code snippets from vector database for each gate"""
+        try:
+            # Get vector service from context
+            vector_service = getattr(self.context, 'vector_service', None)
+            scan_id = getattr(self.context, 'scan_id', 'unknown')
+            
+            if not vector_service:
+                return "No vector service available for code extraction"
+            
+            collection_name = f"repo_{scan_id}"
+            
+            # Define search queries for each gate category
+            gate_queries = {
+                "auditability": ["logging", "log", "audit", "tracking", "monitoring"],
+                "error_handling": ["error", "exception", "try catch", "throw", "handle"],
+                "availability": ["timeout", "retry", "throttling", "circuit breaker", "health check"],
+                "security": ["authentication", "authorization", "security", "encrypt", "hash"],
+                "testing": ["test", "unit test", "integration test", "mock", "assert"]
+            }
+            
+            extracted_snippets = []
+            
+            for category, queries in gate_queries.items():
+                category_snippets = []
+                for query in queries:
+                    try:
+                        results = vector_service.search(
+                            collection_name=collection_name,
+                            query=query,
+                            limit=3,
+                            score_threshold=0.3
+                        )
+                        
+                        for result in results:
+                            if result.payload and result.payload.get("content"):
+                                content = result.payload["content"][:200]  # Truncate for context
+                                file_path = result.payload.get("file_path", "Unknown")
+                                category_snippets.append(f"File: {file_path}\nContent: {content}")
+                    except Exception as e:
+                        print(f"⚠️ Error extracting code for query '{query}': {e}")
+                        continue
+                
+                if category_snippets:
+                    extracted_snippets.append(f"\n=== {category.upper()} RELATED CODE ===\n")
+                    extracted_snippets.extend(category_snippets[:5])  # Limit to 5 snippets per category
+            
+            if extracted_snippets:
+                return "\n".join(extracted_snippets)
+            else:
+                return "No relevant code snippets found in vector database"
+                
+        except Exception as e:
+            print(f"⚠️ Error extracting code snippets: {e}")
+            return "Error extracting code snippets from vector database"
+    
+    def _get_available_gates_summary(self) -> str:
+        """Get summary of available gates for the prompt"""
+        try:
+            # Load gates from pattern library
+            import json
+            import os
+            
+            pattern_library_path = os.path.join(os.path.dirname(__file__), "..", "data", "enhanced_pattern_library.json")
+            if os.path.exists(pattern_library_path):
+                with open(pattern_library_path, 'r') as f:
+                    pattern_library = json.load(f)
+                
+                gates_summary = []
+                gates = pattern_library.get("gates", {})
+                
+                # Handle the enhanced pattern library structure
+                for gate_id, gate_data in gates.items():
+                    if isinstance(gate_data, dict):
+                        name = gate_data.get("display_name", gate_id)
+                        category = gate_data.get("category", "Unknown")
+                        priority = gate_data.get("priority", "Medium")
+                        
+                        gates_summary.append(f"- {gate_id}: {name} ({category}, {priority})")
+                
+                if not gates_summary:
+                    # Fallback to basic gates if enhanced structure doesn't work
+                    gates_summary = [
+                        "- 1.1: Logs Searchable/Available (Auditability, High)",
+                        "- 1.3: Audit Trail (Auditability, High)",
+                        "- 1.5: Implement tracking ID for log messages (Auditability, Medium)",
+                        "- 1.6: Log API Calls (Auditability, High)",
+                        "- 1.8: Log Application Messages (Auditability, High)",
+                        "- 1.10: Avoid Logging Sensitive Data (Security, Critical)",
+                        "- 2.7: UI Error Handling (Auditability, Medium)",
+                        "- 2.4: Include Client error tracking (Error Handling, Medium)",
+                        "- 1.12: Retry Logic (Availability, High)",
+                        "- 3.6: Throttling, drop request (Availability, Medium)",
+                        "- 3.9: Circuit Breaker (Availability, High)",
+                        "- 3.18: Health Checks (Availability, Medium)"
+                    ]
+                
+                return "\n".join(gates_summary)
+            else:
+                return "Gates information not available"
+                
+        except Exception as e:
+            print(f"⚠️ Error getting available gates summary: {e}")
+            return "Error loading gates information"
     
     def _create_fallback_patterns(self) -> List[Dict[str, Any]]:
         """Create fallback patterns focused on hard gates when LLM response parsing fails"""
@@ -1460,7 +1591,7 @@ class FileScanningNode(AsyncNode):
             return "error"
     
     async def _scan_for_pattern(self, repo_path: str, pattern_regex: str, gate_id: str, repo_type: str = "main") -> List[Dict[str, Any]]:
-        """Scan for specific pattern in repository"""
+        """Scan for specific pattern in repository with gate-specific file filtering"""
         import re
         
         matches = []
@@ -1473,7 +1604,7 @@ class FileScanningNode(AsyncNode):
             return matches
         
         for file_path in repo_path_obj.rglob("*"):
-            if file_path.is_file() and not self._should_ignore_file(file_path):
+            if file_path.is_file() and not self._should_ignore_file_for_gate(file_path, gate_id):
                 try:
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         content = f.read()
@@ -1496,6 +1627,109 @@ class FileScanningNode(AsyncNode):
                     continue
         
         return matches
+    
+    def _should_ignore_file_for_gate(self, file_path: Path, gate_id: str) -> bool:
+        """Check if file should be ignored for specific gate based on gate category"""
+        try:
+            # First apply general file filtering
+            if self._should_ignore_file(file_path):
+                return True
+            
+            # Define allowed source code and build file extensions for hard gate validation
+            allowed_source_extensions = {
+                # Source code files
+                '.java', '.py', '.js', '.ts', '.jsx', '.tsx', '.cs', '.cpp', '.c', '.h', '.hpp',
+                '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala', '.clj', '.hs', '.ml',
+                '.sql', '.r', '.m', '.mm', '.pl', '.sh', '.bash', '.zsh', '.fish',
+                
+                # Configuration and build files
+                '.xml', '.properties', '.yml', '.yaml', '.json', '.toml', '.ini', '.cfg',
+                '.gradle', '.gradle.kts', 'pom.xml', 'build.gradle', 'package.json',
+                'requirements.txt', 'setup.py', 'pyproject.toml', 'Cargo.toml', 'go.mod',
+                'composer.json', 'Gemfile', 'Podfile', 'Dockerfile', 'docker-compose.yml',
+                '.dockerignore', '.gitignore', '.env', '.env.example',
+                
+                # Documentation files (for some gates)
+                '.md', '.txt', '.rst', '.adoc'
+            }
+            
+            # Define test file extensions
+            test_extensions = {
+                '.test.java', '.test.py', '.test.js', '.test.ts', '.spec.java', '.spec.py',
+                '.spec.js', '.spec.ts', '_test.java', '_test.py', '_test.js', '_test.ts',
+                '_spec.java', '_spec.py', '_spec.js', '_spec.ts'
+            }
+            
+            # Define gate categories and their file restrictions
+            gate_categories = {
+                # Testing gates - only consider test files
+                "2": "TESTING",
+                
+                # All other gates - only consider source code and build files
+                "1.1": "SOURCE_CODE",
+                "1.3": "SOURCE_CODE", 
+                "1.5": "SOURCE_CODE",
+                "1.6": "SOURCE_CODE",
+                "1.8": "SOURCE_CODE",
+                "1.10": "SOURCE_CODE",
+                "2.4": "SOURCE_CODE",
+                "2.7": "SOURCE_CODE",
+                "1.12": "SOURCE_CODE",
+                "3.6": "SOURCE_CODE",
+                "3.9": "SOURCE_CODE",
+                "3.18": "SOURCE_CODE"
+            }
+            
+            gate_category = gate_categories.get(gate_id, "SOURCE_CODE")
+            file_path_str = str(file_path).lower()
+            file_extension = file_path.suffix.lower()
+            
+            # Define test file patterns
+            test_patterns = [
+                'test/', 'tests/', 'testing/', 'spec/', 'specs/',
+                '.test.', '.spec.', '_test.', '_spec.',
+                'test_', 'spec_', 'test.', 'spec.',
+                'jmeter/', 'jmx', '.jmx',
+                'cypress/', 'playwright/', 'selenium/',
+                'e2e/', 'integration/', 'unit/',
+                'testdata/', 'fixtures/', 'mocks/'
+            ]
+            
+            # Check if file is a test file
+            is_test_file = any(pattern in file_path_str for pattern in test_patterns) or file_extension in test_extensions
+            
+            # Apply category-specific filtering
+            if gate_category == "TESTING":
+                # For testing gates, only include test files
+                return not is_test_file
+            elif gate_category == "SOURCE_CODE":
+                # For source code gates, only include source code and build files, exclude test files
+                if is_test_file:
+                    return True
+                
+                # Check if file has an allowed extension
+                has_allowed_extension = file_extension in allowed_source_extensions
+                
+                # Special handling for files without extensions (like Dockerfile, Makefile)
+                if not has_allowed_extension:
+                    # Check if filename is in allowed list
+                    filename = file_path.name.lower()
+                    allowed_filenames = [
+                        'dockerfile', 'makefile', 'readme', 'license', 'changelog',
+                        'pom.xml', 'build.gradle', 'package.json', 'requirements.txt',
+                        'setup.py', 'pyproject.toml', 'cargo.toml', 'go.mod',
+                        'composer.json', 'gemfile', 'podfile', '.gitignore', '.env'
+                    ]
+                    has_allowed_extension = filename in allowed_filenames
+                
+                return not has_allowed_extension
+            
+            return True  # Default to ignoring unknown categories
+            
+        except Exception as e:
+            print(f"⚠️ Error in gate-specific file filtering: {e}")
+            # Fallback to general filtering
+            return self._should_ignore_file(file_path)
     
     def _should_ignore_file(self, file_path: Path) -> bool:
         """Check if file should be ignored using enhanced filtering"""
@@ -1546,11 +1780,169 @@ class GateEvaluationNode(AsyncNode):
     def __init__(self):
         super().__init__()
     
+    def _should_skip_gate(self, gate_id: str, pattern: Dict[str, Any], 
+                         metadata: Dict[str, Any], scan_results: Dict[str, Any]) -> bool:
+        """Determine if a gate should be skipped based on technology and codebase analysis"""
+        try:
+            # Get technology stack from metadata
+            tech_stack = metadata.get("tech_stack", {})
+            file_types = metadata.get("file_types", {})
+            
+            # Technology-specific gate skipping rules
+            skip_rules = {
+                # Java-specific gates that should be skipped for non-Java projects
+                "1.1": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.3": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.5": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.6": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.8": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "1.10": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                "2.7": lambda tech, files: tech.get("java", 0) == 0 and tech.get("spring", 0) == 0,
+                
+                # Python-specific gates
+                "2.4": lambda tech, files: tech.get("python", 0) == 0 and tech.get("django", 0) == 0 and tech.get("flask", 0) == 0,
+                
+                # JavaScript-specific gates
+                "1.12": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+                "3.6": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+                "3.9": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+                "3.18": lambda tech, files: tech.get("javascript", 0) == 0 and tech.get("node", 0) == 0,
+            }
+            
+            # Check if this gate should be skipped
+            skip_rule = skip_rules.get(gate_id)
+            if skip_rule and skip_rule(tech_stack, file_types):
+                print(f"   ⏭️ Skipping gate {gate_id} - not applicable for current technology stack")
+                return True
+            
+            # Check if no relevant files exist for this gate
+            pattern_category = pattern.get("category", "").lower()
+            if "security" in pattern_category and not any([
+                file_types.get("java", 0) > 0,
+                file_types.get("py", 0) > 0,
+                file_types.get("js", 0) > 0,
+                file_types.get("ts", 0) > 0
+            ]):
+                print(f"   ⏭️ Skipping gate {gate_id} - no relevant source files found")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"⚠️ Error checking if gate {gate_id} should be skipped: {e}")
+            return False
+    
+    def _calculate_intelligent_expected_count(self, gate_id: str, pattern: Dict[str, Any], 
+                                            metadata: Dict[str, Any], scan_results: Dict[str, Any]) -> int:
+        """Calculate intelligent expected count based on technology stack and codebase analysis"""
+        try:
+            # Get technology stack from metadata
+            tech_stack = metadata.get("tech_stack", {})
+            file_types = metadata.get("file_types", {})
+            total_files = metadata.get("total_files", 0)
+            
+            # Base expected counts by technology and gate category
+            base_expected_counts = {
+                # Security gates
+                "1.1": {"java": 3, "python": 2, "javascript": 2, "default": 1},  # Authentication
+                "1.3": {"java": 5, "python": 3, "javascript": 3, "default": 2},  # Authorization
+                "1.5": {"java": 4, "python": 2, "javascript": 2, "default": 1},  # Input validation
+                "1.6": {"java": 3, "python": 2, "javascript": 2, "default": 1},  # Output encoding
+                "1.8": {"java": 2, "python": 1, "javascript": 1, "default": 1},  # Session management
+                "1.10": {"java": 3, "python": 2, "javascript": 2, "default": 1}, # Error handling
+                "2.7": {"java": 2, "python": 1, "javascript": 1, "default": 1},  # Logging
+                
+                # Error Handling gates
+                "2.4": {"java": 4, "python": 3, "javascript": 3, "default": 2},  # Exception handling
+                
+                # Availability gates
+                "1.12": {"java": 3, "python": 2, "javascript": 2, "default": 1}, # Timeouts
+                "3.6": {"java": 2, "python": 1, "javascript": 1, "default": 1},  # Circuit breakers
+                "3.9": {"java": 3, "python": 2, "javascript": 2, "default": 1},  # Retry logic
+                "3.18": {"java": 2, "python": 1, "javascript": 1, "default": 1}, # Health checks
+                
+                # Testing gates
+                "2": {"java": 5, "python": 4, "javascript": 4, "default": 3},     # Unit tests
+            }
+            
+            # Determine primary technology
+            primary_tech = "default"
+            if tech_stack.get("java", 0) > 0:
+                primary_tech = "java"
+            elif tech_stack.get("python", 0) > 0:
+                primary_tech = "python"
+            elif tech_stack.get("javascript", 0) > 0:
+                primary_tech = "javascript"
+            
+            # Get base expected count for this gate and technology
+            gate_expected = base_expected_counts.get(gate_id, {"default": 1})
+            base_count = gate_expected.get(primary_tech, gate_expected.get("default", 1))
+            
+            # Adjust based on codebase size
+            size_multiplier = 1.0
+            if total_files > 100:
+                size_multiplier = 1.5
+            elif total_files > 50:
+                size_multiplier = 1.2
+            elif total_files < 10:
+                size_multiplier = 0.5
+            
+            # Adjust based on specific file types present
+            file_type_multiplier = 1.0
+            
+            # For Java projects, check for specific file types
+            if primary_tech == "java":
+                if file_types.get("java", 0) > 0:
+                    file_type_multiplier = 1.2
+                if file_types.get("xml", 0) > 0:  # Spring configs
+                    file_type_multiplier += 0.3
+                if file_types.get("properties", 0) > 0:  # Properties files
+                    file_type_multiplier += 0.2
+                    
+            # For Python projects
+            elif primary_tech == "python":
+                if file_types.get("py", 0) > 0:
+                    file_type_multiplier = 1.2
+                if file_types.get("requirements", 0) > 0 or file_types.get("txt", 0) > 0:
+                    file_type_multiplier += 0.2
+                    
+            # For JavaScript projects
+            elif primary_tech == "javascript":
+                if file_types.get("js", 0) > 0 or file_types.get("ts", 0) > 0:
+                    file_type_multiplier = 1.2
+                if file_types.get("json", 0) > 0:
+                    file_type_multiplier += 0.2
+                if file_types.get("package", 0) > 0:
+                    file_type_multiplier += 0.3
+            
+            # Calculate final expected count
+            final_expected = max(1, int(base_count * size_multiplier * file_type_multiplier))
+            
+            # Special adjustments for specific gates based on actual codebase
+            if gate_id == "2":  # Testing gate
+                # Check if test files exist
+                test_files = sum([
+                    file_types.get("test", 0),
+                    file_types.get("spec", 0),
+                    file_types.get("specs", 0)
+                ])
+                if test_files == 0:
+                    final_expected = max(1, final_expected // 2)  # Reduce expectation if no test files
+            
+            print(f"   📊 Gate {gate_id} expected count: {final_expected} (tech: {primary_tech}, files: {total_files}, multiplier: {size_multiplier:.1f}x{file_type_multiplier:.1f})")
+            
+            return final_expected
+            
+        except Exception as e:
+            print(f"⚠️ Error calculating expected count for gate {gate_id}: {e}")
+            return 1  # Default fallback
+    
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare gate evaluation"""
         return {
             "scan_results": context.scan_results,
-            "expected_implementations": context.expected_implementations
+            "expected_implementations": context.expected_implementations,
+            "metadata": context.metadata
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
@@ -1560,6 +1952,7 @@ class GateEvaluationNode(AsyncNode):
             
             scan_results = prep_res["scan_results"]
             expected_implementations = prep_res["expected_implementations"]
+            metadata = prep_res.get("metadata", {})
             
             # Handle case where scan_results is None
             if not scan_results:
@@ -1578,9 +1971,9 @@ class GateEvaluationNode(AsyncNode):
                 # Auditability gates
                 '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
                 # Error Handling gates
-                '1.1', '1.3', '2.4',
+                '2.4',
                 # Availability gates
-                '1.5', '1.12', '3.6', '3.9', '3.18',
+                '1.12', '3.6', '3.9', '3.18',
                 # Testing gates
                 '2'
             }
@@ -1594,12 +1987,17 @@ class GateEvaluationNode(AsyncNode):
                 cd_matches = scan_result.get("cd_matches", [])
                 total_matches = scan_result.get("total_matches", 0)
                 
-                # Check if gate should be skipped based on technology stack
-                if self._should_skip_gate(gate_id, pattern, metadata, scan_results):
-                    continue
+                # Temporarily disable gate skipping to ensure all gates are evaluated
+                # if self._should_skip_gate(gate_id, pattern, metadata, scan_results):
+                #     continue
                 
                 # Calculate intelligent expected count based on technology and codebase
-                expected_count = self._calculate_intelligent_expected_count(gate_id, pattern, metadata, scan_results)
+                import sys
+                import os
+                sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+                from flow.expected_count_calculator import ExpectedCountCalculator
+                calculator = ExpectedCountCalculator()
+                expected_count = calculator.calculate_expected_count(gate_id, metadata)
                 
                 # Determine threshold (simplified logic)
                 threshold = self._calculate_threshold(pattern, expected_count)
@@ -2416,13 +2814,33 @@ class ReportGenerationNode(AsyncNode):
                 "qdrant_path": "./qdrant_data"
             }
             
-            # Generate project summary from vector database
+            # Generate LLM-based project summary
             from services.vector_service import VectorService
-            vector_service = VectorService(vector_config)
+            from services.project_summary_service import ProjectSummaryService
+            from services.embedding_service import EmbeddingService
+            from services.llm_service import LLMService
             
-            project_info = vector_service.generate_project_summary(
+            # Initialize services
+            vector_service = VectorService(vector_config)
+            embedding_service = EmbeddingService(vector_config)
+            
+            # Initialize LLM service for project summary
+            llm_config = {
+                "provider": "local",
+                "model": "llama3.2:3b",
+                "timeout": 300,
+                "temperature": 0.3,
+                "max_tokens": 2000
+            }
+            llm_service = LLMService(llm_config)
+            
+            project_summary_service = ProjectSummaryService(vector_service, llm_service, embedding_service)
+            
+            # Generate intelligent project summary
+            project_info = await project_summary_service.generate_llm_project_summary(
                 repo_url=metadata.get("main_repo", {}).get("repo_url", "Unknown"),
-                scan_id=scan_id
+                scan_id=scan_id,
+                metadata=metadata
             )
             
             # Update metadata with vector config and project info

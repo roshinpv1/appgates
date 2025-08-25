@@ -1,0 +1,344 @@
+{
+  "scan_id": "test_fixed_gates",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-25T12:35:24.563056",
+  "total_gates": 13,
+  "passed_gates": 6,
+  "failed_gates": 0,
+  "partial_gates": 0,
+  "skipped_gates": 7,
+  "risk_score": 0.0,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "1.1",
+      "gate_name": "Log system errors",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 2,
+      "threshold": 1,
+      "patterns_found": [
+        "error_log",
+        "error_log"
+      ],
+      "recommendations": [
+        "Review the JMX files in src/test/jmeter/petclinic_test_plan.jmx and identify any unnecessary or redundant implementations that may be contributing to the discrepancy between expected and actual counts. Consider removing or consolidating these implementations to bring the actual count back in line with the expected count of 1.",
+        "Investigate the Spring configuration files (e.g. applicationContext.xml, pom.xml) for any logging-related configurations that may be causing duplicate log entries. Specifically, look for any settings related to logging levels, loggers, or handlers that could be contributing to the high actual count. Update these configurations as needed to ensure they are not producing unnecessary log output.",
+        "Examine the Java codebase for any instances of logging statements that are not properly configured or are being executed unnecessarily. For example, review the PetClinicApplication.java file and verify that all logging statements are properly annotated with @Log4j2 or @Slf4j annotations. If necessary, update these annotations to ensure they are correctly configured.",
+        "Consider implementing a logging filter or logger configuration mechanism to prevent duplicate log entries from being generated. For example, you could create a custom logger bean in the Spring application context that filters out unnecessary log messages and reduces the actual count to match the expected count of 1.",
+        "Develop a long-term plan to improve the overall logging infrastructure of the project by implementing a centralized logging solution using a tool like Logback or Logstash. This will enable better logging configuration management, improved logging output formatting, and enhanced logging analysis capabilities. In the short term, focus on addressing the immediate gap between expected and actual counts through targeted improvements to specific files and components, while in the long term, plan for a more comprehensive logging solution that addresses the broader needs of the project."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 2 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.5",
+      "gate_name": "Timeouts",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 29,
+      "threshold": 1,
+      "patterns_found": [
+        "Timestamp>2024-11-28T14:37:52Z</project.build.out",
+        "Timeout",
+        "timeout",
+        "timeout",
+        "timeout"
+      ],
+      "recommendations": [
+        "Review and refactor the XML file pom.xml to ensure that it accurately reflects the expected configuration for the project. Specifically, review the dependencies section to verify that there are no unnecessary or redundant configurations that may be causing the timeout issue. Update the pom.xml file to remove any unnecessary dependencies and optimize the configuration for better performance.",
+        "Investigate the usage of JMX files in the src/test/jmeter/petclinic_test_plan.jmx and ensure that they are not interfering with the actual application functionality. Consider removing or modifying these JMX files to prevent them from causing timeouts during the test execution. Specifically, review the script section of the JMX file to identify any unnecessary or redundant scripts that may be contributing to the timeout issue.",
+        "Analyze the PROPERTIES file gradle/wrapper/gradle-wrapper.properties and verify that it is correctly configured for the project. Check that the properties related to timeouts are set to reasonable values, such as the connection timeout and read timeout. If necessary, update the properties file to adjust these settings for better performance.",
+        "Implement a centralized logging mechanism to track and monitor the application's performance, including any timeout-related issues. This can be achieved by adding log statements throughout the codebase to capture information about the timeouts, such as the duration of the timeout and the specific component or method that caused it. Consider using a logging framework like Logback or Log4j to implement this feature.",
+        "Develop a long-term solution to address the root cause of the high actual count versus expected count in the Timeouts gate. This may involve implementing a more robust monitoring system, optimizing the application's performance, or adjusting the expectations for the project. Consider using a tool like Prometheus or Grafana to monitor the application's performance and identify areas for improvement."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 29 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.6",
+      "gate_name": "Log API Calls",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 2,
+      "threshold": 1,
+      "patterns_found": [
+        "https://github.com/spring-petclinic). If you are interested in using a different technolog",
+        "https://spring.io/blog"
+      ],
+      "recommendations": [
+        "In README.md, add a section on logging configuration and provide instructions on how to enable logging for the application. This will help ensure that log messages are being sent to the Log API and meet the expected count of 1.",
+        "Review the Spring Boot application configuration files (e.g., application.properties or application.yml) and verify that the logging configuration is properly set up. Specifically, check if the logging level is set to DEBUG or higher, as this will ensure that log messages are being sent to the Log API.",
+        "Investigate the implementation of the logging mechanism in the application's business logic classes (e.g., controllers, services). Check if there are any instances where logging is disabled or not properly configured, and update these instances to enable logging for the Log API.",
+        "In the project's pom.xml file (if using Maven) or build.gradle file (if using Gradle), add a dependency on the Logback logging framework, which is commonly used with Spring Boot applications. This will ensure that log messages are properly formatted and sent to the Log API.",
+        "Implement a logging hook in the application's main entry point (e.g., MainApplication.java) to catch any unhandled exceptions or errors and send them to the Log API for auditing purposes. This will help ensure that all critical events are being logged and meet the expected count of 1, even if other log messages are not being sent due to configuration issues."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 2 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.3",
+      "gate_name": "Use HTTP standard error codes",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 22,
+      "threshold": 1,
+      "patterns_found": [
+        "https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status",
+        "http.HttpStatus",
+        "StatusCode",
+        "HttpStatus",
+        "http.HttpStatus"
+      ],
+      "recommendations": [
+        "Implement HTTP standard error codes in the PetClinicIntegrationTests.java file by adding try-catch blocks to handle exceptions and return corresponding HTTP status codes. For example, modify the following code snippet:",
+        "Update the README.md file to include information on how to handle errors in a standardized way using HTTP status codes. For example, add the following text:",
+        "Introduce a custom exception class that extends the Spring's RuntimeException and includes information about the HTTP status code associated with the error. For example, create a new file ErrorCodes.java with the following content:",
+        "Introduce a centralized error handling mechanism that uses the custom exception class to log and handle errors in a standardized way. For example, create a new file ErrorHandler.java with the following content:",
+        "Update the project's build process to include a check for the presence of the custom exception class and the ErrorHandler class. For example, add the following configuration to the pom.xml file (if using Maven):"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 22 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.8",
+      "gate_name": "Log Application Messages",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 5,
+      "threshold": 1,
+      "patterns_found": [
+        "logging.level.org.springframework",
+        "logging.level.org.springframework",
+        "logging.level.org.springframework",
+        "apper/Log",
+        "apperDistributionUrlConverter.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000>\u0001\u0000\u0000\u001e\u0002\u0000\u0000/\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000C\u0000\u0000org/gradle/wrapper/BootstrapMainStarter$1.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u00004>t*\u0003\u0000\u0000\u0004\u0000\u0000A\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000E\u0000\u0000org/gradle/wrapper/Download$DefaultDownloadProgressListener.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000\u001b\u0002\u0000\u0000\u0011\u0005\u0000\u00004\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000*I\u0000\u0000org/gradle/wrapper/Download$ProxyAuthenticator.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000Af\t\u0000\u0000*\u0012\u0000\u0000!\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000{L\u0000\u0000org/gradle/wrapper/Download.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000P\u0001\u0000\u0000\u0002\u0000\u0000-\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00009V\u0000\u0000org/gradle/wrapper/GradleUserHomeLookup.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000U\u0000C%\u0015\u0000\u0000)\u0000\u0000*\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000vX\u0000\u0000org/gradle/wrapper/GradleWrapperMain.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000N!\u000b\u0000\u0000\u0015\u0000\u0000\"\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000m\u0000\u0000org/gradle/wrapper/Install$1.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000D;\u0002k\u0001\u0000\u0000\u0001\u0000\u0000-\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000:z\u0000\u0000org/gradle/wrapper/Install$InstallCheck.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u00001\"K\u000e\u0000\u0000x\u001c\u0000\u0000 \u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\t|\u0000\u0000org/gradle/wrapper/Install.classUT\u0005\u0000\u0001\u0000\u0000\u0000\u0000PK\u0001\u0002\u0014\u0000\u0014\u0000\b\b\b\u0000\u0000\u0000!\u0000\t\u0005<\u0002\u0000\u0000\u001e\u0004\u0000\u0000\u001f\u0000\t\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000Y\u0000\u0000org/gradle/wrapper/Log"
+      ],
+      "recommendations": [
+        "Review and refactor the PROPERTIES files in src/main/resources/application.properties to ensure that only one key-value pair is defined for each log message category. This will help prevent multiple instances of the same log message from being generated. Specifically, review the following lines:",
+        "Investigate why there are multiple JAR files (e.g. gradle-wrapper.jar) that contain log message implementations. It appears that the expected count of 1 is not being met due to the presence of additional JARs. Consider removing all JAR files except for those explicitly required by the project, and ensure that only one implementation of each log message category is present.",
+        "Implement a logging configuration mechanism that allows for dynamic configuration of log message categories and severity levels. This will enable the project to easily switch between different logging scenarios without having to modify code. Consider using a properties file (e.g. src/main/resources/logging.properties) to define the logging configuration, and then use a Spring-based logging framework (such as Logback or Log4j) to apply this configuration.",
+        "Review the current implementation of log message categories and ensure that they align with the project's business requirements. Specifically, review the following files:",
+        "Implement a logging audit mechanism that tracks and reports on log message implementation counts for each category. This will enable the project to monitor compliance with expected log message counts and identify potential issues early. Consider using a Spring-based auditing framework (such as Spring AOP) to implement this feature, and define an annotation (e.g. @LogMessageAudit) to mark log messages that should be audited."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 5 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.10",
+      "gate_name": "Avoid Logging Sensitive Data",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Review and refactor the User.java file in the com.example.project.model package to remove sensitive data from its constructor parameters. Specifically, update the constructor to accept only non-sensitive data, such as username, email, and passwordHash. This will prevent sensitive information like credit card numbers or social security numbers from being logged.",
+        "In the SecurityController.java file in the com.example.project.web package, review the logging statements for the login() method to ensure that only non-sensitive data is being logged. Update the logging statements to use a secure logging mechanism, such as logging only the user's ID and session ID, rather than their entire login credentials.",
+        "Implement a custom logging filter in the com.example.project.config package to exclude sensitive data from logs. Create a new class called SensitiveDataFilter that implements the org.springframework.core.io.buffer.LoggerFilter interface and overrides the filter() method to ignore any log messages containing sensitive data.",
+        "Review the application.yml file for any logging configuration settings that may be exposing sensitive information. Update the logging configuration to use a secure logging mechanism, such as encryption or tokenization, to protect sensitive data like API keys or database credentials.",
+        "Create a new class called SensitiveDataRemover in the com.example.project.utils package that can be used to remove sensitive data from logs. This class should implement a method called removeSensitiveData() that takes a log message as input and returns the modified log message with sensitive data removed. Use this class to update existing log messages and prevent sensitive information from being logged in the future."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Avoid Logging Sensitive Data has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "2.7",
+      "gate_name": "UI Error Handling",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement a basic error handling mechanism in the WebErrorController class located at src/main/java/com/example/webcontroller/WebErrorController.java. This class is responsible for handling HTTP errors and should be updated to include a simple error message display. For example, add the following code snippet to the handleException method:",
+        "Create a custom error page for specific error types by modifying the error.html file located at src/main/resources/templates/error.html. Update this template to include a more informative error message that includes the HTTP status code and error type. For example:",
+        "Implement a retry mechanism for specific error types by modifying the RetryPolicy class located at src/main/java/com/example/retrypolicy/RetryPolicy.java. Update this class to include a retry policy for HTTP errors with status codes 500-599. For example:",
+        "Update the application.properties file located at src/main/resources/application.properties to include error handling settings. For example, add the following configuration:",
+        "Create a long-term improvement plan by implementing a centralized error tracking system using a logging framework such as Logback or Log4j. For example, update the WebErrorController class to include logging statements that track errors:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: UI Error Handling has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "2.4",
+      "gate_name": "Include Client error tracking",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement client error tracking in the ErrorController class located at com.example.project.web.controller.ErrorController.java. This class is responsible for handling HTTP errors and should include a method to track client-side errors. For example, add a method like trackClientError(String errorCode, String errorMessage) that logs the error with a severity of HIGH. The implementation should look something like this:",
+        "Update the @ExceptionHandler annotation on the ErrorController class to include a reference to the client error tracking method. For example:",
+        "Review the ControllerAdvice class located at com.example.project.web.controller.ControllerAdvice.java and ensure that it includes a method to track client errors for all controllers. For example, add a method like trackClientError(String errorCode, String errorMessage) that logs the error with a severity of HIGH. The implementation should look something like this:",
+        "Implement a logging configuration that includes a log level filter to capture client errors at the HIGH severity level. For example, add a LogManager configuration like this:",
+        "Review the project's logging configuration and ensure that it includes a log file with a rotating policy to capture client errors for an extended period of time. For example, add a LogManager configuration like this:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Include Client error tracking has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "1.12",
+      "gate_name": "Retry Logic",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement retry logic in the UserRepository.java file located at com.example.project.dao. This file is responsible for interacting with the database and should include retry mechanisms to handle transient errors. For example, you can add a retry count and delay to the save() method: @Retry(retryCount = 3, delay = \"1s\") public void save(User user) { // existing code }. This will allow the system to attempt saving the user up to three times with a one-second delay between attempts.",
+        "Add retry logic to the UserService.java class located at com.example.project.service. The UserService class is responsible for business logic related to users, and it should include retry mechanisms to handle errors that occur during user operations. For example, you can add a retry count and delay to the getUser() method: @Retry(retryCount = 2, delay = \"500ms\") public User getUser(Long id) { // existing code }. This will allow the system to attempt retrieving the user up to two times with a 500ms delay between attempts.",
+        "Review the ApplicationContext.xml file and ensure that all beans are properly configured to handle retry logic. Specifically, review the configuration of the DataSource bean and ensure that it is set to use a connection pool with a reasonable timeout value. This will help prevent the system from getting stuck in an infinite loop of retries.",
+        "Implement a centralized logging mechanism to track retry attempts and errors. Create a new logger class called RetryLogger.java located at com.example.project.util, which will log retry attempts and errors using a logging framework such as Logback or Log4j. This will help you monitor the system's behavior and identify issues related to retry logic.",
+        "Develop a long-term improvement plan to implement more advanced retry logic mechanisms, such as exponential backoff and jittered delays. Research and experiment with different libraries and frameworks that provide these features, such as Apache Commons Retry or Netflix's Hystrix library. This will help you create a more robust and fault-tolerant system that can handle complex error scenarios."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Retry Logic has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "3.6",
+      "gate_name": "Throttling, drop request",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement rate limiting on the UserController class in src/main/java/com/example/project/controllers/UserController.java. Add the @RateLimiter annotation from a library like Spring Rate Limiter to the handleRequest method to limit incoming requests to 10 per minute. This will help prevent excessive requests and ensure that the system remains responsive.",
+        "Review the Service layer in src/main/java/com/example/project/services/UserService.java for potential bottlenecks or performance issues related to throttling and dropping requests. Consider implementing a cache layer using Redis or Ehcache to store frequently accessed data, reducing the load on the database and improving overall system performance.",
+        "In the ControllerAdvice class in src/main/java/com/example/project/advice/ControllerAdvice.java, add a global exception handler that catches and logs exceptions related to throttling and dropping requests. This will help identify and diagnose issues more efficiently. Specifically, modify the handleException method to log exceptions with a severity level of INFO or higher.",
+        "Investigate the possibility of implementing a circuit breaker pattern in the system to detect and prevent cascading failures due to excessive requests. Create a new class CircuitBreaker.java in src/main/java/com/example/project/utils/CircuitBreaker.java that implements the Open Circuit Breaker pattern, which can be used to detect when a service is not responding and prevent further requests from being sent.",
+        "In the long term, consider refactoring the system to use a more robust and scalable architecture that incorporates distributed caching, load balancing, and circuit breakers. This will require significant changes to the codebase, including the introduction of new technologies like Apache Kafka or Apache ZooKeeper for message queuing and configuration management. However, this would provide a more resilient and fault-tolerant system that can handle high volumes of traffic and unexpected failures."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Throttling, drop request has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "3.9",
+      "gate_name": "Set circuit breakers on outgoing requests",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement circuit breaker functionality in the RestTemplate class found in the com.example.myapp.service package. This class is responsible for making HTTP requests to external services and is a critical component of the application's architecture. To implement circuit breaking, add a CircuitBreaker instance as a field to the RestTemplate class and use it to detect when the service is experiencing issues. When the circuit breaks, return an error response with a 503 status code.",
+        "Add a CircuitBreaker instance as a field to the Controller class found in the com.example.myapp.controller package. This class is responsible for handling incoming requests and should be aware of circuit breaking behavior. Use the CircuitBreaker instance to detect when the service is experiencing issues and return an error response accordingly.",
+        "Create a CircuitBreaker factory class that can be used to create instances of the CircuitBreaker class. This factory class should take into account the technology stack and project structure, and provide a way to configure circuit breaking behavior.",
+        "Implement a monitoring system to track the number of outgoing requests and detect when the service is experiencing issues. This can be done using a logging framework such as Logback or Log4j.",
+        "Implement a long-term improvement by adding circuit breaking to the Feign client found in the com.example.myapp.service package. This will provide a way to detect and handle issues with external services in a centralized manner."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Set circuit breakers on outgoing requests has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "3.18",
+      "gate_name": "Auto Scale",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 6,
+      "threshold": 1,
+      "patterns_found": [
+        "scale-down",
+        "scale-down",
+        "scale-down",
+        "scale-down",
+        "scale-down"
+      ],
+      "recommendations": [
+        "Review the CSS files in src/main/resources/static/resources/css and identify any unused or redundant styles that may be contributing to the increased count. Remove these unnecessary styles to bring the actual count back down to the expected value of 1.",
+        "Investigate why there are multiple implementations of the same CSS class or style in different files. This could be due to duplicated effort or a misunderstanding of how CSS works. Review the codebase to find any instances of duplicate CSS classes or styles, and refactor them into a single, reusable implementation.",
+        "Consider using a more efficient CSS preprocessor like Sass or Less to generate stylesheets. These tools can help you write more modular and reusable code, reducing the need for duplicate implementations.",
+        "Review the codebase to ensure that there are no other instances of duplicated or redundant code that could be contributing to the increased count. Use tools like SonarQube or CodeCoverage to identify areas of high duplication or redundancy, and refactor them into more efficient implementations.",
+        "Consider implementing a code review process for CSS files to ensure that new styles are properly reviewed and validated before they're added to the production codebase. This will help catch any duplicated or redundant code early on and prevent it from accumulating over time."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 6 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "2",
+      "gate_name": "Automated Regression Testing",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement a basic test suite using JUnit and Mockito to cover at least one critical business logic component, such as the UserService class in com.example.service.UserService.java. This will provide a foundation for future automated regression testing efforts.",
+        "Identify and refactor the main method in com.example.Main.java to use a more robust testing framework, such as TestNG or Cucumber, which can provide better support for automated regression testing.",
+        "Create a separate module for automated regression testing using Maven or Gradle, and add the necessary dependencies to the pom.xml file (for Maven) or build.gradle file (for Gradle).",
+        "Develop a data-driven testing framework using JUnit and Mockito to cover at least one critical business logic component, such as the OrderService class in com.example.service.OrderService.java. This will enable automated regression testing with different input scenarios.",
+        "Implement a continuous integration/continuous deployment (CI/CD) pipeline using Jenkins or GitLab CI/CD to automate the execution of automated regression tests on each codebase commit. This will ensure that any changes to the codebase are thoroughly tested before deployment."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Automated Regression Testing has low applicability to current codebase - Found 0 implementations, expected 1"
+    }
+  ],
+  "recommendations": [],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250825_123224",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "Project analysis for https://github.com/spring-projects/spring-petclinic reveals a comprehensive technology stack. The codebase contains yml, css, md, gradle, cmd file types. The analysis focuses on evaluating compliance with hard gates across auditability, error handling, availability, and testing categories.",
+      "technologies": [],
+      "frameworks": [],
+      "file_types": [
+        "yml",
+        "css",
+        "md",
+        "gradle",
+        "cmd",
+        "scss",
+        "java",
+        "properties",
+        "bat",
+        "json",
+        "xml",
+        "jmx",
+        "devcontainer/dockerfile",
+        "txt",
+        "editorconfig",
+        "sql"
+      ],
+      "dependencies": [],
+      "architecture_patterns": [],
+      "security_features": [],
+      "testing_frameworks": [],
+      "build_tools": [],
+      "deployment_configs": [],
+      "database_technologies": [],
+      "monitoring_tools": [],
+      "has_cd_repo": false,
+      "total_files_analyzed": 211
+    }
+  }
+}
