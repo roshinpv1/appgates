@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_enhanced_patterns
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-28 13:18:08.810254
+
+Results Summary:
+- Total Gates: 13
+- Passed: 3
+- Failed: 0
+- Partial: 0
+- Skipped: 10
+- Risk Score: 0.00
+
+Report Files:
+- HTML Report: codegates_report_test_enhanced_patterns.html
+- JSON Report: codegates_report_test_enhanced_patterns.json
+- Summary: report_summary_test_enhanced_patterns.txt
+
+Report Directory: reports/test_enhanced_patterns
+
+Generated on: 2025-08-28T13:18:08.812102

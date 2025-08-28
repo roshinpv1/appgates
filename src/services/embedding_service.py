@@ -30,6 +30,25 @@ class EmbeddingService:
         self.batch_size = config.get("batch_size", 32)
         self.vector_size = config.get("vector_size", 768)
         
+        # Model dimension mapping
+        self.model_dimensions = {
+            "text-embedding-nomic-embed-text-v1.5-embedding": 768,
+            "nomic-embed-text": 768,
+            "text-embedding-ada-002": 1536,
+            "text-embedding-3-small": 1536,
+            "text-embedding-3-large": 3072,
+            "all-MiniLM-L6-v2": 384,
+            "all-mpnet-base-v2": 768,
+            "multi-qa-MiniLM-L6-cos-v1": 384
+        }
+        
+        # Auto-detect vector size based on model if not specified
+        if self.vector_size == 768 and self.model in self.model_dimensions:
+            detected_size = self.model_dimensions[self.model]
+            if detected_size != 768:
+                print(f"🔄 Auto-detected vector size for {self.model}: {detected_size}")
+                self.vector_size = detected_size
+        
         # Cache for embeddings
         self.embedding_cache = {}
         self.cache_hits = 0

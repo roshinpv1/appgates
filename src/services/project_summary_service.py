@@ -51,7 +51,20 @@ class ProjectSummaryService:
     async def _extract_vector_context(self, scan_id: str, repo_url: str) -> Dict[str, Any]:
         """Extract comprehensive context from vector database"""
         try:
-            collection = f"repo_{scan_id}"
+            # Get the git hash from scan mapping or use scan_id as fallback
+            repo_hash = None
+            try:
+                scan_mapping = self.vector_service._get_scan_mapping(scan_id)
+                if scan_mapping:
+                    repo_hash = scan_mapping.get("repo_hash")
+            except Exception:
+                pass
+            
+            # Use git hash-based collection naming if available, otherwise fallback to scan_id
+            if repo_hash:
+                collection = self.vector_service._get_collection_name(scan_id, repo_hash)
+            else:
+                collection = f"repo_{scan_id}"
             
             # Enhanced queries for comprehensive analysis
             analysis_queries = [

@@ -59,8 +59,21 @@ class QuestionService:
             # Search for relevant context in both main and CD collections
             context_chunks = []
             
-            # Search in main repository collection
-            main_collection = f"repo_{scan_id}"
+            # Get the git hash from scan mapping or use scan_id as fallback
+            repo_hash = None
+            try:
+                scan_mapping = self.vector_service._get_scan_mapping(scan_id)
+                if scan_mapping:
+                    repo_hash = scan_mapping.get("repo_hash")
+            except Exception:
+                pass
+            
+            # Use git hash-based collection naming if available, otherwise fallback to scan_id
+            if repo_hash:
+                main_collection = self.vector_service._get_collection_name(scan_id, repo_hash)
+            else:
+                main_collection = f"repo_{scan_id}"
+            
             main_results = self._search_collection(
                 collection_name=main_collection,
                 query_vector=question_embedding,
@@ -69,8 +82,11 @@ class QuestionService:
             )
             context_chunks.extend(main_results)
             
-            # Search in CD repository collection if it exists
-            cd_collection = f"repo_{scan_id}_cd"
+            # Search in CD repository collection if it exists (using same git hash)
+            if repo_hash:
+                cd_collection = f"{main_collection}_cd"
+            else:
+                cd_collection = f"repo_{scan_id}_cd"
             cd_results = self._search_collection(
                 collection_name=cd_collection,
                 query_vector=question_embedding,
@@ -285,8 +301,22 @@ Answer:"""
     def get_scan_info(self, scan_id: str) -> Dict[str, Any]:
         """Get information about a specific scan"""
         try:
-            main_collection = f"repo_{scan_id}"
-            cd_collection = f"repo_{scan_id}_cd"
+            # Get the git hash from scan mapping or use scan_id as fallback
+            repo_hash = None
+            try:
+                scan_mapping = self.vector_service._get_scan_mapping(scan_id)
+                if scan_mapping:
+                    repo_hash = scan_mapping.get("repo_hash")
+            except Exception:
+                pass
+            
+            # Use git hash-based collection naming if available, otherwise fallback to scan_id
+            if repo_hash:
+                main_collection = self.vector_service._get_collection_name(scan_id, repo_hash)
+                cd_collection = f"{main_collection}_cd"
+            else:
+                main_collection = f"repo_{scan_id}"
+                cd_collection = f"repo_{scan_id}_cd"
             
             info = {
                 "scan_id": scan_id,

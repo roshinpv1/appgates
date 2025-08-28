@@ -155,10 +155,39 @@ class VectorizationNode(AsyncNode):
             if cd_repo_path:
                 print(f"📁 CD repo: {cd_repo_path}")
             
-            # Generate single collection name using scan_id for consistency
-            collection_name = f"repo_{scan_id}"
+            # Generate collection name based on git hash for deduplication
+            repo_hash = commit_hash  # Use the commit_hash from prep_res
+            collection_name = self.vector_service._get_collection_name(scan_id, repo_hash)
             
             print(f"📊 Collection: {collection_name}")
+            
+            # Check if repository is already indexed
+            if repo_hash and self.vector_service.is_repository_indexed(repo_hash):
+                print(f"🔄 Repository already indexed (hash: {repo_hash}) - skipping vectorization")
+                print(f"📋 Previous scans for this repo: {len(self.vector_service.get_scan_mappings_for_repo(repo_hash))}")
+                
+                # Store scan mapping for this scan
+                self.vector_service._store_scan_mapping(
+                    scan_id=scan_id,
+                    repo_hash=repo_hash,
+                    repo_url=repo_url,
+                    branch=branch
+                )
+                
+                # Store vector data in context
+                if hasattr(self, 'context') and self.context is not None:
+                    self.context.vector_data = {
+                        "scan_id": scan_id,
+                        "collection_name": collection_name,
+                        "main_chunks_count": 0,
+                        "cd_chunks_count": 0,
+                        "total_vectors_stored": 0,
+                        "repository_already_indexed": True,
+                        "repo_hash": repo_hash
+                    }
+                
+                return "success"
+            
             if cd_repo_path:
                 print(f"📁 Will include both main and CD repositories in single collection")
             
@@ -573,8 +602,16 @@ class LLMPreAnalysisNode(AsyncNode):
             # Get build configuration content
             build_configs = self._get_build_configs(metadata)
             
-            # Create prompt for LLM
-            prompt = self._create_pre_analysis_prompt(project_summary, build_configs)
+            # Analyze project structure for expected counts
+            print("   🔍 Analyzing project structure for expected counts...")
+            try:
+                expected_counts_analysis = self._analyze_project_structure_for_expected_counts(metadata)
+            except AttributeError:
+                print("   ⚠️ Project structure analysis not available, using fallback")
+                expected_counts_analysis = {}
+            
+            # Create prompt for LLM with expected counts analysis
+            prompt = self._create_pre_analysis_prompt(project_summary, build_configs, expected_counts_analysis)
             
             # Call LLM for dynamic patterns
             print("   📞 Calling LLM service...")
@@ -599,6 +636,11 @@ class LLMPreAnalysisNode(AsyncNode):
                 "dynamic": dynamic_patterns,
                 "static": []  # Will be populated in next step
             }
+            
+            # Store expected counts analysis for later use
+            if expected_counts_analysis:
+                self.context.expected_counts_analysis = expected_counts_analysis
+                print(f"📊 Stored expected counts analysis for {len(expected_counts_analysis)} gates")
             
             elapsed_time = time.time() - start_time
             print(f"✅ Generated {len(dynamic_patterns)} dynamic patterns (took {elapsed_time:.2f}s)")
@@ -715,8 +757,8 @@ CD Repository:
             print(f"⚠️ Error reading file {file_path}: {e}")
             return f"Error reading file: {str(e)}"
     
-    def _create_pre_analysis_prompt(self, project_summary: str, build_configs: str) -> str:
-        """Create prompt for LLM pre-analysis with extracted code snippets"""
+    def _create_pre_analysis_prompt(self, project_summary: str, build_configs: str, expected_counts_analysis: Dict[str, Dict[str, Any]] = None) -> str:
+        """Create prompt for LLM pre-analysis with extracted code snippets and expected counts analysis"""
         from services.prompt_service import PromptService
         
         prompt_service = PromptService()
@@ -724,12 +766,21 @@ CD Repository:
         # Extract relevant code snippets from vector database
         extracted_code = self._extract_relevant_code_snippets()
         
+        # Format expected counts analysis for the prompt
+        expected_counts_text = ""
+        if expected_counts_analysis:
+            expected_counts_text = "\n\nEXPECTED COUNTS ANALYSIS:\n"
+            for gate_id, analysis in expected_counts_analysis.items():
+                expected_counts_text += f"- Gate {gate_id}: Expected {analysis.get('expected_count', 1)} implementations\n"
+                expected_counts_text += f"  Reason: {analysis.get('reason', 'Based on project structure analysis')}\n"
+        
         return prompt_service.format_prompt(
             "llm_pre_analysis",
             code_structure=project_summary,
             config_files=build_configs,
             available_gates=self._get_available_gates_summary(),
-            extracted_code=extracted_code
+            extracted_code=extracted_code,
+            expected_counts=expected_counts_text
         ) or f"""
 CRITICAL: You must respond with ONLY valid JSON. No explanations, no markdown, no other text.
 
@@ -743,6 +794,9 @@ Available Gates:
 
 Extracts From the Code:
 {extracted_code}
+
+Expected Counts Analysis:
+{expected_counts_text}
 
 Generate regex patterns for applicable gates. 
 CRITICAL RULES for patterns:
@@ -888,7 +942,9 @@ Generate 5–10 specific entries. Focus ONLY on the actual gates in scope. Use s
             if not vector_service:
                 return "No vector service available for code extraction"
             
-            collection_name = f"repo_{scan_id}"
+            # Get collection name based on git hash
+            repo_hash = getattr(self.context, 'metadata', {}).get("main_repo", {}).get("commit_hash")
+            collection_name = vector_service._get_collection_name(scan_id, repo_hash)
             
             # Define search queries for each gate category
             gate_queries = {
@@ -1136,6 +1192,440 @@ Generate 5–10 specific entries. Focus ONLY on the actual gates in scope. Use s
             }
         ]
     
+    def _analyze_project_structure_for_expected_counts(self, metadata: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """
+        Analyze project structure to calculate expected counts for each gate
+        based on actual codebase structure, dependencies, and configuration
+        """
+        try:
+            main_repo = metadata.get('main_repo', {})
+            repo_path = main_repo.get('local_path')
+            
+            if not repo_path:
+                print("⚠️ No repository path available for structure analysis")
+                return {}
+            
+            expected_counts = {}
+            
+            # Analyze project structure
+            project_structure = self._analyze_project_structure(repo_path)
+            
+            # Analyze dependencies and libraries
+            dependencies = self._analyze_dependencies(repo_path, main_repo)
+            
+            # Analyze configuration files
+            config_analysis = self._analyze_configuration_files(repo_path, main_repo)
+            
+            # Calculate expected counts for each gate category
+            expected_counts.update(self._calculate_auditability_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_error_handling_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_availability_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_testing_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_security_expected_counts(project_structure, dependencies, config_analysis))
+            
+            print(f"✅ Project structure analysis completed: {len(expected_counts)} gate expected counts calculated")
+            return expected_counts
+            
+        except Exception as e:
+            print(f"❌ Project structure analysis failed: {e}")
+            return {}
+    
+    def _analyze_project_structure(self, repo_path: str) -> Dict[str, Any]:
+        """Analyze the project structure and file organization"""
+        try:
+            structure = {
+                "total_files": 0,
+                "java_files": 0,
+                "test_files": 0,
+                "config_files": 0,
+                "controller_files": 0,
+                "service_files": 0,
+                "repository_files": 0,
+                "model_files": 0,
+                "util_files": 0,
+                "main_packages": [],
+                "test_packages": [],
+                "has_web_layer": False,
+                "has_data_layer": False,
+                "has_service_layer": False,
+                "framework_indicators": []
+            }
+            
+            repo_path_obj = Path(repo_path)
+            
+            for file_path in repo_path_obj.rglob("*"):
+                if file_path.is_file():
+                    structure["total_files"] += 1
+                    file_name = file_path.name.lower()
+                    file_path_str = str(file_path)
+                    
+                    # Count file types
+                    if file_path.suffix == '.java':
+                        structure["java_files"] += 1
+                        
+                        # Analyze Java file structure
+                        if 'test' in file_path_str.lower():
+                            structure["test_files"] += 1
+                        elif 'controller' in file_path_str.lower():
+                            structure["controller_files"] += 1
+                        elif 'service' in file_path_str.lower():
+                            structure["service_files"] += 1
+                        elif 'repository' in file_path_str.lower():
+                            structure["repository_files"] += 1
+                        elif 'model' in file_path_str.lower() or 'entity' in file_path_str.lower():
+                            structure["model_files"] += 1
+                        elif 'util' in file_path_str.lower():
+                            structure["util_files"] += 1
+                    
+                    # Detect framework indicators
+                    if any(indicator in file_name for indicator in ['spring', 'boot', 'application']):
+                        structure["framework_indicators"].append('spring_boot')
+                    if any(indicator in file_name for indicator in ['pom.xml', 'build.gradle']):
+                        structure["framework_indicators"].append('maven_or_gradle')
+                    if any(indicator in file_name for indicator in ['web.xml', 'servlet']):
+                        structure["framework_indicators"].append('servlet')
+                    
+                    # Detect layers
+                    if any(layer in file_path_str.lower() for layer in ['controller', 'web', 'rest']):
+                        structure["has_web_layer"] = True
+                    if any(layer in file_path_str.lower() for layer in ['repository', 'dao', 'jpa']):
+                        structure["has_data_layer"] = True
+                    if any(layer in file_path_str.lower() for layer in ['service', 'business']):
+                        structure["has_service_layer"] = True
+                    
+                    # Count config files
+                    if any(config_ext in file_name for config_ext in ['.properties', '.yml', '.yaml', '.xml', '.json']):
+                        structure["config_files"] += 1
+            
+            # Remove duplicates from framework indicators
+            structure["framework_indicators"] = list(set(structure["framework_indicators"]))
+            
+            return structure
+            
+        except Exception as e:
+            print(f"⚠️ Error analyzing project structure: {e}")
+            return {}
+    
+    def _analyze_dependencies(self, repo_path: str, main_repo: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze project dependencies and libraries"""
+        try:
+            dependencies = {
+                "logging_frameworks": [],
+                "testing_frameworks": [],
+                "web_frameworks": [],
+                "database_frameworks": [],
+                "security_frameworks": [],
+                "monitoring_frameworks": [],
+                "build_tools": []
+            }
+            
+            # Check build files for dependencies
+            build_files = main_repo.get('build_files', [])
+            for build_file in build_files:
+                file_path = os.path.join(repo_path, build_file)
+                content = self._read_file_content(file_path, max_lines=200)
+                
+                if content:
+                    content_lower = content.lower()
+                    
+                    # Detect logging frameworks
+                    if any(logger in content_lower for logger in ['logback', 'log4j', 'slf4j', 'logging']):
+                        dependencies["logging_frameworks"].extend(['logback', 'log4j', 'slf4j'])
+                    
+                    # Detect testing frameworks
+                    if any(test in content_lower for test in ['junit', 'testng', 'mockito', 'spring-test']):
+                        dependencies["testing_frameworks"].extend(['junit', 'mockito', 'spring-test'])
+                    
+                    # Detect web frameworks
+                    if any(web in content_lower for web in ['spring-web', 'spring-boot-starter-web', 'servlet']):
+                        dependencies["web_frameworks"].extend(['spring-web', 'servlet'])
+                    
+                    # Detect database frameworks
+                    if any(db in content_lower for db in ['spring-data', 'jpa', 'hibernate', 'jdbc']):
+                        dependencies["database_frameworks"].extend(['spring-data', 'jpa', 'hibernate'])
+                    
+                    # Detect security frameworks
+                    if any(sec in content_lower for sec in ['spring-security', 'oauth', 'jwt']):
+                        dependencies["security_frameworks"].extend(['spring-security', 'oauth'])
+                    
+                    # Detect monitoring frameworks
+                    if any(mon in content_lower for mon in ['actuator', 'micrometer', 'prometheus']):
+                        dependencies["monitoring_frameworks"].extend(['actuator', 'micrometer'])
+                    
+                    # Detect build tools
+                    if 'maven' in content_lower or 'pom.xml' in build_file:
+                        dependencies["build_tools"].append('maven')
+                    if 'gradle' in content_lower or 'build.gradle' in build_file:
+                        dependencies["build_tools"].append('gradle')
+            
+            # Remove duplicates
+            for key in dependencies:
+                dependencies[key] = list(set(dependencies[key]))
+            
+            return dependencies
+            
+        except Exception as e:
+            print(f"⚠️ Error analyzing dependencies: {e}")
+            return {}
+    
+    def _analyze_configuration_files(self, repo_path: str, main_repo: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze configuration files for patterns and settings"""
+        try:
+            config_analysis = {
+                "logging_config": False,
+                "security_config": False,
+                "database_config": False,
+                "monitoring_config": False,
+                "error_handling_config": False,
+                "timeout_config": False,
+                "retry_config": False,
+                "throttling_config": False,
+                "circuit_breaker_config": False,
+                "health_check_config": False
+            }
+            
+            config_files = main_repo.get('config_files', [])
+            for config_file in config_files:
+                file_path = os.path.join(repo_path, config_file)
+                content = self._read_file_content(file_path, max_lines=100)
+                
+                if content:
+                    content_lower = content.lower()
+                    
+                    # Detect logging configuration
+                    if any(log in content_lower for log in ['logging', 'logback', 'log4j', 'slf4j']):
+                        config_analysis["logging_config"] = True
+                    
+                    # Detect security configuration
+                    if any(sec in content_lower for sec in ['security', 'authentication', 'authorization', 'oauth']):
+                        config_analysis["security_config"] = True
+                    
+                    # Detect database configuration
+                    if any(db in content_lower for db in ['datasource', 'jpa', 'hibernate', 'database']):
+                        config_analysis["database_config"] = True
+                    
+                    # Detect monitoring configuration
+                    if any(mon in content_lower for mon in ['actuator', 'management', 'endpoints', 'health']):
+                        config_analysis["monitoring_config"] = True
+                    
+                    # Detect error handling configuration
+                    if any(err in content_lower for err in ['error', 'exception', 'handling']):
+                        config_analysis["error_handling_config"] = True
+                    
+                    # Detect timeout configuration
+                    if any(timeout in content_lower for timeout in ['timeout', 'connection-timeout', 'read-timeout']):
+                        config_analysis["timeout_config"] = True
+                    
+                    # Detect retry configuration
+                    if any(retry in content_lower for retry in ['retry', 'retryable', 'backoff']):
+                        config_analysis["retry_config"] = True
+                    
+                    # Detect throttling configuration
+                    if any(throttle in content_lower for throttle in ['throttle', 'rate-limit', 'throttling']):
+                        config_analysis["throttling_config"] = True
+                    
+                    # Detect circuit breaker configuration
+                    if any(cb in content_lower for cb in ['circuit-breaker', 'resilience4j', 'hystrix']):
+                        config_analysis["circuit_breaker_config"] = True
+                    
+                    # Detect health check configuration
+                    if any(health in content_lower for health in ['health', 'liveness', 'readiness']):
+                        config_analysis["health_check_config"] = True
+            
+            return config_analysis
+            
+        except Exception as e:
+            print(f"⚠️ Error analyzing configuration files: {e}")
+            return {}
+    
+    def _calculate_auditability_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for auditability gates"""
+        expected_counts = {}
+        
+        # Gate 1.1: Logs Searchable/Available
+        logging_count = 0
+        if dependencies.get("logging_frameworks"):
+            logging_count += len(dependencies["logging_frameworks"])
+        if config.get("logging_config"):
+            logging_count += 1
+        if structure.get("java_files", 0) > 0:
+            logging_count += max(1, structure["java_files"] // 50)  # At least 1 logger per 50 Java files
+        expected_counts["1.1"] = {
+            "expected_count": max(1, logging_count),
+            "reason": f"Based on {len(dependencies.get('logging_frameworks', []))} logging frameworks, {structure.get('java_files', 0)} Java files, and logging config: {config.get('logging_config', False)}"
+        }
+        
+        # Gate 1.3: Audit Trail
+        audit_count = 0
+        if structure.get("has_web_layer"):
+            audit_count += 1  # Web layer should have audit trails
+        if structure.get("has_data_layer"):
+            audit_count += 1  # Data layer should have audit trails
+        if config.get("security_config"):
+            audit_count += 1  # Security config indicates audit needs
+        expected_counts["1.3"] = {
+            "expected_count": max(1, audit_count),
+            "reason": f"Based on web layer: {structure.get('has_web_layer', False)}, data layer: {structure.get('has_data_layer', False)}, security config: {config.get('security_config', False)}"
+        }
+        
+        # Gate 1.5: Implement tracking ID for log messages
+        tracking_count = 0
+        if structure.get("controller_files", 0) > 0:
+            tracking_count += structure["controller_files"]  # Each controller should have tracking
+        if structure.get("service_files", 0) > 0:
+            tracking_count += max(1, structure["service_files"] // 2)  # Every other service should have tracking
+        expected_counts["1.5"] = {
+            "expected_count": max(1, tracking_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and {structure.get('service_files', 0)} services"
+        }
+        
+        # Gate 1.6: Log API Calls
+        api_logging_count = 0
+        if structure.get("controller_files", 0) > 0:
+            api_logging_count += structure["controller_files"]  # Each controller should log API calls
+        if structure.get("has_web_layer"):
+            api_logging_count += 1  # Web layer should have API logging
+        expected_counts["1.6"] = {
+            "expected_count": max(1, api_logging_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        # Gate 1.8: Log Application Messages
+        app_logging_count = 0
+        if structure.get("service_files", 0) > 0:
+            app_logging_count += structure["service_files"]  # Each service should log application messages
+        if structure.get("util_files", 0) > 0:
+            app_logging_count += max(1, structure["util_files"] // 2)  # Every other util should log
+        expected_counts["1.8"] = {
+            "expected_count": max(1, app_logging_count),
+            "reason": f"Based on {structure.get('service_files', 0)} services and {structure.get('util_files', 0)} utility files"
+        }
+        
+        # Gate 1.10: Avoid Logging Sensitive Data
+        sensitive_logging_count = 0
+        if config.get("security_config"):
+            sensitive_logging_count += 1  # Security config indicates sensitive data handling
+        if structure.get("has_web_layer"):
+            sensitive_logging_count += 1  # Web layer handles sensitive data
+        if structure.get("has_data_layer"):
+            sensitive_logging_count += 1  # Data layer handles sensitive data
+        expected_counts["1.10"] = {
+            "expected_count": max(1, sensitive_logging_count),
+            "reason": f"Based on security config: {config.get('security_config', False)}, web layer: {structure.get('has_web_layer', False)}, data layer: {structure.get('has_data_layer', False)}"
+        }
+        
+        return expected_counts
+    
+    def _calculate_error_handling_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for error handling gates"""
+        expected_counts = {}
+        
+        # Gate 2.4: Include Client error tracking
+        client_error_count = 0
+        if structure.get("controller_files", 0) > 0:
+            client_error_count += structure["controller_files"]  # Each controller should handle client errors
+        if structure.get("has_web_layer"):
+            client_error_count += 1  # Web layer should have client error handling
+        expected_counts["2.4"] = {
+            "expected_count": max(1, client_error_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        # Gate 2.7: UI Error Handling
+        ui_error_count = 0
+        if structure.get("controller_files", 0) > 0:
+            ui_error_count += structure["controller_files"]  # Each controller should handle UI errors
+        if structure.get("has_web_layer"):
+            ui_error_count += 1  # Web layer should have UI error handling
+        expected_counts["2.7"] = {
+            "expected_count": max(1, ui_error_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        return expected_counts
+    
+    def _calculate_availability_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for availability gates"""
+        expected_counts = {}
+        
+        # Gate 1.12: Retry Logic
+        retry_count = 0
+        if config.get("retry_config"):
+            retry_count += 1  # Retry configuration indicates retry logic
+        if structure.get("service_files", 0) > 0:
+            retry_count += max(1, structure["service_files"] // 3)  # Every third service should have retry logic
+        if dependencies.get("database_frameworks"):
+            retry_count += 1  # Database operations should have retry logic
+        expected_counts["1.12"] = {
+            "expected_count": max(1, retry_count),
+            "reason": f"Based on retry config: {config.get('retry_config', False)}, {structure.get('service_files', 0)} services, and database frameworks: {dependencies.get('database_frameworks', [])}"
+        }
+        
+        # Gate 3.6: Throttling, drop request
+        throttling_count = 0
+        if config.get("throttling_config"):
+            throttling_count += 1  # Throttling configuration indicates throttling logic
+        if structure.get("controller_files", 0) > 0:
+            throttling_count += max(1, structure["controller_files"] // 2)  # Every other controller should have throttling
+        expected_counts["3.6"] = {
+            "expected_count": max(1, throttling_count),
+            "reason": f"Based on throttling config: {config.get('throttling_config', False)} and {structure.get('controller_files', 0)} controllers"
+        }
+        
+        # Gate 3.9: Circuit Breaker
+        circuit_breaker_count = 0
+        if config.get("circuit_breaker_config"):
+            circuit_breaker_count += 1  # Circuit breaker configuration indicates circuit breaker logic
+        if structure.get("service_files", 0) > 0:
+            circuit_breaker_count += max(1, structure["service_files"] // 4)  # Every fourth service should have circuit breaker
+        expected_counts["3.9"] = {
+            "expected_count": max(1, circuit_breaker_count),
+            "reason": f"Based on circuit breaker config: {config.get('circuit_breaker_config', False)} and {structure.get('service_files', 0)} services"
+        }
+        
+        # Gate 3.18: Health Checks
+        health_check_count = 0
+        if config.get("health_check_config"):
+            health_check_count += 1  # Health check configuration indicates health checks
+        if dependencies.get("monitoring_frameworks"):
+            health_check_count += len(dependencies["monitoring_frameworks"])  # Each monitoring framework should have health checks
+        if structure.get("has_web_layer"):
+            health_check_count += 1  # Web layer should have health checks
+        expected_counts["3.18"] = {
+            "expected_count": max(1, health_check_count),
+            "reason": f"Based on health check config: {config.get('health_check_config', False)}, monitoring frameworks: {dependencies.get('monitoring_frameworks', [])}, and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        return expected_counts
+    
+    def _calculate_testing_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for testing gates"""
+        expected_counts = {}
+        
+        # Gate 2: Testing (general)
+        testing_count = 0
+        if structure.get("test_files", 0) > 0:
+            testing_count += structure["test_files"]  # Each test file indicates testing
+        if dependencies.get("testing_frameworks"):
+            testing_count += len(dependencies["testing_frameworks"])  # Each testing framework indicates testing
+        if structure.get("java_files", 0) > 0:
+            testing_count += max(1, structure["java_files"] // 10)  # At least 1 test per 10 Java files
+        expected_counts["2"] = {
+            "expected_count": max(1, testing_count),
+            "reason": f"Based on {structure.get('test_files', 0)} test files, testing frameworks: {dependencies.get('testing_frameworks', [])}, and {structure.get('java_files', 0)} Java files"
+        }
+        
+        return expected_counts
+    
+    def _calculate_security_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for security gates"""
+        expected_counts = {}
+        
+        # Security gates would be calculated here based on security frameworks and configurations
+        # For now, return empty dict as security gates are not in the main scope
+        
+        return expected_counts
+    
     async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
         """Post-analysis processing"""
         if exec_res == "success":
@@ -1193,11 +1683,25 @@ class PatternConsolidationNode(AsyncNode):
             
             # Add enhanced pattern library patterns if available
             if self.pattern_library_service:
-                for gate_id, pattern_info in self.pattern_library_service.patterns.items():
+                # Map enhanced pattern library gate IDs to expected numeric gate IDs
+                gate_id_mapping = {
+                    "STRUCTURED_LOGS": "1.1",           # Logs Searchable/Available
+                    "AVOID_LOGGING_SECRETS": "1.10",    # Avoid Logging Sensitive Data
+                    "TESTING_INFRASTRUCTURE": "2",      # Automated Regression Testing
+                    "DOCUMENTATION_AVAILABLE": "1.3",   # Audit Trail (closest match)
+                    "CONTAINERIZATION_READY": "3.18",   # Health Checks (closest match)
+                    "ERROR_HANDLING": "2.4",            # Include Client error tracking
+                    "INPUT_VALIDATION": "2.7"           # UI Error Handling
+                }
+                
+                for enhanced_gate_id, pattern_info in self.pattern_library_service.patterns.items():
+                    # Map to expected gate ID
+                    expected_gate_id = gate_id_mapping.get(enhanced_gate_id, enhanced_gate_id)
+                    
                     for pattern in pattern_info.patterns:
                         consolidated.append({
                             "source": "enhanced_library",
-                            "gate_id": gate_id,
+                            "gate_id": expected_gate_id,  # Use mapped gate ID
                             "name": pattern_info.display_name,
                             "pattern": pattern,
                             "description": pattern_info.description,
@@ -1393,7 +1897,8 @@ class ExpectedImplementationNode(AsyncNode):
         """Prepare expected implementation calculation"""
         return {
             "vector_data": context.vector_data,
-            "patterns": context.patterns
+            "patterns": context.patterns,
+            "expected_counts_analysis": getattr(context, 'expected_counts_analysis', {})
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
@@ -1403,6 +1908,7 @@ class ExpectedImplementationNode(AsyncNode):
             
             vector_data = prep_res["vector_data"]
             patterns = prep_res["patterns"]
+            expected_counts_analysis = prep_res.get("expected_counts_analysis", {})
             
             scan_id = vector_data["scan_id"]
             collection_name = vector_data["collection_name"]
@@ -1435,6 +1941,32 @@ class ExpectedImplementationNode(AsyncNode):
                 query_embedding = self.embedding_service.embed_single(query)
                 
                 if query_embedding:
+                    # Check if collection exists before searching
+                    if not self.vector_service.collection_exists(collection_name):
+                        print(f"⚠️ Collection {collection_name} does not exist, using project structure analysis for {pattern_name}")
+                        
+                        # Use project structure analysis if available
+                        gate_id = pattern["gate_id"]
+                        if gate_id in expected_counts_analysis:
+                            analysis = expected_counts_analysis[gate_id]
+                            expected_count = analysis.get("expected_count", 1)
+                            reason = analysis.get("reason", "Based on project structure analysis")
+                            print(f"📊 Using project structure analysis for {gate_id}: {expected_count} expected ({reason})")
+                        else:
+                            expected_count = 1
+                            reason = "Default fallback (no project structure analysis available)"
+                        
+                        expected_implementations[gate_id] = {
+                            "pattern": pattern,
+                            "expected_count": expected_count,
+                            "main_implementations": 0,
+                            "cd_implementations": 0,
+                            "similar_implementations": [],
+                            "calculation_method": "project_structure_analysis",
+                            "reason": reason
+                        }
+                        continue
+                    
                     # Search single collection for both main and CD repositories
                     all_results = self.vector_service.search_similar(
                         collection_name=collection_name,
@@ -1442,6 +1974,31 @@ class ExpectedImplementationNode(AsyncNode):
                         limit=20,  # Increased limit to get both main and CD results
                         score_threshold=0.5
                     )
+                else:
+                    # Fallback when embedding generation fails
+                    print(f"⚠️ Failed to generate embedding for query: {query}")
+                    
+                    # Use project structure analysis if available
+                    gate_id = pattern["gate_id"]
+                    if gate_id in expected_counts_analysis:
+                        analysis = expected_counts_analysis[gate_id]
+                        expected_count = analysis.get("expected_count", 1)
+                        reason = analysis.get("reason", "Based on project structure analysis")
+                        print(f"📊 Using project structure analysis for {gate_id}: {expected_count} expected ({reason})")
+                    else:
+                        expected_count = 1
+                        reason = "Default fallback (embedding generation failed)"
+                    
+                    expected_implementations[gate_id] = {
+                        "pattern": pattern,
+                        "expected_count": expected_count,
+                        "main_implementations": 0,
+                        "cd_implementations": 0,
+                        "similar_implementations": [],
+                        "calculation_method": "project_structure_analysis_fallback",
+                        "reason": reason
+                    }
+                    continue
                     
                     # Process results and separate by repo_type
                     main_results = []
@@ -1465,13 +2022,42 @@ class ExpectedImplementationNode(AsyncNode):
                     combined_results = main_results + cd_results
                     combined_results.sort(key=lambda x: x["score"], reverse=True)
                     
-                    expected_implementations[pattern["gate_id"]] = {
-                        "pattern": pattern,
-                        "expected_count": len(combined_results),
-                        "main_implementations": len(main_results),
-                        "cd_implementations": len(cd_results),
-                        "similar_implementations": combined_results[:15]  # Top 15 combined results
-                    }
+                    # Use vector search results, but enhance with project structure analysis if available
+                    gate_id = pattern["gate_id"]
+                    vector_based_count = len(combined_results)
+                    
+                    # Check if we have project structure analysis for this gate
+                    if gate_id in expected_counts_analysis:
+                        analysis = expected_counts_analysis[gate_id]
+                        project_based_count = analysis.get("expected_count", vector_based_count)
+                        reason = analysis.get("reason", "Based on project structure analysis")
+                        
+                        # Use the higher of the two counts, or vector-based if project analysis is not available
+                        final_expected_count = max(vector_based_count, project_based_count)
+                        
+                        print(f"📊 Gate {gate_id}: Vector search found {vector_based_count}, project analysis suggests {project_based_count}, using {final_expected_count}")
+                        
+                        expected_implementations[gate_id] = {
+                            "pattern": pattern,
+                            "expected_count": final_expected_count,
+                            "main_implementations": len(main_results),
+                            "cd_implementations": len(cd_results),
+                            "similar_implementations": combined_results[:15],  # Top 15 combined results
+                            "calculation_method": "vector_search_enhanced_with_project_analysis",
+                            "vector_based_count": vector_based_count,
+                            "project_based_count": project_based_count,
+                            "reason": reason
+                        }
+                    else:
+                        # Use vector search results only
+                        expected_implementations[gate_id] = {
+                            "pattern": pattern,
+                            "expected_count": vector_based_count,
+                            "main_implementations": len(main_results),
+                            "cd_implementations": len(cd_results),
+                            "similar_implementations": combined_results[:15],  # Top 15 combined results
+                            "calculation_method": "vector_search_only"
+                        }
             
             # Store expected implementations
             self.context.expected_implementations = expected_implementations
@@ -1649,8 +2235,8 @@ class FileScanningNode(AsyncNode):
                 'composer.json', 'Gemfile', 'Podfile', 'Dockerfile', 'docker-compose.yml',
                 '.dockerignore', '.gitignore', '.env', '.env.example',
                 
-                # Documentation files (for some gates)
-                '.md', '.txt', '.rst', '.adoc'
+                # Documentation files (excluded from hard gate analysis)
+                # '.md', '.txt', '.rst', '.adoc'  # Commented out to exclude documentation
             }
             
             # Define test file extensions
@@ -1715,7 +2301,7 @@ class FileScanningNode(AsyncNode):
                     # Check if filename is in allowed list
                     filename = file_path.name.lower()
                     allowed_filenames = [
-                        'dockerfile', 'makefile', 'readme', 'license', 'changelog',
+                        'dockerfile', 'makefile',
                         'pom.xml', 'build.gradle', 'package.json', 'requirements.txt',
                         'setup.py', 'pyproject.toml', 'cargo.toml', 'go.mod',
                         'composer.json', 'gemfile', 'podfile', '.gitignore', '.env'
@@ -2247,7 +2833,8 @@ class GateEvaluationNode(AsyncNode):
         """Generate enhanced reasoning using vector database context and LLM"""
         try:
             # Search for relevant code patterns in vector database
-            collection_name = f"repo_{scan_id}"
+            repo_hash = getattr(self.context, 'metadata', {}).get("main_repo", {}).get("commit_hash")
+            collection_name = vector_service._get_collection_name(scan_id, repo_hash)
             
             # Create search queries based on gate context
             search_queries = [
@@ -2339,7 +2926,8 @@ class GateEvaluationNode(AsyncNode):
     async def _get_detailed_code_context(self, vector_service, scan_id: str, gate_name: str, detailed_matches: List[PatternMatch]) -> str:
         """Get detailed code context for recommendations"""
         try:
-            collection_name = f"repo_{scan_id}"
+            repo_hash = getattr(self.context, 'metadata', {}).get("main_repo", {}).get("commit_hash")
+            collection_name = vector_service._get_collection_name(scan_id, repo_hash)
             
             # Get technology stack and project structure
             tech_context = await self._get_technology_context(vector_service, collection_name)
@@ -2463,7 +3051,8 @@ class GateEvaluationNode(AsyncNode):
         """Generate contextual recommendations using LLM and vector data"""
         try:
             # Get relevant code context from vector database
-            collection_name = f"repo_{scan_id}"
+            repo_hash = getattr(self.context, 'metadata', {}).get("main_repo", {}).get("commit_hash")
+            collection_name = vector_service._get_collection_name(scan_id, repo_hash)
             
             # Search for similar implementations
             similar_results = vector_service.search(
@@ -3295,3 +3884,437 @@ class AgenticStorageNode(AsyncNode):
         except Exception as e:
             print(f"⚠️ Error checking if gate {gate_id} should be skipped: {e}")
             return False
+
+    def _analyze_project_structure_for_expected_counts(self, metadata: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """
+        Analyze project structure to calculate expected counts for each gate
+        based on actual codebase structure, dependencies, and configuration
+        """
+        try:
+            main_repo = metadata.get('main_repo', {})
+            repo_path = main_repo.get('local_path')
+            
+            if not repo_path:
+                print("⚠️ No repository path available for structure analysis")
+                return {}
+            
+            expected_counts = {}
+            
+            # Analyze project structure
+            project_structure = self._analyze_project_structure(repo_path)
+            
+            # Analyze dependencies and libraries
+            dependencies = self._analyze_dependencies(repo_path, main_repo)
+            
+            # Analyze configuration files
+            config_analysis = self._analyze_configuration_files(repo_path, main_repo)
+            
+            # Calculate expected counts for each gate category
+            expected_counts.update(self._calculate_auditability_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_error_handling_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_availability_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_testing_expected_counts(project_structure, dependencies, config_analysis))
+            expected_counts.update(self._calculate_security_expected_counts(project_structure, dependencies, config_analysis))
+            
+            print(f"✅ Project structure analysis completed: {len(expected_counts)} gate expected counts calculated")
+            return expected_counts
+            
+        except Exception as e:
+            print(f"❌ Project structure analysis failed: {e}")
+            return {}
+    
+    def _analyze_project_structure(self, repo_path: str) -> Dict[str, Any]:
+        """Analyze the project structure and file organization"""
+        try:
+            structure = {
+                "total_files": 0,
+                "java_files": 0,
+                "test_files": 0,
+                "config_files": 0,
+                "controller_files": 0,
+                "service_files": 0,
+                "repository_files": 0,
+                "model_files": 0,
+                "util_files": 0,
+                "main_packages": [],
+                "test_packages": [],
+                "has_web_layer": False,
+                "has_data_layer": False,
+                "has_service_layer": False,
+                "framework_indicators": []
+            }
+            
+            repo_path_obj = Path(repo_path)
+            
+            for file_path in repo_path_obj.rglob("*"):
+                if file_path.is_file():
+                    structure["total_files"] += 1
+                    file_name = file_path.name.lower()
+                    file_path_str = str(file_path)
+                    
+                    # Count file types
+                    if file_path.suffix == '.java':
+                        structure["java_files"] += 1
+                        
+                        # Analyze Java file structure
+                        if 'test' in file_path_str.lower():
+                            structure["test_files"] += 1
+                        elif 'controller' in file_path_str.lower():
+                            structure["controller_files"] += 1
+                        elif 'service' in file_path_str.lower():
+                            structure["service_files"] += 1
+                        elif 'repository' in file_path_str.lower():
+                            structure["repository_files"] += 1
+                        elif 'model' in file_path_str.lower() or 'entity' in file_path_str.lower():
+                            structure["model_files"] += 1
+                        elif 'util' in file_path_str.lower():
+                            structure["util_files"] += 1
+                    
+                    # Detect framework indicators
+                    if any(indicator in file_name for indicator in ['spring', 'boot', 'application']):
+                        structure["framework_indicators"].append('spring_boot')
+                    if any(indicator in file_name for indicator in ['pom.xml', 'build.gradle']):
+                        structure["framework_indicators"].append('maven_or_gradle')
+                    if any(indicator in file_name for indicator in ['web.xml', 'servlet']):
+                        structure["framework_indicators"].append('servlet')
+                    
+                    # Detect layers
+                    if any(layer in file_path_str.lower() for layer in ['controller', 'web', 'rest']):
+                        structure["has_web_layer"] = True
+                    if any(layer in file_path_str.lower() for layer in ['repository', 'dao', 'jpa']):
+                        structure["has_data_layer"] = True
+                    if any(layer in file_path_str.lower() for layer in ['service', 'business']):
+                        structure["has_service_layer"] = True
+                    
+                    # Count config files
+                    if any(config_ext in file_name for config_ext in ['.properties', '.yml', '.yaml', '.xml', '.json']):
+                        structure["config_files"] += 1
+            
+            # Remove duplicates from framework indicators
+            structure["framework_indicators"] = list(set(structure["framework_indicators"]))
+            
+            return structure
+            
+        except Exception as e:
+            print(f"⚠️ Error analyzing project structure: {e}")
+            return {}
+    
+    def _analyze_dependencies(self, repo_path: str, main_repo: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze project dependencies and libraries"""
+        try:
+            dependencies = {
+                "logging_frameworks": [],
+                "testing_frameworks": [],
+                "web_frameworks": [],
+                "database_frameworks": [],
+                "security_frameworks": [],
+                "monitoring_frameworks": [],
+                "build_tools": []
+            }
+            
+            # Check build files for dependencies
+            build_files = main_repo.get('build_files', [])
+            for build_file in build_files:
+                file_path = os.path.join(repo_path, build_file)
+                content = self._read_file_content(file_path, max_lines=200)
+                
+                if content:
+                    content_lower = content.lower()
+                    
+                    # Detect logging frameworks
+                    if any(logger in content_lower for logger in ['logback', 'log4j', 'slf4j', 'logging']):
+                        dependencies["logging_frameworks"].extend(['logback', 'log4j', 'slf4j'])
+                    
+                    # Detect testing frameworks
+                    if any(test in content_lower for test in ['junit', 'testng', 'mockito', 'spring-test']):
+                        dependencies["testing_frameworks"].extend(['junit', 'mockito', 'spring-test'])
+                    
+                    # Detect web frameworks
+                    if any(web in content_lower for web in ['spring-web', 'spring-boot-starter-web', 'servlet']):
+                        dependencies["web_frameworks"].extend(['spring-web', 'servlet'])
+                    
+                    # Detect database frameworks
+                    if any(db in content_lower for db in ['spring-data', 'jpa', 'hibernate', 'jdbc']):
+                        dependencies["database_frameworks"].extend(['spring-data', 'jpa', 'hibernate'])
+                    
+                    # Detect security frameworks
+                    if any(sec in content_lower for sec in ['spring-security', 'oauth', 'jwt']):
+                        dependencies["security_frameworks"].extend(['spring-security', 'oauth'])
+                    
+                    # Detect monitoring frameworks
+                    if any(mon in content_lower for mon in ['actuator', 'micrometer', 'prometheus']):
+                        dependencies["monitoring_frameworks"].extend(['actuator', 'micrometer'])
+                    
+                    # Detect build tools
+                    if 'maven' in content_lower or 'pom.xml' in build_file:
+                        dependencies["build_tools"].append('maven')
+                    if 'gradle' in content_lower or 'build.gradle' in build_file:
+                        dependencies["build_tools"].append('gradle')
+            
+            # Remove duplicates
+            for key in dependencies:
+                dependencies[key] = list(set(dependencies[key]))
+            
+            return dependencies
+            
+        except Exception as e:
+            print(f"⚠️ Error analyzing dependencies: {e}")
+            return {}
+    
+    def _analyze_configuration_files(self, repo_path: str, main_repo: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze configuration files for patterns and settings"""
+        try:
+            config_analysis = {
+                "logging_config": False,
+                "security_config": False,
+                "database_config": False,
+                "monitoring_config": False,
+                "error_handling_config": False,
+                "timeout_config": False,
+                "retry_config": False,
+                "throttling_config": False,
+                "circuit_breaker_config": False,
+                "health_check_config": False
+            }
+            
+            config_files = main_repo.get('config_files', [])
+            for config_file in config_files:
+                file_path = os.path.join(repo_path, config_file)
+                content = self._read_file_content(file_path, max_lines=100)
+                
+                if content:
+                    content_lower = content.lower()
+                    
+                    # Detect logging configuration
+                    if any(log in content_lower for log in ['logging', 'logback', 'log4j', 'slf4j']):
+                        config_analysis["logging_config"] = True
+                    
+                    # Detect security configuration
+                    if any(sec in content_lower for sec in ['security', 'authentication', 'authorization', 'oauth']):
+                        config_analysis["security_config"] = True
+                    
+                    # Detect database configuration
+                    if any(db in content_lower for db in ['datasource', 'jpa', 'hibernate', 'database']):
+                        config_analysis["database_config"] = True
+                    
+                    # Detect monitoring configuration
+                    if any(mon in content_lower for mon in ['actuator', 'management', 'endpoints', 'health']):
+                        config_analysis["monitoring_config"] = True
+                    
+                    # Detect error handling configuration
+                    if any(err in content_lower for err in ['error', 'exception', 'handling']):
+                        config_analysis["error_handling_config"] = True
+                    
+                    # Detect timeout configuration
+                    if any(timeout in content_lower for timeout in ['timeout', 'connection-timeout', 'read-timeout']):
+                        config_analysis["timeout_config"] = True
+                    
+                    # Detect retry configuration
+                    if any(retry in content_lower for retry in ['retry', 'retryable', 'backoff']):
+                        config_analysis["retry_config"] = True
+                    
+                    # Detect throttling configuration
+                    if any(throttle in content_lower for throttle in ['throttle', 'rate-limit', 'throttling']):
+                        config_analysis["throttling_config"] = True
+                    
+                    # Detect circuit breaker configuration
+                    if any(cb in content_lower for cb in ['circuit-breaker', 'resilience4j', 'hystrix']):
+                        config_analysis["circuit_breaker_config"] = True
+                    
+                    # Detect health check configuration
+                    if any(health in content_lower for health in ['health', 'liveness', 'readiness']):
+                        config_analysis["health_check_config"] = True
+            
+            return config_analysis
+            
+        except Exception as e:
+            print(f"⚠️ Error analyzing configuration files: {e}")
+            return {}
+    
+    def _calculate_auditability_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for auditability gates"""
+        expected_counts = {}
+        
+        # Gate 1.1: Logs Searchable/Available
+        logging_count = 0
+        if dependencies.get("logging_frameworks"):
+            logging_count += len(dependencies["logging_frameworks"])
+        if config.get("logging_config"):
+            logging_count += 1
+        if structure.get("java_files", 0) > 0:
+            logging_count += max(1, structure["java_files"] // 50)  # At least 1 logger per 50 Java files
+        expected_counts["1.1"] = {
+            "expected_count": max(1, logging_count),
+            "reason": f"Based on {len(dependencies.get('logging_frameworks', []))} logging frameworks, {structure.get('java_files', 0)} Java files, and logging config: {config.get('logging_config', False)}"
+        }
+        
+        # Gate 1.3: Audit Trail
+        audit_count = 0
+        if structure.get("has_web_layer"):
+            audit_count += 1  # Web layer should have audit trails
+        if structure.get("has_data_layer"):
+            audit_count += 1  # Data layer should have audit trails
+        if config.get("security_config"):
+            audit_count += 1  # Security config indicates audit needs
+        expected_counts["1.3"] = {
+            "expected_count": max(1, audit_count),
+            "reason": f"Based on web layer: {structure.get('has_web_layer', False)}, data layer: {structure.get('has_data_layer', False)}, security config: {config.get('security_config', False)}"
+        }
+        
+        # Gate 1.5: Implement tracking ID for log messages
+        tracking_count = 0
+        if structure.get("controller_files", 0) > 0:
+            tracking_count += structure["controller_files"]  # Each controller should have tracking
+        if structure.get("service_files", 0) > 0:
+            tracking_count += max(1, structure["service_files"] // 2)  # Every other service should have tracking
+        expected_counts["1.5"] = {
+            "expected_count": max(1, tracking_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and {structure.get('service_files', 0)} services"
+        }
+        
+        # Gate 1.6: Log API Calls
+        api_logging_count = 0
+        if structure.get("controller_files", 0) > 0:
+            api_logging_count += structure["controller_files"]  # Each controller should log API calls
+        if structure.get("has_web_layer"):
+            api_logging_count += 1  # Web layer should have API logging
+        expected_counts["1.6"] = {
+            "expected_count": max(1, api_logging_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        # Gate 1.8: Log Application Messages
+        app_logging_count = 0
+        if structure.get("service_files", 0) > 0:
+            app_logging_count += structure["service_files"]  # Each service should log application messages
+        if structure.get("util_files", 0) > 0:
+            app_logging_count += max(1, structure["util_files"] // 2)  # Every other util should log
+        expected_counts["1.8"] = {
+            "expected_count": max(1, app_logging_count),
+            "reason": f"Based on {structure.get('service_files', 0)} services and {structure.get('util_files', 0)} utility files"
+        }
+        
+        # Gate 1.10: Avoid Logging Sensitive Data
+        sensitive_logging_count = 0
+        if config.get("security_config"):
+            sensitive_logging_count += 1  # Security config indicates sensitive data handling
+        if structure.get("has_web_layer"):
+            sensitive_logging_count += 1  # Web layer handles sensitive data
+        if structure.get("has_data_layer"):
+            sensitive_logging_count += 1  # Data layer handles sensitive data
+        expected_counts["1.10"] = {
+            "expected_count": max(1, sensitive_logging_count),
+            "reason": f"Based on security config: {config.get('security_config', False)}, web layer: {structure.get('has_web_layer', False)}, data layer: {structure.get('has_data_layer', False)}"
+        }
+        
+        return expected_counts
+    
+    def _calculate_error_handling_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for error handling gates"""
+        expected_counts = {}
+        
+        # Gate 2.4: Include Client error tracking
+        client_error_count = 0
+        if structure.get("controller_files", 0) > 0:
+            client_error_count += structure["controller_files"]  # Each controller should handle client errors
+        if structure.get("has_web_layer"):
+            client_error_count += 1  # Web layer should have client error handling
+        expected_counts["2.4"] = {
+            "expected_count": max(1, client_error_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        # Gate 2.7: UI Error Handling
+        ui_error_count = 0
+        if structure.get("controller_files", 0) > 0:
+            ui_error_count += structure["controller_files"]  # Each controller should handle UI errors
+        if structure.get("has_web_layer"):
+            ui_error_count += 1  # Web layer should have UI error handling
+        expected_counts["2.7"] = {
+            "expected_count": max(1, ui_error_count),
+            "reason": f"Based on {structure.get('controller_files', 0)} controllers and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        return expected_counts
+    
+    def _calculate_availability_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for availability gates"""
+        expected_counts = {}
+        
+        # Gate 1.12: Retry Logic
+        retry_count = 0
+        if config.get("retry_config"):
+            retry_count += 1  # Retry configuration indicates retry logic
+        if structure.get("service_files", 0) > 0:
+            retry_count += max(1, structure["service_files"] // 3)  # Every third service should have retry logic
+        if dependencies.get("database_frameworks"):
+            retry_count += 1  # Database operations should have retry logic
+        expected_counts["1.12"] = {
+            "expected_count": max(1, retry_count),
+            "reason": f"Based on retry config: {config.get('retry_config', False)}, {structure.get('service_files', 0)} services, and database frameworks: {dependencies.get('database_frameworks', [])}"
+        }
+        
+        # Gate 3.6: Throttling, drop request
+        throttling_count = 0
+        if config.get("throttling_config"):
+            throttling_count += 1  # Throttling configuration indicates throttling logic
+        if structure.get("controller_files", 0) > 0:
+            throttling_count += max(1, structure["controller_files"] // 2)  # Every other controller should have throttling
+        expected_counts["3.6"] = {
+            "expected_count": max(1, throttling_count),
+            "reason": f"Based on throttling config: {config.get('throttling_config', False)} and {structure.get('controller_files', 0)} controllers"
+        }
+        
+        # Gate 3.9: Circuit Breaker
+        circuit_breaker_count = 0
+        if config.get("circuit_breaker_config"):
+            circuit_breaker_count += 1  # Circuit breaker configuration indicates circuit breaker logic
+        if structure.get("service_files", 0) > 0:
+            circuit_breaker_count += max(1, structure["service_files"] // 4)  # Every fourth service should have circuit breaker
+        expected_counts["3.9"] = {
+            "expected_count": max(1, circuit_breaker_count),
+            "reason": f"Based on circuit breaker config: {config.get('circuit_breaker_config', False)} and {structure.get('service_files', 0)} services"
+        }
+        
+        # Gate 3.18: Health Checks
+        health_check_count = 0
+        if config.get("health_check_config"):
+            health_check_count += 1  # Health check configuration indicates health checks
+        if dependencies.get("monitoring_frameworks"):
+            health_check_count += len(dependencies["monitoring_frameworks"])  # Each monitoring framework should have health checks
+        if structure.get("has_web_layer"):
+            health_check_count += 1  # Web layer should have health checks
+        expected_counts["3.18"] = {
+            "expected_count": max(1, health_check_count),
+            "reason": f"Based on health check config: {config.get('health_check_config', False)}, monitoring frameworks: {dependencies.get('monitoring_frameworks', [])}, and web layer: {structure.get('has_web_layer', False)}"
+        }
+        
+        return expected_counts
+    
+    def _calculate_testing_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for testing gates"""
+        expected_counts = {}
+        
+        # Gate 2: Testing (general)
+        testing_count = 0
+        if structure.get("test_files", 0) > 0:
+            testing_count += structure["test_files"]  # Each test file indicates testing
+        if dependencies.get("testing_frameworks"):
+            testing_count += len(dependencies["testing_frameworks"])  # Each testing framework indicates testing
+        if structure.get("java_files", 0) > 0:
+            testing_count += max(1, structure["java_files"] // 10)  # At least 1 test per 10 Java files
+        expected_counts["2"] = {
+            "expected_count": max(1, testing_count),
+            "reason": f"Based on {structure.get('test_files', 0)} test files, testing frameworks: {dependencies.get('testing_frameworks', [])}, and {structure.get('java_files', 0)} Java files"
+        }
+        
+        return expected_counts
+    
+    def _calculate_security_expected_counts(self, structure: Dict[str, Any], dependencies: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Calculate expected counts for security gates"""
+        expected_counts = {}
+        
+        # Security gates would be calculated here based on security frameworks and configurations
+        # For now, return empty dict as security gates are not in the main scope
+        
+        return expected_counts

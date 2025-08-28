@@ -7,6 +7,7 @@ import json
 import hashlib
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
+from datetime import datetime
 
 try:
     import numpy as np
@@ -42,6 +43,26 @@ class VectorService:
         self.config = config
         self.vector_size = config.get("vector_size", 768)
         self.distance_metric = config.get("distance_metric", "cosine")
+        
+        # Model dimension mapping for auto-detection
+        self.model_dimensions = {
+            "text-embedding-nomic-embed-text-v1.5-embedding": 768,
+            "nomic-embed-text": 768,
+            "text-embedding-ada-002": 1536,
+            "text-embedding-3-small": 1536,
+            "text-embedding-3-large": 3072,
+            "all-MiniLM-L6-v2": 384,
+            "all-mpnet-base-v2": 768,
+            "multi-qa-MiniLM-L6-cos-v1": 384
+        }
+        
+        # Auto-detect vector size if embedding model is specified
+        embedding_model = config.get("embedding_model")
+        if embedding_model and embedding_model in self.model_dimensions:
+            detected_size = self.model_dimensions[embedding_model]
+            if detected_size != self.vector_size:
+                print(f"🔄 Auto-detected vector size for {embedding_model}: {detected_size}")
+                self.vector_size = detected_size
         
         # Initialize storage
         if QDRANT_AVAILABLE and config.get("use_qdrant", True):
@@ -113,16 +134,216 @@ class VectorService:
             print(f"❌ Failed to create collection {collection_name}: {e}")
             return False
     
+    def _get_collection_name(self, scan_id: str, repo_hash: str = None) -> str:
+        """
+        Generate collection name based on git hash for deduplication
+        
+        Args:
+            scan_id: Scan identifier
+            repo_hash: Git commit hash of the repository
+            
+        Returns:
+            Collection name for vector storage
+        """
+        if repo_hash:
+            # Use git hash for collection name to enable deduplication
+            return f"repo_{repo_hash}"
+        else:
+            # Fallback to scan_id if no git hash available
+            return f"repo_{scan_id}"
+    
+    def _get_scan_mapping_key(self, scan_id: str) -> str:
+        """Generate key for scan ID to git hash mapping"""
+        return f"scan_mapping:{scan_id}"
+    
+    def _store_scan_mapping(self, scan_id: str, repo_hash: str, repo_url: str, branch: str):
+        """Store mapping between scan ID and git hash"""
+        try:
+            mapping_data = {
+                "scan_id": scan_id,
+                "repo_hash": repo_hash,
+                "repo_url": repo_url,
+                "branch": branch,
+                "created_at": datetime.now().isoformat()
+            }
+            
+            # Store in a special collection for scan mappings
+            mapping_collection = "scan_mappings"
+            
+            # Ensure the collection exists
+            if not self.collection_exists(mapping_collection):
+                self.create_collection(mapping_collection)
+                print(f"📋 Created scan_mappings collection")
+            
+            if self.use_qdrant:
+                # Store in Qdrant
+                self.client.upsert(
+                    collection_name=mapping_collection,
+                    points=[{
+                        "id": scan_id,
+                        "payload": mapping_data,
+                        "vector": [0.0] * self.vector_size  # Dummy vector for metadata storage
+                    }]
+                )
+            else:
+                # Store in memory
+                if mapping_collection not in self.collections:
+                    self.collections[mapping_collection] = []
+                
+                # Update existing mapping or add new one
+                existing_mapping = None
+                for item in self.collections[mapping_collection]:
+                    if item.get("scan_id") == scan_id:
+                        existing_mapping = item
+                        break
+                
+                if existing_mapping:
+                    existing_mapping.update(mapping_data)
+                else:
+                    self.collections[mapping_collection].append(mapping_data)
+            
+            print(f"📋 Stored scan mapping: {scan_id} -> {repo_hash}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to store scan mapping: {e}")
+    
+    def _get_scan_mapping(self, scan_id: str) -> dict:
+        """Retrieve mapping between scan ID and git hash"""
+        try:
+            mapping_collection = "scan_mappings"
+            
+            if self.use_qdrant:
+                # Retrieve from Qdrant
+                result = self.client.retrieve(
+                    collection_name=mapping_collection,
+                    ids=[scan_id]
+                )
+                if result:
+                    return result[0].payload
+            else:
+                # Retrieve from memory
+                if mapping_collection in self.collections:
+                    for item in self.collections[mapping_collection]:
+                        if item.get("scan_id") == scan_id:
+                            return item
+            
+            return None
+            
+        except Exception as e:
+            print(f"⚠️ Failed to retrieve scan mapping: {e}")
+            return None
+    
+    def _get_repo_hash_from_scan(self, scan_id: str) -> str:
+        """Get repository git hash from scan ID"""
+        mapping = self._get_scan_mapping(scan_id)
+        return mapping.get("repo_hash") if mapping else None
+    
     def collection_exists(self, collection_name: str) -> bool:
-        """Check if collection exists"""
+        """Check if a collection exists"""
         try:
             if self.use_qdrant:
                 collections = self.client.get_collections()
-                return any(col.name == collection_name for col in collections.collections)
+                return collection_name in [c.name for c in collections.collections]
             else:
                 return collection_name in self.collections
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Failed to check collection existence: {e}")
             return False
+    
+    def get_collection_stats(self, collection_name: str) -> dict:
+        """Get statistics about a collection"""
+        try:
+            if self.use_qdrant:
+                info = self.client.get_collection(collection_name)
+                return {
+                    "name": collection_name,
+                    "vector_count": info.points_count,
+                    "vector_size": info.config.params.vectors.size,
+                    "distance": info.config.params.vectors.distance
+                }
+            else:
+                if collection_name in self.collections:
+                    return {
+                        "name": collection_name,
+                        "vector_count": len(self.collections[collection_name]),
+                        "vector_size": self.vector_size,
+                        "distance": "cosine"
+                    }
+                return None
+        except Exception as e:
+            print(f"⚠️ Failed to get collection stats: {e}")
+            return None
+    
+    def is_repository_indexed(self, repo_hash: str) -> bool:
+        """Check if a repository (by git hash) has already been indexed"""
+        try:
+            collection_name = f"repo_{repo_hash}"
+            return self.collection_exists(collection_name)
+        except Exception as e:
+            print(f"⚠️ Failed to check if repository is indexed: {e}")
+            return False
+    
+    def get_repository_collection_info(self, repo_hash: str) -> dict:
+        """Get information about a repository's collection"""
+        try:
+            collection_name = f"repo_{repo_hash}"
+            if self.collection_exists(collection_name):
+                stats = self.get_collection_stats(collection_name)
+                if stats:
+                    return {
+                        "repo_hash": repo_hash,
+                        "collection_name": collection_name,
+                        "vector_count": stats.get("vector_count", 0),
+                        "vector_size": stats.get("vector_size", 0),
+                        "indexed": True
+                    }
+            return {
+                "repo_hash": repo_hash,
+                "collection_name": collection_name,
+                "vector_count": 0,
+                "vector_size": 0,
+                "indexed": False
+            }
+        except Exception as e:
+            print(f"⚠️ Failed to get repository collection info: {e}")
+            return {
+                "repo_hash": repo_hash,
+                "collection_name": f"repo_{repo_hash}",
+                "vector_count": 0,
+                "vector_size": 0,
+                "indexed": False
+            }
+    
+    def get_scan_mappings_for_repo(self, repo_hash: str) -> List[dict]:
+        """Get all scan mappings for a specific repository"""
+        try:
+            mapping_collection = "scan_mappings"
+            mappings = []
+            
+            # Check if collection exists
+            if not self.collection_exists(mapping_collection):
+                print(f"📋 scan_mappings collection does not exist yet")
+                return []
+            
+            if self.use_qdrant:
+                # Search for all mappings with this repo_hash
+                results = self.client.scroll(
+                    collection_name=mapping_collection,
+                    scroll_filter={"must": [{"key": "repo_hash", "match": {"value": repo_hash}}]},
+                    limit=100
+                )
+                for point in results[0]:
+                    mappings.append(point.payload)
+            else:
+                if mapping_collection in self.collections:
+                    for item in self.collections[mapping_collection]:
+                        if item.get("repo_hash") == repo_hash:
+                            mappings.append(item)
+            
+            return mappings
+        except Exception as e:
+            print(f"⚠️ Failed to get scan mappings for repo: {e}")
+            return []
     
     def upsert_vectors(self, collection_name: str, vectors: List[Dict[str, Any]]) -> bool:
         """Upsert vectors to collection"""

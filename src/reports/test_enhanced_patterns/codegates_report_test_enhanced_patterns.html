@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hard Gate Assessment (Enhanced Scan) - APP ID - spring-projects/spring-petclinic (main)</title>
+    <style>
+        
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f3f4f6; }
+        h1 { font-size: 2em; color: #1f2937; border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 30px; }
+        h2 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 40px; }
+        h3 { color: #374151; margin-top: 30px; }
+        
+        /* Report Badge Styles */
+        .report-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 15px;
+        }
+        .summary-badge { background: #059669; color: #fff; }
+        
+        /* Summary Stats */
+        .summary-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+        .stat-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-label { color: #6b7280; margin-top: 5px; }
+        
+        /* Compliance Bar */
+        .compliance-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .compliance-fill { height: 100%; background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); transition: width 0.3s ease; }
+        
+        /* Risk Score */
+        .risk-score { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; margin: 20px 0; }
+        .risk-number { font-size: 3em; font-weight: bold; color: #dc2626; }
+        .risk-label { color: #6b7280; margin-top: 5px; font-weight: 600; }
+        .risk-description { color: #374151; margin-top: 10px; }
+        
+        /* Gates Analysis Styling */
+        .gates-analysis { margin-top: 30px; }
+        .gate-category-section { margin-bottom: 40px; }
+        .category-title {
+            color: #1f2937;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .category-content {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; margin: 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #2563eb; color: #fff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        tr:hover { background: #f9fafb; }
+        
+        /* Status Styles */
+        .status-pass { color: #059669 !important; background: #ecfdf5; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-warning { color: #d97706 !important; background: #fffbeb; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-fail { color: #dc2626 !important; background: #fef2f2; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        .status-not_applicable { color: #6b7280 !important; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+        
+        /* Expandable Details Styling */
+        .details-toggle {
+            background: none;
+            border: none;
+            color: #2563eb;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 1.1em;
+            transition: transform 0.2s;
+        }
+        .details-toggle:hover { color: #1d4ed8; }
+        .details-toggle[aria-expanded="true"] { transform: rotate(45deg); }
+        
+        .gate-details {
+            display: none;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            padding: 0;
+            margin: 0;
+        }
+        .gate-details[aria-hidden="false"] { display: table-row; }
+        
+        .details-content {
+            padding: 16px;
+            color: #4b5563;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* Recommendations */
+        .recommendations-section { margin-top: 30px; }
+        .recommendation-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        .recommendation-meta {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .recommendation-type, .recommendation-priority, .recommendation-confidence {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        .recommendation-type { background: #e0f2fe; color: #0277bd; }
+        .recommendation-priority { background: #fff3e0; color: #f57c00; }
+        .recommendation-confidence { background: #f3e5f5; color: #7b1fa2; }
+        
+        /* Hard Gate Styling */
+        .hard-gate-row {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+        }
+        .hard-gate-row:hover {
+            background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+        }
+        .hard-gate-badge {
+            background: #dc2626;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .hard-gate-row .details-content {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        /* Project Summary Styling */
+        .project-summary-section {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .project-description {
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+        
+        .project-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .detail-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .detail-card h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+        
+        .tech-tags, .file-type-tags, .dependency-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .tech-tag, .file-type-tag, .dependency-tag {
+            background: #2563eb;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .file-type-tag {
+            background: #059669;
+        }
+        
+        .dependency-tag {
+            background: #7c3aed;
+        }
+        
+        .no-data {
+            color: #6b7280;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+        
+        .stats-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+        
+        .stat-value {
+            color: #1f2937;
+            font-weight: 600;
+        }
+        
+        /* Enhanced Project Summary Styling */
+        .tech-stack-info, .architecture-info, .practices-info, .infrastructure-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .tech-item, .arch-item, .practice-item, .infra-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .tech-item strong, .arch-item strong, .practice-item strong, .infra-item strong {
+            color: #374151;
+            font-size: 0.9em;
+        }
+        
+        .features-list, .recommendations-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .feature-item, .recommendation-item {
+            color: #374151;
+            font-size: 0.9em;
+            line-height: 1.4;
+            padding: 4px 0;
+        }
+        
+        .recommendations-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .recommendations-section h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        
+    </style>
+    <script>
+    function toggleDetails(button, detailsId) {
+        const details = document.getElementById(detailsId);
+        const isExpanded = button.getAttribute('aria-expanded') === 'true';
+        
+        button.setAttribute('aria-expanded', !isExpanded);
+        details.setAttribute('aria-hidden', isExpanded);
+        
+        // Smooth scroll to expanded content
+        if (!isExpanded) {
+            setTimeout(() => {
+                details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="report-container">
+        <div class="report-header">
+            <div class="report-badge summary-badge">Hard Gate Assessment Report August 28, 2025 at 01:18 PM</div>
+            <h1>APP ID - spring-projects/spring-petclinic (main)</h1>
+            
+        </div>
+        
+        <h2>Executive Summary</h2>
+        
+        <div class="hard-gates-notice" style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="color: #92400e; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5em;">⚠️</span>
+                Hard Gates Assessment - Primary Focus
+            </h3>
+            <p style="color: #92400e; margin-bottom: 0; font-weight: 500;">
+                This report focuses on the evaluation of <strong>16 critical hard gates</strong> across Auditability, Error Handling, Availability, and Testing categories. 
+                These gates represent the primary compliance requirements and must be addressed for production deployment.
+            </p>
+        </div>
+        
+        
+        <h2>Project Summary</h2>
+        
+        <div class="project-summary-section">
+            <div class="summary-content">
+                <p class="project-description">The Spring PetClinic project is a comprehensive web application built using the Spring Framework, utilizing Java as the primary programming language. It provides a robust set of features for managing veterinary clinics, including patient data management, appointment scheduling, and billing. The project adheres to standard software development practices, with a focus on testing, logging, security, and deployment.</p>
+            </div>
+            
+            <div class="project-details-grid">
+                <div class="detail-card">
+                    <h4>Technology Stack</h4>
+                    <div class="tech-stack-info">
+                        <div class="tech-item">
+                            <strong>Primary Language:</strong> Java
+                        </div>
+                        <div class="tech-item">
+                            <strong>Frameworks:</strong>
+                            <div class="tech-tags">
+                                <span class="tech-tag">Spring Framework</span>
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <strong>Build Tools:</strong>
+                            <div class="tech-tags">
+                                <span class="tech-tag">Maven</span>
+                            </div>
+                        </div>
+                        <div class="tech-item">
+                            <strong>Databases:</strong>
+                            <div class="tech-tags">
+                                <span class="tech-tag">H2 Database</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Architecture & Design</h4>
+                    <div class="architecture-info">
+                        <div class="arch-item">
+                            <strong>Pattern:</strong> Model-View-Controller (MVC) pattern
+                        </div>
+                        <div class="arch-item">
+                            <strong>Layers:</strong>
+                            <div class="tech-tags">
+                                <span class="tech-tag">Presentation Layer: Web Interface</span><span class="tech-tag">Business Logic Layer: Services and DAOs</span><span class="tech-tag">Data Access Layer: Database Interactions</span>
+                            </div>
+                        </div>
+                        <div class="arch-item">
+                            <strong>Application Type:</strong> Web Application
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Key Features</h4>
+                    <div class="features-list">
+                        <div class="feature-item">• Patient Data Management</div><div class="feature-item">• Appointment Scheduling</div><div class="feature-item">• Billing and Payment Processing</div>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Development Practices</h4>
+                    <div class="practices-info">
+                        <div class="practice-item">
+                            <strong>Testing:</strong> Unit testing and integration testing using JUnit and Mockito
+                        </div>
+                        <div class="practice-item">
+                            <strong>Logging:</strong> Logging strategy using Logback
+                        </div>
+                        <div class="practice-item">
+                            <strong>Security:</strong> Security measures including authentication, authorization, and encryption
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Infrastructure</h4>
+                    <div class="infrastructure-info">
+                        <div class="infra-item">
+                            <strong>Deployment:</strong> Deployment strategy involves using Tomcat as the web server and H2 Database as the database
+                        </div>
+                        <div class="infra-item">
+                            <strong>Monitoring:</strong> Monitoring and observability are not explicitly handled, but logging provides some insight into application behavior
+                        </div>
+                        <div class="infra-item">
+                            <strong>Scalability:</strong> Scalability is considered, with support for horizontal scaling through clustering
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>Analysis Stats</h4>
+                    <div class="stats-info">
+                        <div class="stat-item">
+                            <span class="stat-label">Files Analyzed:</span>
+                            <span class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Java Files:</span>
+                            <span class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Config Files:</span>
+                            <span class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Analysis Time:</span>
+                            <span class="stat-value">2025-08-28T13:18:08.810236</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recommendations-section">
+                <h4>Recommendations</h4>
+                <div class="recommendations-list">
+                    <div class="recommendation-item">• Consider using a more robust database like MySQL or PostgreSQL</div><div class="recommendation-item">• Implement additional security measures such as SSL/TLS encryption and secure password storage</div><div class="recommendation-item">• Use a more advanced testing framework like Cucumber for end-to-end testing</div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-number">13</div>
+                <div class="stat-label">Total Gates Evaluated</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">3</div>
+                <div class="stat-label">Gates Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Partially Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Not Met</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">10</div>
+                <div class="stat-label">Not Applicable</div>
+            </div>
+        </div>
+        
+        <h3>Overall Compliance</h3>
+        <div class="compliance-bar">
+            <div class="compliance-fill" style="width: 100.0%"></div>
+        </div>
+        <p><strong>100.0% Hard Gates Compliance</strong></p>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">
+            <em>Percentage calculated based on 3 applicable gates (excluding 10 N/A gates)</em>
+        </p>
+        
+        <h2>Hard Gates Analysis</h2>
+        <div class="gates-analysis">
+                <div class="gate-category-section">
+                    <h3 class="category-title">Auditability</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.1-0')" aria-expanded="false" aria-label="Show details for Logs Searchable/Available">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.1</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Logs Searchable/Available</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.1-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Logs Searchable/Available has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement logging in the com.example.controller.UserController class by adding a @Loggable annotation to the getUserDetails() method and a Logger instance variable. This will enable logging for this specific endpoint and allow users to search logs.</li><li>Update the application.properties file to include logging configuration properties, such as log level and output destination. This will enable centralized logging for the entire application.</li><li>Introduce a logging abstraction layer by creating an interface LoggerProvider that will be implemented by different logging providers (e.g., Log4j, Logback). This will allow for easy switching between different logging frameworks and make it easier to manage logging configuration.</li><li>Update the com.example.service.UserService class to use a logging facade provided by the LoggerProvider interface. This will decouple the service layer from specific logging frameworks and make it easier to switch between different logging providers.</li><li>Implement a logging pipeline that will handle log messages from different components of the application. This will enable centralized logging and make it easier to manage log levels, output destinations, and other logging configuration properties.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.10-1')" aria-expanded="false" aria-label="Show details for Avoid Logging Sensitive Data">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.10</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Avoid Logging Sensitive Data</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.10-1" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Avoid Logging Sensitive Data has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Review and refactor the User.java file to exclude sensitive data from logging by modifying the toString() method to only include non-sensitive information. For example, instead of including the user's password in the log output, only include their username.</li><li>Implement a custom LoggingFilter in the Spring application configuration file (application.properties) to filter out sensitive data from logs. This can be achieved by creating a new class that extends the LoggingFilter interface and overriding its filter() method.</li><li>Review the database schema and update the User table to store sensitive data in a separate column, using an encrypted field type (e.g., VARCHAR(255) with encryption enabled). This will prevent sensitive data from being logged directly.</li><li>Implement a logging mechanism that uses a secure, encrypted storage solution (e.g., AWS KMS or Google Cloud Key Management Service) to store logs securely. This will prevent sensitive data from being stored in plain text.</li><li>Develop a long-term improvement plan to implement a more robust logging mechanism that includes features such as:</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.3-2')" aria-expanded="false" aria-label="Show details for Documentation Available">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.3</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Documentation Available</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.3-2" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Documentation Available has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement documentation for the UserController class in the com.example.springapp.controller package. This class is responsible for handling user-related requests and has several methods that could benefit from clear and concise documentation. Create a JavaDoc comment above each method to describe its purpose, parameters, and return values.</li><li>Add documentation to the UserEntity class in the com.example.springapp.model package. This entity represents a user's data and has several fields that require explanation. Write JavaDoc comments above each field to describe its purpose, data type, and any constraints or assumptions related to it.</li><li>Create a README file for the project that summarizes the API documentation, technical requirements, and deployment instructions. This will serve as a central location for developers to find information about the codebase and help them get started with contributing or maintaining the project. Include links to relevant documentation, such as API reference guides and technical notes.</li><li>Develop a custom annotation @DocumentationRequired that can be applied to methods or classes that require documentation. This annotation can serve as a placeholder for developers to add documentation comments later. For example, you could use this annotation on the UserController class and its methods to indicate where documentation is still missing.</li><li>Implement automated testing for documentation completeness using a tool like SonarQube or CodeCoverage. Set up a rule that checks for missing JavaDoc comments in critical areas of the codebase, such as classes with more than 10 methods or packages with high complexity. This will help identify gaps in documentation early on and provide a clear picture of the project's overall documentation quality.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.5-3')" aria-expanded="false" aria-label="Show details for Timeouts">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.5</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Timeouts</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>2 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.5-3" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 2
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>✅ PASS: Found 2 implementations, meeting expected 1</p>
+                                            </div>
+                                            
+        <h4>Detailed Pattern Matches</h4>
+        <div style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
+                <thead>
+                    <tr style="background: #f3f4f6;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 350px; white-space: pre-line;">File</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 80px; white-space: pre-line;">Line</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Pattern Match</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Actual Pattern</th>
+                    </tr>
+                </thead>
+                <tbody>
+        
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">pom.xml</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">25</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">Timestamp&gt;2024-11-28T14:37:52Z&lt;/project.build.out</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">timeout|time.*out|connection.*timeout|request.*timeout</td>
+                    </tr>
+            
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">gradle/wrapper/gradle-wrapper.properties</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">5</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">Timeout</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">timeout|time.*out|connection.*timeout|request.*timeout</td>
+                    </tr>
+            
+                </tbody>
+            </table>
+        </div>
+        
+                                            <h4>Patterns Found</h4><ul><li><code>Timestamp>2024-11-28T14:37:52Z</project.build.out</code></li><li><code>Timeout</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Review the pom.xml file and ensure that the timeout configuration is correctly set in the Spring Boot application.properties file. Specifically, verify that the spring.boot.autoconfigure.timeouts property is not set to a value greater than or equal to the expected timeout duration (e.g., 30 seconds). Update the properties file to reflect the desired timeout duration.</li><li>Investigate the PROPERTIES file (gradle/wrapper/gradle-wrapper.properties) and verify that the timeout configuration is correctly set for the Gradle wrapper. Specifically, check if the timeout property is set to a value greater than or equal to the expected timeout duration (e.g., 30 seconds). Update the properties file to reflect the desired timeout duration.</li><li>Implement a custom timeout configuration class that extends the Spring Boot's TimeoutConfiguration class. This will allow for more fine-grained control over the timeout settings. Create a new Java class (e.g., TimeoutsConfig.java) and update it to extend the TimeoutConfiguration class.</li><li>Update the Spring Boot application.properties file to include a reference to the custom timeout configuration class. This will allow for overriding the default timeout settings.</li><li>TimeoutsConfig</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.6-4')" aria-expanded="false" aria-label="Show details for Log API Calls">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.6</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Log API Calls</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.6-4" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Log API Calls has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement logging for all API calls in the com.example.myapp.controller package by adding the following annotation to the MyApiController class:</li><li>Review the com.example.myapp.service package for any unused or deprecated logging methods, such as log.info() or log.error(), and remove them to maintain a consistent coding style and reduce unnecessary log noise.</li><li>In the pom.xml file of the project's build configuration, add the following dependency to include the Log4j 2 logging framework:</li><li>In the com.example.myapp.config package, create a new configuration class that sets up logging for the entire application:</li><li>In the com.example.myapp.controller package, implement a logging mechanism for API calls using the @LogApiCall annotation, which can be used to log information about each API call, such as the request method, URL, and response status code:</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-1.8-5')" aria-expanded="false" aria-label="Show details for Log Application Messages">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.8</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Log Application Messages</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>3 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-auditability-1.8-5" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 3
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>✅ PASS: Found 3 implementations, meeting expected 1</p>
+                                            </div>
+                                            
+        <h4>Detailed Pattern Matches</h4>
+        <div style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
+                <thead>
+                    <tr style="background: #f3f4f6;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 350px; white-space: pre-line;">File</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 80px; white-space: pre-line;">Line</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Pattern Match</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Actual Pattern</th>
+                    </tr>
+                </thead>
+                <tbody>
+        
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">src/main/resources/application.properties</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">20</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">logging.level.org.springframework</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">log.*library|logging.*framework|app.*log|application.*log</td>
+                    </tr>
+            
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">src/main/resources/application.properties</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">21</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">logging.level.org.springframework</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">log.*library|logging.*framework|app.*log|application.*log</td>
+                    </tr>
+            
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">src/main/resources/application.properties</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">22</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">logging.level.org.springframework</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">log.*library|logging.*framework|app.*log|application.*log</td>
+                    </tr>
+            
+                </tbody>
+            </table>
+        </div>
+        
+                                            <h4>Patterns Found</h4><ul><li><code>logging.level.org.springframework</code></li><li><code>logging.level.org.springframework</code></li><li><code>logging.level.org.springframework</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Add a custom logging configuration to the PROPERTIES file in src/main/resources/application.properties by setting the following property: log.level=DEBUG,log.file=logs/app.log. This will enable detailed logging and help identify potential issues with the application messages.</li><li>Implement a centralized logging mechanism using Spring's built-in logging features. Create a new class, e.g., LogMessageLogger, that extends the Logger interface and logs application messages to a file or a database. For example, you can use the @Log4j2 annotation on the logger class to configure the log4j2 framework.</li><li>Review the implementation of the application message providers (e.g., MessageProvider1, MessageProvider2) in src/main/java/com/example/messages and ensure that they are correctly configured to return only one expected message. For example, you can add a check in each provider to return null if no expected message is found, or modify the providers to use a more robust message retrieval mechanism.</li><li>Introduce a new logging category for application messages by creating a custom logger class, e.g., ApplicationMessageLogger, that extends the Logger interface and logs application messages at the INFO level. This will help separate application messages from other log messages in the console output.</li><li>Create a long-term improvement plan to refactor the PROPERTIES file into a more structured configuration format, such as YAML or JSON, using tools like Spring Boot's ConfigurationProperties class. This will make it easier to manage and update logging configurations across the application.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-auditability-2.7-6')" aria-expanded="false" aria-label="Show details for Input Validation">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">2.7</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Input Validation</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>1 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-auditability-2.7-6" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>✅ PASS: Found 1 implementations, meeting expected 1 - Security requirements satisfied</p>
+                                            </div>
+                                            
+        <h4>Detailed Pattern Matches</h4>
+        <div style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
+                <thead>
+                    <tr style="background: #f3f4f6;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 350px; white-space: pre-line;">File</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 80px; white-space: pre-line;">Line</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Pattern Match</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Actual Pattern</th>
+                    </tr>
+                </thead>
+                <tbody>
+        
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">37</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">validate(</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">validate\(</td>
+                    </tr>
+            
+                </tbody>
+            </table>
+        </div>
+        
+                                            <h4>Patterns Found</h4><ul><li><code>validate(</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement input validation for all request parameters in the PetValidator.java file by adding @Valid annotations to the method parameters and using Bean Validation API (JSR-303) constraints. For example, add @NotNull and @Size(min=2, max=50) constraints to the name parameter of the PetValidator class.</li><li>Review the PetValidator.java file for any hardcoded values or magic numbers that could be replaced with constants or configuration properties. For example, replace the hardcoded value 50 in the @Size(min=2, max=50) constraint with a constant named MAX_NAME_LENGTH.</li><li>Consider implementing a custom validator for the Pet entity that extends the Validator interface from Spring Framework. This will allow you to define custom validation rules specific to the Pet entity, such as validating the petId field against a set of allowed values.</li><li>Review the Spring configuration files (e.g., application.properties or application.yml) to ensure that the Bean Validation API is properly enabled and configured. Specifically, check if the spring.validation.enabled property is set to true and if the bean-validation dependency is included in the project's classpath.</li><li>Implement a logging mechanism to track and monitor input validation errors, such as using the Log4j or Logback logging frameworks. This will allow you to detect and diagnose issues related to input validation more effectively.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="gate-category-section">
+                    <h3 class="category-title">Error Handling</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-error-handling-1.1-0')" aria-expanded="false" aria-label="Show details for Logs Searchable/Available">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.1</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Logs Searchable/Available</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-error-handling-1.1-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Logs Searchable/Available has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement logging in the com.example.controller.UserController class by adding a @Loggable annotation to the getUserDetails() method and a Logger instance variable. This will enable logging for this specific endpoint and allow users to search logs.</li><li>Update the application.properties file to include logging configuration properties, such as log level and output destination. This will enable centralized logging for the entire application.</li><li>Introduce a logging abstraction layer by creating an interface LoggerProvider that will be implemented by different logging providers (e.g., Log4j, Logback). This will allow for easy switching between different logging frameworks and make it easier to manage logging configuration.</li><li>Update the com.example.service.UserService class to use a logging facade provided by the LoggerProvider interface. This will decouple the service layer from specific logging frameworks and make it easier to switch between different logging providers.</li><li>Implement a logging pipeline that will handle log messages from different components of the application. This will enable centralized logging and make it easier to manage log levels, output destinations, and other logging configuration properties.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-error-handling-1.3-1')" aria-expanded="false" aria-label="Show details for Documentation Available">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.3</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Documentation Available</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-error-handling-1.3-1" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Documentation Available has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement documentation for the UserController class in the com.example.springapp.controller package. This class is responsible for handling user-related requests and has several methods that could benefit from clear and concise documentation. Create a JavaDoc comment above each method to describe its purpose, parameters, and return values.</li><li>Add documentation to the UserEntity class in the com.example.springapp.model package. This entity represents a user's data and has several fields that require explanation. Write JavaDoc comments above each field to describe its purpose, data type, and any constraints or assumptions related to it.</li><li>Create a README file for the project that summarizes the API documentation, technical requirements, and deployment instructions. This will serve as a central location for developers to find information about the codebase and help them get started with contributing or maintaining the project. Include links to relevant documentation, such as API reference guides and technical notes.</li><li>Develop a custom annotation @DocumentationRequired that can be applied to methods or classes that require documentation. This annotation can serve as a placeholder for developers to add documentation comments later. For example, you could use this annotation on the UserController class and its methods to indicate where documentation is still missing.</li><li>Implement automated testing for documentation completeness using a tool like SonarQube or CodeCoverage. Set up a rule that checks for missing JavaDoc comments in critical areas of the codebase, such as classes with more than 10 methods or packages with high complexity. This will help identify gaps in documentation early on and provide a clear picture of the project's overall documentation quality.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-error-handling-2.4-2')" aria-expanded="false" aria-label="Show details for Proper Error Handling">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">2.4</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Proper Error Handling</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-error-handling-2.4-2" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Proper Error Handling has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement try-catch blocks in the UserController class to handle potential exceptions when retrieving user data from the database. Specifically, add try-catch blocks around the lines where users are retrieved from the userRepository object, such as in the getUserDetails() method. For example:</li><li>Create a custom exception class CustomException to handle specific business logic errors. This class should extend the existing Exception class and provide additional information about the error, such as the user ID and the type of error that occurred. For example:</li><li>Introduce a global error handling mechanism by creating an ErrorHandler class that handles all uncaught exceptions throughout the application. This class can log the exception, send notifications to administrators, or perform other error-handling tasks as needed. For example:</li><li>Update the UserRepository interface to include methods for handling potential errors when interacting with the database. For example, add a method handleException(Throwable e) that can be used to catch and handle any exceptions thrown by the database operations. This will ensure that any errors that occur during database interactions are handled properly and do not propagate up to the application level.</li><li>Implement logging for all error-handling mechanisms throughout the application. This can include logging exceptions, error messages, and other relevant information. For example:</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="gate-category-section">
+                    <h3 class="category-title">Availability</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-1.12-0')" aria-expanded="false" aria-label="Show details for Retry Logic">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.12</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Retry Logic</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-1.12-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Retry Logic has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement a retry mechanism in the UserRepository class located at com.example.project.dao.UserRepository.java. This class is responsible for interacting with the user data storage system and is expected to be retried if it fails due to network issues or other transient errors. Add a @Retryable annotation on the methods that interact with the storage system, such as saveUser() and getUser(), to enable retry logic.</li><li>In the UserService class located at com.example.project.service.UserService.java, update the login() method to use the @Retryable annotation on the underlying database query. This will ensure that if the login attempt fails due to a database connection issue, the service will retry the query up to 3 times before throwing an exception.</li><li>Review the ErrorHandling class located at com.example.project.util.ErrorHandling.java and update its handleException() method to include retry logic for certain types of exceptions. For example, if an exception is thrown due to a network error (e.g., java.net.SocketTimeoutException), the method should retry the operation up to 3 times before logging the exception.</li><li>Investigate why the UserRepository class does not have any implementations of the Retryable annotation on its methods that interact with external services, such as the user data storage system or social media APIs. Update these methods to include the @Retryable annotation and specify a retry policy (e.g., 3 attempts, 500ms delay between retries) to ensure that the service can recover from transient errors.</li><li>In the long term, consider implementing a centralized retry mechanism using a library like Hystrix or CircuitBreaker to manage retries across multiple services and components in the project. This will help to improve overall system resilience and fault tolerance. For immediate fixes, focus on implementing retry logic for specific components and services that are critical to the project's functionality.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-1.5-1')" aria-expanded="false" aria-label="Show details for Timeouts">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">1.5</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Timeouts</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-pass">PASS</span></td>
+                                        <td>2 implementations found</td>
+                                        <td>Good implementation</td>
+                                    </tr>
+                                    <tr id="details-availability-1.5-1" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 2
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 1.00
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>✅ PASS: Found 2 implementations, meeting expected 1</p>
+                                            </div>
+                                            
+        <h4>Detailed Pattern Matches</h4>
+        <div style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #f9fafb;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9em;">
+                <thead>
+                    <tr style="background: #f3f4f6;">
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 350px; white-space: pre-line;">File</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 80px; white-space: pre-line;">Line</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Pattern Match</th>
+                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; word-break: break-all; max-width: 250px; white-space: pre-line;">Actual Pattern</th>
+                    </tr>
+                </thead>
+                <tbody>
+        
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">pom.xml</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">25</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">Timestamp&gt;2024-11-28T14:37:52Z&lt;/project.build.out</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">timeout|time.*out|connection.*timeout|request.*timeout</td>
+                    </tr>
+            
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #1f2937; word-break: break-all; max-width: 350px; white-space: pre-line;">gradle/wrapper/gradle-wrapper.properties</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #6b7280; word-break: break-all; max-width: 80px; white-space: pre-line;">5</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #059669; background: #ecfdf5; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">Timeout</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #374151; background: #f3f4f6; border-radius: 3px; word-break: break-all; max-width: 250px; white-space: pre-line;">timeout|time.*out|connection.*timeout|request.*timeout</td>
+                    </tr>
+            
+                </tbody>
+            </table>
+        </div>
+        
+                                            <h4>Patterns Found</h4><ul><li><code>Timestamp>2024-11-28T14:37:52Z</project.build.out</code></li><li><code>Timeout</code></li></ul>
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Review the pom.xml file and ensure that the timeout configuration is correctly set in the Spring Boot application.properties file. Specifically, verify that the spring.boot.autoconfigure.timeouts property is not set to a value greater than or equal to the expected timeout duration (e.g., 30 seconds). Update the properties file to reflect the desired timeout duration.</li><li>Investigate the PROPERTIES file (gradle/wrapper/gradle-wrapper.properties) and verify that the timeout configuration is correctly set for the Gradle wrapper. Specifically, check if the timeout property is set to a value greater than or equal to the expected timeout duration (e.g., 30 seconds). Update the properties file to reflect the desired timeout duration.</li><li>Implement a custom timeout configuration class that extends the Spring Boot's TimeoutConfiguration class. This will allow for more fine-grained control over the timeout settings. Create a new Java class (e.g., TimeoutsConfig.java) and update it to extend the TimeoutConfiguration class.</li><li>Update the Spring Boot application.properties file to include a reference to the custom timeout configuration class. This will allow for overriding the default timeout settings.</li><li>TimeoutsConfig</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-3.18-2')" aria-expanded="false" aria-label="Show details for Containerization Ready">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">3.18</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Containerization Ready</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-3.18-2" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Containerization Ready has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Add a Dockerfile to the project root directory and define a base image for the application. This will provide a clear starting point for containerizing the codebase. For example, you can use the official Java 11 image as the base image by adding the following lines to the Dockerfile:</li><li>Review the project's pom.xml file (if applicable) and ensure that it includes a dependency on Docker for building and running containers. Specifically, add the following dependency to the pom.xml file:</li><li>Identify any Spring Boot applications in the project that use the @SpringBootApplication annotation and ensure that they are properly configured to use Docker containers. For example, if you have a Spring Boot application in the file src/main/java/com/example/MyApplication.java, add the following configuration to the application.properties file:</li><li>Create a new directory in the project root called "docker-compose" and add a docker-compose.yml file that defines a service for the application. For example, you can create a simple service definition as follows:</li><li>"8080:8080"</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-3.6-3')" aria-expanded="false" aria-label="Show details for Throttling, drop request">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">3.6</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Throttling, drop request</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-3.6-3" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Throttling, drop request has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement a simple rate limiter using the RateLimiter class from the Spring framework to limit the number of requests made to the system. This can be done by creating a new bean in the application configuration file (e.g. application.properties) that defines the rate limit and the time window for which it applies. For example:</li><li>Review the Controller class responsible for handling incoming requests and ensure that it is properly configured to handle throttling and drop requests. Specifically, check the @RequestHandler annotation on the method handles to see if they are correctly annotated with @Throttle or @Drop. If not, add these annotations to enable throttling and drop requests.</li><li>Investigate the Service layer responsible for processing business logic and identify any potential bottlenecks or performance issues that may be contributing to the low count of implementations. Specifically, review the @Autowired annotations on service methods to ensure they are correctly injected with dependencies.</li><li>Implement a logging mechanism to track throttling and drop requests, including the timestamp, request method, and response code. This can be done by creating a new logger bean in the application configuration file (e.g. application.properties) that logs these events at the INFO level. For example:</li><li>Develop a long-term plan to improve the overall performance and scalability of the system by implementing additional caching mechanisms, optimizing database queries, or leveraging cloud-based services (e.g. AWS Lambda). This can be done by creating a new project or feature branch that focuses on these improvements, and then integrating them into the main codebase.</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-availability-3.9-4')" aria-expanded="false" aria-label="Show details for Set circuit breakers on outgoing requests">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">3.9</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Set circuit breakers on outgoing requests</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-availability-3.9-4" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Set circuit breakers on outgoing requests has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement a simple circuit breaker using the Hystrix library in your Spring-based application, specifically in the UserController class where you make outgoing requests to external services. Create a new file called CircuitBreakerConfig.java and add the following code:</li><li>Create a new file called CircuitBreakerService.java and add the following code:</li><li>Implement a fallback mechanism for the circuit breaker using the Hystrix library. Create a new file called CircuitBreakerFallback.java and add the following code:</li><li>To address the gap of expected vs actual count, you can implement a simple monitoring system using the Prometheus library. Create a new file called PrometheusConfig.java and add the following code:</li><li>To improve the long-term implementation, you can implement a more advanced circuit breaker using the Spring Circuit Breaker library. This library provides more features such as automatic recovery and load shedding. Create a new file called AdvancedCircuitBreakerConfig.java and add the following code:</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="gate-category-section">
+                    <h3 class="category-title">Testing</h3>
+                    <div class="category-content">
+                        <table class="gates-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px">Gate #</th>
+                                    <th>Practice</th>
+                                    <th>Status</th>
+                                    <th>Evidence</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    <tr class="hard-gate-row">
+                                        <td style="text-align: center">
+                                            <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                                <button class="details-toggle" onclick="toggleDetails(this, 'details-testing-2-0')" aria-expanded="false" aria-label="Show details for Testing Infrastructure">+</button>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">2</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <strong>Testing Infrastructure</strong>
+                                                <span class="hard-gate-badge">HARD GATE</span>
+                                            </div>
+                                        </td>
+                                        <td><span class="status-not_applicable">SKIPPED</span></td>
+                                        <td>No implementations found</td>
+                                        <td>Not applicable</td>
+                                    </tr>
+                                    <tr id="details-testing-2-0" class="gate-details hard-gate-row" aria-hidden="true">
+                                        <td colspan="5" class="details-content">
+                                            <h4>Gate Details <span class="hard-gate-badge">HARD GATE</span></h4>
+                                            <div class="metrics-grid">
+                                                <div class="metric-card">
+                                                    <strong>Expected Count:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Actual Count:</strong> 0
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Threshold:</strong> 1
+                                                </div>
+                                                <div class="metric-card">
+                                                    <strong>Confidence Score:</strong> 0.10
+                                                </div>
+                                            </div>
+                                            <div class="gate-details-section">
+                                                <h5>Reasoning</h5>
+                                                <p>ℹ️ NOT APPLICABLE: Testing Infrastructure has low applicability to current codebase - Found 0 implementations, expected 1</p>
+                                            </div>
+                                            
+                                            
+                                            
+                                            <div class="gate-details-section">
+                                                <h5>Recommendations</h5>
+                                                <ul><li>Implement a basic testing framework using JUnit or TestNG to write unit tests for the UserService class located in com.example.service UserService.java. This will help ensure that at least one test is written for this critical component of the codebase.</li><li>Create a new file called test-infrastructure.xml in the root of the project and add a basic configuration for the testing infrastructure, including the JUnit test runner and any necessary dependencies. For example:</li><li>Identify any potential dependencies or integrations that could be used to enhance the testing infrastructure, such as integration tests using Selenium WebDriver or mocking libraries like Mockito. For example, if there are any RESTful APIs in the codebase, consider implementing integration tests using a library like RestAssured.</li><li>Review the project structure and identify any opportunities for improvement in terms of organization and maintainability. Consider breaking down large components into smaller, more manageable pieces, or creating separate modules for different types of testing (e.g. unit tests, integration tests).</li><li>Implement a basic reporting mechanism to track test results and provide feedback on test failures. This could be as simple as logging test results to a file or displaying them in a dashboard. For example, you could create a new class called TestResultLogger that logs test results to a file like this:</li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div></div>
+        
+        <footer style="margin-top: 50px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+            
+        </footer>
+    </div>
+</body>
+</html>
