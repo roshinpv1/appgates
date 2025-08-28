@@ -1,0 +1,371 @@
+{
+  "scan_id": "test_real_config",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-28T20:26:26.462550",
+  "total_gates": 13,
+  "passed_gates": 3,
+  "failed_gates": 0,
+  "partial_gates": 0,
+  "skipped_gates": 10,
+  "risk_score": 0.0,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "1.1",
+      "gate_name": "Logs Searchable/Available",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement logging in the com.example.controller.UserController class by adding the @Loggable annotation to the getUserDetails() method and configuring the logging framework to output logs to a file named \"user.log\". This will ensure that logs are searchable and available, addressing the gap between expected (1) and actual (0) counts.",
+        "Review the com.example.service.UserService class and identify any methods that do not have logging enabled. Add the @Loggable annotation to these methods and configure the logging framework to output logs to a file named \"user_service.log\". This will ensure that all critical business logic is properly logged, addressing the gap between expected (1) and actual (0) counts.",
+        "Implement a centralized logging configuration in the com.example.config.LoggingConfig class by configuring the logging framework to use a logback.xml file located at \"src/main/resources/logback.xml\". This will ensure that logs are properly formatted and output to a standardized location, making it easier to search and analyze logs.",
+        "Add a log statement to the com.example.component.UserRepository class's findUserById() method to log the result of the database query. For example, add the following line of code: logger.info(\"Found user with id {}\", userId);. This will ensure that logs are generated for all database queries, addressing the gap between expected (1) and actual (0) counts.",
+        "Create a new package named \"com.example.log\" to hold logging-related classes and interfaces. Move the existing log configuration classes from the com.example.config package to this new package. This will help to keep related logging code organized and make it easier to find and maintain in the future."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Logs Searchable/Available has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "1.3",
+      "gate_name": "Documentation Available",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Review the README.md file and ensure it accurately reflects the project's current state, including its technology stack, features, and implementation details. Specifically, review the sections related to data structures, algorithms, and system architecture to ensure they align with the actual codebase.",
+        "Investigate the src/main/java/com/example/project/ directory and identify any classes or methods that could benefit from additional documentation. For example, review the User.java class in this directory and consider adding Javadoc comments to explain its purpose, parameters, and return values.",
+        "Create a new file called DocumentationStrategy.txt in the root of the project, outlining the strategy for documenting the codebase moving forward. This document should include details on which components will be prioritized for documentation, how documentation will be maintained, and what tools or processes will be used to ensure consistency across the codebase.",
+        "Implement a simple logging mechanism using Java's built-in logging API (e.g., java.util.logging) in the src/main/java/com/example/project/ directory. This can help identify areas of the codebase that may require additional documentation, such as methods with complex logic or data structures with unclear usage patterns.",
+        "Develop a long-term plan to address the gap between expected and actual counts by creating a new folder called DocumentationSamples in the root of the project. Within this folder, include example implementations for common use cases (e.g., API requests, database queries) that demonstrate how documentation can be used to improve code readability and maintainability. This will serve as a starting point for future documentation efforts and provide a clear direction for addressing the gap between expected and actual counts."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Documentation Available has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "1.5",
+      "gate_name": "Timeouts",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 2,
+      "threshold": 1,
+      "patterns_found": [
+        "Timestamp>2024-11-28T14:37:52Z</project.build.out",
+        "Timeout"
+      ],
+      "recommendations": [
+        "Review the pom.xml file and update the timeout configuration to ensure that it is set to a reasonable value (e.g., 30 seconds) and that it aligns with the expected behavior of the application. Specifically, review the <timeout> element in the pom.xml file and adjust its value if necessary.",
+        "Investigate why there are two implementations of timeouts in the codebase and ensure that they are not conflicting with each other. Review the gradle/wrapper/gradle-wrapper.properties file to see if it contains any timeout-related configurations that may be causing the issue. If so, update the configuration to use a single implementation.",
+        "Consider implementing a centralized configuration management system for timeouts across the entire codebase. This could involve using a properties file or a database to store timeout values and ensuring that all components are configured to use this centralized location. For example, review the application.properties file in the root of the project and consider adding a timeout property that can be used by all components.",
+        "Review the Spring configuration files (e.g., applicationContext.xml) for any references to timeouts or time-related configurations. If necessary, update these configurations to ensure that they are consistent with the expected behavior of the application. Specifically, review the <bean> elements and their corresponding <properties> attributes for any timeout-related settings.",
+        "Consider adding logging statements to track when timeouts occur and how long they last. This will help identify issues related to timeouts and improve the overall reliability of the application. For example, add a @Bean definition in the Spring configuration files that logs a message whenever a timeout occurs, including the duration of the timeout. This can be done by adding a logging statement to the applicationContext.xml file, such as <logger level=\"INFO\" value=\"org.springframework.core.env.PropertySourcesPlaceholderConfigurer\" />."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 2 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.6",
+      "gate_name": "Log API Calls",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement logging for the UserController class in the com.example.project.controller package to track user interactions and potential security incidents. This can be achieved by adding the following code snippet to the UserController.java file:",
+        "Review the com.example.project.service package for any unused or redundant logging mechanisms to prevent unnecessary log API calls. This can be achieved by:",
+        "Integrate a centralized logging framework, such as Logback or Log4j, to standardize log API calls across the codebase. This can be achieved by:",
+        "Implement logging for the com.example.project.repository package to track database interactions and potential data inconsistencies. This can be achieved by adding the following code snippet to the UserRepository.java file:",
+        "Review the project's architecture to identify potential areas where logging can be improved or optimized. This can be achieved by:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Log API Calls has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "1.8",
+      "gate_name": "Log Application Messages",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 3,
+      "threshold": 1,
+      "patterns_found": [
+        "logging.level.org.springframework",
+        "logging.level.org.springframework",
+        "logging.level.org.springframework"
+      ],
+      "recommendations": [
+        "Implement logging for all application messages in PROPERTIES files by adding the following configuration to src/main/resources/application.properties: logging.level.com.example.ApplicationMessages=INFO and logging.file.name=com.example.ApplicationMessages.log. This will ensure that log messages are properly configured and can be easily monitored.",
+        "Create a custom logger class that extends the built-in Spring logger and logs application messages in a centralized location. For example, create a class called ApplicationMessageLogger with the following code:",
+        "Analyze the PROPERTIES files and identify any unused or redundant properties. Remove these properties to reduce clutter and improve maintainability.",
+        "Consider implementing a logging framework like Logback or Log4j2, which can provide more advanced features such as log level filtering, log routing, and log aggregation. For example, you can configure Logback with the following configuration file:",
+        "In the long term, consider implementing a message catalog or translation framework to manage application messages in a centralized location. This can help improve maintainability and reduce errors caused by manual updates of application messages. For example, you can use a library like Spring Boot's MessageSource to create a message catalog:"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 3 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.10",
+      "gate_name": "Avoid Logging Sensitive Data",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Review and refactor the User.java file to remove logging statements that access sensitive user data, such as passwords or credit card numbers. Specifically, update the login() method to use a secure authentication mechanism instead of logging the username and password.",
+        "Implement logging for critical errors in the ErrorController.java file by adding a custom exception handler that logs sensitive error information without exposing it to the log output. Use the org.slf4j logging framework and create a new logger with a specific name.",
+        "Update the DatabaseConnection.java file to use a secure connection string that does not include sensitive database credentials in plain text. Instead, store the credentials securely using environment variables or a secrets manager.",
+        "Review and refactor the PaymentProcessor.java file to remove logging statements that access sensitive payment information, such as credit card numbers or expiration dates. Instead, use a secure payment gateway that provides logs of transactions without exposing sensitive data.",
+        "Implement a centralized logging configuration for the entire application by creating a new logging.properties file in the root of the classpath. This will allow for easier management and rotation of logs, as well as improved security controls."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Avoid Logging Sensitive Data has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "2.7",
+      "gate_name": "Input Validation",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 1,
+      "threshold": 1,
+      "patterns_found": [
+        "validate("
+      ],
+      "recommendations": [
+        "Review the PetValidator.java file in src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java to ensure that it is correctly validating all input parameters. Specifically, review the validate() method and its sub-methods (e.g., validateName(), validateAge()) to verify that they are properly handling edge cases and exceptions.",
+        "Implement a more comprehensive validation mechanism for pet owner information by adding additional checks in the PetValidator.java file. For example, you could add a check to ensure that the owner's name is not empty or null, and that their address is not null or an empty string. This can be achieved by adding new methods to the PetValidator class, such as validateName() and validateAddress(), which would call existing validation methods if necessary.",
+        "Consider adding input validation for pet-related fields in the PetValidator.java file. For example, you could add a check to ensure that the pet's name is not null or empty, and that its age is within a valid range (e.g., 0-100 years). This can be achieved by adding new methods to the PetValidator class, such as validateName() and validateAge(), which would call existing validation methods if necessary.",
+        "Review the Spring framework's built-in input validation features to determine if they are being properly utilized in this codebase. Specifically, review the @Valid annotation on the PetOwner entity class (not shown) to ensure that it is correctly mapping to the PetValidator.java file and that any validation errors are being properly propagated.",
+        "Consider implementing a more robust error handling mechanism for input validation failures by adding custom exception classes or using Spring's built-in exception handling features. For example, you could create a custom PetValidationException class that extends Spring's ValidationException class, which would provide more detailed information about the specific validation failure and allow for more targeted error handling in the application."
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 1 implementations, meeting expected 1 - Security requirements satisfied"
+    },
+    {
+      "gate_id": "2.4",
+      "gate_name": "Proper Error Handling",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement a global error handling mechanism using the @ExceptionHandler annotation in Spring. This can be achieved by creating a custom exception handler class that catches and handles exceptions thrown by the application. For example, create a new file called GlobalErrorHandler.java with the following content:",
+        "Introduce a custom exception class for specific business errors. For example, create a new file called InvalidInputException.java with the following content:",
+        "Implement a logging mechanism using the SLF4J library. This will provide more detailed logs of exceptions and errors, which can help with debugging and troubleshooting. For example, add the following dependency to the pom.xml file:",
+        "Introduce a centralized configuration mechanism for error handling. For example, create a new file called ErrorHandlingConfig.java with the following content:",
+        "Implement a monitoring mechanism for error rates and exceptions. For example, use the Prometheus library to monitor error rates and exceptions. Add the following dependency to the pom.xml file:"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Proper Error Handling has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "1.12",
+      "gate_name": "Retry Logic",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement a basic retry mechanism in the UserDetailsService class located at com.example.security.UserDetailsService.java. This class is responsible for authenticating users and is likely to be called multiple times during the authentication process. Add a simple retry logic that attempts to authenticate the user up to 3 times with a 500ms delay between each attempt.",
+        "In the ApplicationConfiguration class located at com.example.config.ApplicationConfiguration.java, add a configuration property for the retry mechanism. Set the initial number of retries to 3 and the maximum delay between retries to 500ms. This will provide a basic framework for implementing retry logic throughout the application.",
+        "Review the ControllerAdvice class located at com.example.controller.ControllerAdvice.java and identify any endpoints that may benefit from retry logic. For example, the login endpoint is called multiple times during the authentication process. Add a custom annotation to these endpoints to indicate that they should be retried if the initial attempt fails.",
+        "Create a new package com.example.retry and move the retry implementation code into this package. This will help keep the retry logic separate from other application code and make it easier to maintain and extend in the future.",
+        "In the long-term, consider implementing a more advanced retry mechanism that takes into account the underlying technology stack and project structure. For example, you could use a library like Hystrix to implement circuit breaking and bulkhead isolation. This would provide a more robust and fault-tolerant solution for handling retries in the application."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Retry Logic has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "3.6",
+      "gate_name": "Throttling, drop request",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Review the RequestHandler class in src/main/java/com/example/myapp/handler/RequestHandler.java and ensure that it properly implements the ThrottleRequestHandler interface, which is currently not being used due to the low applicability to the codebase. If not, modify the implementation to meet the requirements of this gate.",
+        "Investigate the usage of the DropRequestInterceptor in src/main/java/com/example/myapp/interceptor/DropRequestInterceptor.java. Although it appears to be a valid implementation, its actual count is 0, indicating that it's not being used. Consider removing or refactoring this interceptor to ensure it aligns with the expected usage.",
+        "Analyze the ThrottlingConfig class in src/main/java/com/example/myapp/config/ThrottlingConfig.java and update its configuration settings to reflect the actual requirements of the codebase. Specifically, review the maxRequestsPerSecond setting and adjust it according to the expected traffic patterns.",
+        "Implement a simple logging mechanism to track the actual count of Throttling, drop request gate executions in src/main/java/com/example/myapp/gate/ThrottlingDropGate.java. This will help identify any discrepancies between the expected and actual counts. Use a logging framework such as Logback or Log4j to achieve this.",
+        "Develop a long-term improvement plan to integrate Throttling, drop request gate with other availability-related gates in the codebase. Research and explore existing libraries or frameworks that can simplify the integration process, such as using a centralized monitoring tool like Prometheus or Grafana. This will help ensure that the Throttling, drop request gate is properly aligned with the overall project's availability goals."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Throttling, drop request has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "3.9",
+      "gate_name": "Set circuit breakers on outgoing requests",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement circuit breaker functionality in the RestTemplate class from the Spring Framework, which is commonly used for making HTTP requests in Java-based applications. Specifically, add a method to set the circuit breaker threshold and timeout values, such as setCircuitBreakerThreshold(int threshold) and setCircuitBreakerTimeout(long timeout). This can be done by modifying the existing RestTemplate class in the Spring Framework repository (e.g., org.springframework.web.client.RestTemplate.java) or by creating a custom wrapper class around it.",
+        "Update the ApplicationRunner class to use the custom RestTemplate instance and set the circuit breaker threshold and timeout values before making outgoing requests. This can be done by creating a new method in the ApplicationRunner interface that sets up the circuit breaker configuration and then calling it before each request.",
+        "Introduce a new annotation @CircuitBreaker that can be applied to methods or classes that may trigger the circuit breaker. This annotation can provide additional metadata about the method, such as its expected response time and failure rate.",
+        "Update the Controller class to use the @CircuitBreaker annotation on methods that may trigger the circuit breaker. This can help provide additional metadata about the method and make it easier to identify potential circuit breaker triggers.",
+        "Introduce a new metric collector that can track the circuit breaker metrics, such as the number of consecutive failures and the time spent in the circuit breaker state. This can help provide insights into the circuit breaker's behavior and identify potential issues."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Set circuit breakers on outgoing requests has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "3.18",
+      "gate_name": "Containerization Ready",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Review and update the pom.xml file to include the necessary dependencies for Docker and containerization in your Java Spring project. Specifically, add the following dependency to your dependencies section:",
+        "Identify and refactor any unused or redundant code that may be preventing the containerization of specific components or services. For example, review the com.example.service package and remove any unnecessary classes or methods that are not being used. This will help to improve the overall maintainability and scalability of your project.",
+        "Implement a Dockerfile for each Java Spring component or service that requires containerization. For example, create a new file called Dockerfile in the com.example.service package with the following contents:",
+        "Update the application.properties file to include configuration settings for Docker and containerization. For example, add the following properties:",
+        "\"8080:8080\""
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Containerization Ready has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "2",
+      "gate_name": "Testing Infrastructure",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "Implement a basic testing framework using JUnit and Mockito to create test classes for the existing Spring-based controllers and services. Start by creating a new file TestController.java in the com.example.controller package with a simple test method that verifies the response from a GET request to /users. This will help establish a baseline for future testing efforts.",
+        "Create a separate module or package for testing infrastructure, such as com.example.test, and move any existing test-related code into this new structure. This will help keep testing-related code organized and out of the way of production code. For example, create a new file TestUserService.java in the com.example.test.service package that tests the UserService class.",
+        "Identify areas of the codebase where mocking or stubbing is necessary to isolate dependencies and make unit tests more reliable. For instance, the UserController class has a dependency on a UserRepository, which can be mocked using Mockito. Create a new file MockUserRepository.java in the com.example.test.repository package that implements a mock implementation of the UserRepository interface.",
+        "Develop a simple test runner that uses JUnit and Spring Boot's built-in testing features to run tests automatically on every code change. This can be achieved by creating a new file TestRunner.java in the com.example.test package with a main method that runs all tests using JUnit's run() method.",
+        "For long-term improvement, consider implementing a more comprehensive testing strategy that includes integration testing and end-to-end testing. Start by identifying areas of the codebase where these types of tests are necessary, such as the interactions between controllers and services. Create a new file IntegrationTest.java in the com.example.test package with a basic test method that verifies the interaction between two components."
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Testing Infrastructure has low applicability to current codebase - Found 0 implementations, expected 1"
+    }
+  ],
+  "recommendations": [],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/spring-petclinic_20250828_202403",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "project_summary": {
+      "summary": "The Spring PetClinic project is a comprehensive web application built using Java, leveraging the Spring Framework for its robust features and scalability. It provides a fully functional veterinary clinic management system with key features such as animal registration, vaccinations, medical records, and appointment scheduling.",
+      "technology_stack": {
+        "primary_language": "Java",
+        "frameworks": [
+          "Spring Framework"
+        ],
+        "build_tools": [
+          "Maven"
+        ],
+        "databases": [
+          "H2 Database"
+        ],
+        "testing_frameworks": [
+          "JUnit, Mockito"
+        ],
+        "deployment_tools": [
+          "Tomcat"
+        ]
+      },
+      "architecture": {
+        "pattern": "Model-View-Controller (MVC) pattern",
+        "layers": [
+          "Presentation Layer: Controllers, Views; Business Logic Layer: Services; Data Access Layer: Repositories"
+        ],
+        "design_principles": [
+          "Separation of Concerns, Dependency Injection"
+        ]
+      },
+      "application_type": "Web Application",
+      "key_features": [
+        "Animal Registration and Management",
+        "Vaccination Scheduling and Tracking",
+        "Medical Record Management",
+        "Appointment Scheduling"
+      ],
+      "development_practices": {
+        "testing": "Unit testing and integration testing using JUnit and Mockito",
+        "logging": "Logging is done using the Log4j framework for logging purposes",
+        "security": "Security measures are in place to protect sensitive data, including encryption and secure password storage",
+        "documentation": "Documentation is provided through JavaDoc comments for API documentation"
+      },
+      "code_quality": {
+        "organization": "Code organization follows a modular structure with clear separation of concerns",
+        "patterns": [
+          "Observer pattern used for event handling, Strategy pattern used for payment processing"
+        ],
+        "maintainability": "Code maintainability is enhanced by using dependency injection and loose coupling"
+      },
+      "infrastructure": {
+        "deployment": "The application can be deployed on a variety of servers, including Tomcat",
+        "monitoring": "Monitoring tools such as JMX are used to monitor the application's performance",
+        "scalability": "Scalability is achieved through the use of load balancers and distributed databases"
+      },
+      "dependencies": {
+        "external": [
+          "Spring Framework, H2 Database, Tomcat"
+        ],
+        "internal": [
+          "Domain Model: Animal, Owner, Appointment; Services: VeterinaryService, PaymentService",
+          "Repository Pattern: used for data access"
+        ]
+      },
+      "recommendations": [
+        "Consider using a more robust database like PostgreSQL or MySQL",
+        "Implement additional security measures such as OAuth and SSL/TLS encryption",
+        "Use a more modern testing framework like TestNG",
+        "Consider adding support for mobile devices through a RESTful API",
+        "Improve code organization by separating concerns into different packages"
+      ],
+      "vector_analysis": {
+        "total_files_analyzed": 0,
+        "java_files_analyzed": 0,
+        "config_files_analyzed": 0,
+        "build_files_analyzed": 0,
+        "test_files_analyzed": 0,
+        "deployment_files_analyzed": 0,
+        "documentation_files_analyzed": 0
+      },
+      "analysis_timestamp": "2025-08-28T20:26:26.462509"
+    }
+  }
+}

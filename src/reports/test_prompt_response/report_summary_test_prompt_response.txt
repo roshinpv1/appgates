@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_prompt_response
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-28 19:58:51.230340
+
+Results Summary:
+- Total Gates: 13
+- Passed: 3
+- Failed: 0
+- Partial: 0
+- Skipped: 10
+- Risk Score: 0.00
+
+Report Files:
+- HTML Report: codegates_report_test_prompt_response.html
+- JSON Report: codegates_report_test_prompt_response.json
+- Summary: report_summary_test_prompt_response.txt
+
+Report Directory: reports/test_prompt_response
+
+Generated on: 2025-08-28T19:58:51.233318

@@ -1,0 +1,25 @@
+
+CodeGates Scan Report Summary
+============================
+
+Scan ID: test_enhanced_llm_analysis
+Repository: https://github.com/spring-projects/spring-petclinic
+Branch: main
+Scan Timestamp: 2025-08-28 19:49:52.322978
+
+Results Summary:
+- Total Gates: 13
+- Passed: 3
+- Failed: 0
+- Partial: 0
+- Skipped: 10
+- Risk Score: 0.00
+
+Report Files:
+- HTML Report: codegates_report_test_enhanced_llm_analysis.html
+- JSON Report: codegates_report_test_enhanced_llm_analysis.json
+- Summary: report_summary_test_enhanced_llm_analysis.txt
+
+Report Directory: reports/test_enhanced_llm_analysis
+
+Generated on: 2025-08-28T19:49:52.327388

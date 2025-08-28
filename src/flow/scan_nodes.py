@@ -662,32 +662,236 @@ class LLMPreAnalysisNode(AsyncNode):
             return "error"
     
     def _build_project_summary(self, metadata: Dict[str, Any]) -> str:
-        """Build project structure summary"""
+        """Build comprehensive project structure summary"""
         # Handle the nested metadata structure
         main_repo = metadata.get('main_repo', {})
         cd_repo = metadata.get('cd_repo')
         
+        # Extract framework indicators from build files and config files
+        build_files = main_repo.get('build_files', [])
+        config_files = main_repo.get('config_files', [])
+        
+        # Analyze frameworks based on file patterns
+        frameworks = self._detect_frameworks(build_files, config_files)
+        databases = self._detect_databases(build_files, config_files)
+        build_tools = self._detect_build_tools(build_files)
+        deployment_platforms = self._detect_deployment_platforms(build_files, config_files)
+        
         summary = f"""
-Project Summary:
+COMPREHENSIVE PROJECT ANALYSIS:
 - Repository: {main_repo.get('repo_url', 'Unknown')}
 - Branch: {main_repo.get('branch', 'Unknown')}
 - Total Files: {main_repo.get('total_files', 0)}
 - Total Lines: {main_repo.get('total_lines', 0)}
-- Languages: {', '.join(main_repo.get('languages', []))}
+- Primary Languages: {', '.join(main_repo.get('languages', []))}
+
+FRAMEWORK & TECHNOLOGY STACK:
+- Detected Frameworks: {', '.join(frameworks) if frameworks else 'None detected'}
+- Database Technologies: {', '.join(databases) if databases else 'None detected'}
+- Build Tools: {', '.join(build_tools) if build_tools else 'None detected'}
+- Deployment Platforms: {', '.join(deployment_platforms) if deployment_platforms else 'None detected'}
+
+PROJECT STRUCTURE:
+- Build Files: {', '.join(build_files)}
+- Configuration Files: {', '.join(config_files)}
 - Dependencies: {main_repo.get('dependencies', {})}
-- Build Files: {', '.join(main_repo.get('build_files', []))}
-- Config Files: {', '.join(main_repo.get('config_files', []))}
+
+INTEGRATION ANALYSIS:
+- External Systems: {self._detect_integrations(build_files, config_files)}
+- Security Frameworks: {self._detect_security_frameworks(build_files, config_files)}
+- Monitoring Tools: {self._detect_monitoring_tools(build_files, config_files)}
 """
         
         if cd_repo:
             summary += f"""
-CD Repository:
+CD/CI REPOSITORY:
 - Repository: {cd_repo.get('repo_url', 'Unknown')}
 - Total Files: {cd_repo.get('total_files', 0)}
 - Total Lines: {cd_repo.get('total_lines', 0)}
+- CD/CI Tools: {self._detect_cicd_tools(cd_repo.get('build_files', []), cd_repo.get('config_files', []))}
 """
         
         return summary
+    
+    def _detect_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect frameworks based on build and config files"""
+        frameworks = []
+        
+        # Java frameworks
+        if any('pom.xml' in f for f in build_files):
+            frameworks.append('Maven')
+        if any('build.gradle' in f for f in build_files):
+            frameworks.append('Gradle')
+        if any('spring' in f.lower() for f in build_files + config_files):
+            frameworks.append('Spring Framework')
+        if any('spring-boot' in f.lower() for f in build_files + config_files):
+            frameworks.append('Spring Boot')
+        if any('hibernate' in f.lower() for f in build_files + config_files):
+            frameworks.append('Hibernate')
+        
+        # Python frameworks
+        if any('requirements.txt' in f for f in build_files):
+            frameworks.append('pip')
+        if any('setup.py' in f for f in build_files):
+            frameworks.append('setuptools')
+        if any('django' in f.lower() for f in build_files + config_files):
+            frameworks.append('Django')
+        if any('flask' in f.lower() for f in build_files + config_files):
+            frameworks.append('Flask')
+        if any('fastapi' in f.lower() for f in build_files + config_files):
+            frameworks.append('FastAPI')
+        
+        # Node.js frameworks
+        if any('package.json' in f for f in build_files):
+            frameworks.append('npm')
+        if any('express' in f.lower() for f in build_files + config_files):
+            frameworks.append('Express.js')
+        if any('react' in f.lower() for f in build_files + config_files):
+            frameworks.append('React')
+        if any('angular' in f.lower() for f in build_files + config_files):
+            frameworks.append('Angular')
+        
+        return list(set(frameworks))
+    
+    def _detect_databases(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect database technologies"""
+        databases = []
+        
+        # Check for database indicators
+        db_indicators = {
+            'mysql': ['mysql', 'mariadb'],
+            'postgresql': ['postgresql', 'postgres', 'psql'],
+            'mongodb': ['mongodb', 'mongo'],
+            'redis': ['redis'],
+            'h2': ['h2'],
+            'sqlite': ['sqlite'],
+            'oracle': ['oracle'],
+            'sqlserver': ['sqlserver', 'mssql']
+        }
+        
+        all_files = build_files + config_files
+        for db_name, indicators in db_indicators.items():
+            if any(indicator in ' '.join(all_files).lower() for indicator in indicators):
+                databases.append(db_name.title())
+        
+        return list(set(databases))
+    
+    def _detect_build_tools(self, build_files: List[str]) -> List[str]:
+        """Detect build tools"""
+        tools = []
+        
+        if any('pom.xml' in f for f in build_files):
+            tools.append('Maven')
+        if any('build.gradle' in f for f in build_files):
+            tools.append('Gradle')
+        if any('package.json' in f for f in build_files):
+            tools.append('npm')
+        if any('requirements.txt' in f for f in build_files):
+            tools.append('pip')
+        if any('setup.py' in f for f in build_files):
+            tools.append('setuptools')
+        if any('dockerfile' in f.lower() for f in build_files):
+            tools.append('Docker')
+        if any('docker-compose' in f.lower() for f in build_files):
+            tools.append('Docker Compose')
+        
+        return list(set(tools))
+    
+    def _detect_deployment_platforms(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect deployment platforms"""
+        platforms = []
+        
+        if any('dockerfile' in f.lower() for f in build_files):
+            platforms.append('Docker')
+        if any('kubernetes' in f.lower() or 'k8s' in f.lower() for f in build_files + config_files):
+            platforms.append('Kubernetes')
+        if any('heroku' in f.lower() for f in build_files + config_files):
+            platforms.append('Heroku')
+        if any('aws' in f.lower() for f in build_files + config_files):
+            platforms.append('AWS')
+        if any('azure' in f.lower() for f in build_files + config_files):
+            platforms.append('Azure')
+        if any('gcp' in f.lower() or 'google' in f.lower() for f in build_files + config_files):
+            platforms.append('Google Cloud')
+        
+        return list(set(platforms))
+    
+    def _detect_integrations(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect external system integrations"""
+        integrations = []
+        
+        # Message queues
+        if any('kafka' in f.lower() for f in build_files + config_files):
+            integrations.append('Apache Kafka')
+        if any('rabbitmq' in f.lower() for f in build_files + config_files):
+            integrations.append('RabbitMQ')
+        
+        # Monitoring
+        if any('prometheus' in f.lower() for f in build_files + config_files):
+            integrations.append('Prometheus')
+        if any('grafana' in f.lower() for f in build_files + config_files):
+            integrations.append('Grafana')
+        if any('elk' in f.lower() or 'elasticsearch' in f.lower() for f in build_files + config_files):
+            integrations.append('ELK Stack')
+        
+        # APIs
+        if any('rest' in f.lower() for f in build_files + config_files):
+            integrations.append('REST APIs')
+        if any('graphql' in f.lower() for f in build_files + config_files):
+            integrations.append('GraphQL')
+        
+        return list(set(integrations))
+    
+    def _detect_security_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect security frameworks"""
+        security = []
+        
+        if any('spring-security' in f.lower() for f in build_files + config_files):
+            security.append('Spring Security')
+        if any('oauth' in f.lower() for f in build_files + config_files):
+            security.append('OAuth')
+        if any('jwt' in f.lower() for f in build_files + config_files):
+            security.append('JWT')
+        if any('ldap' in f.lower() for f in build_files + config_files):
+            security.append('LDAP')
+        if any('saml' in f.lower() for f in build_files + config_files):
+            security.append('SAML')
+        
+        return list(set(security))
+    
+    def _detect_monitoring_tools(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect monitoring and logging tools"""
+        monitoring = []
+        
+        if any('logback' in f.lower() for f in build_files + config_files):
+            monitoring.append('Logback')
+        if any('log4j' in f.lower() for f in build_files + config_files):
+            monitoring.append('Log4j')
+        if any('slf4j' in f.lower() for f in build_files + config_files):
+            monitoring.append('SLF4J')
+        if any('actuator' in f.lower() for f in build_files + config_files):
+            monitoring.append('Spring Boot Actuator')
+        if any('sentry' in f.lower() for f in build_files + config_files):
+            monitoring.append('Sentry')
+        
+        return list(set(monitoring))
+    
+    def _detect_cicd_tools(self, build_files: List[str], config_files: List[str]) -> List[str]:
+        """Detect CI/CD tools"""
+        cicd = []
+        
+        if any('jenkins' in f.lower() for f in build_files + config_files):
+            cicd.append('Jenkins')
+        if any('github-actions' in f.lower() or '.github' in f.lower() for f in build_files + config_files):
+            cicd.append('GitHub Actions')
+        if any('gitlab-ci' in f.lower() for f in build_files + config_files):
+            cicd.append('GitLab CI')
+        if any('azure-pipelines' in f.lower() for f in build_files + config_files):
+            cicd.append('Azure Pipelines')
+        if any('circleci' in f.lower() for f in build_files + config_files):
+            cicd.append('CircleCI')
+        
+        return list(set(cicd))
     
     def _get_build_configs(self, metadata: Dict[str, Any]) -> str:
         """Get build configuration content"""
@@ -794,7 +998,9 @@ CD Repository:
         ) or f"""
 CRITICAL: You must respond with ONLY valid JSON. No explanations, no markdown, no other text.
 
-Analyze the repository for hard gate compliance:
+You are an expert software architect and code analyst. Analyze the repository comprehensively and provide detailed insights.
+
+## INPUT DATA
 
 Repository Structure: {project_summary}
 Key Config Files: {build_configs}
@@ -808,17 +1014,39 @@ Extracts From the Code:
 Expected Counts Analysis:
 {expected_counts_text}
 
-Generate regex patterns for applicable gates. 
+## ANALYSIS TASKS
+
+1. **PROJECT SUMMARY & FRAMEWORK ANALYSIS**: Analyze the project structure, identify frameworks, technologies, and architectural patterns
+2. **GATE APPLICABILITY ANALYSIS**: Determine which gates are applicable based on project type, frameworks, and integrations
+3. **DYNAMIC PATTERN GENERATION**: Create regex patterns for applicable gates based on the codebase
+
+## ANALYSIS CRITERIA
+
+### Project & Framework Analysis:
+- Identify primary programming language and frameworks
+- Detect build tools, databases, and deployment technologies
+- Analyze architectural patterns (MVC, Microservices, etc.)
+- Identify integration points and external systems
+- Assess development practices and tooling
+
+### Gate Applicability Analysis:
+- **Auditability Gates**: Check for logging frameworks, monitoring tools, audit trails
+- **Error Handling Gates**: Look for exception handling, HTTP status codes, error tracking
+- **Availability Gates**: Check for timeout configurations, retry logic, circuit breakers
+- **Security Gates**: Look for authentication, authorization, data protection
+- **Testing Gates**: Check for testing frameworks, test coverage, CI/CD integration
+
+### Integration Analysis:
+- Database integrations (MySQL, PostgreSQL, MongoDB, etc.)
+- External API integrations (REST, GraphQL, SOAP)
+- Message queue systems (Kafka, RabbitMQ, etc.)
+- Monitoring and logging systems (ELK, Prometheus, etc.)
+- Security systems (OAuth, JWT, LDAP, etc.)
+
 CRITICAL RULES for patterns:
 - Use ONLY simple Python regex patterns with basic syntax
 - Allowed: word1.*word2|word3.*word4
 - Forbidden: lookbehind (?<=...), lookahead (?=...), (?i) flags, complex assertions
-
-For each gate, determine:
-1. Whether the gate is APPLICABLE (true/false) based on the repository structure and config files
-2. The REASON for applicability/non-applicability
-3. If applicable, generate a regex pattern and supporting examples
-4. If not applicable, leave pattern/examples empty
 
 CRITICAL JSON FORMATTING RULES:
 - Use ONLY double quotes for strings: "value" not 'value'
@@ -830,6 +1058,30 @@ CRITICAL JSON FORMATTING RULES:
 Respond with ONLY this exact JSON structure:
 
 {{
+    "project_analysis": {{
+        "primary_language": "Main programming language",
+        "frameworks": ["List of main frameworks detected"],
+        "build_tools": ["Build tools used"],
+        "databases": ["Database technologies"],
+        "architectural_pattern": "Main architectural pattern",
+        "deployment_platform": "Deployment platform",
+        "integration_systems": ["External systems integrated"],
+        "development_practices": ["Development practices detected"],
+        "security_frameworks": ["Security frameworks used"],
+        "monitoring_tools": ["Monitoring and logging tools"]
+    }},
+    "gate_analysis": {{
+        "auditability_applicable": true,
+        "auditability_reason": "Reason for auditability gate applicability",
+        "error_handling_applicable": true,
+        "error_handling_reason": "Reason for error handling gate applicability",
+        "availability_applicable": true,
+        "availability_reason": "Reason for availability gate applicability",
+        "security_applicable": true,
+        "security_reason": "Reason for security gate applicability",
+        "testing_applicable": true,
+        "testing_reason": "Reason for testing gate applicability"
+    }},
     "patterns": [
         {{
             "gate_id": "1.1",
@@ -840,7 +1092,8 @@ Respond with ONLY this exact JSON structure:
             "pattern": "error.*log|system.*error|exception.*log",
             "severity": "HIGH",
             "category": "ERROR_HANDLING",
-            "examples": ["error logging", "system error handling"]
+            "examples": ["error logging", "system error handling"],
+            "integration_analysis": "Integration with logging framework detected in config files"
         }},
         {{
             "gate_id": "1.3",
@@ -851,12 +1104,13 @@ Respond with ONLY this exact JSON structure:
             "pattern": "",
             "severity": "HIGH",
             "category": "ERROR_HANDLING",
-            "examples": []
+            "examples": [],
+            "integration_analysis": "No web framework or API endpoints detected"
         }}
     ]
 }}
 
-Generate 5–10 specific entries. Focus ONLY on the actual gates in scope. Use simple regex patterns ONLY.
+Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates in scope and provide detailed integration analysis.
 """
     
     def _parse_llm_response(self, response: str) -> List[Dict[str, Any]]:
@@ -897,9 +1151,19 @@ Generate 5–10 specific entries. Focus ONLY on the actual gates in scope. Use s
                     try:
                         data = strategy()
                         patterns = data.get("patterns", [])
+                        project_analysis = data.get("project_analysis", {})
+                        gate_analysis = data.get("gate_analysis", {})
                         
                         if patterns:
                             print(f"✅ Successfully parsed {len(patterns)} patterns from LLM response (strategy {i+1})")
+                            
+                            # Store enhanced analysis in context
+                            if hasattr(self, 'context') and self.context is not None:
+                                self.context.project_analysis = project_analysis
+                                self.context.gate_analysis = gate_analysis
+                                print(f"📊 Stored project analysis: {len(project_analysis)} fields")
+                                print(f"📊 Stored gate analysis: {len(gate_analysis)} fields")
+                            
                             return patterns
                         else:
                             print(f"⚠️ No patterns found in LLM response (strategy {i+1})")
