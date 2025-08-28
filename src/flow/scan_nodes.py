@@ -820,7 +820,14 @@ For each gate, determine:
 3. If applicable, generate a regex pattern and supporting examples
 4. If not applicable, leave pattern/examples empty
 
-Respond with ONLY this JSON structure:
+CRITICAL JSON FORMATTING RULES:
+- Use ONLY double quotes for strings: "value" not 'value'
+- Use proper JSON syntax: "key": "value" not "key". "value"
+- Ensure all property names are quoted: "gate_id": "1.1"
+- Use proper boolean values: true or false (not "true" or "false")
+- No trailing commas before closing braces or brackets
+
+Respond with ONLY this exact JSON structure:
 
 {{
     "patterns": [
@@ -915,28 +922,55 @@ Generate 5–10 specific entries. Focus ONLY on the actual gates in scope. Use s
     def _manual_json_fix(self, json_str: str) -> Dict[str, Any]:
         """Manually fix common JSON issues"""
         try:
+            # Fix the specific issue: "name". "value" -> "name": "value"
+            json_str = re.sub(r'"(\w+)"\.\s*"([^"]*)"', r'"\1": "\2"', json_str)
+            
+            # Fix missing quotes around property names
+            json_str = re.sub(r'(\w+):\s*"([^"]*)"', r'"\1": "\2"', json_str)
+            
+            # Fix missing quotes around string values
+            json_str = re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])(?=\s*[,}\]])', r': "\1"', json_str)
+            
             # Remove any trailing commas before closing braces/brackets
             json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
             
-            # Fix common issues with unquoted strings
-            json_str = re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])(?=\s*[,}\]])', r': "\1"', json_str)
+            # Fix single quotes to double quotes
+            json_str = json_str.replace("'", '"')
             
-            # Fix escaped quotes
-            json_str = json_str.replace('\\"', '"').replace('"', '\\"')
+            # Fix common issues with boolean values
+            json_str = re.sub(r':\s*(true|false)(?=\s*[,}\]])', r': \1', json_str)
             
             # Try to parse the fixed JSON
             return json.loads(json_str)
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Manual JSON fix failed: {e}")
             # If manual fix fails, try to extract just the patterns array
             try:
-                # Find the patterns array
+                # Find the patterns array and try to parse it manually
                 pattern_match = re.search(r'"patterns"\s*:\s*\[(.*?)\]', json_str, re.DOTALL)
                 if pattern_match:
                     patterns_str = pattern_match.group(1)
-                    # Try to parse individual patterns
+                    # Try to extract individual pattern objects
+                    pattern_objects = re.findall(r'\{[^{}]*\}', patterns_str)
                     patterns = []
-                    # This is a simplified approach - in practice, we'd need more sophisticated parsing
-                    return {"patterns": patterns}
+                    
+                    for pattern_obj in pattern_objects:
+                        try:
+                            # Clean up the pattern object
+                            clean_obj = pattern_obj.strip()
+                            # Fix common issues in the object
+                            clean_obj = re.sub(r'"(\w+)"\.\s*"([^"]*)"', r'"\1": "\2"', clean_obj)
+                            clean_obj = re.sub(r'(\w+):\s*"([^"]*)"', r'"\1": "\2"', clean_obj)
+                            clean_obj = re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])(?=\s*[,}\]])', r': "\1"', clean_obj)
+                            
+                            # Try to parse the individual pattern
+                            pattern_data = json.loads(clean_obj)
+                            patterns.append(pattern_data)
+                        except Exception:
+                            continue
+                    
+                    if patterns:
+                        return {"patterns": patterns}
             except Exception:
                 pass
             
