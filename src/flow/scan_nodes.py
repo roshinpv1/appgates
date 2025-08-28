@@ -294,6 +294,14 @@ class VectorizationNode(AsyncNode):
                     traceback.print_exc()
                     return "error"
             
+            # Store scan mapping for this scan (for new repositories)
+            self.vector_service._store_scan_mapping(
+                scan_id=scan_id,
+                repo_hash=repo_hash,
+                repo_url=repo_url,
+                branch=branch
+            )
+            
             # Store vector data in context
             if hasattr(self, 'context') and self.context is not None:
                 self.context.vector_data = {
@@ -301,7 +309,8 @@ class VectorizationNode(AsyncNode):
                     "collection_name": collection_name,
                     "main_chunks_count": len(main_chunks),
                     "cd_chunks_count": len(cd_chunks),
-                    "total_vectors_stored": len(vectors)
+                    "total_vectors_stored": len(vectors),
+                    "repo_hash": repo_hash
                 }
             
             print(f"✅ Vectorization completed successfully")

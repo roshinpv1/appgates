@@ -532,8 +532,20 @@ class VectorService:
             # Initialize embedding service
             embedding_service = EmbeddingService(self.config)
             
-            # Search in single collection for both main and CD repositories
-            collection = f"repo_{scan_id}"
+            # Get the git hash from scan mapping or use scan_id as fallback
+            repo_hash = None
+            try:
+                scan_mapping = self._get_scan_mapping(scan_id)
+                if scan_mapping:
+                    repo_hash = scan_mapping.get("repo_hash")
+            except Exception:
+                pass
+            
+            # Use git hash-based collection naming if available, otherwise fallback to scan_id
+            if repo_hash:
+                collection = self._get_collection_name(scan_id, repo_hash)
+            else:
+                collection = f"repo_{scan_id}"
             
             # Enhanced queries for better project analysis
             queries = [
