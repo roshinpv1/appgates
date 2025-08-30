@@ -89,7 +89,7 @@ class GitUtils:
     async def clone_repository(self, repo_url: str, branch: str = "main", 
                              git_token: Optional[str] = None) -> str:
         """
-        Clone repository with enterprise support and fallback mechanisms
+        Clone repository to auto-generated directory
         
         Args:
             repo_url: Repository URL
@@ -99,15 +99,38 @@ class GitUtils:
         Returns:
             Path to cloned repository
         """
+        # Create unique directory for this clone
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        repo_name = repo_url.split("/")[-1].replace(".git", "")
+        clone_dir = self.temp_dir / f"{repo_name}_{timestamp}"
+        
+        # Use the new clone_repository_to_path method
+        return await self.clone_repository_to_path(repo_url, branch, git_token, str(clone_dir))
+    
+    async def clone_repository_to_path(self, repo_url: str, branch: str = "main", 
+                                      git_token: Optional[str] = None, target_path: str = None) -> str:
+        """
+        Clone repository to a specific path
+        
+        Args:
+            repo_url: Repository URL
+            branch: Branch to checkout
+            git_token: GitHub token for private repos
+            target_path: Specific path where to clone the repository
+        
+        Returns:
+            Path to cloned repository
+        """
         print(f"🔧 Git timeout configuration:")
         timeout_status = self.get_git_timeout_status()
         for name, config in timeout_status.items():
             print(f"   {name}: {config['value']}s (env: {config['env_var']})")
         
-        # Create unique directory for this clone
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        repo_name = repo_url.split("/")[-1].replace(".git", "")
-        clone_dir = self.temp_dir / f"{repo_name}_{timestamp}"
+        # Use provided target path
+        if not target_path:
+            raise ValueError("target_path is required for clone_repository_to_path")
+        
+        clone_dir = Path(target_path)
         
         # Ensure target directory exists and is writable
         if not os.path.exists(clone_dir):
@@ -126,49 +149,13 @@ class GitUtils:
         is_github_enterprise = 'github' in hostname and hostname != 'github.com'
         
         if is_github_enterprise:
-            # For GitHub Enterprise: Try API first (better for enterprise networks, SSL, VPN)
-            print(f"🏢 GitHub Enterprise detected ({hostname}), trying API first")
-            try:
-                return await self._download_with_github_api(repo_url, branch, git_token, str(clone_dir))
-            except Exception as api_error:
-                print(f"⚠️ GitHub API download failed: {api_error}")
-                print(f"🔄 Falling back to Git clone...")
-                
-                # Fallback to Git clone
-                try:
-                    return await self._clone_with_git(repo_url, branch, git_token, str(clone_dir))
-                except GitTimeoutError as git_timeout_error:
-                    print(f"⏰ Git clone timed out: {git_timeout_error}")
-                    self.cleanup(str(clone_dir))
-                    raise GitTimeoutError(f"Both API and Git clone failed due to timeout. API: {api_error}, Git: {git_timeout_error}")
-                except Exception as git_error:
-                    print(f"⚠️ Git clone also failed: {git_error}")
-                    self.cleanup(str(clone_dir))
-                    raise Exception(f"Both API and Git clone failed. API: {api_error}, Git: {git_error}")
+            # For GitHub Enterprise: Use API
+            print(f"🏢 GitHub Enterprise detected ({hostname}), using API")
+            return await self._download_with_github_api(repo_url, branch, git_token, str(clone_dir))
         else:
-            # For GitHub.com and other Git servers: Try Git clone first
-            print(f"🌐 Public repository detected, trying Git clone first")
-            try:
-                return await self._clone_with_git(repo_url, branch, git_token, str(clone_dir))
-            except GitTimeoutError as git_timeout_error:
-                print(f"⏰ Git clone timed out: {git_timeout_error}")
-                self.cleanup(str(clone_dir))
-                raise git_timeout_error
-            except Exception as git_error:
-                print(f"⚠️ Git clone failed: {git_error}")
-                
-                # Fallback to GitHub API if it's GitHub.com
-                if "github.com" in repo_url:
-                    print(f"🔄 Falling back to GitHub API...")
-                    try:
-                        return await self._download_with_github_api(repo_url, branch, git_token, str(clone_dir))
-                    except Exception as api_error:
-                        print(f"⚠️ GitHub API also failed: {api_error}")
-                        self.cleanup(str(clone_dir))
-                        raise Exception(f"Both Git clone and API failed. Git: {git_error}, API: {api_error}")
-                else:
-                    self.cleanup(str(clone_dir))
-                    raise git_error
+            # For GitHub.com and other Git servers: Use Git clone
+            print(f"🌐 Public repository detected, using Git clone")
+            return await self._clone_with_git(repo_url, branch, git_token, str(clone_dir))
     
     async def _clone_with_git(self, repo_url: str, branch: str, git_token: Optional[str], target_dir: str) -> str:
         """Clone repository using Git with enterprise support and timeout"""

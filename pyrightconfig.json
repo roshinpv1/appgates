@@ -1,0 +1,33 @@
+{
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/qdrant_data",
+        "**/reports",
+        "**/logs",
+        "**/node_modules",
+        "**/.git",
+        "**/.venv"
+    ],
+    "venvPath": "/Users/roshinpv/Documents/next/gates",
+    "venv": ".venv",
+    "pythonVersion": "3.13",
+    "pythonPlatform": "Darwin",
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true,
+    "autoImportCompletions": true,
+    "autoSearchPaths": true,
+    "extraPaths": [
+        "src"
+    ],
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "reportUnusedImport": true,
+    "reportUnusedClass": true,
+    "reportUnusedFunction": true,
+    "reportUnusedVariable": true,
+    "reportDuplicateImport": true
+}

@@ -25,6 +25,8 @@ from core.base import ScanContext
 from fastapi.responses import HTMLResponse
 from services.question_service import QuestionService
 
+from services.llm_logger import LLMLogger
+
 
 # Pydantic models for API requests/responses
 class ScanRequest(BaseModel):
@@ -77,6 +79,7 @@ app.add_middleware(
 scan_flow: Optional[ScanFlow] = None
 scan_results: Dict[str, Dict[str, Any]] = {}
 question_service: Optional[QuestionService] = None
+llm_logger: Optional[LLMLogger] = None
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -91,6 +94,20 @@ DEFAULT_CONFIG = {
         "base_url": "http://localhost:1234",
         "batch_size": 32,
         "vector_size": 768
+    },
+    "cocoindex": {
+        "qdrant_path": "./qdrant_data",
+        "chunk_size": 1000,
+        "chunk_overlap": 300,
+        "embedding_model": "text-embedding-nomic-embed-text-v1.5-embedding",
+        "included_patterns": [
+            "*.py", "*.js", "*.ts", "*.jsx", "*.tsx", "*.java", "*.cs", 
+            "*.go", "*.rs", "*.cpp", "*.c", "*.h", "*.hpp", "*.md", "*.mdx"
+        ],
+        "excluded_patterns": [
+            ".*", "node_modules", "__pycache__", "target", "build", "dist", 
+            "*.pyc", "*.class", "*.o", "*.so", "*.dylib", "*.dll"
+        ]
     },
     "ast_parser": {
         "supported_languages": [
@@ -110,15 +127,17 @@ DEFAULT_CONFIG = {
 
 def initialize_scan_flow(config: Dict[str, Any] = None):
     """Initialize the scan flow with configuration"""
-    global scan_flow, question_service
+    global scan_flow, question_service, llm_logger
     try:
         if config is None:
             config = DEFAULT_CONFIG
         
         scan_flow = ScanFlow(config)
         question_service = QuestionService(config)
+        llm_logger = LLMLogger()
         print("✅ Scan flow initialized successfully")
         print("✅ Question service initialized successfully")
+        print("✅ LLM logger initialized successfully")
         return True
     except Exception as e:
         print(f"❌ Failed to initialize scan flow: {e}")
@@ -638,6 +657,137 @@ async def get_scan_info(scan_id: str):
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to get scan info: {str(e)}"
+        )
+
+
+# LLM Logging Endpoints
+@app.get("/api/v1/llm/logs/{scan_id}")
+async def get_llm_logs(scan_id: str):
+    """Get LLM interaction logs for a specific scan"""
+    global llm_logger
+    
+    if not llm_logger:
+        raise HTTPException(
+            status_code=503, 
+            detail="LLM logger not initialized"
+        )
+    
+    try:
+        logs = llm_logger.get_scan_logs(scan_id)
+        return {
+            "status": "success",
+            "scan_id": scan_id,
+            "logs": logs,
+            "total_interactions": len(logs)
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get LLM logs: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get LLM logs: {str(e)}"
+        )
+
+
+@app.get("/api/v1/llm/summary/{scan_id}")
+async def get_llm_summary(scan_id: str):
+    """Get LLM interaction summary for a specific scan"""
+    global llm_logger
+    
+    if not llm_logger:
+        raise HTTPException(
+            status_code=503, 
+            detail="LLM logger not initialized"
+        )
+    
+    try:
+        summary = llm_logger.get_scan_summary(scan_id)
+        return {
+            "status": "success",
+            "summary": summary
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to get LLM summary: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get LLM summary: {str(e)}"
+        )
+
+
+@app.get("/api/v1/llm/report/{scan_id}")
+async def generate_llm_report(scan_id: str):
+    """Generate and return LLM interaction report for a specific scan"""
+    global llm_logger
+    
+    if not llm_logger:
+        raise HTTPException(
+            status_code=503, 
+            detail="LLM logger not initialized"
+        )
+    
+    try:
+        report_path = llm_logger.generate_scan_report(scan_id)
+        
+        if not report_path:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No LLM logs found for scan {scan_id}"
+            )
+        
+        return {
+            "status": "success",
+            "scan_id": scan_id,
+            "report_path": report_path,
+            "message": "LLM interaction report generated successfully"
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to generate LLM report: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to generate LLM report: {str(e)}"
+        )
+
+
+@app.get("/api/v1/llm/logs")
+async def list_available_llm_logs():
+    """List all available scan IDs with LLM logs"""
+    global llm_logger
+    
+    if not llm_logger:
+        raise HTTPException(
+            status_code=503, 
+            detail="LLM logger not initialized"
+        )
+    
+    try:
+        # Get all log files
+        log_dir = Path("logs/llm")
+        if not log_dir.exists():
+            return {
+                "status": "success",
+                "available_scans": [],
+                "total_scans": 0
+            }
+        
+        scan_ids = []
+        for log_file in log_dir.glob("scan_*_llm_log.jsonl"):
+            # Extract scan_id from filename: scan_{scan_id}_llm_log.jsonl
+            scan_id = log_file.stem.replace("scan_", "").replace("_llm_log", "")
+            scan_ids.append(scan_id)
+        
+        return {
+            "status": "success",
+            "available_scans": scan_ids,
+            "total_scans": len(scan_ids)
+        }
+        
+    except Exception as e:
+        print(f"❌ Failed to list LLM logs: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to list LLM logs: {str(e)}"
         )
 
 

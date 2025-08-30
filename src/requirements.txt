@@ -7,6 +7,8 @@ typing
 numpy>=1.21.0
 qdrant-client>=1.7.0
 
+# Simplified CocoIndex integration (using existing services)
+
 # HTTP requests
 requests>=2.28.0
 

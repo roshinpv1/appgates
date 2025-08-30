@@ -124,7 +124,7 @@ def clean_llm_response(response: str) -> str:
 
 def chunk_text_for_llm(
     text: str, 
-    max_chunk_size: int = 4000, 
+    max_chunk_size: int = 2000, 
     overlap: int = 200
 ) -> List[str]:
     """

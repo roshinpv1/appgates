@@ -1,9 +1,0 @@
-/Users/roshinpv/Documents/next/appgates/src/server.py:128: DeprecationWarning: 
-        on_event is deprecated, use lifespan event handlers instead.
-
-        Read more about it in the
-        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-        
-  @app.on_event("startup")
-INFO:     Will watch for changes in these directories: ['/Users/roshinpv/Documents/next/appgates/src']
-ERROR:    [Errno 48] Address already in use

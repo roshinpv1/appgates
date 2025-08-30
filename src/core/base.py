@@ -19,6 +19,7 @@ class ScanContext:
     scan_id: Optional[str] = None
     repo_path: Optional[str] = None
     cd_repo_path: Optional[str] = None
+    common_folder: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     vector_data: Optional[Dict[str, Any]] = None
     patterns: Optional[Dict[str, Any]] = None

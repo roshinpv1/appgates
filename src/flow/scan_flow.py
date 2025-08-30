@@ -8,9 +8,7 @@ from datetime import datetime
 
 from core.base import AsyncFlow, ScanContext
 from utils.git_utils import GitUtils
-from services.vector_service import VectorService
-from services.embedding_service import EmbeddingService
-from services.ast_parser_service import ASTParserService
+from services.cocoindex_service import CocoIndexService
 from services.prompt_service import PromptService
 from services.pattern_library_service import PatternLibraryService
 from services.llm_service import LLMService
@@ -24,9 +22,7 @@ class ScanFlow(AsyncFlow):
         super().__init__()
         
         # Initialize services
-        self.vector_service = VectorService(config.get("vector_store", {}))
-        self.embedding_service = EmbeddingService(config.get("embedding", {}))
-        self.ast_parser_service = ASTParserService(config.get("ast_parser", {}))
+        self.cocoindex_service = CocoIndexService(config.get("cocoindex", {}))
         self.git_utils = GitUtils()
         
         # Initialize external libraries
@@ -50,15 +46,15 @@ class ScanFlow(AsyncFlow):
         
         # Create nodes
         checkout_node = RepositoryCheckoutNode()
-        vectorization_node = VectorizationNode(self.vector_service, self.embedding_service, self.ast_parser_service)
+        vectorization_node = VectorizationNode(self.cocoindex_service)
         llm_pre_node = LLMPreAnalysisNode(self.llm_service)
         consolidation_node = PatternConsolidationNode(self.pattern_library_service)
-        expected_impl_node = ExpectedImplementationNode(self.vector_service, self.embedding_service)
-        scanning_node = FileScanningNode(self.ast_parser_service)
+        expected_impl_node = ExpectedImplementationNode(self.cocoindex_service)
+        scanning_node = FileScanningNode()
         evaluation_node = GateEvaluationNode()
-        llm_post_node = LLMPostAnalysisNode(self.llm_service, self.vector_service, self.embedding_service)
+        llm_post_node = LLMPostAnalysisNode(self.llm_service, self.cocoindex_service)
         report_node = ReportGenerationNode()
-        storage_node = AgenticStorageNode(self.vector_service, self.embedding_service)
+        storage_node = AgenticStorageNode(self.cocoindex_service)
         
         # Build flow
         self.start(checkout_node)
@@ -89,17 +85,15 @@ class ScanFlow(AsyncFlow):
             )
             
             # Add services to context for enhanced reasoning and recommendations
-            context.vector_service = self.vector_service
+            context.cocoindex_service = self.cocoindex_service
             context.llm_service = self.llm_service
             
             # Run the flow
             result = await self.run_async(context)
             
-            # Cleanup
-            if context.repo_path:
-                self.git_utils.cleanup(context.repo_path)
-            if context.cd_repo_path:
-                self.git_utils.cleanup(context.cd_repo_path)
+            # Cleanup common folder
+            if context.common_folder:
+                self.git_utils.cleanup(context.common_folder)
             
             print("✅ Scan process completed successfully")
             
@@ -114,9 +108,9 @@ class ScanFlow(AsyncFlow):
         except Exception as e:
             print(f"❌ Scan process failed: {e}")
             
-            # Cleanup on error
-            if hasattr(context, 'repo_path') and context.repo_path:
-                self.git_utils.cleanup(context.repo_path)
+            # Cleanup common folder on error
+            if context.common_folder:
+                self.git_utils.cleanup(context.common_folder)
             
             return {
                 "scan_id": scan_id,
@@ -130,8 +124,6 @@ class ScanFlow(AsyncFlow):
             "flow_type": "CodeGates Scan Flow",
             "steps": 10,
             "services": {
-                "vector_service": self.vector_service.get_collection_info("test") is not None,
-                "embedding_service": self.embedding_service.health_check()["status"] == "healthy",
-                "ast_parser_service": self.ast_parser_service.health_check()["status"] == "healthy"
+                "cocoindex_service": self.cocoindex_service.health_check()["status"] == "healthy"
             }
         }

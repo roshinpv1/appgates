@@ -1,0 +1,365 @@
+INFO:     Will watch for changes in these directories: ['/Users/roshinpv/Documents/next/gates/src']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [7700] using StatReload
+📝 PromptTemplates initialized: 14 gates, 5 templates
+🔧 Initializing CodeGates Scan Flow...
+🔧 Initializing Qdrant at ./qdrant_data
+🔓 Removed stale lock file
+🔗 Successfully initialized Qdrant at ./qdrant_data
+🧠 CocoIndexService initialized with text-embedding-nomic-embed-text-v1.5-embedding (768 dimensions) - Simplified Mode
+📝 Prompt Service loaded: 5 prompt templates
+✅ Loaded 7 gates from pattern library
+📚 Pattern Library loaded: 7 gates with 7 pattern texts
+🤖 LLMService initialized with local provider
+🔧 Attempting to initialize Qdrant at ./qdrant_data
+🔓 Removed stale lock file
+🔗 Successfully initialized embedded Qdrant at ./qdrant_data
+🔧 use_qdrant flag set to: True
+💾 VectorService initialized with 768 dimensions
+🧠 EmbeddingService initialized with local provider
+🤖 LLMService initialized with local provider
+❓ QuestionService initialized
+✅ Scan flow initialized successfully
+✅ Question service initialized successfully
+✅ LLM logger initialized successfully
+✅ Scan flow initialized successfully
+🚀 Starting CodeGates Scan API Server on 0.0.0.0:8000
+📖 API Documentation: http://0.0.0.0:8000/docs
+🔍 Health Check: http://0.0.0.0:8000/health
+INFO:     Started server process [7753]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+📝 PromptTemplates initialized: 14 gates, 5 templates
+🚀 Starting CodeGates Scan API Server
+🔧 Initializing Qdrant at ./qdrant_data
+🔓 Removed stale lock file
+🔗 Successfully initialized Qdrant at ./qdrant_data
+🧠 CocoIndexService initialized with text-embedding-nomic-embed-text-v1.5-embedding (768 dimensions) - Simplified Mode
+📝 Prompt Service loaded: 5 prompt templates
+✅ Loaded 7 gates from pattern library
+📚 Pattern Library loaded: 7 gates with 7 pattern texts
+🤖 LLMService initialized with local provider
+🔧 Attempting to initialize Qdrant at ./qdrant_data
+🔓 Removed stale lock file
+🔗 Successfully initialized embedded Qdrant at ./qdrant_data
+🔧 use_qdrant flag set to: True
+💾 VectorService initialized with 768 dimensions
+🧠 EmbeddingService initialized with local provider
+🤖 LLMService initialized with local provider
+❓ QuestionService initialized
+✅ Scan flow initialized successfully
+✅ Question service initialized successfully
+✅ LLM logger initialized successfully
+INFO:     127.0.0.1:57209 - "GET /health HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'services/prompt_templates.py'. Reloading...
+🔍 Starting scan for: https://github.com/spring-projects/spring-petclinic
+🚀 Starting CodeGates Scan Process
+📁 Repository: https://github.com/spring-projects/spring-petclinic
+🌿 Branch: main
+📥 Step 1: Repository Checkout and extract metadata (including CD repos)
+📁 Created common folder structure: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a
+🔧 Git timeout configuration:
+   git_clone_timeout: 300s (env: CODEGATES_GIT_CLONE_TIMEOUT)
+   git_fetch_timeout: 180s (env: CODEGATES_GIT_FETCH_TIMEOUT)
+   github_api_timeout: 120s (env: CODEGATES_GITHUB_API_TIMEOUT)
+🌐 Public repository detected, using Git clone
+🔄 Cloning repository with Git (timeout: 300s): https://github.com/spring-projects/spring-petclinic (branch: main)
+🔄 Running git command with 300s timeout: git clone --depth 1 --branch main --single-branch https://github.com/spring-projects/spring-petclinic /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic
+✅ Repository cloned successfully to: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic
+🔍 Attempting to clone CD repository: https://github.com/spring-projects/spring-petclinic-cd
+🔧 Git timeout configuration:
+   git_clone_timeout: 300s (env: CODEGATES_GIT_CLONE_TIMEOUT)
+   git_fetch_timeout: 180s (env: CODEGATES_GIT_FETCH_TIMEOUT)
+   github_api_timeout: 120s (env: CODEGATES_GITHUB_API_TIMEOUT)
+🌐 Public repository detected, using Git clone
+🔄 Cloning repository with Git (timeout: 300s): https://github.com/spring-projects/spring-petclinic-cd (branch: main)
+🔄 Running git command with 300s timeout: git clone --depth 1 --branch main --single-branch https://github.com/spring-projects/spring-petclinic-cd /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic-cd
+❌ Git command failed: Cloning into '/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic-cd'...
+remote: Repository not found.
+fatal: repository 'https://github.com/spring-projects/spring-petclinic-cd/' not found
+
+⚠️ CD repository not found or failed to clone: Repository not found or access denied: https://github.com/spring-projects/spring-petclinic-cd
+✅ Main repository checked out: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic
+📊 Main repository info: 108 files, 19526 lines
+📁 Common folder: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a
+🔍 Starting CocoIndex vectorization for scan: scan_1756574209
+📁 Main repo: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic
+🔍 Indexing main repository with CocoIndex...
+🔍 Indexing main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic
+📊 Created collection: repo_scan_1756574209
+�� Processing 141 files...
+🧠 Generating embeddings for 844 chunks...
+🧠 EmbeddingService initialized with local provider
+✅ Generated 844 embeddings using URL-based service
+💾 Storing 844 vectors in Qdrant...
+✅ Stored 844 vectors in collection repo_scan_1756574209
+✅ Simplified indexing completed for main repository
+📊 Collection: repo_scan_1756574209
+📊 Total chunks: 840
+✅ CocoIndex vectorization completed successfully
+📊 Main repository chunks: 840
+📊 Total chunks: 840
+🤖 Step 3: LLM Pre-Analysis (Dynamic Patterns)
+   🔍 Analyzing project structure for expected counts...
+✅ Project structure analysis completed: 13 gate expected counts calculated
+📝 Prompt Service loaded: 5 prompt templates
+   📞 Calling LLM service...
+   📝 LLM response received (4001 chars)
+   🔍 Parsing LLM response...
+🔍 LLM Response preview: Here is the JSON response:
+
+```json
+{
+  "patterns": [
+    {
+      "gate_id": "1.1",
+      "name": "Structured Logs",
+      "description": "Logs Searchable/Available",
+      "applicable": true,
+      "reason": "Logging framework detected (Spring Boot's logging configuration)",
+      "pattern": "/org/...
+🔍 Extracted JSON string: {
+  "patterns": [
+    {
+      "gate_id": "1.1",
+      "name": "Structured Logs",
+      "description": "Logs Searchable/Available",
+      "applicable": true,
+      "reason": "Logging framework detected...
+⚠️ Strategy 1 failed: Expecting ',' delimiter: line 98 column 6 (char 3939)
+⚠️ Strategy 2 failed: Expecting ',' delimiter: line 98 column 6 (char 3939)
+⚠️ Strategy 3 failed: Expecting ',' delimiter: line 14 column 33 (char 394)
+⚠️ Strategy 4 failed: Expecting ',' delimiter: line 8 column 58 (char 214)
+⚠️ Strategy 5 failed: Expecting ',' delimiter: line 4 column 21 (char 44)
+⚠️ Manual JSON fix failed: Expecting ',' delimiter: line 8 column 58 (char 216)
+✅ Successfully parsed 5 patterns from LLM response (strategy 6)
+📊 Stored project analysis: 0 fields
+📊 Stored gate analysis: 0 fields
+📊 Stored expected counts analysis for 13 gates
+✅ Generated 5 dynamic patterns (took 19.96s)
+🔧 Step 4: Pattern Consolidation
+✅ Pattern consolidation completed: 81 patterns
+🔍 Step 5: Expected Implementation Calculation (including CD repos)
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+📊 Using project structure analysis for 1.3: 2 expected (Based on web layer: True, data layer: True, security config: False)
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+🧠 EmbeddingService initialized with local provider
+✅ Generated query embedding using URL-based service
+✅ Expected implementations calculated for 13 patterns (127 total implementations)
+📁 Step 6: File Scanning & Pattern & AST parser based Matching (including CD repos)
+🔍 Scanning main repository: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a/spring-petclinic
+✅ File scanning completed: 13 patterns scanned, 6 total matches
+⚖️ Step 7: Gate Evaluation & Threshold Checking (including CD repos)
+   📊 Gate 1.5 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 1.6 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 1.8 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 2.4 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 2.7 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 1.1 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 1.3 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 1.10 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 1.12 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 3.6 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 3.9 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 3.18 expected count: 1 (structure: unknown, complexity: basic)
+   📊 Gate 2 expected count: 1 (structure: unknown, complexity: basic)
+✅ Gate evaluation completed: 13 gates evaluated (3 passed, 0 failed)
+🧠 Step 8: LLM Post-Analysis with Contextual Recommendations
+📝 Prompt Service loaded: 5 prompt templates
+✅ LLM post-analysis completed: 0 recommendations generated
+📊 Step 9: Report Generation
+🔧 Attempting to initialize Qdrant at ./qdrant_data
+🔓 Removed stale lock file
+🔗 Successfully initialized embedded Qdrant at ./qdrant_data
+🔧 use_qdrant flag set to: True
+💾 VectorService initialized with 768 dimensions
+🧠 EmbeddingService initialized with local provider
+🤖 LLMService initialized with local provider
+🤖 Generating LLM-based project summary for https://github.com/spring-projects/spring-petclinic
+✅ LLM project summary generated successfully
+💾 HTML report saved: reports/scan_1756574209/codegates_report_scan_1756574209.html
+💾 JSON report saved: reports/scan_1756574209/codegates_report_scan_1756574209.json
+💾 Summary file saved: reports/scan_1756574209/report_summary_scan_1756574209.txt
+✅ Report generated: 3/13 gates passed
+📄 HTML report generated (96807 characters)
+💾 Reports saved to: {'html': 'reports/scan_1756574209/codegates_report_scan_1756574209.html', 'json': 'reports/scan_1756574209/codegates_report_scan_1756574209.json', 'summary': 'reports/scan_1756574209/report_summary_scan_1756574209.txt'}
+💾 Step 10: Agentic Storage for Future Use
+🧠 EmbeddingService initialized with local provider
+📊 Created collection: scan_results_scan_1756574209
+✅ Scan result stored in vector database: 4c9a73f0-ec7b-577f-aa8f-7318bace90ab
+🧹 Cleaned up: /var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756574209_repo_69684a1a
+✅ Scan process completed successfully
+INFO:     127.0.0.1:57475 - "POST /api/v1/scan HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [7753]
+INFO:     Started server process [8751]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'services/prompt_templates.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [8751]
+INFO:     Started server process [10947]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

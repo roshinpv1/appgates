@@ -3,20 +3,8 @@
 Prompt Service for managing externalized LLM prompts
 """
 
-import json
-from pathlib import Path
 from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
-
-
-@dataclass
-class PromptTemplate:
-    """Prompt template structure"""
-    use_case: str
-    description: str
-    prompt_template: str
-    parameters: Dict[str, Any]
-    examples: List[Dict[str, Any]] = None
+from .prompt_templates import PromptTemplates, prompt_templates
 
 
 class PromptService:
@@ -26,73 +14,37 @@ class PromptService:
     
     def __init__(self, prompt_file_path: Optional[str] = None):
         """Initialize the prompt service"""
-        if prompt_file_path is None:
-            # Default path relative to src directory
-            src_dir = Path(__file__).parent.parent
-            prompt_file_path = src_dir / "data" / "prompt_library.json"
-        
-        self.prompt_file_path = Path(prompt_file_path)
-        self.prompts: Dict[str, PromptTemplate] = {}
-        self.gates_in_scope: Dict[str, List[Dict[str, Any]]] = {}
-        
-        # Load prompts on initialization
-        self._load_prompts()
+        # Use the centralized prompt templates
+        self.prompt_templates = prompt_templates
+        self.prompts = self.prompt_templates.templates
+        self.gates_in_scope = self._convert_gates_to_dict()
         
         print(f"📝 Prompt Service loaded: {len(self.prompts)} prompt templates")
     
-    def _load_prompts(self):
-        """Load prompts from the JSON file"""
-        try:
-            if not self.prompt_file_path.exists():
-                print(f"⚠️ Prompt file not found: {self.prompt_file_path}")
-                return
+    def _convert_gates_to_dict(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Convert gate definitions to the expected dictionary format"""
+        gates_dict = {}
+        
+        for gate in self.prompt_templates.get_all_gates():
+            category = gate.category.value
+            if category not in gates_dict:
+                gates_dict[category] = []
             
-            with open(self.prompt_file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            # Load gates in scope
-            self.gates_in_scope = data.get("gates_in_scope", {})
-            print(f"✅ Loaded {sum(len(gates) for gates in self.gates_in_scope.values())} gates in scope")
-            
-            for prompt_id, prompt_data in data.items():
-                # Skip gates_in_scope as it's not a prompt template
-                if prompt_id == "gates_in_scope":
-                    continue
-                    
-                prompt_template = PromptTemplate(
-                    use_case=prompt_data.get("use_case", prompt_id),
-                    description=prompt_data.get("description", ""),
-                    prompt_template=prompt_data.get("prompt_template", ""),
-                    parameters=prompt_data.get("parameters", {}),
-                    examples=prompt_data.get("examples", [])
-                )
-                
-                self.prompts[prompt_id] = prompt_template
-            
-            print(f"✅ Loaded {len(self.prompts)} prompt templates from prompt library")
-            
-        except Exception as e:
-            print(f"❌ Failed to load prompt library: {e}")
+            gates_dict[category].append({
+                "gate_id": gate.gate_id,
+                "gate_name": gate.gate_name,
+                "prompt": gate.prompt,
+                "category": gate.category.value,
+                "severity": gate.severity.value
+            })
+        
+        return gates_dict
+    
+
     
     def get_available_gates_text(self) -> str:
         """Get formatted text of all available gates"""
-        if not self.gates_in_scope:
-            return "No gates defined in scope"
-        
-        gates_text = []
-        
-        for category, gates in self.gates_in_scope.items():
-            gates_text.append(f"\n{category.upper()} GATES:")
-            for gate in gates:
-                gate_id = gate.get("gate_id", "Unknown")
-                gate_name = gate.get("gate_name", "Unknown")
-                severity = gate.get("severity", "medium")
-                prompt = gate.get("prompt", "")
-                
-                gates_text.append(f"  {gate_id}: {gate_name} ({severity.upper()})")
-                gates_text.append(f"    {prompt}")
-        
-        return "\n".join(gates_text)
+        return self.prompt_templates.get_available_gates_text()
     
     def get_available_gates_by_category(self) -> Dict[str, List[Dict[str, Any]]]:
         """Get available gates organized by category"""
@@ -101,14 +53,17 @@ class PromptService:
     def get_available_gates_flat(self) -> List[Dict[str, Any]]:
         """Get all available gates as a flat list"""
         all_gates = []
-        for category, gates in self.gates_in_scope.items():
-            for gate in gates:
-                gate_with_category = gate.copy()
-                gate_with_category["category"] = category
-                all_gates.append(gate_with_category)
+        for gate in self.prompt_templates.get_all_gates():
+            all_gates.append({
+                "gate_id": gate.gate_id,
+                "gate_name": gate.gate_name,
+                "prompt": gate.prompt,
+                "category": gate.category.value,
+                "severity": gate.severity.value
+            })
         return all_gates
     
-    def get_prompt(self, prompt_id: str) -> Optional[PromptTemplate]:
+    def get_prompt(self, prompt_id: str) -> Optional[Any]:
         """Get a specific prompt template"""
         return self.prompts.get(prompt_id)
     
@@ -124,26 +79,15 @@ class PromptService:
     
     def format_prompt(self, prompt_id: str, **kwargs) -> Optional[str]:
         """Format a prompt template with provided parameters"""
-        prompt = self.get_prompt(prompt_id)
-        if not prompt:
-            return None
-        
         # Add available_gates to kwargs if not provided
         if "available_gates" not in kwargs:
             kwargs["available_gates"] = self.get_available_gates_text()
         
-        try:
-            return prompt.prompt_template.format(**kwargs)
-        except KeyError as e:
-            print(f"❌ Missing required parameter for prompt {prompt_id}: {e}")
-            return None
-        except Exception as e:
-            print(f"❌ Error formatting prompt {prompt_id}: {e}")
-            return None
+        return self.prompt_templates.format_template(prompt_id, **kwargs)
     
     def list_prompts(self) -> List[str]:
         """List all available prompt IDs"""
-        return list(self.prompts.keys())
+        return self.prompt_templates.get_template_names()
     
     def get_prompt_info(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a prompt"""
@@ -160,36 +104,37 @@ class PromptService:
         }
     
     def reload_prompts(self):
-        """Reload prompts from the file"""
-        self.prompts.clear()
-        self.gates_in_scope.clear()
-        self._load_prompts()
+        """Reload prompts from the centralized templates"""
+        # Reinitialize the prompt templates
+        self.prompt_templates = PromptTemplates()
+        self.prompts = self.prompt_templates.templates
+        self.gates_in_scope = self._convert_gates_to_dict()
     
     def validate_prompt(self, prompt_id: str, **kwargs) -> bool:
         """Validate that all required parameters are provided for a prompt"""
-        prompt = self.get_prompt(prompt_id)
-        if not prompt:
-            return False
-        
         # Add available_gates to kwargs for validation
         if "available_gates" not in kwargs:
             kwargs["available_gates"] = self.get_available_gates_text()
         
         try:
-            prompt.prompt_template.format(**kwargs)
+            self.prompt_templates.format_template(prompt_id, **kwargs)
             return True
-        except KeyError:
+        except (KeyError, TypeError):
             return False
     
     def get_gates_summary(self) -> Dict[str, Any]:
         """Get a summary of available gates"""
-        total_gates = sum(len(gates) for gates in self.gates_in_scope.values())
-        categories = list(self.gates_in_scope.keys())
+        all_gates = self.prompt_templates.get_all_gates()
+        categories = {}
+        
+        for gate in all_gates:
+            category = gate.category.value
+            if category not in categories:
+                categories[category] = 0
+            categories[category] += 1
         
         return {
-            "total_gates": total_gates,
-            "categories": categories,
-            "gates_by_category": {
-                category: len(gates) for category, gates in self.gates_in_scope.items()
-            }
+            "total_gates": len(all_gates),
+            "categories": list(categories.keys()),
+            "gates_by_category": categories
         }

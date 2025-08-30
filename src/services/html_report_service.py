@@ -190,33 +190,11 @@ class HTMLReportService:
         if not gate_results:
             return "<p>No gate results available.</p>"
         
-        # Define the hard gates that are the primary focus of evaluation
-        hard_gates = {
-            '1.1': 'Logs Searchable/Available',
-            '1.3': 'Audit Trail', 
-            '1.5': 'Implement tracking ID for log messages',
-            '1.6': 'Log API Calls',
-            '1.8': 'Log Application Messages',
-            '1.10': 'Avoid Logging Sensitive Data',
-            '2.7': 'UI Error Handling',
-            '1.1': 'Log system errors',
-            '1.3': 'Use HTTP standard error codes',
-            '2.4': 'Include Client error tracking',
-            '1.5': 'Timeouts',
-            '1.12': 'Retry Logic',
-            '3.6': 'Throttling, drop request',
-            '3.9': 'Set circuit breakers on outgoing requests',
-            '3.18': 'Auto Scale',
-            '2': 'Automated Regression Testing'
-        }
+        # Get hard gates and predefined categories from centralized registry
+        from models.gate_definitions import get_hard_gate_ids, get_predefined_categories, get_gate
         
-        # Define the actual gates in scope categories (hard gates)
-        predefined_categories = {
-            'Auditability': ['1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7'],
-            'Error Handling': ['1.1', '1.3', '2.4'],
-            'Availability': ['1.5', '1.12', '3.6', '3.9', '3.18'],
-            'Testing': ['2']
-        }
+        hard_gate_ids = set(get_hard_gate_ids())
+        predefined_categories = get_predefined_categories()
         
         # Group gates by predefined categories, prioritizing hard gates
         categories = {}
@@ -225,7 +203,7 @@ class HTMLReportService:
             for gate in gate_results:
                 if gate.gate_id in gate_ids:
                     # Mark hard gates for special emphasis
-                    gate.is_hard_gate = gate.gate_id in hard_gates or gate.gate_name in hard_gates.values()
+                    gate.is_hard_gate = gate.gate_id in hard_gate_ids
                     categories[category_name].append(gate)
         
         # Sort gates within each category to prioritize hard gates first

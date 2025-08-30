@@ -34,7 +34,8 @@ class RepositoryCheckoutNode(AsyncNode):
         return {
             "repo_url": context.repo_url,
             "branch": context.branch,
-            "git_token": context.git_token
+            "git_token": context.git_token,
+            "scan_id": context.scan_id
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
@@ -45,25 +46,36 @@ class RepositoryCheckoutNode(AsyncNode):
             repo_url = prep_res["repo_url"]
             branch = prep_res["branch"]
             git_token = prep_res["git_token"]
+            scan_id = prep_res["scan_id"]
             
-            # Clone main repository
-            main_repo_path = await self.git_utils.clone_repository(
-                repo_url, branch, git_token
+            # Create common folder structure based on scan_id and repo hash
+            common_folder = self._create_common_folder_structure(scan_id, repo_url)
+            print(f"📁 Created common folder structure: {common_folder}")
+            
+            # Clone main repository into common folder
+            main_repo_name = self._extract_repo_name(repo_url)
+            main_repo_path = os.path.join(common_folder, main_repo_name)
+            
+            main_repo_path = await self.git_utils.clone_repository_to_path(
+                repo_url, branch, git_token, main_repo_path
             )
             
             # Extract main repository information
             main_repo_info = await self.git_utils.get_repository_info(main_repo_path)
             
-            # Try to clone CD repository
+            # Clone CD repository into common folder
             cd_repo_path = None
             cd_repo_info = None
             
+            cd_repo_url = self._get_cd_repo_url(repo_url)
+            cd_repo_name = self._extract_repo_name(cd_repo_url)
+            cd_repo_path = os.path.join(common_folder, cd_repo_name)
+            
+            print(f"🔍 Attempting to clone CD repository: {cd_repo_url}")
+            
             try:
-                cd_repo_url = self._get_cd_repo_url(repo_url)
-                print(f"🔍 Attempting to clone CD repository: {cd_repo_url}")
-                
-                cd_repo_path = await self.git_utils.clone_repository(
-                    cd_repo_url, branch, git_token
+                cd_repo_path = await self.git_utils.clone_repository_to_path(
+                    cd_repo_url, branch, git_token, cd_repo_path
                 )
                 
                 cd_repo_info = await self.git_utils.get_repository_info(cd_repo_path)
@@ -78,14 +90,18 @@ class RepositoryCheckoutNode(AsyncNode):
             # Store in context
             self.context.repo_path = main_repo_path
             self.context.cd_repo_path = cd_repo_path
+            self.context.common_folder = common_folder
             self.context.metadata = {
                 "main_repo": main_repo_info.__dict__,
                 "cd_repo": cd_repo_info.__dict__ if cd_repo_info else None,
-                "has_cd_repo": cd_repo_info is not None
+                "has_cd_repo": cd_repo_info is not None,
+                "common_folder": common_folder,
+                "scan_id": scan_id
             }
             
             print(f"✅ Main repository checked out: {main_repo_path}")
             print(f"📊 Main repository info: {main_repo_info.total_files} files, {main_repo_info.total_lines} lines")
+            print(f"📁 Common folder: {common_folder}")
             
             if cd_repo_info:
                 print(f"🔄 CD repository included in analysis")
@@ -95,6 +111,33 @@ class RepositoryCheckoutNode(AsyncNode):
         except Exception as e:
             print(f"❌ Repository checkout failed: {e}")
             return "error"
+    
+    def _create_common_folder_structure(self, scan_id: str, repo_url: str) -> str:
+        """Create common folder structure based on scan_id and repo hash"""
+        import hashlib
+        import tempfile
+        from pathlib import Path
+        
+        # Generate repo hash from URL
+        repo_hash = hashlib.md5(repo_url.encode()).hexdigest()[:8]
+        
+        # Create folder name: scan_{scan_id}_repo_{repo_hash}
+        folder_name = f"scan_{scan_id}_repo_{repo_hash}"
+        
+        # Create path in temp directory
+        temp_dir = Path(tempfile.gettempdir()) / "codegates_scan"
+        temp_dir.mkdir(exist_ok=True)
+        
+        common_folder = temp_dir / folder_name
+        common_folder.mkdir(exist_ok=True)
+        
+        return str(common_folder)
+    
+    def _extract_repo_name(self, repo_url: str) -> str:
+        """Extract repository name from URL"""
+        # Remove .git suffix if present
+        repo_name = repo_url.split("/")[-1].replace(".git", "")
+        return repo_name
     
     def _get_cd_repo_url(self, repo_url: str) -> str:
         """Generate CD repository URL by adding '-cd' suffix"""
@@ -110,19 +153,17 @@ class RepositoryCheckoutNode(AsyncNode):
         if exec_res == "success":
             context.repo_path = self.context.repo_path
             context.cd_repo_path = self.context.cd_repo_path
+            context.common_folder = self.context.common_folder
             context.metadata = self.context.metadata
         return exec_res
 
 
 class VectorizationNode(AsyncNode):
-    """Step 2: Vectorization & Storage"""
+    """Step 2: CocoIndex Vectorization & Storage"""
     
-    def __init__(self, vector_service: VectorService, embedding_service: EmbeddingService, 
-                 ast_parser_service: ASTParserService):
+    def __init__(self, cocoindex_service):
         super().__init__()
-        self.vector_service = vector_service
-        self.embedding_service = embedding_service
-        self.ast_parser_service = ast_parser_service
+        self.cocoindex_service = cocoindex_service
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare vectorization"""
@@ -142,7 +183,7 @@ class VectorizationNode(AsyncNode):
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
-        """Execute vectorization step"""
+        """Execute CocoIndex vectorization step"""
         try:
             repo_path = prep_res["repo_path"]
             cd_repo_path = prep_res.get("cd_repo_path")
@@ -151,424 +192,80 @@ class VectorizationNode(AsyncNode):
             branch = prep_res["branch"]
             commit_hash = prep_res["commit_hash"]
             
-            print(f"🔍 Starting vectorization for scan: {scan_id}")
+            print(f"🔍 Starting CocoIndex vectorization for scan: {scan_id}")
             print(f"📁 Main repo: {repo_path}")
             if cd_repo_path:
                 print(f"📁 CD repo: {cd_repo_path}")
             
-            # Generate collection name based on git hash for deduplication
-            repo_hash = commit_hash  # Use the commit_hash from prep_res
-            collection_name = self.vector_service._get_collection_name(scan_id, repo_hash)
-            
-            print(f"📊 Collection: {collection_name}")
-            
-            # Check if repository is already indexed
-            if repo_hash and self.vector_service.is_repository_indexed(repo_hash):
-                print(f"🔄 Repository already indexed (hash: {repo_hash}) - skipping vectorization")
-                print(f"📋 Previous scans for this repo: {len(self.vector_service.get_scan_mappings_for_repo(repo_hash))}")
-                
-                # Store scan mapping for this scan
-                self.vector_service._store_scan_mapping(
+            # Index main repository using CocoIndex
+            print(f"🔍 Indexing main repository with CocoIndex...")
+            try:
+                main_result = await self.cocoindex_service.index_repository(
+                    repo_path=repo_path,
                     scan_id=scan_id,
-                    repo_hash=repo_hash,
-                    repo_url=repo_url,
-                    branch=branch
+                    repo_type="main"
                 )
                 
-                # Store vector data in context
-                if hasattr(self, 'context') and self.context is not None:
-                    self.context.vector_data = {
-                        "scan_id": scan_id,
-                        "collection_name": collection_name,
-                        "main_chunks_count": 0,
-                        "cd_chunks_count": 0,
-                        "total_vectors_stored": 0,
-                        "repository_already_indexed": True,
-                        "repo_hash": repo_hash
-                    }
-                
-                return "success"
+                if not main_result["indexing_successful"]:
+                    print(f"❌ Main repository indexing failed: {main_result.get('error', 'Unknown error')}")
+                    # Continue without vector data instead of failing completely
+                    main_result = None
+            except Exception as e:
+                print(f"❌ Main repository indexing failed with exception: {e}")
+                main_result = None
             
+            # Index CD repository if it exists
+            cd_result = None
             if cd_repo_path:
-                print(f"📁 Will include both main and CD repositories in single collection")
-            
-            # Process main repository
-            print(f"🔍 Processing main repository files...")
-            main_chunks = []
-            
-            # Get repository metadata
-            main_repo_metadata = self._get_repo_metadata(repo_path, repo_url, branch, commit_hash, "main")
-            
-            for file_path in self._get_files_to_process(repo_path):
+                print(f"🔍 Indexing CD repository with CocoIndex...")
                 try:
-                    chunks = await self._process_file(file_path, repo_path, scan_id, "main", main_repo_metadata)
-                    main_chunks.extend(chunks)
-                except Exception as e:
-                    print(f"⚠️ Failed to process file {file_path}: {e}")
-                    continue
-            
-            print(f"✅ Main repository: {len(main_chunks)} chunks created")
-            
-            # Process CD repository if it exists
-            cd_chunks = []
-            if cd_repo_path:
-                print(f"🔍 Processing CD repository files...")
-                cd_repo_metadata = self._get_repo_metadata(cd_repo_path, repo_url, branch, commit_hash, "cd")
-                
-                for file_path in self._get_files_to_process(cd_repo_path):
-                    try:
-                        chunks = await self._process_file(file_path, cd_repo_path, scan_id, "cd", cd_repo_metadata)
-                        cd_chunks.extend(chunks)
-                    except Exception as e:
-                        print(f"⚠️ Failed to process file {file_path}: {e}")
-                        continue
-                
-                print(f"✅ CD repository: {len(cd_chunks)} chunks created")
-            
-            # Generate embeddings for all chunks
-            print(f"🧠 Generating embeddings...")
-            all_chunks = main_chunks + cd_chunks
-            
-            if not all_chunks:
-                print("⚠️ No chunks to vectorize")
-                return "error"
-            
-            # Generate embeddings in batches
-            batch_size = 50
-            all_embeddings = []
-            
-            for i in range(0, len(all_chunks), batch_size):
-                batch = all_chunks[i:i + batch_size]
-                batch_texts = [chunk["content"] for chunk in batch]
-                
-                try:
-                    batch_embeddings = self.embedding_service.embed_batch(batch_texts)
-                    all_embeddings.extend(batch_embeddings)
-                    print(f"✅ Generated embeddings for batch {i//batch_size + 1}/{(len(all_chunks) + batch_size - 1)//batch_size}")
-                except Exception as e:
-                    print(f"❌ Failed to generate embeddings for batch {i//batch_size + 1}: {e}")
-                    # Continue with other batches
-                    continue
-            
-            if len(all_embeddings) != len(all_chunks):
-                print(f"⚠️ Embedding count mismatch: {len(all_embeddings)} vs {len(all_chunks)}")
-                # Truncate to match
-                all_chunks = all_chunks[:len(all_embeddings)]
-            
-            # Store vectors in database
-            print(f"💾 Storing vectors in database...")
-            
-            # Prepare vectors for storage
-            vectors = []
-            for i, (chunk, embedding) in enumerate(zip(all_chunks, all_embeddings)):
-                if embedding is None:
-                    continue
+                    cd_result = await self.cocoindex_service.index_repository(
+                        repo_path=cd_repo_path,
+                        scan_id=scan_id,
+                        repo_type="cd"
+                    )
                     
-                vector_data = {
-                    "id": chunk["id"],
-                    "vector": embedding,
-                    "payload": chunk["metadata"]
-                }
-                vectors.append(vector_data)
-            
-            # Store all vectors in single collection
-            if vectors:
-                try:
-                    print(f"🔍 About to store {len(vectors)} vectors in collection: {collection_name}")
-                    success = self.vector_service.upsert_vectors(collection_name, vectors)
-                    if success:
-                        print(f"✅ Successfully stored {len(vectors)} vectors in collection: {collection_name}")
-                        
-                        # Verify storage by checking collection info
-                        collection_info = self.vector_service.get_collection_info(collection_name)
-                        if collection_info:
-                            print(f"📊 Collection {collection_name} now has {collection_info.get('count', 0)} vectors")
-                        else:
-                            print(f"⚠️ Could not verify collection info for {collection_name}")
-                    else:
-                        print(f"❌ Failed to store vectors in {collection_name}")
-                        return "error"
+                    if not cd_result["indexing_successful"]:
+                        print(f"⚠️ CD repository indexing failed: {cd_result.get('error', 'Unknown error')}")
+                        # Continue with main repository only
+                        cd_result = None
                 except Exception as e:
-                    print(f"❌ Failed to store vectors: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    return "error"
-            
-            # Store scan mapping for this scan (for new repositories)
-            self.vector_service._store_scan_mapping(
-                scan_id=scan_id,
-                repo_hash=repo_hash,
-                repo_url=repo_url,
-                branch=branch
-            )
+                    print(f"⚠️ CD repository indexing failed with exception: {e}")
+                    cd_result = None
             
             # Store vector data in context
             if hasattr(self, 'context') and self.context is not None:
-                self.context.vector_data = {
-                    "scan_id": scan_id,
-                    "collection_name": collection_name,
-                    "main_chunks_count": len(main_chunks),
-                    "cd_chunks_count": len(cd_chunks),
-                    "total_vectors_stored": len(vectors),
-                    "repo_hash": repo_hash
-                }
-            
-            print(f"✅ Vectorization completed successfully")
-            print(f"📊 Total chunks processed: {len(all_chunks)}")
-            print(f"📊 Total vectors stored: {len(vectors)}")
+                if main_result:
+                    self.context.vector_data = {
+                        "scan_id": scan_id,
+                        "main_collection_name": main_result["collection_name"],
+                        "cd_collection_name": cd_result["collection_name"] if cd_result else None,
+                        "main_chunks_count": main_result["chunks_count"],
+                        "cd_chunks_count": cd_result["chunks_count"] if cd_result else 0,
+                        "total_chunks": main_result["chunks_count"] + (cd_result["chunks_count"] if cd_result else 0),
+                        "repo_hash": commit_hash,
+                        "cocoindex_used": True
+                    }
+                    
+                    print(f"✅ CocoIndex vectorization completed successfully")
+                    print(f"📊 Main repository chunks: {main_result['chunks_count']}")
+                    if cd_result:
+                        print(f"📊 CD repository chunks: {cd_result['chunks_count']}")
+                    print(f"📊 Total chunks: {main_result['chunks_count'] + (cd_result['chunks_count'] if cd_result else 0)}")
+                else:
+                    # No vector data available
+                    self.context.vector_data = None
+                    print(f"⚠️ CocoIndex vectorization failed, continuing without vector data")
             
             return "success"
             
         except Exception as e:
-            print(f"❌ Vectorization failed: {e}")
+            print(f"❌ CocoIndex vectorization failed: {e}")
             import traceback
             traceback.print_exc()
             return "error"
     
-    def _get_repo_metadata(self, repo_path: str, repo_url: str, branch: str, commit_hash: str, repo_type: str) -> Dict[str, Any]:
-        """Helper to get repository metadata for vectorization"""
-        return {
-            "repo_path": repo_path,
-            "repo_url": repo_url,
-            "branch": branch,
-            "commit_hash": commit_hash,
-            "repo_type": repo_type,
-            "total_files": 0, # Will be updated after processing
-            "total_lines": 0, # Will be updated after processing
-            "languages": [], # Will be updated after processing
-            "dependencies": {}, # Will be updated after processing
-            "build_files": [], # Will be updated after processing
-            "config_files": [] # Will be updated after processing
-        }
-    
-    def _get_files_to_process(self, repo_path: str) -> List[Path]:
-        """Helper to get list of files to process, respecting ignore patterns"""
-        repo_path_obj = Path(repo_path)
-        files_to_process = []
-        
-        for file_path in repo_path_obj.rglob("*"):
-            if file_path.is_file() and not self._should_ignore_file(file_path):
-                files_to_process.append(file_path)
-        
-        return files_to_process
-    
-    async def _process_file(self, file_path: Path, repo_root: Path, scan_id: str, repo_type: str = "main", repo_metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """Process individual file"""
-        try:
-            # Read file content
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-            
-            # Determine language
-            language = self._detect_language(file_path)
-            
-            # Parse with AST if supported
-            ast_result = self.ast_parser_service.parse_file(content, language)
-            
-            # Create chunks
-            chunks = []
-            
-            if ast_result.get("symbols"):
-                # Create symbol-based chunks
-                for symbol in ast_result["symbols"]:
-                    if isinstance(symbol, dict):
-                        symbol_name = symbol.get("name", "unknown")
-                        start_line = symbol.get("start_line", 0)
-                        end_line = symbol.get("end_line", 0)
-                    else:
-                        symbol_name = symbol.name
-                        start_line = symbol.start_line
-                        end_line = symbol.end_line
-                    
-                    # Extract symbol content
-                    lines = content.split('\n')
-                    symbol_lines = lines[start_line-1:end_line] if start_line > 0 else []
-                    symbol_content = '\n'.join(symbol_lines)
-                    
-                    if len(symbol_content.strip()) >= 10:
-                        # Generate a proper UUID for the chunk ID
-                        import uuid
-                        chunk_id = str(uuid.uuid4())
-                        
-                        # Create comprehensive metadata
-                        chunk_metadata = {
-                            "scan_id": scan_id,
-                            "repo_type": repo_type,
-                            "file_path": str(file_path.relative_to(repo_root)),
-                            "filename": file_path.name,
-                            "language": language,
-                            "start_line": start_line,
-                            "end_line": end_line,
-                            "symbol_name": symbol_name,
-                            "symbol_kind": "function" if "function" in symbol_name.lower() else "class",
-                            "content_hash": hashlib.md5(symbol_content.encode()).hexdigest(),
-                            "file_size": file_path.stat().st_size,
-                            "total_lines": len(content.split('\n')),
-                            "processing_timestamp": time.time()
-                        }
-                        
-                        # Add repository metadata if available
-                        if repo_metadata:
-                            chunk_metadata.update({
-                                "repo_url": repo_metadata.get("repo_url", ""),
-                                "repo_branch": repo_metadata.get("branch", ""),
-                                "repo_commit_hash": repo_metadata.get("commit_hash", ""),
-                                "repo_total_files": repo_metadata.get("total_files", 0),
-                                "repo_total_lines": repo_metadata.get("total_lines", 0),
-                                "repo_languages": repo_metadata.get("languages", []),
-                                "repo_dependencies": repo_metadata.get("dependencies", {}),
-                                "repo_build_files": repo_metadata.get("build_files", []),
-                                "repo_config_files": repo_metadata.get("config_files", [])
-                            })
-                        
-                        chunks.append({
-                            "id": chunk_id,
-                            "content": symbol_content,
-                            "metadata": chunk_metadata
-                        })
-            
-            # If no symbols, create sliding window chunks
-            if not chunks:
-                chunks = self._create_sliding_chunks(content, file_path, repo_root, scan_id, language, repo_type, repo_metadata)
-            
-            return chunks
-            
-        except Exception as e:
-            print(f"⚠️ Failed to process file {file_path}: {e}")
-            return []
-    
-    def _create_sliding_chunks(self, content: str, file_path: Path, repo_root: Path, 
-                              scan_id: str, language: str, repo_type: str = "main", repo_metadata: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """Create sliding window chunks"""
-        chunks = []
-        lines = content.split('\n')
-        chunk_size = 50  # lines per chunk
-        overlap = 10     # overlapping lines
-        
-        for i in range(0, len(lines), chunk_size - overlap):
-            chunk_lines = lines[i:i + chunk_size]
-            chunk_content = '\n'.join(chunk_lines)
-            
-            if len(chunk_content.strip()) >= 10:
-                # Generate a proper UUID for the chunk ID
-                import uuid
-                chunk_id = str(uuid.uuid4())
-                
-                # Create comprehensive metadata
-                chunk_metadata = {
-                    "scan_id": scan_id,
-                    "repo_type": repo_type,
-                    "file_path": str(file_path.relative_to(repo_root)),
-                    "filename": file_path.name,
-                    "language": language,
-                    "start_line": i + 1,
-                    "end_line": min(i + chunk_size, len(lines)),
-                    "content_hash": hashlib.md5(chunk_content.encode()).hexdigest(),
-                    "file_size": file_path.stat().st_size,
-                    "total_lines": len(content.split('\n')),
-                    "processing_timestamp": time.time()
-                }
-                
-                # Add repository metadata if available
-                if repo_metadata:
-                    chunk_metadata.update({
-                        "repo_url": repo_metadata.get("repo_url", ""),
-                        "repo_branch": repo_metadata.get("branch", ""),
-                        "repo_commit_hash": repo_metadata.get("commit_hash", ""),
-                        "repo_total_files": repo_metadata.get("total_files", 0),
-                        "repo_total_lines": repo_metadata.get("total_lines", 0),
-                        "repo_languages": repo_metadata.get("languages", []),
-                        "repo_dependencies": repo_metadata.get("dependencies", {}),
-                        "repo_build_files": repo_metadata.get("build_files", []),
-                        "repo_config_files": repo_metadata.get("config_files", [])
-                    })
-                
-                chunks.append({
-                    "id": chunk_id,
-                    "content": chunk_content,
-                    "metadata": chunk_metadata
-                })
-        
-        return chunks
-    
-    def _detect_language(self, file_path: Path) -> str:
-        """Detect programming language from file extension"""
-        ext = file_path.suffix.lower()
-        language_map = {
-            '.py': 'python',
-            '.js': 'javascript',
-            '.ts': 'typescript',
-            '.jsx': 'javascript',
-            '.tsx': 'typescript',
-            '.java': 'java',
-            '.cs': 'csharp',
-            '.go': 'go',
-            '.rs': 'rust',
-            '.cpp': 'cpp',
-            '.c': 'c',
-            '.h': 'c',
-            '.hpp': 'cpp'
-        }
-        return language_map.get(ext, 'text')
-    
-    def _should_ignore_file(self, file_path: Path) -> bool:
-        """Check if file should be ignored using enhanced filtering"""
-        try:
-            # Load file filtering configuration
-            import json
-            import os
-            
-            config_path = os.path.join(os.path.dirname(__file__), "..", "data", "file_filtering_config.json")
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    config = json.load(f)
-                
-                filtering_config = config.get("file_filtering", {})
-                ignore_patterns = filtering_config.get("ignore_patterns", [])
-                binary_extensions = set(filtering_config.get("binary_extensions", []))
-                size_limits = filtering_config.get("size_limits", {})
-            else:
-                # Fallback to default patterns
-                ignore_patterns = [
-                    '.git', '.svn', '.hg', 'node_modules', '__pycache__', 
-                    '.pytest_cache', 'target', 'build', 'dist', 'out',
-                    '.idea', '.vscode', '.vs', '.DS_Store'
-                ]
-                binary_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico',
-                                   '.mp4', '.avi', '.mov', '.mp3', '.wav',
-                                   '.zip', '.tar', '.gz', '.rar', '.7z',
-                                   '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-                                   '.exe', '.dll', '.so', '.dylib',
-                                   '.jar', '.war', '.ear', '.class'}
-                size_limits = {"max_file_size_mb": 10, "skip_large_files": True}
-            
-            # Check ignore patterns
-            file_path_str = str(file_path)
-            for pattern in ignore_patterns:
-                if pattern in file_path_str:
-                    return True
-            
-            # Check binary extensions
-            if file_path.suffix.lower() in binary_extensions:
-                return True
-            
-            # Check file size limits
-            if size_limits.get("skip_large_files", False):
-                try:
-                    file_size_mb = file_path.stat().st_size / (1024 * 1024)
-                    max_size_mb = size_limits.get("max_file_size_mb", 10)
-                    if file_size_mb > max_size_mb:
-                        return True
-                except (OSError, AttributeError):
-                    pass
-            
-            return False
-            
-        except Exception as e:
-            print(f"⚠️ Error in file filtering: {e}")
-            # Fallback to basic filtering
-            basic_patterns = ['.git', '.svn', '.hg', 'node_modules', '__pycache__']
-            return any(pattern in str(file_path) for pattern in basic_patterns)
+
     
     async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
         """Post-vectorization processing"""
@@ -606,9 +303,6 @@ class LLMPreAnalysisNode(AsyncNode):
                 print("❌ No metadata available for LLM pre-analysis")
                 return "error"
             
-            # Build project structure summary
-            project_summary = self._build_project_summary(metadata)
-            
             # Get build configuration content
             build_configs = self._get_build_configs(metadata)
             
@@ -621,7 +315,7 @@ class LLMPreAnalysisNode(AsyncNode):
                 expected_counts_analysis = {}
             
             # Create prompt for LLM with expected counts analysis
-            prompt = self._create_pre_analysis_prompt(project_summary, build_configs, expected_counts_analysis)
+            prompt = self._create_pre_analysis_prompt(build_configs, expected_counts_analysis)
             
             # Call LLM for dynamic patterns
             print("   📞 Calling LLM service...")
@@ -630,7 +324,6 @@ class LLMPreAnalysisNode(AsyncNode):
                 scan_id=self.context.scan_id,
                 node_name="LLMPreAnalysisNode",
                 metadata={
-                    "project_summary": project_summary,
                     "build_configs": build_configs,
                     "vector_data": vector_data
                 }
@@ -661,59 +354,9 @@ class LLMPreAnalysisNode(AsyncNode):
             print(f"❌ LLM pre-analysis failed: {e}")
             return "error"
     
-    def _build_project_summary(self, metadata: Dict[str, Any]) -> str:
-        """Build comprehensive project structure summary"""
-        # Handle the nested metadata structure
-        main_repo = metadata.get('main_repo', {})
-        cd_repo = metadata.get('cd_repo')
-        
-        # Extract framework indicators from build files and config files
-        build_files = main_repo.get('build_files', [])
-        config_files = main_repo.get('config_files', [])
-        
-        # Analyze frameworks based on file patterns
-        frameworks = self._detect_frameworks(build_files, config_files)
-        databases = self._detect_databases(build_files, config_files)
-        build_tools = self._detect_build_tools(build_files)
-        deployment_platforms = self._detect_deployment_platforms(build_files, config_files)
-        
-        summary = f"""
-COMPREHENSIVE PROJECT ANALYSIS:
-- Repository: {main_repo.get('repo_url', 'Unknown')}
-- Branch: {main_repo.get('branch', 'Unknown')}
-- Total Files: {main_repo.get('total_files', 0)}
-- Total Lines: {main_repo.get('total_lines', 0)}
-- Primary Languages: {', '.join(main_repo.get('languages', []))}
 
-FRAMEWORK & TECHNOLOGY STACK:
-- Detected Frameworks: {', '.join(frameworks) if frameworks else 'None detected'}
-- Database Technologies: {', '.join(databases) if databases else 'None detected'}
-- Build Tools: {', '.join(build_tools) if build_tools else 'None detected'}
-- Deployment Platforms: {', '.join(deployment_platforms) if deployment_platforms else 'None detected'}
-
-PROJECT STRUCTURE:
-- Build Files: {', '.join(build_files)}
-- Configuration Files: {', '.join(config_files)}
-- Dependencies: {main_repo.get('dependencies', {})}
-
-INTEGRATION ANALYSIS:
-- External Systems: {self._detect_integrations(build_files, config_files)}
-- Security Frameworks: {self._detect_security_frameworks(build_files, config_files)}
-- Monitoring Tools: {self._detect_monitoring_tools(build_files, config_files)}
-"""
-        
-        if cd_repo:
-            summary += f"""
-CD/CI REPOSITORY:
-- Repository: {cd_repo.get('repo_url', 'Unknown')}
-- Total Files: {cd_repo.get('total_files', 0)}
-- Total Lines: {cd_repo.get('total_lines', 0)}
-- CD/CI Tools: {self._detect_cicd_tools(cd_repo.get('build_files', []), cd_repo.get('config_files', []))}
-"""
-        
-        return summary
     
-    def _detect_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect frameworks based on build and config files"""
         frameworks = []
         
@@ -753,7 +396,7 @@ CD/CI REPOSITORY:
         
         return list(set(frameworks))
     
-    def _detect_databases(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_databases(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect database technologies"""
         databases = []
         
@@ -776,7 +419,7 @@ CD/CI REPOSITORY:
         
         return list(set(databases))
     
-    def _detect_build_tools(self, build_files: List[str]) -> List[str]:
+    # def _detect_build_tools(self, build_files: List[str]) -> List[str]:
         """Detect build tools"""
         tools = []
         
@@ -797,7 +440,7 @@ CD/CI REPOSITORY:
         
         return list(set(tools))
     
-    def _detect_deployment_platforms(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_deployment_platforms(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect deployment platforms"""
         platforms = []
         
@@ -816,7 +459,7 @@ CD/CI REPOSITORY:
         
         return list(set(platforms))
     
-    def _detect_integrations(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_integrations(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect external system integrations"""
         integrations = []
         
@@ -842,7 +485,7 @@ CD/CI REPOSITORY:
         
         return list(set(integrations))
     
-    def _detect_security_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_security_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect security frameworks"""
         security = []
         
@@ -859,7 +502,7 @@ CD/CI REPOSITORY:
         
         return list(set(security))
     
-    def _detect_monitoring_tools(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_monitoring_tools(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect monitoring and logging tools"""
         monitoring = []
         
@@ -876,7 +519,7 @@ CD/CI REPOSITORY:
         
         return list(set(monitoring))
     
-    def _detect_cicd_tools(self, build_files: List[str], config_files: List[str]) -> List[str]:
+    # def _detect_cicd_tools(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect CI/CD tools"""
         cicd = []
         
@@ -915,7 +558,7 @@ CD/CI REPOSITORY:
                 config_content.append("BUILD FILES:")
                 for build_file in build_files[:5]:  # Limit to first 5 files
                     file_path = os.path.join(repo_path, build_file)
-                    content = self._read_file_content(file_path, max_lines=50)
+                    content = self._read_file_content(file_path, max_lines=5000)
                     if content:
                         config_content.append(f"\n{build_file}:")
                         config_content.append(content)
@@ -927,7 +570,7 @@ CD/CI REPOSITORY:
                 config_content.append("\nCONFIG FILES:")
                 for config_file in config_files[:5]:  # Limit to first 5 files
                     file_path = os.path.join(repo_path, config_file)
-                    content = self._read_file_content(file_path, max_lines=50)
+                    content = self._read_file_content(file_path, max_lines=5000)
                     if content:
                         config_content.append(f"\n{config_file}:")
                         config_content.append(content)
@@ -945,7 +588,7 @@ CD/CI REPOSITORY:
             print(f"⚠️ Error extracting build configs: {e}")
             return f"Error extracting build configuration content: {str(e)}"
     
-    def _read_file_content(self, file_path: str, max_lines: int = 50) -> str:
+    def _read_file_content(self, file_path: str, max_lines: int = 5000) -> str:
         """Read file content with line limit"""
         try:
             if not os.path.exists(file_path):
@@ -962,8 +605,8 @@ CD/CI REPOSITORY:
                 content = "\n".join(lines)
                 
                 # Truncate if too long
-                if len(content) > 2000:
-                    content = content[:2000] + "\n... (content truncated)"
+                if len(content) > 40000:
+                    content = content[:40000] + "\n... (content truncated)"
                 
                 return content
                 
@@ -971,7 +614,7 @@ CD/CI REPOSITORY:
             print(f"⚠️ Error reading file {file_path}: {e}")
             return f"Error reading file: {str(e)}"
     
-    def _create_pre_analysis_prompt(self, project_summary: str, build_configs: str, expected_counts_analysis: Dict[str, Dict[str, Any]] = None) -> str:
+    def _create_pre_analysis_prompt(self, build_configs: str, expected_counts_analysis: Dict[str, Dict[str, Any]] = None) -> str:
         """Create prompt for LLM pre-analysis with extracted code snippets and expected counts analysis"""
         from services.prompt_service import PromptService
         
@@ -988,13 +631,19 @@ CD/CI REPOSITORY:
                 expected_counts_text += f"- Gate {gate_id}: Expected {analysis.get('expected_count', 1)} implementations\n"
                 expected_counts_text += f"  Reason: {analysis.get('reason', 'Based on project structure analysis')}\n"
         
+        # Get extracted code snippets
+        extracted_code = self._extract_relevant_code_snippets()
+        
+        # Get project structure information
+        project_structure = self._get_project_structure_info()
+        
         return prompt_service.format_prompt(
             "llm_pre_analysis",
-            code_structure=project_summary,
-            config_files=build_configs,
+            build_configs=build_configs,
             available_gates=self._get_available_gates_summary(),
+            expected_counts_analysis=expected_counts_text,
             extracted_code=extracted_code,
-            expected_counts=expected_counts_text
+            project_structure=project_structure
         ) or f"""
 CRITICAL: You must respond with ONLY valid JSON. No explanations, no markdown, no other text.
 
@@ -1002,7 +651,6 @@ You are an expert software architect and code analyst. Analyze the repository co
 
 ## INPUT DATA
 
-Repository Structure: {project_summary}
 Key Config Files: {build_configs}
 
 Available Gates:
@@ -1019,6 +667,7 @@ Expected Counts Analysis:
 1. **PROJECT SUMMARY & FRAMEWORK ANALYSIS**: Analyze the project structure, identify frameworks, technologies, and architectural patterns
 2. **GATE APPLICABILITY ANALYSIS**: Determine which gates are applicable based on project type, frameworks, and integrations
 3. **DYNAMIC PATTERN GENERATION**: Create regex patterns for applicable gates based on the codebase
+4. **EXPECTED COUNT ANALYSIS**: Provide expected implementation counts with detailed reasoning
 
 ## ANALYSIS CRITERIA
 
@@ -1035,6 +684,13 @@ Expected Counts Analysis:
 - **Availability Gates**: Check for timeout configurations, retry logic, circuit breakers
 - **Security Gates**: Look for authentication, authorization, data protection
 - **Testing Gates**: Check for testing frameworks, test coverage, CI/CD integration
+
+### Expected Count Analysis:
+- **File Type Analysis**: Count relevant file types (controllers, services, utilities, etc.)
+- **Architecture Patterns**: Consider MVC, microservices, layered architecture
+- **Technology Stack**: Requirements based on detected frameworks and libraries
+- **Build Configuration**: Indicators from dependencies, plugins, and configurations
+- **Industry Best Practices**: Standard expectations for the detected technology stack
 
 ### Integration Analysis:
 - Database integrations (MySQL, PostgreSQL, MongoDB, etc.)
@@ -1093,7 +749,9 @@ Respond with ONLY this exact JSON structure:
             "severity": "HIGH",
             "category": "ERROR_HANDLING",
             "examples": ["error logging", "system error handling"],
-            "integration_analysis": "Integration with logging framework detected in config files"
+            "integration_analysis": "Integration with logging framework detected in config files",
+            "expected_count": 5,
+            "expected_count_reasoning": "Based on 3 controller classes, 2 service classes that should implement error logging according to Spring Boot best practices"
         }},
         {{
             "gate_id": "1.3",
@@ -1157,12 +815,36 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
                         if patterns:
                             print(f"✅ Successfully parsed {len(patterns)} patterns from LLM response (strategy {i+1})")
                             
+                            # Process and validate expected counts from LLM
+                            llm_expected_counts = {}
+                            for pattern in patterns:
+                                gate_id = pattern.get("gate_id")
+                                if gate_id:  # Store expected counts for all gates, regardless of applicability
+                                    expected_count = pattern.get("expected_count")
+                                    expected_count_reasoning = pattern.get("expected_count_reasoning", "")
+                                    applicable = pattern.get("applicable", False)
+                                    
+                                    if expected_count is not None:
+                                        llm_expected_counts[gate_id] = {
+                                            "expected_count": expected_count,
+                                            "reasoning": expected_count_reasoning,
+                                            "applicable": applicable,
+                                            "source": "llm_analysis"
+                                        }
+                                        print(f"📊 LLM expected count for {gate_id}: {expected_count} (applicable: {applicable}) ({expected_count_reasoning[:50]}...)")
+                                    else:
+                                        print(f"⚠️ No expected_count provided by LLM for gate {gate_id}")
+                                else:
+                                    print(f"⚠️ No gate_id found in pattern: {pattern}")
+                            
                             # Store enhanced analysis in context
                             if hasattr(self, 'context') and self.context is not None:
                                 self.context.project_analysis = project_analysis
                                 self.context.gate_analysis = gate_analysis
+                                self.context.llm_expected_counts = llm_expected_counts
                                 print(f"📊 Stored project analysis: {len(project_analysis)} fields")
                                 print(f"📊 Stored gate analysis: {len(gate_analysis)} fields")
+                                print(f"📊 Stored LLM expected counts: {len(llm_expected_counts)} gates")
                             
                             return patterns
                         else:
@@ -1298,6 +980,49 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
             print(f"⚠️ Error extracting code snippets: {e}")
             return "Error extracting code snippets from vector database"
     
+    def _get_project_structure_info(self) -> str:
+        """Get project structure information for the prompt"""
+        try:
+            metadata = getattr(self.context, 'metadata', {})
+            main_repo = metadata.get('main_repo', {})
+            cd_repo = metadata.get('cd_repo')
+            
+            structure_info = []
+            
+            # Main repository info
+            if main_repo:
+                structure_info.append("MAIN REPOSITORY:")
+                structure_info.append(f"- Repository: {main_repo.get('repo_url', 'Unknown')}")
+                structure_info.append(f"- Branch: {main_repo.get('branch', 'Unknown')}")
+                structure_info.append(f"- Total Files: {main_repo.get('total_files', 0)}")
+                structure_info.append(f"- Total Lines: {main_repo.get('total_lines', 0)}")
+                structure_info.append(f"- Primary Languages: {', '.join(main_repo.get('languages', []))}")
+                structure_info.append(f"- Build Files: {', '.join(main_repo.get('build_files', []))}")
+                structure_info.append(f"- Config Files: {', '.join(main_repo.get('config_files', []))}")
+                
+                # Dependencies
+                dependencies = main_repo.get('dependencies', {})
+                if dependencies:
+                    structure_info.append(f"- Dependencies: {dependencies}")
+            
+            # CD repository info
+            if cd_repo:
+                structure_info.append("\nCD/CI REPOSITORY:")
+                structure_info.append(f"- Repository: {cd_repo.get('repo_url', 'Unknown')}")
+                structure_info.append(f"- Total Files: {cd_repo.get('total_files', 0)}")
+                structure_info.append(f"- Total Lines: {cd_repo.get('total_lines', 0)}")
+                structure_info.append(f"- Build Files: {', '.join(cd_repo.get('build_files', []))}")
+                structure_info.append(f"- Config Files: {', '.join(cd_repo.get('config_files', []))}")
+            
+            if not structure_info:
+                return "No project structure information available"
+            
+            return "\n".join(structure_info)
+            
+        except Exception as e:
+            print(f"⚠️ Error getting project structure info: {e}")
+            return "Error retrieving project structure information"
+
     def _get_available_gates_summary(self) -> str:
         """Get summary of available gates for the prompt"""
         try:
@@ -1631,7 +1356,7 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
             build_files = main_repo.get('build_files', [])
             for build_file in build_files:
                 file_path = os.path.join(repo_path, build_file)
-                content = self._read_file_content(file_path, max_lines=200)
+                content = self._read_file_content(file_path, max_lines=5000)
                 
                 if content:
                     content_lower = content.lower()
@@ -1695,7 +1420,7 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
             config_files = main_repo.get('config_files', [])
             for config_file in config_files:
                 file_path = os.path.join(repo_path, config_file)
-                content = self._read_file_content(file_path, max_lines=100)
+                content = self._read_file_content(file_path, max_lines=5000)
                 
                 if content:
                     content_lower = content.lower()
@@ -2196,10 +1921,9 @@ class PatternConsolidationNode(AsyncNode):
 class ExpectedImplementationNode(AsyncNode):
     """Step 5: Expected Implementation Calculation"""
     
-    def __init__(self, vector_service: VectorService, embedding_service: EmbeddingService):
+    def __init__(self, cocoindex_service):
         super().__init__()
-        self.vector_service = vector_service
-        self.embedding_service = embedding_service
+        self.cocoindex_service = cocoindex_service
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare expected implementation calculation"""
@@ -2218,25 +1942,49 @@ class ExpectedImplementationNode(AsyncNode):
             patterns = prep_res["patterns"]
             expected_counts_analysis = prep_res.get("expected_counts_analysis", {})
             
+            # Handle case where vector_data is None (CocoIndex indexing failed)
+            if not vector_data:
+                print("⚠️ No vector data available, using project structure analysis only")
+                expected_implementations = {}
+                
+                # Use project structure analysis for all patterns
+                consolidated_patterns = patterns.get("consolidated", [])
+                for pattern in consolidated_patterns:
+                    gate_id = pattern.get("gate_id")
+                    if gate_id in expected_counts_analysis:
+                        analysis = expected_counts_analysis[gate_id]
+                        expected_count = analysis.get("expected_count", 1)
+                        reason = analysis.get("reason", "Based on project structure analysis")
+                    else:
+                        expected_count = 1
+                        reason = "Default fallback (no vector data available)"
+                    
+                    expected_implementations[gate_id] = {
+                        "pattern": pattern,
+                        "expected_count": expected_count,
+                        "main_implementations": 0,
+                        "cd_implementations": 0,
+                        "similar_implementations": [],
+                        "calculation_method": "project_structure_analysis",
+                        "reason": reason
+                    }
+                
+                self.context.expected_implementations = expected_implementations
+                print(f"✅ Expected implementations calculated using project structure analysis only")
+                return "success"
+            
             scan_id = vector_data["scan_id"]
-            collection_name = vector_data["collection_name"]
+            main_collection_name = vector_data["main_collection_name"]
+            cd_collection_name = vector_data.get("cd_collection_name")
             consolidated_patterns = patterns["consolidated"]
             
             expected_implementations = {}
             
-            # Define all hard gates from the prompt library
-            hard_gates = {
-                # Auditability gates
-                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
-                # Error Handling gates
-                '1.1', '1.3', '2.4',
-                # Availability gates
-                '1.5', '1.12', '3.6', '3.9', '3.18',
-                # Testing gates
-                '2'
-            }
+            # Get hard gates from centralized registry
+            from models.gate_definitions import get_hard_gate_ids
+            hard_gates = set(get_hard_gate_ids())
             
-            # For each pattern, find expected implementations using semantic search
+            # For each pattern, find expected implementations using CocoIndex semantic search
             for pattern in consolidated_patterns:
                 # Only process hard gates
                 if pattern.get("gate_id") not in hard_gates:
@@ -2246,46 +1994,43 @@ class ExpectedImplementationNode(AsyncNode):
                 
                 # Create semantic query
                 query = f"implementation of {pattern_name}: {pattern_description}"
-                query_embedding = self.embedding_service.embed_single(query)
                 
-                if query_embedding:
-                    # Check if collection exists before searching
-                    if not self.vector_service.collection_exists(collection_name):
-                        print(f"⚠️ Collection {collection_name} does not exist, using project structure analysis for {pattern_name}")
-                        
-                        # Use project structure analysis if available
-                        gate_id = pattern["gate_id"]
-                        if gate_id in expected_counts_analysis:
-                            analysis = expected_counts_analysis[gate_id]
-                            expected_count = analysis.get("expected_count", 1)
-                            reason = analysis.get("reason", "Based on project structure analysis")
-                            print(f"📊 Using project structure analysis for {gate_id}: {expected_count} expected ({reason})")
-                        else:
-                            expected_count = 1
-                            reason = "Default fallback (no project structure analysis available)"
-                        
-                        expected_implementations[gate_id] = {
-                            "pattern": pattern,
-                            "expected_count": expected_count,
-                            "main_implementations": 0,
-                            "cd_implementations": 0,
-                            "similar_implementations": [],
-                            "calculation_method": "project_structure_analysis",
-                            "reason": reason
-                        }
-                        continue
-                    
-                    # Search single collection for both main and CD repositories
-                    all_results = self.vector_service.search_similar(
-                        collection_name=collection_name,
-                        query_vector=query_embedding,
-                        limit=20,  # Increased limit to get both main and CD results
+                # Search main repository collection
+                main_results = self.cocoindex_service.search_similar(
+                    collection_name=main_collection_name,
+                    query=query,
+                    limit=10,
+                    score_threshold=0.5
+                )
+                
+                # Search CD repository collection if it exists
+                cd_results = []
+                if cd_collection_name:
+                    cd_results = self.cocoindex_service.search_similar(
+                        collection_name=cd_collection_name,
+                        query=query,
+                        limit=10,
                         score_threshold=0.5
                     )
-                else:
-                    # Fallback when embedding generation fails
-                    print(f"⚠️ Failed to generate embedding for query: {query}")
+                
+                # Combine results
+                all_results = main_results + cd_results
+                
+                if all_results:
+                    # Calculate expected count based on similar implementations found
+                    expected_count = len(all_results)
+                    reason = f"Found {expected_count} similar implementations using CocoIndex semantic search"
                     
+                    expected_implementations[pattern["gate_id"]] = {
+                        "pattern": pattern,
+                        "expected_count": expected_count,
+                        "main_implementations": len(main_results),
+                        "cd_implementations": len(cd_results),
+                        "similar_implementations": all_results,
+                        "calculation_method": "cocoindex_semantic_search",
+                        "reason": reason
+                    }
+                else:
                     # Use project structure analysis if available
                     gate_id = pattern["gate_id"]
                     if gate_id in expected_counts_analysis:
@@ -2295,7 +2040,7 @@ class ExpectedImplementationNode(AsyncNode):
                         print(f"📊 Using project structure analysis for {gate_id}: {expected_count} expected ({reason})")
                     else:
                         expected_count = 1
-                        reason = "Default fallback (embedding generation failed)"
+                        reason = "Default fallback (no similar implementations found)"
                     
                     expected_implementations[gate_id] = {
                         "pattern": pattern,
@@ -2303,69 +2048,9 @@ class ExpectedImplementationNode(AsyncNode):
                         "main_implementations": 0,
                         "cd_implementations": 0,
                         "similar_implementations": [],
-                        "calculation_method": "project_structure_analysis_fallback",
+                        "calculation_method": "project_structure_analysis",
                         "reason": reason
                     }
-                    continue
-                    
-                    # Process results and separate by repo_type
-                    main_results = []
-                    cd_results = []
-                    
-                    for result in all_results:
-                        repo_type = result.payload.get("repo_type", "main")
-                        result_data = {
-                            "content": result.payload.get("content", ""),
-                            "file_path": result.payload.get("file_path", ""),
-                            "repo_type": repo_type,
-                            "score": result.score
-                        }
-                        
-                        if repo_type == "main":
-                            main_results.append(result_data)
-                        elif repo_type == "cd":
-                            cd_results.append(result_data)
-                    
-                    # Combine and sort by score
-                    combined_results = main_results + cd_results
-                    combined_results.sort(key=lambda x: x["score"], reverse=True)
-                    
-                    # Use vector search results, but enhance with project structure analysis if available
-                    gate_id = pattern["gate_id"]
-                    vector_based_count = len(combined_results)
-                    
-                    # Check if we have project structure analysis for this gate
-                    if gate_id in expected_counts_analysis:
-                        analysis = expected_counts_analysis[gate_id]
-                        project_based_count = analysis.get("expected_count", vector_based_count)
-                        reason = analysis.get("reason", "Based on project structure analysis")
-                        
-                        # Use the higher of the two counts, or vector-based if project analysis is not available
-                        final_expected_count = max(vector_based_count, project_based_count)
-                        
-                        print(f"📊 Gate {gate_id}: Vector search found {vector_based_count}, project analysis suggests {project_based_count}, using {final_expected_count}")
-                        
-                        expected_implementations[gate_id] = {
-                            "pattern": pattern,
-                            "expected_count": final_expected_count,
-                            "main_implementations": len(main_results),
-                            "cd_implementations": len(cd_results),
-                            "similar_implementations": combined_results[:15],  # Top 15 combined results
-                            "calculation_method": "vector_search_enhanced_with_project_analysis",
-                            "vector_based_count": vector_based_count,
-                            "project_based_count": project_based_count,
-                            "reason": reason
-                        }
-                    else:
-                        # Use vector search results only
-                        expected_implementations[gate_id] = {
-                            "pattern": pattern,
-                            "expected_count": vector_based_count,
-                            "main_implementations": len(main_results),
-                            "cd_implementations": len(cd_results),
-                            "similar_implementations": combined_results[:15],  # Top 15 combined results
-                            "calculation_method": "vector_search_only"
-                        }
             
             # Store expected implementations
             self.context.expected_implementations = expected_implementations
@@ -2390,9 +2075,8 @@ class ExpectedImplementationNode(AsyncNode):
 class FileScanningNode(AsyncNode):
     """Step 6: File Scanning & Pattern & AST parser based Matching"""
     
-    def __init__(self, ast_parser_service: ASTParserService):
+    def __init__(self):
         super().__init__()
-        self.ast_parser_service = ast_parser_service
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare file scanning"""
@@ -2416,17 +2100,9 @@ class FileScanningNode(AsyncNode):
             consolidated_patterns = patterns["consolidated"]
             scan_results = {}
             
-            # Define all hard gates from the prompt library
-            hard_gates = {
-                # Auditability gates
-                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
-                # Error Handling gates
-                '1.1', '1.3', '2.4',
-                # Availability gates
-                '1.5', '1.12', '3.6', '3.9', '3.18',
-                # Testing gates
-                '2'
-            }
+            # Get hard gates from centralized registry
+            from models.gate_definitions import get_hard_gate_ids
+            hard_gates = set(get_hard_gate_ids())
             
             # Filter patterns to only include hard gates
             hard_gate_patterns = [p for p in consolidated_patterns if p.get("gate_id") in hard_gates]
@@ -2727,9 +2403,22 @@ class GateEvaluationNode(AsyncNode):
             return False
     
     def _calculate_intelligent_expected_count(self, gate_id: str, pattern: Dict[str, Any], 
-                                            metadata: Dict[str, Any], scan_results: Dict[str, Any]) -> int:
+                                            metadata: Dict[str, Any], scan_results: Dict[str, Any], 
+                                            llm_expected_counts: Dict[str, Any] = None) -> int:
         """Calculate intelligent expected count based on technology stack and codebase analysis"""
         try:
+            # First, check if LLM provided an expected count for this gate
+            if llm_expected_counts and gate_id in llm_expected_counts:
+                llm_count = llm_expected_counts[gate_id]
+                expected_count = llm_count.get("expected_count")
+                reasoning = llm_count.get("reasoning", "")
+                
+                if expected_count is not None and expected_count > 0:
+                    print(f"   📊 Using LLM expected count for {gate_id}: {expected_count}")
+                    print(f"   📝 LLM reasoning: {reasoning[:100]}...")
+                    return expected_count
+            
+            # Fall back to calculated expected count if LLM didn't provide one
             # Get technology stack from metadata
             tech_stack = metadata.get("tech_stack", {})
             file_types = metadata.get("file_types", {})
@@ -2860,17 +2549,9 @@ class GateEvaluationNode(AsyncNode):
             
             gate_results = []
             
-            # Define all hard gates from the prompt library
-            hard_gates = {
-                # Auditability gates
-                '1.1', '1.3', '1.5', '1.6', '1.8', '1.10', '2.7',
-                # Error Handling gates
-                '2.4',
-                # Availability gates
-                '1.12', '3.6', '3.9', '3.18',
-                # Testing gates
-                '2'
-            }
+            # Get hard gates from centralized registry
+            from models.gate_definitions import get_hard_gate_ids
+            hard_gates = set(get_hard_gate_ids())
             
             for gate_id, scan_result in scan_results.items():
                 # Only process hard gates
@@ -2881,9 +2562,23 @@ class GateEvaluationNode(AsyncNode):
                 cd_matches = scan_result.get("cd_matches", [])
                 total_matches = scan_result.get("total_matches", 0)
                 
-                # Temporarily disable gate skipping to ensure all gates are evaluated
-                # if self._should_skip_gate(gate_id, pattern, metadata, scan_results):
-                #     continue
+                # Check LLM applicability decision first
+                llm_expected_counts = getattr(self.context, 'llm_expected_counts', None)
+                if llm_expected_counts and gate_id in llm_expected_counts:
+                    llm_count = llm_expected_counts[gate_id]
+                    llm_applicable = llm_count.get("applicable", True)
+                    
+                    if not llm_applicable:
+                        print(f"   ⏭️ Skipping gate {gate_id} - LLM marked as not applicable")
+                        continue
+                
+                # Fall back to traditional gate skipping logic if no LLM decision
+                if self._should_skip_gate(gate_id, pattern, metadata, scan_results):
+                    print(f"   ⏭️ Skipping gate {gate_id} - traditional gate skipping logic")
+                    continue
+                
+                # Get LLM expected counts from context if available
+                llm_expected_counts = getattr(self.context, 'llm_expected_counts', None)
                 
                 # Calculate intelligent expected count based on technology and codebase
                 import sys
@@ -2891,7 +2586,24 @@ class GateEvaluationNode(AsyncNode):
                 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
                 from flow.expected_count_calculator import ExpectedCountCalculator
                 calculator = ExpectedCountCalculator()
-                expected_count = calculator.calculate_expected_count(gate_id, metadata)
+                
+                # PRIMARY: Use LLM expected count from pre-analysis response
+                if llm_expected_counts and gate_id in llm_expected_counts:
+                    llm_count = llm_expected_counts[gate_id]
+                    expected_count = llm_count.get("expected_count")
+                    reasoning = llm_count.get("reasoning", "")
+                    applicable = llm_count.get("applicable", False)
+                    
+                    if expected_count is not None:
+                        print(f"   🎯 Using LLM expected count for {gate_id}: {expected_count} (applicable: {applicable})")
+                        if reasoning:
+                            print(f"   📝 LLM reasoning: {reasoning[:100]}...")
+                    else:
+                        print(f"   ⚠️ LLM provided no expected_count for {gate_id}, using calculated fallback")
+                        expected_count = calculator.calculate_expected_count(gate_id, metadata)
+                else:
+                    print(f"   ⚠️ No LLM expected count found for {gate_id}, using calculated fallback")
+                    expected_count = calculator.calculate_expected_count(gate_id, metadata)
                 
                 # Determine threshold (simplified logic)
                 threshold = self._calculate_threshold(pattern, expected_count)
@@ -2915,6 +2627,13 @@ class GateEvaluationNode(AsyncNode):
                 # Generate base reasoning and recommendations
                 base_reasoning = self._generate_reasoning(status, pattern, total_matches, expected_count, len(main_matches), len(cd_matches))
                 base_recommendations = self._generate_recommendations(status, pattern, total_matches, expected_count)
+                
+                # Enhance reasoning with LLM expected count reasoning if available
+                if llm_expected_counts and gate_id in llm_expected_counts:
+                    llm_count = llm_expected_counts[gate_id]
+                    llm_reasoning = llm_count.get("reasoning", "")
+                    if llm_reasoning:
+                        base_reasoning += f"\n\nLLM Expected Count Reasoning: {llm_reasoning}"
                 
                 # Create gate result with enhanced reasoning and recommendations
                 gate_result = GateResult(
@@ -3505,11 +3224,10 @@ Format as a numbered list of specific recommendations without any markdown forma
 class LLMPostAnalysisNode(AsyncNode):
     """Step 8: LLM Post-Analysis with Contextual Recommendations"""
     
-    def __init__(self, llm_service, vector_service: VectorService, embedding_service: EmbeddingService):
+    def __init__(self, llm_service, cocoindex_service):
         super().__init__()
         self.llm_service = llm_service
-        self.vector_service = vector_service
-        self.embedding_service = embedding_service
+        self.cocoindex_service = cocoindex_service
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare LLM post-analysis"""
@@ -3640,10 +3358,9 @@ class LLMPostAnalysisNode(AsyncNode):
         
         return prompt_service.format_prompt(
             "llm_post_analysis",
-            scan_results=f"Project: {metadata.get('repo_url', 'Unknown')}",
-            pattern_matches="Pattern analysis results",
-            gate_evaluations=gate_results_text,
-            repo_context=f"Languages: {', '.join(metadata.get('languages', []))}"
+            gate_results=gate_results_text,
+            project_summary=f"Project: {metadata.get('repo_url', 'Unknown')}",
+            scan_metadata=f"Languages: {', '.join(metadata.get('languages', []))}"
         ) or f"""
 Analyze the following code scan results and provide insights:
 
@@ -3681,6 +3398,7 @@ class ReportGenerationNode(AsyncNode):
             "gate_results": context.gate_results,
             "post_analysis": context.post_analysis,
             "metadata": context.metadata,
+            "vector_data": context.vector_data,
             "scan_id": context.scan_id
         }
     
@@ -3692,6 +3410,7 @@ class ReportGenerationNode(AsyncNode):
             gate_results = prep_res["gate_results"]
             post_analysis = prep_res["post_analysis"]
             metadata = prep_res["metadata"]
+            vector_data = prep_res["vector_data"]
             scan_id = prep_res["scan_id"]
             
             # Handle case where gate_results is None
@@ -3740,9 +3459,11 @@ class ReportGenerationNode(AsyncNode):
                 metadata=metadata
             )
             
-            # Update metadata with vector config and project info
+            # Update metadata with vector config, vector data, and project info
             metadata_with_vector = metadata.copy()
             metadata_with_vector["vector_config"] = vector_config
+            if vector_data:
+                metadata_with_vector["vector_data"] = vector_data
             metadata_with_vector["project_summary"] = project_info
             
             # Create scan result object
@@ -3956,10 +3677,9 @@ Generated on: {datetime.now().isoformat()}
 class AgenticStorageNode(AsyncNode):
     """Step 10: Agentic Storage for Future Use"""
     
-    def __init__(self, vector_service: VectorService, embedding_service: EmbeddingService):
+    def __init__(self, cocoindex_service):
         super().__init__()
-        self.vector_service = vector_service
-        self.embedding_service = embedding_service
+        self.cocoindex_service = cocoindex_service
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
         """Prepare agentic storage"""
@@ -3994,33 +3714,70 @@ class AgenticStorageNode(AsyncNode):
                 "summary": f"Scan completed with {scan_result.passed_gates}/{scan_result.total_gates} gates passed"
             }
             
-            # Generate embedding for scan summary
+            # Generate embedding for scan summary using CocoIndex service
             summary_text = json.dumps(scan_summary, indent=2)
-            embedding = self.embedding_service.embed_single(summary_text)
             
-            if embedding:
-                # Store in vector database
-                vector_id = f"scan_{scan_result.scan_id}"
-                vector_data = {
-                    "id": vector_id,
-                    "vector": embedding,
-                    "payload": {
-                        "type": "scan_result",
-                        "scan_id": scan_result.scan_id,
-                        "content": summary_text,
-                        "metadata": scan_summary
-                    }
+            # Use CocoIndex service to generate embedding and store
+            try:
+                # Create a temporary collection for scan results
+                scan_collection_name = f"scan_results_{scan_result.scan_id}"
+                
+                # Generate embedding using the same method as CocoIndex service
+                from services.embedding_service import EmbeddingService
+                
+                embedding_config = {
+                    "provider": "local",
+                    "model": "text-embedding-nomic-embed-text-v1.5-embedding",
+                    "base_url": "http://localhost:1234",
+                    "batch_size": 1,
+                    "vector_size": 768,
+                    "timeout": 30
                 }
                 
-                # Store in scan results collection
-                self.vector_service.upsert_vectors("scan_results", [vector_data])
+                embedding_service = EmbeddingService(embedding_config)
+                embedding = embedding_service.embed_single(summary_text)
                 
-                print(f"✅ Scan result stored in vector database: {vector_id}")
+                if embedding:
+                    # Store in Qdrant using CocoIndex service
+                    import uuid
+                    vector_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"scan_{scan_result.scan_id}"))
+                    
+                    # Create collection if it doesn't exist
+                    self.cocoindex_service._create_collection(scan_collection_name)
+                    
+                    # Store the vector
+                    from qdrant_client.models import PointStruct
+                    point = PointStruct(
+                        id=vector_id,
+                        vector=embedding,
+                        payload={
+                            "type": "scan_result",
+                            "scan_id": scan_result.scan_id,
+                            "content": summary_text,
+                            "metadata": scan_summary
+                        }
+                    )
+                    
+                    self.cocoindex_service.client.upsert(
+                        collection_name=scan_collection_name,
+                        points=[point]
+                    )
+                    
+                    print(f"✅ Scan result stored in vector database: {vector_id}")
+                else:
+                    print("⚠️ Failed to generate embedding for scan summary")
+                    
+            except Exception as e:
+                print(f"⚠️ Failed to store scan result in vector database: {e}")
             
             # Store detailed results (simplified - in real implementation, store in database)
+            vector_id = None
+            if 'embedding' in locals() and embedding:
+                vector_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"scan_{scan_result.scan_id}"))
+                
             self.context.stored_result = {
                 "scan_id": scan_result.scan_id,
-                "vector_id": vector_id if embedding else None,
+                "vector_id": vector_id,
                 "stored_at": datetime.now().isoformat()
             }
             
@@ -4324,7 +4081,7 @@ class AgenticStorageNode(AsyncNode):
             build_files = main_repo.get('build_files', [])
             for build_file in build_files:
                 file_path = os.path.join(repo_path, build_file)
-                content = self._read_file_content(file_path, max_lines=200)
+                content = self._read_file_content(file_path, max_lines=5000)
                 
                 if content:
                     content_lower = content.lower()
@@ -4388,7 +4145,7 @@ class AgenticStorageNode(AsyncNode):
             config_files = main_repo.get('config_files', [])
             for config_file in config_files:
                 file_path = os.path.join(repo_path, config_file)
-                content = self._read_file_content(file_path, max_lines=100)
+                content = self._read_file_content(file_path, max_lines=5000)
                 
                 if content:
                     content_lower = content.lower()

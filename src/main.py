@@ -13,22 +13,18 @@ from .flow.scan_flow import ScanFlow
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     """Load configuration"""
     default_config = {
-        "vector_store": {
-            "use_qdrant": True,
+        "cocoindex": {
             "qdrant_path": "./qdrant_data",
-            "vector_size": 768
-        },
-        "embedding": {
-            "provider": "local",
-            "model": "text-embedding-nomic-embed-text-v1.5-embedding",
-            "base_url": "http://localhost:1234",
-            "batch_size": 32,
-            "vector_size": 768
-        },
-        "ast_parser": {
-            "supported_languages": [
-                "python", "javascript", "typescript", "java", 
-                "csharp", "go", "rust", "c", "cpp"
+            "chunk_size": 1000,
+            "chunk_overlap": 300,
+            "embedding_model": "text-embedding-nomic-embed-text-v1.5-embedding",
+            "included_patterns": [
+                "*.py", "*.js", "*.ts", "*.jsx", "*.tsx", "*.java", "*.cs", 
+                "*.go", "*.rs", "*.cpp", "*.c", "*.h", "*.hpp", "*.md", "*.mdx"
+            ],
+            "excluded_patterns": [
+                ".*", "node_modules", "__pycache__", "target", "build", "dist", 
+                "*.pyc", "*.class", "*.o", "*.so", "*.dylib", "*.dll"
             ]
         },
         "llm": {

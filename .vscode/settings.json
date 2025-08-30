@@ -1,0 +1,12 @@
+{
+    "python.defaultInterpreterPath": "/Users/roshinpv/Documents/next/gates/.venv/bin/python",
+    "python.analysis.extraPaths": ["./src"],
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.linting.enabled": true,
+    "python.formatting.provider": "black",
+    "python.analysis.include": ["src/**/*.py"],
+    "python.analysis.exclude": ["**/__pycache__", "**/*.pyc", "**/.venv", "**/qdrant_data", "**/reports", "**/logs"],
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true
+}

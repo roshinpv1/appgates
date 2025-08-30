@@ -18,28 +18,9 @@ class ExpectedCountCalculator:
     """Intelligent expected count calculator based on codebase analysis"""
     
     def __init__(self):
-        self.gate_patterns = {
-            # Auditability gates
-            "1.1": {"name": "Log system errors", "category": "auditability", "type": "logging"},
-            "1.3": {"name": "Use HTTP standard error codes", "category": "auditability", "type": "error_handling"},
-            "1.5": {"name": "Timeouts", "category": "auditability", "type": "timeout"},
-            "1.6": {"name": "Log API Calls", "category": "auditability", "type": "logging"},
-            "1.8": {"name": "Log Application Messages", "category": "auditability", "type": "logging"},
-            "1.10": {"name": "Avoid Logging Sensitive Data", "category": "auditability", "type": "security"},
-            "2.7": {"name": "UI Error Handling", "category": "auditability", "type": "ui_error"},
-            
-            # Error Handling gates
-            "2.4": {"name": "Include Client error tracking", "category": "error_handling", "type": "error_tracking"},
-            
-            # Availability gates
-            "1.12": {"name": "Retry Logic", "category": "availability", "type": "retry"},
-            "3.6": {"name": "Throttling, drop request", "category": "availability", "type": "throttling"},
-            "3.9": {"name": "Set circuit breakers on outgoing requests", "category": "availability", "type": "circuit_breaker"},
-            "3.18": {"name": "Auto Scale", "category": "availability", "type": "auto_scale"},
-            
-            # Testing gates
-            "2": {"name": "Automated Regression Testing", "category": "testing", "type": "testing"},
-        }
+        # Use centralized gate definitions instead of hardcoded patterns
+        from models.gate_definitions import get_gate
+        self.get_gate = get_gate
     
     def calculate_expected_count(self, gate_id: str, metadata: Dict[str, Any]) -> int:
         """Calculate intelligent expected count for a specific gate"""
@@ -179,8 +160,9 @@ class ExpectedCountCalculator:
                                               codebase_structure: Dict[str, Any]) -> int:
         """Calculate expected count based on specific gate requirements and codebase structure"""
         
-        gate_info = self.gate_patterns.get(gate_id, {})
-        gate_type = gate_info.get("type", "unknown")
+        # Get gate information from centralized registry
+        gate = self.get_gate(gate_id)
+        gate_type = gate.implementation_type if gate else "unknown"
         
         # Gate-specific calculation logic
         if gate_type == "logging":

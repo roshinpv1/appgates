@@ -1,31 +1,54 @@
 {
     "version": "0.2.0",
     "configurations": [
-        
         {
-            "name": "Debug Extension",
-            "type": "extensionHost",
+            "name": "Debug CodeGates Server",
+            "type": "python",
             "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/vscode-extension/out/**/*.js"
-            ],
-            "preLaunchTask": "npm: watch"
+            "program": "${workspaceFolder}/src/run_server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "HOST": "0.0.0.0",
+                "PORT": "8000",
+                "RELOAD": "false",
+                "LOG_LEVEL": "debug"
+            },
+            "python": "/Users/roshinpv/Documents/next/gates/.venv/bin/python",
+            "justMyCode": false,
+            "stopOnEntry": false
         },
         {
-            "name": "Extension Tests",
-            "type": "extensionHost",
+            "name": "Debug with Reload",
+            "type": "python",
             "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/vscode-extension",
-                "--extensionTestsPath=${workspaceFolder}/vscode-extension/out/test/suite/index"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/vscode-extension/out/test/**/*.js"
-            ],
-            "preLaunchTask": "npm: watch"
+            "program": "${workspaceFolder}/src/run_server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "HOST": "0.0.0.0",
+                "PORT": "8000",
+                "RELOAD": "true",
+                "LOG_LEVEL": "debug"
+            },
+            "python": "/Users/roshinpv/Documents/next/gates/.venv/bin/python",
+            "justMyCode": false,
+            "stopOnEntry": false
+        },
+        {
+            "name": "Debug Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "python": "/Users/roshinpv/Documents/next/gates/.venv/bin/python",
+            "justMyCode": false
         }
     ]
-} 
+}

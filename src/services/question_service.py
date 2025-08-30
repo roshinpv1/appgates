@@ -68,11 +68,11 @@ class QuestionService:
             except Exception:
                 pass
             
-            # Use git hash-based collection naming if available, otherwise fallback to scan_id
-            if repo_hash:
-                main_collection = self.vector_service._get_collection_name(scan_id, repo_hash)
-            else:
-                main_collection = f"repo_{scan_id}"
+            # Use the correct collection naming convention
+            # Format: repo_scan_{scan_id} for main, repo_scan_{scan_id}_cd for CD
+            # Handle scan_id that might already have "scan_" prefix
+            clean_scan_id = scan_id.replace("scan_", "") if scan_id.startswith("scan_") else scan_id
+            main_collection = f"repo_scan_{clean_scan_id}"
             
             main_results = self._search_collection(
                 collection_name=main_collection,
@@ -82,11 +82,8 @@ class QuestionService:
             )
             context_chunks.extend(main_results)
             
-            # Search in CD repository collection if it exists (using same git hash)
-            if repo_hash:
-                cd_collection = f"{main_collection}_cd"
-            else:
-                cd_collection = f"repo_{scan_id}_cd"
+            # Search in CD repository collection if it exists
+            cd_collection = f"repo_scan_{clean_scan_id}_cd"
             cd_results = self._search_collection(
                 collection_name=cd_collection,
                 query_vector=question_embedding,
@@ -231,8 +228,20 @@ class QuestionService:
     ) -> str:
         """Generate answer using LLM with context"""
         
-        # Create prompt for the LLM
-        prompt = f"""You are a helpful code analysis assistant. Answer the following question about a codebase based on the provided context.
+        # Use the new prompt templates
+        from services.prompt_service import PromptService
+        prompt_service = PromptService()
+        
+        # Format the prompt using the question_answering template
+        prompt = prompt_service.format_prompt(
+            "question_answering",
+            question=question,
+            context=context
+        )
+        
+        # Fallback to hardcoded prompt if template formatting fails
+        if not prompt:
+            prompt = f"""You are a helpful code analysis assistant. Answer the following question about a codebase based on the provided context.
 
 Question: {question}
 
@@ -270,16 +279,30 @@ Answer:"""
                 collections = self.vector_service.client.get_collections()
                 scan_ids = []
                 
+                print(f"🔍 Found {len(collections.collections)} collections in Qdrant")
+                
                 for collection in collections.collections:
+                    print(f"  - {collection.name}")
                     if collection.name.startswith("repo_"):
                         # Extract scan ID from collection name
                         # Format: repo_{scan_id} or repo_{scan_id}_cd
-                        parts = collection.name.split("_", 2)
-                        if len(parts) >= 2:
-                            scan_id = parts[1]
-                            if scan_id not in scan_ids:
-                                scan_ids.append(scan_id)
+                        # Handle both formats: repo_scan_123456 and repo_hash
+                        if collection.name.startswith("repo_scan_"):
+                            # Format: repo_scan_{scan_id} or repo_scan_{scan_id}_cd
+                            scan_id = collection.name.replace("repo_scan_", "").replace("_cd", "")
+                        else:
+                            # Format: repo_{hash} (legacy format)
+                            parts = collection.name.split("_", 2)
+                            if len(parts) >= 2:
+                                scan_id = parts[1]
+                            else:
+                                continue
+                        
+                        if scan_id not in scan_ids:
+                            scan_ids.append(scan_id)
+                            print(f"    ✅ Added scan_id: {scan_id}")
                 
+                print(f"📊 Total available scans: {len(scan_ids)}")
                 return scan_ids
             else:
                 # Get collections from in-memory storage
@@ -310,13 +333,12 @@ Answer:"""
             except Exception:
                 pass
             
-            # Use git hash-based collection naming if available, otherwise fallback to scan_id
-            if repo_hash:
-                main_collection = self.vector_service._get_collection_name(scan_id, repo_hash)
-                cd_collection = f"{main_collection}_cd"
-            else:
-                main_collection = f"repo_{scan_id}"
-                cd_collection = f"repo_{scan_id}_cd"
+            # Use the correct collection naming convention
+            # Format: repo_scan_{scan_id} for main, repo_scan_{scan_id}_cd for CD
+            # Handle scan_id that might already have "scan_" prefix
+            clean_scan_id = scan_id.replace("scan_", "") if scan_id.startswith("scan_") else scan_id
+            main_collection = f"repo_scan_{clean_scan_id}"
+            cd_collection = f"repo_scan_{clean_scan_id}_cd"
             
             info = {
                 "scan_id": scan_id,
@@ -336,12 +358,13 @@ Answer:"""
                     main_info = self.vector_service.client.get_collection(main_collection)
                     info["main_collection"]["exists"] = True
                     info["main_collection"]["points_count"] = main_info.points_count
+                    print(f"✅ Found main collection: {main_collection} with {main_info.points_count} points")
                 else:
                     if main_collection in self.vector_service.collections:
                         info["main_collection"]["exists"] = True
                         info["main_collection"]["points_count"] = self.vector_service.collections[main_collection]["count"]
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️ Failed to get main collection {main_collection}: {e}")
             
             # Check CD collection
             try:
@@ -349,12 +372,13 @@ Answer:"""
                     cd_info = self.vector_service.client.get_collection(cd_collection)
                     info["cd_collection"]["exists"] = True
                     info["cd_collection"]["points_count"] = cd_info.points_count
+                    print(f"✅ Found CD collection: {cd_collection} with {cd_info.points_count} points")
                 else:
                     if cd_collection in self.vector_service.collections:
                         info["cd_collection"]["exists"] = True
                         info["cd_collection"]["points_count"] = self.vector_service.collections[cd_collection]["count"]
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️ Failed to get CD collection {cd_collection}: {e}")
             
             return info
             
