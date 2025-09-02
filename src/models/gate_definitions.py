@@ -9,15 +9,22 @@ eliminating the need for scattered gate definitions across multiple files.
 from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
+import os
 
 
 class GateCategory(Enum):
-    """Gate categories"""
+    """Gate categories (expanded to align with enhanced pattern library)"""
+    LOGGING = "Logging"
+    SECURITY = "Security"
+    TESTING = "Testing"
+    DOCUMENTATION = "Documentation"
+    DEVOPS = "DevOps"
+    QUALITY = "Quality"
+    # legacy categories retained for compatibility
     AUDITABILITY = "auditability"
     ERROR_HANDLING = "error_handling"
     AVAILABILITY = "availability"
-    TESTING = "testing"
-    SECURITY = "security"
+    ALERTING = "alerting"
 
 
 class GateSeverity(Enum):
@@ -31,7 +38,8 @@ class GateSeverity(Enum):
 @dataclass
 class GateDefinition:
     """Complete gate definition structure"""
-    gate_id: str
+    gate_id: str  # unique internal id (e.g., AUD-1.1, ERR-1.1)
+    display_id: str  # user-facing number string (e.g., "1.1")
     gate_name: str
     prompt: str
     category: GateCategory
@@ -53,197 +61,108 @@ class GateRegistry:
         self._initialize_gates()
     
     def _initialize_gates(self):
-        """Initialize all gate definitions"""
-        
-        # Alerting Gates
-        self._gates.update({
-            "0.1": GateDefinition(
-                gate_id="0.1",
-                gate_name="All alerting is actionable",
-                prompt="Implement actionable alerting that provides clear guidance on what actions to take when alerts are triggered. Alerts should include Splunk, AppDynamics, ThousandEyes or similar monitoring tools.",
-                category=GateCategory.SECURITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="alerting",
-                description="Implement actionable alerting with monitoring tools"
-            )
-        })
-        
-        # Auditability Gates
-        self._gates.update({
-            "1.2": GateDefinition(
-                gate_id="1.2",
-                gate_name="Log Application Messages",
-                prompt="Log application messages with standard log libraries to make it easier to capture the right information in the right format. The Enterprise NFR needs to be completed by the app team and validated prior to release deployment.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="application_logging",
-                description="Use standard logging libraries for application messages"
-            ),
-            "1.3": GateDefinition(
-                gate_id="1.3",
-                gate_name="Audit Trail",
-                prompt="Maintain logs of user and system activity to support system failure, system response, issues, and incident response.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="audit_trail",
-                description="Maintain comprehensive audit trails"
-            ),
-            "1.5": GateDefinition(
-                gate_id="1.5",
-                gate_name="Correlation ID",
-                prompt="Implement correlation IDs to track requests across different services and components for better debugging and monitoring.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.MEDIUM,
-                is_hard_gate=True,
-                implementation_type="correlation_id",
-                description="Implement correlation IDs for request tracking"
-            ),
-            "1.6": GateDefinition(
-                gate_id="1.6",
-                gate_name="Log API Calls",
-                prompt="Log REST API calls to capture external component interaction for troubleshooting. The Enterprise NFR needs to be completed by the app team.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="api_logging",
-                description="Log all API calls for troubleshooting"
-            ),
-            "1.8": GateDefinition(
-                gate_id="1.8",
-                gate_name="Logs Searchable/Available",
-                prompt="Logs are searchable and available for both the platform and development team. Application logs written to standard output and log files must be sent to a central application for troubleshooting. The Enterprise Architecture NFR needs to be completed by the app team prior to release deployment.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="logging",
-                description="Make logs searchable and available"
-            ),
-            "1.10": GateDefinition(
-                gate_id="1.10",
-                gate_name="Avoid Logging Sensitive Data",
-                prompt="Avoid logging sensitive data such as passwords, tokens, and personal information. Implement proper data masking and filtering in logging configurations.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="security_logging",
-                description="Prevent logging of sensitive information"
-            ),
-            "2.7": GateDefinition(
-                gate_id="2.7",
-                gate_name="Client UI Errors Logged",
-                prompt="Log client-side UI errors and send them to the central logging system for monitoring and debugging.",
-                category=GateCategory.AUDITABILITY,
-                severity=GateSeverity.MEDIUM,
-                is_hard_gate=True,
-                implementation_type="ui_error_logging",
-                description="Log client-side UI errors"
-            )
-        })
-        
-        # Error Handling Gates
-        self._gates.update({
-            "2.1": GateDefinition(
-                gate_id="2.1",
-                gate_name="Error Logs",
-                prompt="Implement comprehensive error logging and exception handling throughout the application to capture and track all errors.",
-                category=GateCategory.ERROR_HANDLING,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="error_logging",
-                description="Implement comprehensive error logging"
-            ),
-            "2.3": GateDefinition(
-                gate_id="2.3",
-                gate_name="HTTP Status Codes",
-                prompt="Use appropriate HTTP status codes for all API responses to provide clear error information to clients.",
-                category=GateCategory.ERROR_HANDLING,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="http_status_codes",
-                description="Use proper HTTP status codes"
-            ),
-            "2.4": GateDefinition(
-                gate_id="2.4",
-                gate_name="Client Error Tracking",
-                prompt="Implement client-side error tracking and reporting to capture user experience issues and application errors.",
-                category=GateCategory.ERROR_HANDLING,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="client_error_tracking",
-                description="Track and report client-side errors"
-            )
-        })
-        
-        # Availability Gates
-        self._gates.update({
-            "1.5": GateDefinition(
-                gate_id="1.5",
-                gate_name="Timeouts",
-                prompt="Implement proper timeout configurations for all external calls and operations to prevent hanging requests and improve system responsiveness.",
-                category=GateCategory.AVAILABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="timeouts",
-                description="Implement proper timeout configurations"
-            ),
-            "1.12": GateDefinition(
-                gate_id="1.12",
-                gate_name="Retry Logic",
-                prompt="Implement retry logic for transient failures to improve system reliability and user experience.",
-                category=GateCategory.AVAILABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="retry_logic",
-                description="Implement retry mechanisms for transient failures"
-            ),
-            "3.6": GateDefinition(
-                gate_id="3.6",
-                gate_name="Throttling",
-                prompt="Implement request throttling to prevent system overload and ensure fair resource distribution.",
-                category=GateCategory.AVAILABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="throttling",
-                description="Implement request throttling mechanisms"
-            ),
-            "3.9": GateDefinition(
-                gate_id="3.9",
-                gate_name="Circuit Breakers",
-                prompt="Implement circuit breakers to detect failures and prevent cascading failures in distributed systems.",
-                category=GateCategory.AVAILABILITY,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="circuit_breaker",
-                description="Implement circuit breakers for external dependencies"
-            ),
-            "3.18": GateDefinition(
-                gate_id="3.18",
-                gate_name="Auto Scale",
-                prompt="System can automatically scale based on usage telemetry. The Enterprise Architecture NFR needs to be completed by the app team.",
-                category=GateCategory.AVAILABILITY,
-                severity=GateSeverity.MEDIUM,
-                is_hard_gate=True,
-                implementation_type="auto_scaling",
-                description="Implement automatic scaling capabilities"
-            )
-        })
-        
-        # Testing Gates
-        self._gates.update({
-            "2": GateDefinition(
-                gate_id="2",
-                gate_name="Automated Tests",
-                prompt="Implement comprehensive automated tests including unit tests, integration tests, and end-to-end tests to ensure code quality and reliability.",
-                category=GateCategory.TESTING,
-                severity=GateSeverity.HIGH,
-                is_hard_gate=True,
-                implementation_type="automated_testing",
-                description="Implement comprehensive automated testing"
-            )
-        })
+        """Initialize gate definitions from YAML (primary) with JSON fallback."""
+        self._gates.clear()
+        # First try to load YAML-based gate definitions
+        try:
+            import yaml  # type: ignore
+            yaml_path = os.path.join(os.path.dirname(__file__), "..", "data", "gate_definitions.yml")
+            yaml_path = os.path.abspath(yaml_path)
+            with open(yaml_path, "r") as f:
+                ydoc = yaml.safe_load(f) or {}
+            gates_root: Dict[str, Any] = (ydoc or {}).get("gates", {})
+
+            # Category string -> GateCategory mapping (supports both legacy and new names)
+            cat_map: Dict[str, GateCategory] = {
+                "logging": GateCategory.LOGGING,
+                "security": GateCategory.SECURITY,
+                "testing": GateCategory.TESTING,
+                "documentation": GateCategory.DOCUMENTATION,
+                "devops": GateCategory.DEVOPS,
+                "quality": GateCategory.QUALITY,
+                # Explicit mappings for YAML categories
+                "alerting": GateCategory.ALERTING,
+                "auditability": GateCategory.AUDITABILITY,
+                "errorhandling": GateCategory.ERROR_HANDLING,
+                "error_handling": GateCategory.ERROR_HANDLING,
+                "availability": GateCategory.AVAILABILITY,
+            }
+
+            for category_key, items in gates_root.items():
+                if not isinstance(items, dict):
+                    continue
+                cat_lookup_key = str(category_key).strip().lower().replace(" ", "").replace("_", "")
+                category = cat_map.get(cat_lookup_key, GateCategory.QUALITY)
+                for display_id, meta in items.items():
+                    # Compose gate_id like "Category_1.1"
+                    gate_id = f"{category_key}_{display_id}"
+                    gate_name = str((meta or {}).get("name", gate_id))
+                    summary = str((meta or {}).get("summary", "")).strip()
+
+                    # Default severity when not provided in YAML
+                    severity = GateSeverity.HIGH
+
+                    self._gates[gate_id] = GateDefinition(
+                        gate_id=gate_id,
+                        display_id=str(display_id),
+                        gate_name=gate_name,
+                        prompt=summary,
+                        category=category,
+                        severity=severity,
+                        is_hard_gate=True,
+                        implementation_type=None,
+                        description=summary,
+                    )
+            if self._gates:
+                return
+        except Exception as e:
+            print(f"⚠️ Failed to initialize gates from YAML: {e}")
+
+        # Fallback: load from enhanced pattern library JSON
+        try:
+            from services.pattern_library_service import PatternLibraryService
+            pls = PatternLibraryService()
+            gates = pls.pattern_library.get("gates", {})
+            cat_map_json = {
+                "logging": GateCategory.LOGGING,
+                "security": GateCategory.SECURITY,
+                "testing": GateCategory.TESTING,
+                "documentation": GateCategory.DOCUMENTATION,
+                "devops": GateCategory.DEVOPS,
+                "quality": GateCategory.QUALITY,
+                "alerting": GateCategory.ALERTING,
+                "auditability": GateCategory.AUDITABILITY,
+                "errorhandling": GateCategory.ERROR_HANDLING,
+                "error_handling": GateCategory.ERROR_HANDLING,
+                "availability": GateCategory.AVAILABILITY,
+            }
+            sev_map = {
+                "critical": GateSeverity.CRITICAL,
+                "high": GateSeverity.HIGH,
+                "medium": GateSeverity.MEDIUM,
+                "low": GateSeverity.LOW,
+            }
+            for key, cfg in gates.items():
+                gate_id = key
+                display_name = cfg.get("display_name", key)
+                description = cfg.get("description", "")
+                category_str = cfg.get("category", "Quality")
+                priority_str = str(cfg.get("priority", "Medium")).lower()
+                category = cat_map_json.get(str(category_str).lower().replace(" ", "").replace("_", ""), GateCategory.QUALITY)
+                severity = sev_map.get(priority_str, GateSeverity.MEDIUM)
+                self._gates[gate_id] = GateDefinition(
+                    gate_id=gate_id,
+                    display_id=gate_id.split("_", 1)[-1] if "_" in gate_id else gate_id,
+                    gate_name=display_name,
+                    prompt=description,
+                    category=category,
+                    severity=severity,
+                    is_hard_gate=True,
+                    implementation_type=None,
+                    description=description,
+                )
+        except Exception as e:
+            print(f"⚠️ Failed to initialize gates from pattern library: {e}")
     
     def get_gate(self, gate_id: str) -> Optional[GateDefinition]:
         """Get a specific gate by ID"""
@@ -302,17 +221,15 @@ class GateRegistry:
     
     def get_gates_for_llm_analysis(self) -> str:
         """Get gates formatted for LLM analysis"""
-        gates_text = []
-        
+        gates_lines: List[str] = []
         for gate in self._gates.values():
-            hard_gate_indicator = " (HARD GATE)" if gate.is_hard_gate else ""
-            gates_text.append(f"Gate {gate.gate_id}: {gate.gate_name}{hard_gate_indicator}")
-            gates_text.append(f"  Category: {gate.category.value}")
-            gates_text.append(f"  Severity: {gate.severity.value}")
-            gates_text.append(f"  Description: {gate.prompt}")
-            gates_text.append("")
-        
-        return "\n".join(gates_text)
+            # Normalize category for display (title case, underscores to spaces)
+            cat_disp = gate.category.value.replace("_", " ").title()
+            # Required fields: gate number (display_id), category, name, summary
+            gates_lines.append(
+                f"{gate.display_id} | {cat_disp} | {gate.gate_name} | {gate.prompt}"
+            )
+        return "\n".join(gates_lines)
     
     def get_predefined_categories(self) -> Dict[str, List[str]]:
         """Get predefined category groupings for reporting"""

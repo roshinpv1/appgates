@@ -38,19 +38,15 @@ class ScanFlow(AsyncFlow):
     def _build_flow(self):
         """Build the scan flow"""
         from .scan_nodes import (
-            RepositoryCheckoutNode, VectorizationNode, LLMPreAnalysisNode,
-            PatternConsolidationNode, ExpectedImplementationNode, FileScanningNode,
+            RepositoryCheckoutNode, ProjectAnalysisNode, LLMPreAnalysisNode,
             GateEvaluationNode, LLMPostAnalysisNode, ReportGenerationNode,
             AgenticStorageNode
         )
         
         # Create nodes
         checkout_node = RepositoryCheckoutNode()
-        vectorization_node = VectorizationNode(self.cocoindex_service)
+        project_analysis_node = ProjectAnalysisNode(self.llm_service)
         llm_pre_node = LLMPreAnalysisNode(self.llm_service)
-        consolidation_node = PatternConsolidationNode(self.pattern_library_service)
-        expected_impl_node = ExpectedImplementationNode(self.cocoindex_service)
-        scanning_node = FileScanningNode()
         evaluation_node = GateEvaluationNode()
         llm_post_node = LLMPostAnalysisNode(self.llm_service, self.cocoindex_service)
         report_node = ReportGenerationNode()
@@ -58,12 +54,10 @@ class ScanFlow(AsyncFlow):
         
         # Build flow
         self.start(checkout_node)
-        checkout_node - "success" >> vectorization_node
-        vectorization_node - "success" >> llm_pre_node
-        llm_pre_node - "success" >> consolidation_node
-        consolidation_node - "success" >> expected_impl_node
-        expected_impl_node - "success" >> scanning_node
-        scanning_node - "success" >> evaluation_node
+        checkout_node - "success" >> project_analysis_node
+        project_analysis_node - "success" >> llm_pre_node
+        # Skip consolidation and scanning; use LLM outputs directly
+        llm_pre_node - "success" >> evaluation_node
         evaluation_node - "success" >> llm_post_node
         llm_post_node - "success" >> report_node
         report_node - "success" >> storage_node

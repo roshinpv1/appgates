@@ -1,232 +1,261 @@
+#!/usr/bin/env python3
 """
-Pattern Library Service for managing enhanced pattern library
+Pattern Library Service
+
+This service integrates the static pattern library with the centralized gate definitions
+to provide sophisticated pattern matching capabilities.
 """
 
 import json
 import os
-from typing import Dict, List, Any, Optional
+import re
+from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
-from dataclasses import dataclass
-
-
-@dataclass
-class PatternInfo:
-    """Information about a pattern"""
-    gate_id: str
-    display_name: str
-    description: str
-    category: str
-    priority: str
-    weight: float
-    patterns: List[str]
-    technology: Optional[str] = None
 
 
 class PatternLibraryService:
-    """
-    Service for loading and managing the enhanced pattern library
-    """
+    """Service for managing and using the enhanced pattern library"""
     
-    def __init__(self, pattern_file_path: Optional[str] = None):
+    def __init__(self, pattern_library_path: str = None):
         """Initialize the pattern library service"""
-        if pattern_file_path is None:
-            # Default path relative to src directory
-            src_dir = Path(__file__).parent.parent
-            pattern_file_path = src_dir / "data" / "enhanced_pattern_library.json"
+        if pattern_library_path is None:
+            base_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+            pattern_library_path = os.path.join(base_dir, "enhanced_pattern_library.json")
         
-        self.pattern_file_path = Path(pattern_file_path)
-        self.patterns: Dict[str, PatternInfo] = {}
-        self.pattern_texts: List[str] = []
-        self.global_config: Dict[str, Any] = {}
+        self.pattern_library_path = pattern_library_path
+        self.pattern_library = self._load_pattern_library()
+        self.global_config = self.pattern_library.get("global_config", {})
         
-        # Load patterns on initialization
-        self._load_patterns()
-        
-        print(f"📚 Pattern Library loaded: {len(self.patterns)} gates with {len(self.pattern_texts)} pattern texts")
+        print(f"📚 PatternLibraryService initialized with {len(self.pattern_library.get('gates', {}))} gates")
     
-    def _load_patterns(self):
-        """Load patterns from the JSON file"""
+    def _load_pattern_library(self) -> Dict[str, Any]:
+        """Load the pattern library from JSON file"""
         try:
-            if not self.pattern_file_path.exists():
-                print(f"⚠️ Pattern file not found: {self.pattern_file_path}")
-                return
-            
-            with open(self.pattern_file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            # Load global configuration
-            self.global_config = data.get("global_config", {})
-            
-            gates = data.get("gates", {})
-            
-            for gate_id, gate_data in gates.items():
-                # Extract basic information
-                display_name = gate_data.get("display_name", gate_id)
-                description = gate_data.get("description", "")
-                category = gate_data.get("category", "General")
-                priority = gate_data.get("priority", "Medium")
-                weight = gate_data.get("weight", 10.0)
-                
-                # Extract patterns from criteria
-                patterns = self._extract_patterns_from_criteria(gate_data.get("criteria", {}))
-                
-                # Create pattern info
-                pattern_info = PatternInfo(
-                    gate_id=gate_id,
-                    display_name=display_name,
-                    description=description,
-                    category=category,
-                    priority=priority,
-                    weight=weight,
-                    patterns=patterns
-                )
-                
-                self.patterns[gate_id] = pattern_info
-                
-                # Create text representation for embedding
-                pattern_text = self._create_pattern_text(pattern_info)
-                self.pattern_texts.append(pattern_text)
-            
-            print(f"✅ Loaded {len(self.patterns)} gates from pattern library")
-            
+            with open(self.pattern_library_path, 'r') as f:
+                return json.load(f)
         except Exception as e:
-            print(f"❌ Failed to load pattern library: {e}")
+            print(f"❌ Error loading pattern library: {e}")
+            return {"gates": {}, "global_config": {}}
     
-    def _extract_patterns_from_criteria(self, criteria: Dict[str, Any]) -> List[str]:
-        """Extract all patterns from criteria structure"""
+    def get_gate_patterns(self, gate_name: str) -> Optional[Dict[str, Any]]:
+        """Get patterns for a specific gate by name"""
+        return self.pattern_library.get("gates", {}).get(gate_name)
+    
+    def get_all_gate_names(self) -> List[str]:
+        """Get all gate names from the pattern library"""
+        return list(self.pattern_library.get("gates", {}).keys())
+    
+    def map_gate_id_to_name(self, gate_id: str) -> Optional[str]:
+        """Resolve a gate id to the pattern library key.
+        Supports numeric internal ids (1..17), display ids (e.g., "1.1"), and exact library keys.
+        """
+        gates = self.pattern_library.get("gates", {})
+        # Exact match
+        if gate_id in gates:
+            return gate_id
+        # Try mapping via registry (numeric id -> display_id)
+        try:
+            from models.gate_definitions import gate_registry
+            gd = gate_registry.get_gate(gate_id)
+            if gd:
+                # Try display id as key
+                disp = gd.display_id
+                if disp in gates:
+                    return disp
+                # Try by gate name
+                # Normalize names
+                lname = gd.gate_name.strip().lower()
+                for key, cfg in gates.items():
+                    disp_name = str(cfg.get("display_name", key)).strip().lower()
+                    if lname == disp_name:
+                        return key
+        except Exception:
+            pass
+        return None
+    
+    def evaluate_gate(self, gate_id: str, file_content: str, file_path: str, 
+                     technology: str = "any") -> Dict[str, Any]:
+        """Evaluate a gate against file content using the library's criteria.
+        Supports pattern and file_pattern conditions with AND/OR and NOT operators.
+        Returns pass/fail, score, and threshold from library when present.
+        """
+        gate_key = self.map_gate_id_to_name(gate_id)
+        if not gate_key:
+            return {"gate_id": gate_id, "passed": False, "score": 0.0, "reason": f"Gate {gate_id} not mapped to pattern library"}
+        gate = self.pattern_library.get("gates", {}).get(gate_key)
+        if not gate:
+            return {"gate_id": gate_id, "gate_name": gate_key, "passed": False, "score": 0.0, "reason": f"Gate {gate_key} not found in pattern library"}
+
+        criteria = gate.get("criteria", {})
+        operator = (criteria.get("operator") or "AND").upper()
+        conditions = criteria.get("conditions", [])
+        pass_threshold = gate.get("scoring", {}).get("pass_threshold", 50.0)
+
+        def _file_context_allows(pattern_obj: Dict[str, Any]) -> bool:
+            """If a pattern declares file_context, ensure file_path matches one of the context regexes"""
+            ctx = pattern_obj.get("file_context")
+            if not ctx:
+                return True
+            contexts = self.global_config.get("file_contexts", {})
+            regexes = contexts.get(ctx, [])
+            for rex in regexes:
+                try:
+                    if re.search(rex, file_path, flags=re.IGNORECASE):
+                        return True
+                except re.error:
+                    continue
+            return False
+
+        def _technology_allows(pattern_obj: Dict[str, Any]) -> bool:
+            req = (pattern_obj.get("technology") or "any").lower()
+            if req in ("any", "all"):
+                return True
+            return req == (technology or "").lower()
+
+        def eval_condition(cond: Dict[str, Any]) -> float:
+            cond_type = (cond.get("type") or "pattern").lower()
+            cond_op = (cond.get("operator") or "OR").upper()
+            weight = float(cond.get("weight", 0.0))
+            patterns = cond.get("patterns", [])
+            file_patterns = cond.get("file_patterns", [])
+            matches = 0
+            total = 0
+            try:
+                if cond_type == "pattern":
+                    total = max(1, len(patterns))
+                    for p in patterns:
+                        pat = p.get("pattern", "")
+                        if not pat:
+                            continue
+                        if not (_technology_allows(p) and _file_context_allows(p)):
+                            # pattern not applicable for this file
+                            continue
+                        try:
+                            if re.search(pat, file_content, flags=re.IGNORECASE):
+                                matches += 1
+                        except re.error:
+                            continue
+                elif cond_type == "file_pattern":
+                    total = max(1, len(file_patterns))
+                    for p in file_patterns:
+                        pat = p.get("pattern", "")
+                        if not pat:
+                            continue
+                        if not (_technology_allows(p) and _file_context_allows(p)):
+                            continue
+                        try:
+                            if re.search(pat, file_path, flags=re.IGNORECASE):
+                                matches += 1
+                        except re.error:
+                            continue
+                # operator semantics
+                if cond_op == "NOT":
+                    satisfied = (matches == 0)
+                elif cond_op == "AND":
+                    satisfied = (matches == total)
+                else:  # OR
+                    satisfied = (matches > 0)
+                return weight if satisfied else 0.0
+            except Exception:
+                return 0.0
+
+        import re
+        scores = [eval_condition(c) for c in conditions]
+        total_score = sum(scores)
+        passed = total_score >= pass_threshold
+
+        return {
+            "gate_id": gate_id,
+            "gate_name": gate.get("display_name", gate_key),
+            "display_name": gate.get("display_name", gate_key),
+            "passed": passed,
+            "score": total_score,
+            "max_score": sum(float(c.get("weight", 0.0)) for c in conditions) or 100.0,
+            "threshold": pass_threshold,
+            "category": gate.get("category", "Unknown"),
+            "priority": gate.get("priority", "Unknown")
+        }
+    
+    def get_patterns_for_gate(self, gate_id: str) -> List[str]:
+        """Get all patterns for a gate as a list of strings"""
+        gate_name = self.map_gate_id_to_name(gate_id)
+        if not gate_name:
+            return []
+        
+        gate_config = self.get_gate_patterns(gate_name)
+        if not gate_config:
+            return []
+        
         patterns = []
-        
-        if not criteria:
-            return patterns
-        
+        criteria = gate_config.get("criteria", {})
         conditions = criteria.get("conditions", [])
         
         for condition in conditions:
             if condition.get("type") == "pattern":
-                # Extract patterns from pattern conditions
-                pattern_list = condition.get("patterns", [])
-                for pattern_item in pattern_list:
-                    if isinstance(pattern_item, dict):
-                        pattern = pattern_item.get("pattern", "")
-                        if pattern:
-                            patterns.append(pattern)
-                    elif isinstance(pattern_item, str):
-                        patterns.append(pattern_item)
-            
+                for pattern_config in condition.get("patterns", []):
+                    patterns.append(pattern_config.get("pattern", ""))
             elif condition.get("type") == "file_pattern":
-                # Extract patterns from file pattern conditions
-                file_patterns = condition.get("file_patterns", [])
-                for pattern_item in file_patterns:
-                    if isinstance(pattern_item, dict):
-                        pattern = pattern_item.get("pattern", "")
-                        if pattern:
-                            patterns.append(pattern)
-                    elif isinstance(pattern_item, str):
-                        patterns.append(pattern_item)
-            
-            elif condition.get("type") == "criteria":
-                # Recursively extract patterns from nested criteria
-                nested_patterns = self._extract_patterns_from_criteria(condition.get("criteria", {}))
-                patterns.extend(nested_patterns)
+                for pattern_config in condition.get("file_patterns", []):
+                    patterns.append(pattern_config.get("pattern", ""))
         
         return patterns
     
-    def _create_pattern_text(self, pattern_info: PatternInfo) -> str:
-        """Create a text representation of a pattern for embedding"""
-        text_parts = [
-            f"Gate: {pattern_info.gate_id}",
-            f"Name: {pattern_info.display_name}",
-            f"Description: {pattern_info.description}",
-            f"Category: {pattern_info.category}",
-            f"Priority: {pattern_info.priority}",
-            f"Weight: {pattern_info.weight}",
-            f"Patterns: {', '.join(pattern_info.patterns)}"
-        ]
-        
-        return " | ".join(text_parts)
-    
-    def get_pattern(self, gate_id: str) -> Optional[PatternInfo]:
-        """Get a specific pattern by gate ID"""
-        return self.patterns.get(gate_id)
-    
-    def get_patterns_by_category(self, category: str) -> List[PatternInfo]:
-        """Get all patterns in a specific category"""
-        return [pattern for pattern in self.patterns.values() if pattern.category == category]
-    
-    def get_patterns_by_priority(self, priority: str) -> List[PatternInfo]:
-        """Get all patterns with a specific priority"""
-        return [pattern for pattern in self.patterns.values() if pattern.priority == priority]
-    
-    def get_all_patterns(self) -> List[PatternInfo]:
-        """Get all patterns"""
-        return list(self.patterns.values())
-    
-    def get_pattern_texts(self) -> List[str]:
-        """Get all pattern texts for embedding"""
-        return self.pattern_texts.copy()
-    
-    def get_gate_ids(self) -> List[str]:
-        """Get all gate IDs"""
-        return list(self.patterns.keys())
-    
-    def get_categories(self) -> List[str]:
-        """Get all unique categories"""
-        return list(set(pattern.category for pattern in self.patterns.values()))
-    
-    def get_priorities(self) -> List[str]:
-        """Get all unique priorities"""
-        return list(set(pattern.priority for pattern in self.patterns.values()))
-    
-    def get_global_config(self) -> Dict[str, Any]:
-        """Get the global configuration"""
-        return self.global_config.copy()
-    
-    def get_scoring_config(self) -> Dict[str, Any]:
-        """Get the scoring configuration"""
-        return self.global_config.get("default_scoring", {})
-    
-    def get_gate_categories_config(self) -> Dict[str, Any]:
-        """Get the gate categories configuration"""
-        return self.global_config.get("gate_categories", {})
-    
     def get_technology_mapping(self) -> Dict[str, List[str]]:
-        """Get the technology mapping configuration"""
+        """Get technology to file extension mapping"""
         return self.global_config.get("technology_mapping", {})
     
-    def get_file_contexts(self) -> Dict[str, List[str]]:
-        """Get the file contexts configuration"""
-        return self.global_config.get("file_contexts", {})
+    def detect_technology(self, file_path: str) -> str:
+        """Detect technology based on file extension"""
+        file_ext = Path(file_path).suffix.lower()
+        technology_mapping = self.get_technology_mapping()
+        
+        for tech, extensions in technology_mapping.items():
+            if file_ext in extensions:
+                return tech
+        
+        return "unknown"
     
-    def reload_patterns(self):
-        """Reload patterns from the file"""
-        self.patterns.clear()
-        self.pattern_texts.clear()
-        self.global_config.clear()
-        self._load_patterns()
-    
-    def search_patterns(self, query: str) -> List[PatternInfo]:
-        """Search patterns by query string"""
-        query_lower = query.lower()
-        results = []
+    def get_available_gates_text(self) -> str:
+        """Get formatted text of all available gates"""
+        gates = self.pattern_library.get("gates", {})
+        if not gates:
+            return "No gates defined in pattern library"
         
-        for pattern in self.patterns.values():
-            if (query_lower in pattern.gate_id.lower() or
-                query_lower in pattern.display_name.lower() or
-                query_lower in pattern.description.lower() or
-                query_lower in pattern.category.lower()):
-                results.append(pattern)
+        gates_text = []
+        for gate_name, gate_config in gates.items():
+            gates_text.append(f"- {gate_name}: {gate_config.get('display_name', gate_name)}")
+            gates_text.append(f"  Category: {gate_config.get('category', 'Unknown')}")
+            gates_text.append(f"  Priority: {gate_config.get('priority', 'Unknown')}")
+            gates_text.append(f"  Description: {gate_config.get('description', 'No description')}")
+            gates_text.append("")
         
-        return results
-    
-    def get_patterns_for_technology(self, technology: str) -> List[PatternInfo]:
-        """Get patterns that are specific to a technology"""
-        results = []
-        
-        for pattern in self.patterns.values():
-            # Check if any pattern in this gate is specific to the technology
-            for pattern_str in pattern.patterns:
-                if f'"technology": "{technology}"' in pattern_str or f'"technology": "{technology.lower()}"' in pattern_str:
-                    results.append(pattern)
-                    break
-        
-        return results
+        return "\n".join(gates_text)
+
+
+# Global instance for easy access
+pattern_library_service = PatternLibraryService()
+
+
+# Convenience functions
+def get_gate_patterns(gate_id: str) -> Optional[Dict[str, Any]]:
+    """Get patterns for a specific gate"""
+    gate_name = pattern_library_service.map_gate_id_to_name(gate_id)
+    if gate_name:
+        return pattern_library_service.get_gate_patterns(gate_name)
+    return None
+
+
+def evaluate_gate(gate_id: str, file_content: str, file_path: str, 
+                 technology: str = "any") -> Dict[str, Any]:
+    """Evaluate a gate against file content"""
+    return pattern_library_service.evaluate_gate(gate_id, file_content, file_path, technology)
+
+
+def get_patterns_for_gate(gate_id: str) -> List[str]:
+    """Get all patterns for a gate as a list of strings"""
+    return pattern_library_service.get_patterns_for_gate(gate_id)
+
+
+def get_available_gates_text() -> str:
+    """Get formatted text of all available gates"""
+    return pattern_library_service.get_available_gates_text()

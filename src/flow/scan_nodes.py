@@ -158,6 +158,448 @@ class RepositoryCheckoutNode(AsyncNode):
         return exec_res
 
 
+class ProjectAnalysisNode(AsyncNode):
+    """Step 2: Project Analysis (main + cd) to produce optimized structure JSON and LLM-ranked critical files"""
+    
+    def __init__(self, llm_service):
+        super().__init__()
+        self.llm_service = llm_service
+    
+    async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
+        return {
+            "repo_path": context.repo_path,
+            "cd_repo_path": context.cd_repo_path,
+            "metadata": context.metadata,
+            "scan_id": context.scan_id
+        }
+    
+    async def exec_async(self, prep_res: Dict[str, Any]) -> str:
+        try:
+            print("🔎 Step 2: Project Analysis (structure + critical files)")
+            repo_path = prep_res["repo_path"]
+            cd_repo_path = prep_res.get("cd_repo_path")
+            scan_id = prep_res.get("scan_id", "unknown")
+            
+            # Deterministic project structure (compact JSON) for main and cd
+            main_summary = self._summarize_repository(repo_path)
+            cd_summary = self._summarize_repository(cd_repo_path) if cd_repo_path else None
+
+            # Build compact directory trees to avoid repeating path prefixes
+            main_tree = self._build_directory_tree(repo_path)
+            cd_tree = self._build_directory_tree(cd_repo_path) if cd_repo_path else None
+
+            project_analysis = {
+                "main": {"summary": main_summary, "tree": main_tree},
+                "cd": {"summary": cd_summary, "tree": cd_tree} if cd_repo_path else None
+            }
+
+            # Ask LLM to identify critical files per gate, and configs/build/properties from structure only
+            critical_files = await self._identify_critical_files_from_structure(project_analysis, scan_id)
+            
+            self.context.project_analysis = project_analysis
+            self.context.critical_files = critical_files
+            
+            # Also reflect minimal pointers in metadata
+            if isinstance(self.context.metadata, dict):
+                self.context.metadata.setdefault("analysis", {})
+                self.context.metadata["analysis"]["project_analysis_available"] = True
+                self.context.metadata["analysis"]["critical_files_counts"] = {
+                    k: {kk: len(vv) for kk, vv in (critical_files.get(k, {}) or {}).items()}
+                    for k in ["main", "cd"] if critical_files.get(k)
+                }
+            
+            print("✅ Project analysis completed")
+            return "success"
+        except Exception as e:
+            print(f"❌ Project analysis failed: {e}")
+            return "error"
+    
+    async def post_async(self, context: ScanContext, prep_res: Dict[str, Any], exec_res: str) -> str:
+        if exec_res == "success":
+            context.project_analysis = self.context.project_analysis
+            context.critical_files = self.context.critical_files
+        return exec_res
+    
+    def _summarize_repository(self, repo_path: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not repo_path:
+            return None
+        summary: Dict[str, Any] = {
+            "summary": {
+                "languages": [],
+                "file_types": {},
+                "frameworks": [],
+                "layers": {"web": False, "service": False, "data": False}
+            },
+            "structure": {
+                "modules": [],
+                "top_packages": []
+            }
+        }
+        try:
+            repo = Path(repo_path)
+            file_types: Dict[str, int] = {}
+            top_packages: Dict[str, int] = {}
+            modules: List[Dict[str, Any]] = []
+            seen_modules: set = set()
+            
+            from utils.file_filter import DEFAULT_FILE_FILTER
+            for fp in DEFAULT_FILE_FILTER.iter_files(repo):
+                ext = fp.suffix.lower().lstrip('.') or "_"
+                file_types[ext] = file_types.get(ext, 0) + 1
+                rel = str(fp.relative_to(repo))
+                low = rel.lower()
+                # layers
+                if any(x in low for x in ["controller", "web", "rest"]):
+                    summary["summary"]["layers"]["web"] = True
+                if any(x in low for x in ["service", "business"]):
+                    summary["summary"]["layers"]["service"] = True
+                if any(x in low for x in ["repository", "dao", "jpa", "data/"]):
+                    summary["summary"]["layers"]["data"] = True
+                # top packages (java)
+                parts = low.split('/')
+                if len(parts) > 2:
+                    pkg_key = '.'.join(parts[:3])
+                    top_packages[pkg_key] = top_packages.get(pkg_key, 0) + 1
+                # modules by top dir with src
+                if len(parts) > 0:
+                    mod = parts[0]
+                    if mod not in seen_modules and (repo / mod / 'src').exists():
+                        seen_modules.add(mod)
+                        modules.append({"name": mod, "path": str((repo/mod).resolve())})
+            
+            # frameworks detection by files
+            frameworks: List[str] = []
+            if (repo / 'pom.xml').exists() or (repo / 'build.gradle').exists():
+                frameworks.append('maven' if (repo / 'pom.xml').exists() else 'gradle')
+            if any((repo / p).exists() for p in ['package.json']):
+                frameworks.append('node')
+            if any((repo / p).exists() for p in ['requirements.txt', 'pyproject.toml', 'setup.py']):
+                frameworks.append('python')
+            if (repo / 'Dockerfile').exists() or any('docker' in str(p).lower() for p in repo.rglob('docker*')):
+                frameworks.append('docker')
+            if any('k8s' in str(p).lower() or 'kubernetes' in str(p).lower() for p in repo.rglob('*')):
+                frameworks.append('kubernetes')
+            
+            summary["summary"]["file_types"] = file_types
+            # languages map
+            ext_to_lang = {
+                'py':'python','js':'javascript','ts':'typescript','java':'java','cs':'csharp','go':'go','rs':'rust','cpp':'cpp','c':'c','h':'c','hpp':'cpp','xml':'xml','yml':'yaml','yaml':'yaml','json':'json'
+            }
+            langs = set(ext_to_lang.get(k, None) for k in file_types.keys())
+            summary["summary"]["languages"] = sorted([l for l in langs if l])
+            summary["summary"]["frameworks"] = sorted(list(set(frameworks)))
+            summary["structure"]["modules"] = modules
+            summary["structure"]["top_packages"] = sorted([{ "name": k, "files": v } for k, v in top_packages.items()], key=lambda x: x["files"], reverse=True)[:15]
+            return summary
+        except Exception as e:
+            print(f"⚠️ Failed summarizing repository {repo_path}: {e}")
+            return summary
+    
+    def _list_repo_files(self, repo_path: Optional[str]) -> List[str]:
+        if not repo_path:
+            return []
+        repo = Path(repo_path)
+        files: List[str] = []
+        try:
+            from utils.file_filter import DEFAULT_FILE_FILTER
+            for fp in DEFAULT_FILE_FILTER.iter_files(repo):
+                files.append(str(fp.relative_to(repo)))
+            # cap at a safe upper bound to keep prompt size reasonable
+            return files[:5000]
+        except Exception as e:
+            print(f"⚠️ Failed listing repo files: {e}")
+            return files
+
+    def _build_directory_tree(self, repo_path: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Build a compact JSON directory tree to eliminate repeated prefixes.
+        Shape (token-optimized): nested object where directories map to objects and files map to 1.
+        Example: {"src": {"main": {"java": {"App.java": 1}}}, "README.md": 1}
+        Only includes files that pass FileFilter.
+        """
+        if not repo_path:
+            return None
+        from utils.file_filter import DEFAULT_FILE_FILTER
+        from pathlib import Path
+        root = Path(repo_path)
+        try:
+            # Build a trie-like structure with minimal tokens
+            tree: Dict[str, Any] = {}
+
+            def insert(path: Path):
+                rel = path.relative_to(root)
+                parts = list(rel.parts)
+                node = tree
+                for i, part in enumerate(parts):
+                    is_last = (i == len(parts) - 1)
+                    if is_last:
+                        node[part] = 1  # mark file
+                    else:
+                        if part not in node or not isinstance(node.get(part), dict):
+                            node[part] = {}
+                        node = node[part]
+
+            for fp in DEFAULT_FILE_FILTER.iter_files(root):
+                insert(fp)
+
+            return tree
+        except Exception as e:
+            print(f"⚠️ Failed building directory tree: {e}")
+            return None
+
+    def _map_category_files_to_gates(self, repo_path: Optional[str], category_selection: Dict[str, List[str]]) -> Dict[str, Any]:
+        """Map category-selected files to gate IDs using pattern library and gate registry."""
+        result = {"gates": {}}
+        if not repo_path:
+            return result
+        try:
+            from models.gate_definitions import gate_registry
+            from services.pattern_library_service import PatternLibraryService
+            import re
+            repo = Path(repo_path)
+            pls = PatternLibraryService()
+            # Build an index of all repo file paths for regex matching
+            all_files = [str(p.relative_to(repo)) for p in repo.rglob('*') if p.is_file()]
+            # Helper to extract file-pattern regexes from pattern library
+            def file_regexes_for_gate(gid: str) -> List[str]:
+                try:
+                    gate_config = pls.get_gate_patterns(gid)
+                    if not gate_config:
+                        return []
+                    criteria = gate_config.get("criteria", {})
+                    patterns = []
+                    for cond in criteria.get("conditions", []):
+                        if cond.get("type") == "file_pattern":
+                            for pc in cond.get("file_patterns", []):
+                                pat = pc.get("pattern")
+                                if isinstance(pat, str) and pat:
+                                    patterns.append(pat)
+                    return patterns
+                except Exception:
+                    return []
+            # Convert category name
+            def cat_key(g):
+                c = g.category.value.lower() if hasattr(g, 'category') else str(g.category).lower()
+                if "audit" in c: return "auditability"
+                if "availability" in c: return "availability"
+                if "test" in c: return "testing"
+                if "security" in c: return "security"
+                if "error" in c: return "auditability"  # map error handling to auditability bucket if needed
+                return "auditability"
+            for g in gate_registry.get_hard_gates():
+                gid = g.gate_id
+                bucket = category_selection.get(cat_key(g), [])
+                picked: List[str] = []
+                # 1) Use file pattern regexes
+                regexes = file_regexes_for_gate(gid)
+                for r in regexes[:10]:  # limit regex volume
+                    try:
+                        cre = re.compile(r, re.IGNORECASE)
+                        for path in all_files:
+                            if cre.search(path):
+                                picked.append(path)
+                    except re.error:
+                        continue
+                # 2) Add from category bucket
+                picked.extend(bucket)
+                # Deduplicate, limit
+                seen = set()
+                deduped = []
+                for p in picked:
+                    if p not in seen:
+                        deduped.append(p)
+                        seen.add(p)
+                result["gates"][gid] = deduped[:30]
+            return result
+        except Exception as e:
+            print(f"⚠️ Gate mapping failed: {e}")
+            return result
+    
+    async def _identify_critical_files_from_structure(self, project_analysis: Dict[str, Any], scan_id: str) -> Dict[str, Any]:
+        try:
+            import json
+            # Provide gate definitions (number | category | name | summary) and canonical gate IDs
+            try:
+                from models.gate_definitions import gate_registry
+                available_gates_text = gate_registry.get_gates_for_llm_analysis()
+                gate_ids = gate_registry.get_hard_gate_ids()
+            except Exception:
+                available_gates_text = ""
+                gate_ids = []
+            # Build instruction (shared across chunks)
+            instruction = (
+                "Given the repository structure (summary + directory tree), identify: \n"
+                "1) critical files for each hard gate (keys are gate IDs as in the gate registry), \n"
+                "2) overall project category files under: Build, Config, Properties, Infrastructure, Deployment. \n"
+                "\nAVAILABLE GATES (number | category | name | summary):\n"
+                f"{available_gates_text}\n\n"
+                "Use ONLY these gate IDs as keys when returning results (do not invent):\n"
+                f"{json.dumps(gate_ids)}\n\n"
+                "Classification rules (use only provided file paths, no invention):\n"
+                "- Build: Dockerfile, docker-compose*.yml|yaml, helm/**, k8s/**, pom.xml, build.gradle, gradle/**, .mvn/**\n"
+                "- Config: *.yml, *.yaml, *.json, *.conf, *.ini, *.properties\n"
+                "- Properties: *.properties, *.conf, *.ini\n"
+                "- Infrastructure: terraform/**, infra/**, k8s/**, helm/**, cloudformation/**\n"
+                "- Deployment: .github/workflows/**, pipeline/**, Jenkinsfile, .gitlab-ci.yml, ArgoCD/**\n"
+                "- Deduplicate paths. Allow at least 20 items per list; cap at 100 if needed.\n"
+                "- If a section has no items, return an empty array.\n"
+                "- Always include both 'main' and 'cd'. If 'cd' is null in input, still return empty arrays for 'cd'.\n\n"
+                "The input provides a compact JSON directory tree under each repo as 'tree' where directories map to objects and files map to 1 (no repeated prefixes). Reconstruct full relative paths when returning results.\n\n"
+                "Return STRICT JSON only with this exact shape: {\n"
+                "  \"main\": { \"gates\": { \"<gate_id>\": [\"path\", ...] }, \"categories\": {\n"
+                "    \"Build\": [...], \"Config\": [...], \"Properties\": [...], \"Infrastructure\": [...], \"Deployment\": [...]\n"
+                "  } },\n"
+                "  \"cd\":   { \"gates\": { \"<gate_id>\": [\"path\", ...] }, \"categories\": {\n"
+                "    \"Build\": [...], \"Config\": [...], \"Properties\": [...], \"Infrastructure\": [...], \"Deployment\": [...]\n"
+                "  } }\n"
+                "}\n\n"
+            )
+
+            # Helper: chunk trees by top-level directories to keep payload size under ~40k chars
+            def build_chunks() -> list:
+                chunks = []
+                main_obj = project_analysis.get("main") or {}
+                cd_obj = project_analysis.get("cd") or {}
+                main_summary = main_obj.get("summary")
+                cd_summary = cd_obj.get("summary")
+                main_tree = main_obj.get("tree") or {}
+                cd_tree = cd_obj.get("tree") or {}
+
+                def pack_side(side_name: str, summary: dict, tree: dict) -> list:
+                    keys = list(tree.keys())
+                    if not keys:
+                        payload = {"project": {"main": main_obj, "cd": cd_obj}}
+                        return [payload]
+                    batches = []
+                    current = []
+                    for k in sorted(keys):
+                        current.append(k)
+                        partial_tree = {kk: tree[kk] for kk in current}
+                        tmp = {"project": {"main": {}, "cd": {}}}
+                        tmp["project"][side_name] = {"summary": summary, "tree": partial_tree}
+                        other = "cd" if side_name == "main" else "main"
+                        tmp["project"][other] = {"summary": (cd_summary if side_name == "main" else main_summary), "tree": {}}
+                        if len(json.dumps(tmp)) > 12000 and len(current) > 1:
+                            last = current.pop()
+                            batches.append(list(current))
+                            current = [last]
+                    if current:
+                        batches.append(list(current))
+                    res = []
+                    for batch in batches:
+                        partial_tree = {kk: tree[kk] for kk in batch}
+                        payload = {"project": {"main": {}, "cd": {}}}
+                        payload["project"][side_name] = {"summary": summary, "tree": partial_tree}
+                        other = "cd" if side_name == "main" else "main"
+                        payload["project"][other] = {"summary": (cd_summary if side_name == "main" else main_summary), "tree": {}}
+                        res.append(payload)
+                    return res
+
+                chunks.extend(pack_side("main", main_summary, main_tree))
+                if cd_obj:
+                    chunks.extend(pack_side("cd", cd_summary, cd_tree))
+                return chunks
+
+            # Helper: merge results with dedupe
+            def merge_results(target: dict, piece: dict):
+                for side in ["main", "cd"]:
+                    side_obj = piece.get(side) or {}
+                    if side not in target:
+                        target[side] = {"gates": {}, "categories": {}}
+                    # gates
+                    for gid, arr in (side_obj.get("gates") or {}).items():
+                        target[side]["gates"].setdefault(gid, [])
+                        seen = set(target[side]["gates"][gid])
+                        for p in arr or []:
+                            if p not in seen:
+                                target[side]["gates"][gid].append(p)
+                                seen.add(p)
+                    # categories
+                    for cname, arr in (side_obj.get("categories") or {}).items():
+                        target[side]["categories"].setdefault(cname, [])
+                        seen = set(target[side]["categories"][cname])
+                        for p in arr or []:
+                            if p not in seen:
+                                target[side]["categories"][cname].append(p)
+                                seen.add(p)
+
+            combined = {"main": {"gates": {}, "categories": {}}, "cd": {"gates": {}, "categories": {}}}
+
+            # Run chunked calls
+            for idx, payload in enumerate(build_chunks()):
+                base_prompt = instruction + f"INPUT:\n{json.dumps(payload)}"
+                # first attempt (low temperature)
+                resp = await self.llm_service.generate(
+                    base_prompt,
+                    scan_id=scan_id,
+                    node_name="ProjectAnalysisNode",
+                    metadata={"type": "critical_files_from_structure", "chunk_index": idx},
+                    temperature=0.1,
+                    timeout=300,
+                    max_tokens=2000
+                )
+                parsed_ok = False
+                for attempt in range(2):
+                    try:
+                        piece = json.loads(self._extract_json(resp))
+                        # normalize minimal structure
+                        for side in ["main", "cd"]:
+                            if side in piece and isinstance(piece[side], dict):
+                                piece[side].setdefault("gates", {})
+                                piece[side].setdefault("categories", {})
+                        merge_results(combined, piece)
+                        parsed_ok = True
+                        break
+                    except Exception as e:
+                        if attempt == 0:
+                            # retry once with explicit JSON-only reminder
+                            retry_prompt = base_prompt + "\n\nSTRICT: Respond with ONLY a single JSON object. Do not include code fences or any extra text."
+                            resp = await self.llm_service.generate(
+                                retry_prompt,
+                                scan_id=scan_id,
+                                node_name="ProjectAnalysisNode",
+                                metadata={"type": "critical_files_from_structure", "chunk_index": idx, "retry": True},
+                                temperature=0.0,
+                                timeout=300,
+                                max_tokens=2000
+                            )
+                            continue
+                        else:
+                            print(f"⚠️ Parsing critical chunk {idx} failed after retry: {e}")
+                if not parsed_ok:
+                    continue
+
+            # Enforce caps
+            for side in ["main", "cd"]:
+                for gid, arr in list(combined[side]["gates"].items()):
+                    combined[side]["gates"][gid] = (arr or [])[:100]
+                for cname, arr in list(combined[side]["categories"].items()):
+                    combined[side]["categories"][cname] = (arr or [])[:100]
+
+            return combined
+        except Exception as e:
+            print(f"⚠️ LLM identify critical files failed: {e}")
+            return {"main": {"gates": {}, "categories": {}}, "cd": {"gates": {}, "categories": {}}}
+    
+    def _extract_json(self, text: str) -> str:
+        import re
+        if not text:
+            return text
+        s = text.strip()
+        # strip markdown code fences if present
+        if s.startswith("```"):
+            s = re.sub(r"^```[a-zA-Z0-9]*\n", "", s)
+            s = re.sub(r"\n```$", "", s)
+        # find first JSON object
+        m = re.search(r"\{[\s\S]*\}$", s)
+        if m:
+            return m.group(0)
+        # fallback: try to locate first '{' and last '}'
+        start = s.find('{')
+        end = s.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            return s[start:end+1]
+        return s
+
 class VectorizationNode(AsyncNode):
     """Step 2: CocoIndex Vectorization & Storage"""
     
@@ -275,86 +717,219 @@ class VectorizationNode(AsyncNode):
 
 
 class LLMPreAnalysisNode(AsyncNode):
-    """Step 3: LLM Pre-Analysis (Dynamic Patterns)"""
+    """Step 3: LLM Pre-Analysis using critical files (applicability + expected counts + dynamic patterns)"""
     
     def __init__(self, llm_service):
         super().__init__()
         self.llm_service = llm_service
     
     async def prep_async(self, context: ScanContext) -> Dict[str, Any]:
-        """Prepare LLM pre-analysis"""
         return {
+            "critical_files": context.critical_files,
+            "repo_path": context.repo_path,
+            "cd_repo_path": context.cd_repo_path,
             "metadata": context.metadata,
-            "vector_data": context.vector_data
+            "scan_id": context.scan_id
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
-        """Execute LLM pre-analysis"""
         try:
             import time
+            import json
             start_time = time.time()
-            print("🤖 Step 3: LLM Pre-Analysis (Dynamic Patterns)")
+            print("🤖 Step 3: LLM Pre-Analysis (critical files)")
             
-            metadata = prep_res["metadata"]
-            vector_data = prep_res["vector_data"]
+            critical_files = prep_res.get("critical_files") or {}
+            repo_path = prep_res.get("repo_path")
+            cd_repo_path = prep_res.get("cd_repo_path")
+            scan_id = prep_res.get("scan_id")
+            metadata = prep_res.get("metadata") or {}
             
-            # Handle case where metadata is None
-            if not metadata:
-                print("❌ No metadata available for LLM pre-analysis")
-                return "error"
+            # Prefer gate-mapped files if present
+            main_gate_files = ((critical_files.get("main") or {}).get("gates") or {})
+            cd_gate_files = ((critical_files.get("cd") or {}).get("gates") or {})
+            # Fallback: categories
+            main_cats = ((critical_files.get("main") or {}).get("categories") or {})
+            cd_cats = ((critical_files.get("cd") or {}).get("categories") or {})
             
-            # Get build configuration content
-            build_configs = self._get_build_configs(metadata)
+            # Read contents of critical files with truncation
+            file_blobs = self._read_critical_files(repo_path, cd_repo_path, {
+                "gates": {"main": main_gate_files, "cd": cd_gate_files},
+                "categories": {"main": main_cats, "cd": cd_cats}
+            })
             
-            # Analyze project structure for expected counts
-            print("   🔍 Analyzing project structure for expected counts...")
-            try:
-                expected_counts_analysis = self._analyze_project_structure_for_expected_counts(metadata)
-            except AttributeError:
-                print("   ⚠️ Project structure analysis not available, using fallback")
-                expected_counts_analysis = {}
+            # Chunk into multiple LLM calls with overlap
+            chunks = self._chunk_blobs(file_blobs, max_chars=12000, overlap_chars=1000)
             
-            # Create prompt for LLM with expected counts analysis
-            prompt = self._create_pre_analysis_prompt(build_configs, expected_counts_analysis)
+            # Aggregate results
+            aggregated_expected: Dict[str, Any] = {}
+            aggregated_actual: Dict[str, Any] = {}
+            aggregated_patterns: List[Dict[str, Any]] = []
+            aggregated_insights: Dict[str, Any] = {"project_type": None, "functional_summary": "", "frameworks": [], "libraries": []}
             
-            # Call LLM for dynamic patterns
-            print("   📞 Calling LLM service...")
-            response = await self.llm_service.generate(
+            for idx, chunk in enumerate(chunks):
+                prompt = self._build_preanalysis_prompt(chunk, metadata)
+                resp = await self.llm_service.generate(
                 prompt,
-                scan_id=self.context.scan_id,
+                    scan_id=scan_id,
                 node_name="LLMPreAnalysisNode",
-                metadata={
-                    "build_configs": build_configs,
-                    "vector_data": vector_data
-                }
-            )
-            print(f"   📝 LLM response received ({len(response)} chars)")
-            
-            # Parse response to extract patterns
-            print("   🔍 Parsing LLM response...")
-            dynamic_patterns = self._parse_llm_response(response)
+                    metadata={"chunk_index": idx, "total_chunks": len(chunks)}
+                )
+                parsed = self._parse_llm_preanalysis_response(resp)
+                # merge expected counts
+                for gid, obj in parsed.get("expected_counts", {}).items():
+                    if gid not in aggregated_expected:
+                        aggregated_expected[gid] = obj
+                # merge actual counts
+                for gid, obj in parsed.get("actual_counts", {}).items():
+                    if gid not in aggregated_actual:
+                        aggregated_actual[gid] = obj
+                # dynamic patterns not needed; ignore
+                # merge insights
+                insights = parsed.get("insights") or {}
+                if insights:
+                    if not aggregated_insights.get("project_type") and insights.get("project_type"):
+                        aggregated_insights["project_type"] = insights.get("project_type")
+                    if insights.get("functional_summary"):
+                        # keep the longest summary
+                        cur = aggregated_insights.get("functional_summary") or ""
+                        cand = insights.get("functional_summary") or ""
+                        if len(cand) > len(cur):
+                            aggregated_insights["functional_summary"] = cand
+                    if isinstance(insights.get("frameworks"), list):
+                        seen = set(aggregated_insights.get("frameworks") or [])
+                        for x in insights.get("frameworks"):
+                            if x not in seen:
+                                aggregated_insights.setdefault("frameworks", []).append(x)
+                                seen.add(x)
+                    if isinstance(insights.get("libraries"), list):
+                        seen = set(aggregated_insights.get("libraries") or [])
+                        for x in insights.get("libraries"):
+                            if x not in seen:
+                                aggregated_insights.setdefault("libraries", []).append(x)
             
             # Store in context
-            self.context.patterns = {
-                "dynamic": dynamic_patterns,
-                "static": []  # Will be populated in next step
-            }
+            self.context.llm_expected_counts = aggregated_expected
+            self.context.llm_actual_counts = aggregated_actual
+            # Do not include dynamic patterns; keep only static placeholder for compatibility
+            self.context.patterns = {"static": []}
+            self.context.pre_analysis_insights = aggregated_insights
             
-            # Store expected counts analysis for later use
-            if expected_counts_analysis:
-                self.context.expected_counts_analysis = expected_counts_analysis
-                print(f"📊 Stored expected counts analysis for {len(expected_counts_analysis)} gates")
-            
-            elapsed_time = time.time() - start_time
-            print(f"✅ Generated {len(dynamic_patterns)} dynamic patterns (took {elapsed_time:.2f}s)")
-            
+            print(f"✅ Pre-analysis completed: gates={len(aggregated_expected)}, patterns={len(aggregated_patterns)}")
             return "success"
-            
         except Exception as e:
             print(f"❌ LLM pre-analysis failed: {e}")
             return "error"
     
-
+    def _read_critical_files(self, repo_path: Optional[str], cd_repo_path: Optional[str], critical: Dict[str, Any]) -> List[Dict[str, str]]:
+        blobs: List[Dict[str, str]] = []
+        try:
+            def read_paths(base: Optional[str], paths: List[str], side: str, tag: str):
+                if not base or not paths:
+                    return
+                root = Path(base)
+                for rel in paths:
+                    p = root / rel
+                    try:
+                        if p.exists() and p.is_file():
+                            with open(p, 'r', encoding='utf-8', errors='ignore') as f:
+                                text = f.read()
+                            blobs.append({
+                                "repo": side,
+                                "category": tag,
+                                "path": rel,
+                                "content": self._truncate(text, 100000)
+                            })
+                    except Exception:
+                        continue
+            # Read gate-specific first
+            gates_main: Dict[str, List[str]] = (critical.get("gates") or {}).get("main") or {}
+            for gid, files in gates_main.items():
+                read_paths(repo_path, files[:100], "main", f"gate:{gid}")
+            gates_cd: Dict[str, List[str]] = (critical.get("gates") or {}).get("cd") or {}
+            for gid, files in gates_cd.items():
+                read_paths(cd_repo_path, files[:100], "cd", f"gate:{gid}")
+            # Then categories
+            cats_main: Dict[str, List[str]] = (critical.get("categories") or {}).get("main") or {}
+            for cat, files in cats_main.items():
+                read_paths(repo_path, files[:100], "main", f"cat:{cat}")
+            cats_cd: Dict[str, List[str]] = (critical.get("categories") or {}).get("cd") or {}
+            for cat, files in cats_cd.items():
+                read_paths(cd_repo_path, files[:100], "cd", f"cat:{cat}")
+        except Exception as e:
+            print(f"⚠️ Failed reading critical files: {e}")
+        return blobs
+    
+    def _truncate(self, text: str, max_chars: int) -> str:
+        if len(text) <= max_chars:
+            return text
+        head = text[: max_chars // 2]
+        tail = text[- max_chars // 2 :]
+        return head + "\n\n... [content truncated] ...\n\n" + tail
+    
+    def _chunk_blobs(self, blobs: List[Dict[str, str]], max_chars: int, overlap_chars: int) -> List[str]:
+        serialized: List[str] = []
+        for b in blobs:
+            serialized.append(f"[{b['repo']}]({b['category']}) {b['path']}\n" + b['content'] + "\n\n====\n\n")
+        big = ''.join(serialized)
+        chunks: List[str] = []
+        i = 0
+        while i < len(big):
+            chunk = big[i:i+max_chars]
+            chunks.append(chunk)
+            if i + max_chars >= len(big):
+                break
+            i += max_chars - overlap_chars
+        return chunks
+    
+    def _build_preanalysis_prompt(self, chunk: str, metadata: Dict[str, Any]) -> str:
+        meta_compact = {
+            "languages": (metadata.get("languages") if isinstance(metadata, dict) else None),
+            "file_types": (metadata.get("file_types") if isinstance(metadata, dict) else None)
+        }
+        return (
+            "Analyze the following selected critical files from a repository.\n"
+            "For EACH hard-gate, provide BOTH: \n"
+            "- expected_counts: { gate_id -> { applicable, expected_count, reasoning_expected } }\n"
+            "- actual_counts: { gate_id -> { actual_count, reasoning_actual } }\n"
+            "Additionally, include project insights: insights: { project_type, functional_summary, frameworks:[], libraries:[] }.\n"
+            "Strictly return a single JSON object with keys: expected_counts, actual_counts, insights.\n\n"
+            f"METADATA:\n{meta_compact}\n\nFILES:\n{chunk}"
+        )
+    
+    def _parse_llm_preanalysis_response(self, text: str) -> Dict[str, Any]:
+        import json, re
+        try:
+            m = re.search(r"\{[\s\S]*\}$", text.strip())
+            payload = json.loads(m.group(0) if m else text)
+            exp = payload.get("expected_counts") or {}
+            act = payload.get("actual_counts") or {}
+            ins = payload.get("insights") or {}
+            # normalize
+            if isinstance(exp, dict):
+                for k,v in list(exp.items()):
+                    if isinstance(v, dict):
+                        v.setdefault("applicable", True)
+                        if v.get("expected_count") is None:
+                            v["expected_count"] = 1
+                        v.setdefault("reasoning_expected", "")
+            if isinstance(act, dict):
+                for k,v in list(act.items()):
+                    if isinstance(v, dict):
+                        if v.get("actual_count") is None:
+                            v["actual_count"] = 0
+                        v.setdefault("reasoning_actual", "")
+            # normalize insights
+            if isinstance(ins, dict):
+                if not isinstance(ins.get("frameworks"), list):
+                    ins["frameworks"] = []
+                if not isinstance(ins.get("libraries"), list):
+                    ins["libraries"] = []
+                ins.setdefault("project_type", None)
+                ins.setdefault("functional_summary", "")
+            return {"expected_counts": exp, "actual_counts": act, "insights": ins}
+        except Exception:
+            return {"expected_counts": {}, "actual_counts": {}, "insights": {}}
     
     # def _detect_frameworks(self, build_files: List[str], config_files: List[str]) -> List[str]:
         """Detect frameworks based on build and config files"""
@@ -614,162 +1189,104 @@ class LLMPreAnalysisNode(AsyncNode):
             print(f"⚠️ Error reading file {file_path}: {e}")
             return f"Error reading file: {str(e)}"
     
-    def _create_pre_analysis_prompt(self, build_configs: str, expected_counts_analysis: Dict[str, Dict[str, Any]] = None) -> str:
-        """Create prompt for LLM pre-analysis with extracted code snippets and expected counts analysis"""
-        from services.prompt_service import PromptService
+    def _create_pre_analysis_prompt(self, build_configs: str, project_structure: str = None, extracted_code: str = None, available_gates: str = None) -> str:
+        """Create prompt for LLM pre-analysis with extracted code snippets"""
+        # Use provided components or extract them
+        if project_structure is None:
+            project_structure = self._get_project_structure_info()
+        if extracted_code is None:
+            extracted_code = self._extract_relevant_code_snippets()
+        if available_gates is None:
+            available_gates = self._get_available_gates_summary()
         
-        prompt_service = PromptService()
-        
-        # Extract relevant code snippets from vector database
-        extracted_code = self._extract_relevant_code_snippets()
-        
-        # Format expected counts analysis for the prompt
-        expected_counts_text = ""
-        if expected_counts_analysis:
-            expected_counts_text = "\n\nEXPECTED COUNTS ANALYSIS:\n"
-            for gate_id, analysis in expected_counts_analysis.items():
-                expected_counts_text += f"- Gate {gate_id}: Expected {analysis.get('expected_count', 1)} implementations\n"
-                expected_counts_text += f"  Reason: {analysis.get('reason', 'Based on project structure analysis')}\n"
-        
-        # Get extracted code snippets
-        extracted_code = self._extract_relevant_code_snippets()
-        
-        # Get project structure information
-        project_structure = self._get_project_structure_info()
-        
-        return prompt_service.format_prompt(
-            "llm_pre_analysis",
-            build_configs=build_configs,
-            available_gates=self._get_available_gates_summary(),
-            expected_counts_analysis=expected_counts_text,
-            extracted_code=extracted_code,
-            project_structure=project_structure
-        ) or f"""
-CRITICAL: You must respond with ONLY valid JSON. No explanations, no markdown, no other text.
+        # Create a concise but comprehensive prompt
+        prompt = f"""Analyze this project and generate patterns for ALL 16 security gates.
 
-You are an expert software architect and code analyst. Analyze the repository comprehensively and provide detailed insights.
+PROJECT STRUCTURE:
+{project_structure}
 
-## INPUT DATA
+BUILD CONFIGURATIONS:
+{build_configs}
 
-Key Config Files: {build_configs}
-
-Available Gates:
-{self._get_available_gates_summary()}
-
-Extracts From the Code:
+CODE SNIPPETS:
 {extracted_code}
 
-Expected Counts Analysis:
-{expected_counts_text}
+AVAILABLE GATES:
+{available_gates}
 
-## ANALYSIS TASKS
+ANALYSIS REQUIREMENTS:
+1. Project summary (type, functionality, architecture, tech stack)
+2. Integration analysis (databases, APIs, auth, monitoring, CI/CD)
+3. Framework analysis (web, ORM, testing, security, logging)
+4. For each of 16 gates: applicability, reasoning, patterns, expected count with detailed reasoning
 
-1. **PROJECT SUMMARY & FRAMEWORK ANALYSIS**: Analyze the project structure, identify frameworks, technologies, and architectural patterns
-2. **GATE APPLICABILITY ANALYSIS**: Determine which gates are applicable based on project type, frameworks, and integrations
-3. **DYNAMIC PATTERN GENERATION**: Create regex patterns for applicable gates based on the codebase
-4. **EXPECTED COUNT ANALYSIS**: Provide expected implementation counts with detailed reasoning
+Return ONLY valid JSON with this structure:
 
-## ANALYSIS CRITERIA
-
-### Project & Framework Analysis:
-- Identify primary programming language and frameworks
-- Detect build tools, databases, and deployment technologies
-- Analyze architectural patterns (MVC, Microservices, etc.)
-- Identify integration points and external systems
-- Assess development practices and tooling
-
-### Gate Applicability Analysis:
-- **Auditability Gates**: Check for logging frameworks, monitoring tools, audit trails
-- **Error Handling Gates**: Look for exception handling, HTTP status codes, error tracking
-- **Availability Gates**: Check for timeout configurations, retry logic, circuit breakers
-- **Security Gates**: Look for authentication, authorization, data protection
-- **Testing Gates**: Check for testing frameworks, test coverage, CI/CD integration
-
-### Expected Count Analysis:
-- **File Type Analysis**: Count relevant file types (controllers, services, utilities, etc.)
-- **Architecture Patterns**: Consider MVC, microservices, layered architecture
-- **Technology Stack**: Requirements based on detected frameworks and libraries
-- **Build Configuration**: Indicators from dependencies, plugins, and configurations
-- **Industry Best Practices**: Standard expectations for the detected technology stack
-
-### Integration Analysis:
-- Database integrations (MySQL, PostgreSQL, MongoDB, etc.)
-- External API integrations (REST, GraphQL, SOAP)
-- Message queue systems (Kafka, RabbitMQ, etc.)
-- Monitoring and logging systems (ELK, Prometheus, etc.)
-- Security systems (OAuth, JWT, LDAP, etc.)
-
-CRITICAL RULES for patterns:
-- Use ONLY simple Python regex patterns with basic syntax
-- Allowed: word1.*word2|word3.*word4
-- Forbidden: lookbehind (?<=...), lookahead (?=...), (?i) flags, complex assertions
-
-CRITICAL JSON FORMATTING RULES:
-- Use ONLY double quotes for strings: "value" not 'value'
-- Use proper JSON syntax: "key": "value" not "key". "value"
-- Ensure all property names are quoted: "gate_id": "1.1"
-- Use proper boolean values: true or false (not "true" or "false")
-- No trailing commas before closing braces or brackets
-
-Respond with ONLY this exact JSON structure:
+Return ONLY valid JSON with this exact structure:
 
 {{
-    "project_analysis": {{
-        "primary_language": "Main programming language",
-        "frameworks": ["List of main frameworks detected"],
-        "build_tools": ["Build tools used"],
-        "databases": ["Database technologies"],
-        "architectural_pattern": "Main architectural pattern",
-        "deployment_platform": "Deployment platform",
-        "integration_systems": ["External systems integrated"],
-        "development_practices": ["Development practices detected"],
-        "security_frameworks": ["Security frameworks used"],
-        "monitoring_tools": ["Monitoring and logging tools"]
+  "project_summary": {{
+    "project_type": "Type of application (e.g., Spring Boot Web Application)",
+    "primary_functionality": "What the application does",
+    "architecture_pattern": "MVC, Microservices, etc.",
+    "technology_stack": ["Java", "Spring Boot", "Hibernate", "MySQL"]
+  }},
+  "integration_analysis": {{
+    "database_systems": ["MySQL", "Redis"],
+    "message_systems": ["Kafka"],
+    "external_apis": ["REST APIs", "Payment Gateway"],
+    "authentication_systems": ["OAuth2", "JWT"],
+    "monitoring_systems": ["ELK Stack"],
+    "ci_cd_systems": ["Jenkins"]
+  }},
+  "framework_analysis": {{
+    "web_frameworks": ["Spring Boot"],
+    "database_orms": ["Hibernate", "JPA"],
+    "testing_frameworks": ["JUnit", "Mockito"],
+    "security_libraries": ["Spring Security"],
+    "logging_frameworks": ["Logback", "SLF4J"]
+  }},
+  "patterns": [
+    {{
+      "gate_id": "1.1",
+      "name": "Logs Searchable/Available",
+      "description": "Ensure logs are searchable and available for troubleshooting",
+      "applicable": true,
+      "reason": "Spring Boot web application requires comprehensive logging for monitoring and debugging",
+      "pattern": ["logger.(info|debug|warn|error)", "logging.config", "logback.xml"],
+      "expected_count": 8,
+      "expected_count_reasoning": "Based on 3 controllers, 2 services, 1 repository, 1 configuration class, and 1 utility class that should implement logging. Spring Boot best practices require logging in all major components."
     }},
-    "gate_analysis": {{
-        "auditability_applicable": true,
-        "auditability_reason": "Reason for auditability gate applicability",
-        "error_handling_applicable": true,
-        "error_handling_reason": "Reason for error handling gate applicability",
-        "availability_applicable": true,
-        "availability_reason": "Reason for availability gate applicability",
-        "security_applicable": true,
-        "security_reason": "Reason for security gate applicability",
-        "testing_applicable": true,
-        "testing_reason": "Reason for testing gate applicability"
-    }},
-    "patterns": [
-        {{
-            "gate_id": "1.1",
-            "name": "Log system errors",
-            "description": "Log system errors for troubleshooting",
-            "applicable": true,
-            "reason": "Repository contains multiple logging utility files with error handling code",
-            "pattern": "error.*log|system.*error|exception.*log",
-            "severity": "HIGH",
-            "category": "ERROR_HANDLING",
-            "examples": ["error logging", "system error handling"],
-            "integration_analysis": "Integration with logging framework detected in config files",
-            "expected_count": 5,
-            "expected_count_reasoning": "Based on 3 controller classes, 2 service classes that should implement error logging according to Spring Boot best practices"
-        }},
-        {{
-            "gate_id": "1.3",
-            "name": "Use HTTP standard error codes",
-            "description": "All APIs must return standardized HTTP status codes",
-            "applicable": false,
-            "reason": "No API-related files or HTTP handlers found in repository",
-            "pattern": "",
-            "severity": "HIGH",
-            "category": "ERROR_HANDLING",
-            "examples": [],
-            "integration_analysis": "No web framework or API endpoints detected"
-        }}
-    ]
+    {{
+      "gate_id": "1.2",
+      "name": "Log Application Messages",
+      "description": "Log application messages for monitoring and debugging",
+      "applicable": true,
+      "reason": "Web application with user interactions requires application-level logging",
+      "pattern": ["logger.info.*request", "logger.debug.*response", "application.*log"],
+      "expected_count": 5,
+      "expected_count_reasoning": "Based on 3 controllers handling HTTP requests/responses, 1 service layer for business logic, and 1 configuration for application logging setup."
+    }}
+  ]
 }}
 
-Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates in scope and provide detailed integration analysis.
-"""
+IMPORTANT:
+- Use ONLY double quotes for strings
+- Use proper JSON syntax: "key": "value"
+- No trailing commas
+- Include ALL 16 gates with comprehensive analysis
+- Provide detailed reasoning for all decisions
+- For regex patterns, use simple patterns without complex escaping (e.g., "logger.info" not "logger\\.info")
+- Return ONLY the JSON, no other text"""
+        
+        # Remove newlines to compact the prompt for transport
+        try:
+            import re as _re
+            compact = prompt.replace("\n", " ").replace("\\n", " ")
+            compact = _re.sub(r"\s{2,}", " ", compact).strip()
+            return compact
+        except Exception:
+            return prompt
     
     def _parse_llm_response(self, response: str) -> List[Dict[str, Any]]:
         """Parse LLM response to extract patterns"""
@@ -789,31 +1306,103 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
                 json_str = json_str.replace("```json", "").replace("```", "")  # Remove markdown code blocks
                 json_str = json_str.strip()
                 
-                # Try multiple parsing strategies
+                # Try multiple parsing strategies (simplified since we have a cleaner prompt)
                 parsing_strategies = [
                     # Strategy 1: Direct parsing
                     lambda: json.loads(json_str),
                     # Strategy 2: Fix common trailing commas
                     lambda: json.loads(json_str.replace(",\n}", "\n}").replace(",\n]", "\n]")),
-                    # Strategy 3: Fix unquoted property names
-                    lambda: json.loads(re.sub(r'(\w+):', r'"\1":', json_str)),
-                    # Strategy 4: Fix single quotes
+                    # Strategy 3: Fix single quotes
                     lambda: json.loads(json_str.replace("'", '"')),
-                    # Strategy 5: Fix missing quotes around string values
-                    lambda: json.loads(re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])', r': "\1"', json_str)),
-                    # Strategy 6: Try to fix common JSON issues manually
-                    lambda: self._manual_json_fix(json_str)
+                    # Strategy 4: Fix escaped regex patterns
+                    lambda: self._fix_regex_escapes(json_str),
+                    # Strategy 5: Extract patterns array only (fallback)
+                    lambda: self._extract_patterns_only(json_str)
                 ]
                 
                 for i, strategy in enumerate(parsing_strategies):
                     try:
                         data = strategy()
                         patterns = data.get("patterns", [])
-                        project_analysis = data.get("project_analysis", {})
-                        gate_analysis = data.get("gate_analysis", {})
+                        project_summary = data.get("project_summary", {})
+                        integration_analysis = data.get("integration_analysis", {})
+                        framework_analysis = data.get("framework_analysis", {})
                         
                         if patterns:
                             print(f"✅ Successfully parsed {len(patterns)} patterns from LLM response (strategy {i+1})")
+                            
+                            # Map LLM gate_ids to internal canonical ids
+                            try:
+                                from models.gate_definitions import gate_registry
+                                internal_ids = {g.gate_id for g in gate_registry.get_hard_gates()}
+                                by_display = {}
+                                by_name = {}
+                                for g in gate_registry.get_hard_gates():
+                                    by_display.setdefault(g.display_id, []).append(g)
+                                    by_name[g.gate_name.strip().lower()] = g
+                                mapped = 0
+                                for p in patterns:
+                                    rid = p.get("gate_id")
+                                    rname = (p.get("name") or "").strip().lower()
+                                    # Already internal
+                                    if rid in internal_ids:
+                                        continue
+                                    # Match by display id + name
+                                    if rid and rid in by_display:
+                                        candidates = by_display[rid]
+                                        chosen = None
+                                        if rname and rname in by_name:
+                                            chosen = by_name[rname]
+                                        elif len(candidates) == 1:
+                                            chosen = candidates[0]
+                                        else:
+                                            # try contains match
+                                            for cg in candidates:
+                                                if rname and (rname in cg.gate_name.lower() or cg.gate_name.lower() in rname):
+                                                
+                                                    chosen = cg
+                                                    break
+                                        if chosen:
+                                            p["gate_id"] = chosen.gate_id
+                                            mapped += 1
+                                            continue
+                                    # Match by name only
+                                    if rname and rname in by_name:
+                                        p["gate_id"] = by_name[rname].gate_id
+                                        mapped += 1
+                                if mapped:
+                                    print(f"🔗 Normalized {mapped} LLM gate ids to internal ids")
+                            except Exception as norm_e:
+                                print(f"⚠️ Failed to normalize LLM gate ids: {norm_e}")
+
+                            # Check if we got all required hard gates (exact canonical ids)
+                            from models.gate_definitions import gate_registry
+                            required_gate_ids = {g.gate_id for g in gate_registry.get_hard_gates()}
+                            returned_gate_ids = set(p.get("gate_id") for p in patterns if p.get("gate_id"))
+                            missing_ids = required_gate_ids - returned_gate_ids
+                            extra_ids = returned_gate_ids - required_gate_ids
+                            if missing_ids:
+                                print(f"⚠️ Missing gates in LLM response: {sorted(list(missing_ids))}")
+                            if extra_ids:
+                                print(f"⚠️ Extra/unexpected gates in LLM response (will be ignored downstream): {sorted(list(extra_ids))}")
+                            if not missing_ids:
+                                print("✅ All required hard gates included in response")
+                            
+                            # Log comprehensive analysis results
+                            if project_summary:
+                                print(f"📊 Project Summary: {project_summary.get('project_type', 'Unknown')}")
+                                print(f"📊 Architecture: {project_summary.get('architecture_pattern', 'Unknown')}")
+                                print(f"📊 Technology Stack: {project_summary.get('technology_stack', [])}")
+                            
+                            if integration_analysis:
+                                print(f"📊 Database Systems: {integration_analysis.get('database_systems', [])}")
+                                print(f"📊 Message Systems: {integration_analysis.get('message_systems', [])}")
+                                print(f"📊 External APIs: {integration_analysis.get('external_apis', [])}")
+                            
+                            if framework_analysis:
+                                print(f"📊 Web Frameworks: {framework_analysis.get('web_frameworks', [])}")
+                                print(f"📊 Testing Frameworks: {framework_analysis.get('testing_frameworks', [])}")
+                                print(f"📊 Security Libraries: {framework_analysis.get('security_libraries', [])}")
                             
                             # Process and validate expected counts from LLM
                             llm_expected_counts = {}
@@ -834,17 +1423,47 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
                                         print(f"📊 LLM expected count for {gate_id}: {expected_count} (applicable: {applicable}) ({expected_count_reasoning[:50]}...)")
                                     else:
                                         print(f"⚠️ No expected_count provided by LLM for gate {gate_id}")
+                                        # Set a default expected count even if not provided
+                                        llm_expected_counts[gate_id] = {
+                                            "expected_count": 1,
+                                            "reasoning": "Default expected count (LLM did not provide specific count)",
+                                            "applicable": applicable,
+                                            "source": "llm_analysis_default"
+                                        }
+                                        print(f"📊 Set default LLM expected count for {gate_id}: 1 (applicable: {applicable})")
                                 else:
                                     print(f"⚠️ No gate_id found in pattern: {pattern}")
                             
-                            # Store enhanced analysis in context
+                            # Store comprehensive analysis in context
                             if hasattr(self, 'context') and self.context is not None:
-                                self.context.project_analysis = project_analysis
-                                self.context.gate_analysis = gate_analysis
+                                self.context.project_summary = project_summary
+                                self.context.integration_analysis = integration_analysis
+                                self.context.framework_analysis = framework_analysis
                                 self.context.llm_expected_counts = llm_expected_counts
-                                print(f"📊 Stored project analysis: {len(project_analysis)} fields")
-                                print(f"📊 Stored gate analysis: {len(gate_analysis)} fields")
+                                print(f"📊 Stored project summary: {len(project_summary)} fields")
+                                print(f"📊 Stored integration analysis: {len(integration_analysis)} fields")
+                                print(f"📊 Stored framework analysis: {len(framework_analysis)} fields")
                                 print(f"📊 Stored LLM expected counts: {len(llm_expected_counts)} gates")
+                                
+                                # Ensure we have expected counts for all gates
+                                from models.gate_definitions import gate_registry
+                                all_gate_ids = [g.gate_id for g in gate_registry.get_hard_gates()]
+                                missing_gates = [gate_id for gate_id in all_gate_ids if gate_id not in llm_expected_counts]
+                                
+                                if missing_gates:
+                                    print(f"⚠️ Missing expected counts for gates: {missing_gates}")
+                                    for gate_id in missing_gates:
+                                        llm_expected_counts[gate_id] = {
+                                            "expected_count": 1,
+                                            "reasoning": "Fallback expected count (gate not covered by LLM analysis)",
+                                            "applicable": False,
+                                            "source": "llm_analysis_fallback"
+                                        }
+                                        print(f"📊 Added fallback expected count for {gate_id}: 1")
+                                
+                                # Update context with complete expected counts
+                                self.context.llm_expected_counts = llm_expected_counts
+                                print(f"📊 Final LLM expected counts: {len(llm_expected_counts)} gates")
                             
                             return patterns
                         else:
@@ -855,7 +1474,16 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
                         continue
                 
                 print("⚠️ All JSON parsing strategies failed")
-                return self._create_fallback_patterns()
+                print(f"🔍 Full LLM response for debugging:")
+                print(response)
+                
+                # Check if response was truncated
+                if len(response) < 2000 or "..." in response[-100:]:
+                    print("⚠️ Response appears to be truncated, using fallback patterns")
+                    return self._create_fallback_patterns()
+                else:
+                    print("⚠️ JSON parsing failed but response doesn't appear truncated")
+                    return self._create_fallback_patterns()
             else:
                 print("⚠️ No JSON structure found in LLM response")
                 print(f"🔍 Response contains '{{': {'{' in response}, '}}': {'}' in response}")
@@ -922,6 +1550,136 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
             
             raise ValueError("Manual JSON fix failed")
     
+    def _extract_patterns_only(self, json_str: str) -> Dict[str, Any]:
+        """Extract only the patterns array from malformed JSON"""
+        try:
+            # Find the patterns array using regex
+            pattern_match = re.search(r'"patterns"\s*:\s*\[(.*?)\]', json_str, re.DOTALL)
+            if pattern_match:
+                patterns_content = pattern_match.group(1)
+                # Try to extract individual pattern objects
+                pattern_objects = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', patterns_content, re.DOTALL)
+                patterns = []
+                
+                for pattern_obj in pattern_objects:
+                    try:
+                        # Clean up the pattern object
+                        clean_obj = pattern_obj.strip()
+                        # Fix common issues
+                        clean_obj = re.sub(r'"(\w+)"\.\s*"([^"]*)"', r'"\1": "\2"', clean_obj)
+                        clean_obj = re.sub(r'(\w+):\s*"([^"]*)"', r'"\1": "\2"', clean_obj)
+                        clean_obj = re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])(?=\s*[,}\]])', r': "\1"', clean_obj)
+                        clean_obj = clean_obj.replace("'", '"')
+                        
+                        # Try to parse the individual pattern
+                        pattern_data = json.loads(clean_obj)
+                        patterns.append(pattern_data)
+                    except Exception as e:
+                        print(f"⚠️ Failed to parse individual pattern: {e}")
+                        continue
+                
+                if patterns:
+                    return {"patterns": patterns}
+            
+            raise ValueError("No patterns array found")
+        except Exception as e:
+            print(f"⚠️ Extract patterns only failed: {e}")
+            raise
+    
+    def _extract_patterns_regex(self, json_str: str) -> Dict[str, Any]:
+        """Use regex to extract patterns from completely malformed JSON"""
+        try:
+            patterns = []
+            
+            # Look for pattern-like structures in the text
+            # Find objects that contain gate_id, name, description, etc.
+            pattern_matches = re.findall(r'\{[^{}]*"gate_id"[^{}]*\}', json_str, re.DOTALL)
+            
+            for match in pattern_matches:
+                try:
+                    # Clean up the match
+                    clean_match = match.strip()
+                    # Fix common issues
+                    clean_match = re.sub(r'"(\w+)"\.\s*"([^"]*)"', r'"\1": "\2"', clean_match)
+                    clean_match = re.sub(r'(\w+):\s*"([^"]*)"', r'"\1": "\2"', clean_match)
+                    clean_match = re.sub(r':\s*([^",\{\}\[\]\d][^,\{\}\[\]]*[^",\{\}\[\]\s])(?=\s*[,}\]])', r': "\1"', clean_match)
+                    clean_match = clean_match.replace("'", '"')
+                    
+                    # Try to parse
+                    pattern_data = json.loads(clean_match)
+                    if "gate_id" in pattern_data:
+                        patterns.append(pattern_data)
+                except Exception:
+                    continue
+            
+            if patterns:
+                return {"patterns": patterns}
+            
+            raise ValueError("No valid patterns found")
+        except Exception as e:
+            print(f"⚠️ Extract patterns regex failed: {e}")
+            raise
+    
+    def _fix_regex_escapes(self, json_str: str) -> Dict[str, Any]:
+        """Fix escaped regex patterns in JSON"""
+        try:
+            # Fix escaped regex patterns - double escape backslashes in pattern arrays
+            # This handles patterns like "alert\.(error|warning)" -> "alert\\.(error|warning)"
+            
+            # Find pattern arrays and fix escapes within them
+            import re
+            
+            # Pattern to match "pattern": ["regex1", "regex2"] or "pattern": ["regex1"]
+            pattern_regex = r'"pattern"\s*:\s*\[(.*?)\]'
+            
+            def fix_pattern_escapes(match):
+                pattern_content = match.group(1)
+                # Split by comma and fix each pattern
+                patterns = re.split(r',\s*', pattern_content)
+                fixed_patterns = []
+                
+                for pattern in patterns:
+                    # Remove quotes and fix escapes
+                    pattern = pattern.strip().strip('"\'')
+                    # Double escape backslashes for JSON
+                    pattern = pattern.replace('\\', '\\\\')
+                    fixed_patterns.append(f'"{pattern}"')
+                
+                return f'"pattern": [{", ".join(fixed_patterns)}]'
+            
+            # Apply the fix
+            fixed_json = re.sub(pattern_regex, fix_pattern_escapes, json_str, flags=re.DOTALL)
+            
+            # Try to parse the fixed JSON
+            return json.loads(fixed_json)
+        except Exception as e:
+            print(f"⚠️ Fix regex escapes failed: {e}")
+            raise
+    
+    def _fix_delimiter_issues(self, json_str: str) -> Dict[str, Any]:
+        """Fix specific delimiter issues in JSON"""
+        try:
+            # Fix the specific issue: "Expecting ',' delimiter"
+            # This often happens when there are missing commas between array elements or object properties
+            
+            # Fix missing commas between array elements
+            json_str = re.sub(r'(\])\s*(\[)', r'\1,\2', json_str)
+            
+            # Fix missing commas between object properties
+            json_str = re.sub(r'(")\s*(")', r'\1,\2', json_str)
+            
+            # Fix missing commas before closing braces/brackets
+            json_str = re.sub(r'([^,{])\s*([}\]])', r'\1,\2', json_str)
+            
+            # Remove any double commas that might have been created
+            json_str = re.sub(r',\s*,', ',', json_str)
+            
+            # Try to parse the fixed JSON
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"⚠️ Fix delimiter issues failed: {e}")
+            raise
+    
     def _extract_relevant_code_snippets(self) -> str:
         """Extract relevant code snippets from vector database for each gate"""
         try:
@@ -981,7 +1739,7 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
             return "Error extracting code snippets from vector database"
     
     def _get_project_structure_info(self) -> str:
-        """Get project structure information for the prompt"""
+        """Get comprehensive project structure information for the prompt"""
         try:
             metadata = getattr(self.context, 'metadata', {})
             main_repo = metadata.get('main_repo', {})
@@ -989,30 +1747,112 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
             
             structure_info = []
             
-            # Main repository info
+            # Main repository comprehensive info
             if main_repo:
-                structure_info.append("MAIN REPOSITORY:")
-                structure_info.append(f"- Repository: {main_repo.get('repo_url', 'Unknown')}")
-                structure_info.append(f"- Branch: {main_repo.get('branch', 'Unknown')}")
-                structure_info.append(f"- Total Files: {main_repo.get('total_files', 0)}")
-                structure_info.append(f"- Total Lines: {main_repo.get('total_lines', 0)}")
-                structure_info.append(f"- Primary Languages: {', '.join(main_repo.get('languages', []))}")
-                structure_info.append(f"- Build Files: {', '.join(main_repo.get('build_files', []))}")
-                structure_info.append(f"- Config Files: {', '.join(main_repo.get('config_files', []))}")
+                structure_info.append("=== MAIN REPOSITORY ANALYSIS ===")
+                structure_info.append(f"Repository URL: {main_repo.get('repo_url', 'Unknown')}")
+                structure_info.append(f"Branch: {main_repo.get('branch', 'Unknown')}")
+                structure_info.append(f"Total Files: {main_repo.get('total_files', 0)}")
+                structure_info.append(f"Total Lines: {main_repo.get('total_lines', 0)}")
+                structure_info.append(f"Primary Languages: {', '.join(main_repo.get('languages', []))}")
                 
-                # Dependencies
+                # Build and configuration files
+                build_files = main_repo.get('build_files', [])
+                if build_files:
+                    structure_info.append(f"Build Files: {', '.join(build_files)}")
+                
+                config_files = main_repo.get('config_files', [])
+                if config_files:
+                    structure_info.append(f"Configuration Files: {', '.join(config_files)}")
+                
+                # Dependencies analysis
                 dependencies = main_repo.get('dependencies', {})
                 if dependencies:
-                    structure_info.append(f"- Dependencies: {dependencies}")
+                    structure_info.append("Dependencies Analysis:")
+                    for dep_type, deps in dependencies.items():
+                        if deps:
+                            structure_info.append(f"  - {dep_type}: {', '.join(deps)}")
+                
+                # File structure analysis
+                file_structure = main_repo.get('file_structure', {})
+                if file_structure:
+                    structure_info.append("File Structure Analysis:")
+                    for file_type, count in file_structure.items():
+                        if count > 0:
+                            structure_info.append(f"  - {file_type}: {count} files")
+
+                # JSON directory tree plus flat path list
+                repo_path = main_repo.get('local_path') or getattr(self.context, 'repo_path', None)
+                if repo_path:
+                    from pathlib import Path
+                    ignore_dirs_set = {'.git', '.svn', '.hg', 'node_modules', '__pycache__', 'build', 'dist', 'target', '.pytest_cache', '.tox'}
+                    ignore_exts_set = {'.jar', '.class', '.png'}
+
+                    def build_tree(path: Path):
+                        node = {"name": path.name, "dirs": {}, "files": []}
+                        try:
+                            for entry in path.iterdir():
+                                if entry.name in ignore_dirs_set:
+                                    continue
+                                if entry.is_dir():
+                                    node["dirs"][entry.name] = build_tree(entry)
+                                else:
+                                    if entry.suffix.lower() in ignore_exts_set:
+                                        continue
+                                    node["files"].append(entry.name)
+                        except Exception:
+                            pass
+                        return node
+
+                    root = Path(repo_path)
+                    tree = build_tree(root)
+                    import json as _json
+                    structure_info.append("\nFILE TREE (JSON):")
+                    structure_info.append(_json.dumps(tree, ensure_ascii=False))
+
+                    # Flat path list representation (compact, no repeated dir names)
+                    prefix = root.name
+                    flat_paths = []
+                    try:
+                        for fp in root.rglob('*'):
+                            if fp.is_dir():
+                                if any(seg in ignore_dirs_set for seg in fp.parts):
+                                    continue
+                                continue
+                            if any(seg in ignore_dirs_set for seg in fp.parts):
+                                continue
+                            if fp.suffix.lower() in ignore_exts_set:
+                                continue
+                            rel = fp.relative_to(root).as_posix()
+                            flat_paths.append(f"{prefix}/{rel}")
+                    except Exception:
+                        pass
+                    if flat_paths:
+                        structure_info.append("\nFILE LIST (paths):")
+                        structure_info.append("\n".join(flat_paths))
             
-            # CD repository info
+            # CD/CI repository info
             if cd_repo:
-                structure_info.append("\nCD/CI REPOSITORY:")
-                structure_info.append(f"- Repository: {cd_repo.get('repo_url', 'Unknown')}")
-                structure_info.append(f"- Total Files: {cd_repo.get('total_files', 0)}")
-                structure_info.append(f"- Total Lines: {cd_repo.get('total_lines', 0)}")
-                structure_info.append(f"- Build Files: {', '.join(cd_repo.get('build_files', []))}")
-                structure_info.append(f"- Config Files: {', '.join(cd_repo.get('config_files', []))}")
+                structure_info.append("\n=== CD/CI REPOSITORY ANALYSIS ===")
+                structure_info.append(f"Repository URL: {cd_repo.get('repo_url', 'Unknown')}")
+                structure_info.append(f"Total Files: {cd_repo.get('total_files', 0)}")
+                structure_info.append(f"Total Lines: {cd_repo.get('total_lines', 0)}")
+                
+                cd_build_files = cd_repo.get('build_files', [])
+                if cd_build_files:
+                    structure_info.append(f"Build Files: {', '.join(cd_build_files)}")
+                
+                cd_config_files = cd_repo.get('config_files', [])
+                if cd_config_files:
+                    structure_info.append(f"Configuration Files: {', '.join(cd_config_files)}")
+                
+                # CD/CI specific analysis
+                cd_dependencies = cd_repo.get('dependencies', {})
+                if cd_dependencies:
+                    structure_info.append("CD/CI Dependencies:")
+                    for dep_type, deps in cd_dependencies.items():
+                        if deps:
+                            structure_info.append(f"  - {dep_type}: {', '.join(deps)}")
             
             if not structure_info:
                 return "No project structure information available"
@@ -1026,48 +1866,18 @@ Generate comprehensive analysis with 8-12 pattern entries. Focus on actual gates
     def _get_available_gates_summary(self) -> str:
         """Get summary of available gates for the prompt"""
         try:
-            # Load gates from pattern library
-            import json
-            import os
-            
-            pattern_library_path = os.path.join(os.path.dirname(__file__), "..", "data", "enhanced_pattern_library.json")
-            if os.path.exists(pattern_library_path):
-                with open(pattern_library_path, 'r') as f:
-                    pattern_library = json.load(f)
-                
-                gates_summary = []
-                gates = pattern_library.get("gates", {})
-                
-                # Handle the enhanced pattern library structure
-                for gate_id, gate_data in gates.items():
-                    if isinstance(gate_data, dict):
-                        name = gate_data.get("display_name", gate_id)
-                        category = gate_data.get("category", "Unknown")
-                        priority = gate_data.get("priority", "Medium")
-                        
-                        gates_summary.append(f"- {gate_id}: {name} ({category}, {priority})")
-                
-                if not gates_summary:
-                    # Fallback to basic gates if enhanced structure doesn't work
-                    gates_summary = [
-                        "- 1.1: Logs Searchable/Available (Auditability, High)",
-                        "- 1.3: Audit Trail (Auditability, High)",
-                        "- 1.5: Implement tracking ID for log messages (Auditability, Medium)",
-                        "- 1.6: Log API Calls (Auditability, High)",
-                        "- 1.8: Log Application Messages (Auditability, High)",
-                        "- 1.10: Avoid Logging Sensitive Data (Security, Critical)",
-                        "- 2.7: UI Error Handling (Auditability, Medium)",
-                        "- 2.4: Include Client error tracking (Error Handling, Medium)",
-                        "- 1.12: Retry Logic (Availability, High)",
-                        "- 3.6: Throttling, drop request (Availability, Medium)",
-                        "- 3.9: Circuit Breaker (Availability, High)",
-                        "- 3.18: Health Checks (Availability, Medium)"
-                    ]
-                
-                return "\n".join(gates_summary)
-            else:
-                return "Gates information not available"
-                
+            # Always use centralized registry to avoid discrepancies
+            from models.gate_definitions import gate_registry
+            gates = sorted(
+                gate_registry.get_hard_gates(),
+                key=lambda g: [int(x) if x.isdigit() else x for x in g.display_id.split('.')]
+            )
+            lines = []
+            for g in gates:
+                category = g.category.value.title()
+                severity = g.severity.value.title()
+                lines.append(f"- {g.display_id}: {g.gate_name} ({category}, {severity})")
+            return "\n".join(lines) if lines else "No gates defined"
         except Exception as e:
             print(f"⚠️ Error getting available gates summary: {e}")
             return "Error loading gates information"
@@ -1716,30 +2526,37 @@ class PatternConsolidationNode(AsyncNode):
             
             # Add enhanced pattern library patterns if available
             if self.pattern_library_service:
-                # Map enhanced pattern library gate IDs to expected numeric gate IDs
-                gate_id_mapping = {
-                    "STRUCTURED_LOGS": "1.1",           # Logs Searchable/Available
-                    "AVOID_LOGGING_SECRETS": "1.10",    # Avoid Logging Sensitive Data
-                    "TESTING_INFRASTRUCTURE": "2",      # Automated Regression Testing
-                    "DOCUMENTATION_AVAILABLE": "1.3",   # Audit Trail (closest match)
-                    "CONTAINERIZATION_READY": "3.18",   # Health Checks (closest match)
-                    "ERROR_HANDLING": "2.4",            # Include Client error tracking
-                    "INPUT_VALIDATION": "2.7"           # UI Error Handling
-                }
+                # Get all gate IDs from pattern library (now using gate numbers as keys)
+                gate_ids = self.pattern_library_service.get_all_gate_names()
                 
-                for enhanced_gate_id, pattern_info in self.pattern_library_service.patterns.items():
-                    # Map to expected gate ID
-                    expected_gate_id = gate_id_mapping.get(enhanced_gate_id, enhanced_gate_id)
+                for gate_id in gate_ids:
+                    # Get gate config directly from pattern library
+                    gate_config = self.pattern_library_service.get_gate_patterns(gate_id)
+                    if not gate_config:
+                        continue
                     
-                    for pattern in pattern_info.patterns:
+                    # Extract patterns from gate config
+                    patterns = []
+                    criteria = gate_config.get("criteria", {})
+                    conditions = criteria.get("conditions", [])
+                    
+                    for condition in conditions:
+                        if condition.get("type") == "pattern":
+                            for pattern_config in condition.get("patterns", []):
+                                patterns.append(pattern_config.get("pattern", ""))
+                        elif condition.get("type") == "file_pattern":
+                            for pattern_config in condition.get("file_patterns", []):
+                                patterns.append(pattern_config.get("pattern", ""))
+                    
+                    for pattern in patterns:
                         consolidated.append({
                             "source": "enhanced_library",
-                            "gate_id": expected_gate_id,  # Use mapped gate ID
-                            "name": pattern_info.display_name,
+                            "gate_id": gate_id,  # Use gate_id directly
+                            "name": gate_config.get("display_name", gate_id),
                             "pattern": pattern,
-                            "description": pattern_info.description,
-                            "severity": pattern_info.priority.upper(),
-                            "category": pattern_info.category
+                            "description": gate_config.get("description", ""),
+                            "severity": gate_config.get("priority", "MEDIUM").upper(),
+                            "category": gate_config.get("category", "Unknown")
                         })
             
             # Store consolidated patterns
@@ -1750,6 +2567,16 @@ class PatternConsolidationNode(AsyncNode):
             }
             
             print(f"✅ Pattern consolidation completed: {len(consolidated)} patterns")
+            print(f"   - Dynamic patterns: {len(dynamic_patterns)}")
+            print(f"   - Static patterns: {len(self.static_patterns)}")
+            print(f"   - Enhanced library patterns: {len([p for p in consolidated if p.get('source') == 'enhanced_library'])}")
+            print(f"   - Total consolidated: {len(consolidated)}")
+            
+            # Debug: Show first few consolidated patterns
+            if consolidated:
+                print(f"   - Sample patterns:")
+                for i, pattern in enumerate(consolidated[:3]):
+                    print(f"     {i+1}. {pattern.get('gate_id')}: {pattern.get('name')} ({pattern.get('source')})")
             
             return "success"
             
@@ -1930,7 +2757,8 @@ class ExpectedImplementationNode(AsyncNode):
         return {
             "vector_data": context.vector_data,
             "patterns": context.patterns,
-            "expected_counts_analysis": getattr(context, 'expected_counts_analysis', {})
+            "expected_counts_analysis": getattr(context, 'expected_counts_analysis', {}),
+            "llm_expected_counts": getattr(context, 'llm_expected_counts', {})
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
@@ -1941,23 +2769,33 @@ class ExpectedImplementationNode(AsyncNode):
             vector_data = prep_res["vector_data"]
             patterns = prep_res["patterns"]
             expected_counts_analysis = prep_res.get("expected_counts_analysis", {})
+            llm_expected_counts = prep_res.get("llm_expected_counts", {})
             
             # Handle case where vector_data is None (CocoIndex indexing failed)
             if not vector_data:
                 print("⚠️ No vector data available, using project structure analysis only")
                 expected_implementations = {}
                 
-                # Use project structure analysis for all patterns
+                # Use LLM expected counts first, then fall back to project structure analysis
                 consolidated_patterns = patterns.get("consolidated", [])
                 for pattern in consolidated_patterns:
                     gate_id = pattern.get("gate_id")
-                    if gate_id in expected_counts_analysis:
+                    
+                    # Check LLM expected counts first
+                    if gate_id in llm_expected_counts:
+                        llm_analysis = llm_expected_counts[gate_id]
+                        expected_count = llm_analysis.get("expected_count", 1)
+                        reason = llm_analysis.get("reasoning", "Based on LLM analysis")
+                        print(f"📊 Using LLM expected count for {gate_id}: {expected_count} ({reason[:50]}...)")
+                    elif gate_id in expected_counts_analysis:
                         analysis = expected_counts_analysis[gate_id]
                         expected_count = analysis.get("expected_count", 1)
                         reason = analysis.get("reason", "Based on project structure analysis")
+                        print(f"📊 Using project structure expected count for {gate_id}: {expected_count} ({reason[:50]}...)")
                     else:
                         expected_count = 1
                         reason = "Default fallback (no vector data available)"
+                        print(f"⚠️ No LLM expected count found for {gate_id}, using calculated fallback")
                     
                     expected_implementations[gate_id] = {
                         "pattern": pattern,
@@ -1976,13 +2814,16 @@ class ExpectedImplementationNode(AsyncNode):
             scan_id = vector_data["scan_id"]
             main_collection_name = vector_data["main_collection_name"]
             cd_collection_name = vector_data.get("cd_collection_name")
-            consolidated_patterns = patterns["consolidated"]
+            consolidated_patterns = patterns.get("consolidated", [])
+            if not consolidated_patterns:
+                print("⚠️ No consolidated patterns found, using dynamic patterns as fallback")
+                consolidated_patterns = patterns.get("dynamic", [])
             
             expected_implementations = {}
             
             # Get hard gates from centralized registry
-            from models.gate_definitions import get_hard_gate_ids
-            hard_gates = set(get_hard_gate_ids())
+            from models.gate_definitions import gate_registry
+            hard_gates = {g.gate_id for g in gate_registry.get_hard_gates()}
             
             # For each pattern, find expected implementations using CocoIndex semantic search
             for pattern in consolidated_patterns:
@@ -2031,9 +2872,14 @@ class ExpectedImplementationNode(AsyncNode):
                         "reason": reason
                     }
                 else:
-                    # Use project structure analysis if available
+                    # Use LLM expected counts first, then fall back to project structure analysis
                     gate_id = pattern["gate_id"]
-                    if gate_id in expected_counts_analysis:
+                    if gate_id in llm_expected_counts:
+                        llm_analysis = llm_expected_counts[gate_id]
+                        expected_count = llm_analysis.get("expected_count", 1)
+                        reason = llm_analysis.get("reasoning", "Based on LLM analysis")
+                        print(f"📊 Using LLM expected count for {gate_id}: {expected_count} expected ({reason[:50]}...)")
+                    elif gate_id in expected_counts_analysis:
                         analysis = expected_counts_analysis[gate_id]
                         expected_count = analysis.get("expected_count", 1)
                         reason = analysis.get("reason", "Based on project structure analysis")
@@ -2041,6 +2887,7 @@ class ExpectedImplementationNode(AsyncNode):
                     else:
                         expected_count = 1
                         reason = "Default fallback (no similar implementations found)"
+                        print(f"⚠️ No LLM expected count found for {gate_id}, using calculated fallback")
                     
                     expected_implementations[gate_id] = {
                         "pattern": pattern,
@@ -2088,7 +2935,7 @@ class FileScanningNode(AsyncNode):
         }
     
     async def exec_async(self, prep_res: Dict[str, Any]) -> str:
-        """Execute file scanning for both main and CD repositories"""
+        """Execute file scanning for both main and CD repositories with enhanced pattern library integration"""
         try:
             print("📁 Step 6: File Scanning & Pattern & AST parser based Matching (including CD repos)")
             
@@ -2097,23 +2944,116 @@ class FileScanningNode(AsyncNode):
             patterns = prep_res["patterns"]
             expected_implementations = prep_res["expected_implementations"]
             
-            consolidated_patterns = patterns["consolidated"]
+            consolidated_patterns = patterns.get("consolidated", [])
+            if not consolidated_patterns:
+                print("⚠️ No consolidated patterns found, using dynamic patterns as fallback")
+                consolidated_patterns = patterns.get("dynamic", [])
+            
+            print(f"📊 FileScanningNode received {len(consolidated_patterns)} consolidated patterns")
+            print(f"   - Patterns from context: {len(patterns.get('consolidated', []))}")
+            print(f"   - Dynamic patterns: {len(patterns.get('dynamic', []))}")
+
+            # Normalize all consolidated pattern gate_ids to internal ids
+            try:
+                from models.gate_definitions import gate_registry
+                internal_ids = {g.gate_id for g in gate_registry.get_hard_gates()}
+                by_display = {}
+                by_name = {}
+                for g in gate_registry.get_hard_gates():
+                    by_display.setdefault(g.display_id, []).append(g)
+                    by_name[g.gate_name.strip().lower()] = g
+                normalized_count = 0
+                for p in consolidated_patterns:
+                    rid = p.get("gate_id")
+                    rname = (p.get("name") or "").strip().lower()
+                    if rid in internal_ids:
+                        continue
+                    if rid and rid in by_display:
+                        candidates = by_display[rid]
+                        chosen = None
+                        if rname and rname in by_name:
+                            chosen = by_name[rname]
+                        elif len(candidates) == 1:
+                            chosen = candidates[0]
+                        else:
+                            for cg in candidates:
+                                if rname and (rname in cg.gate_name.lower() or cg.gate_name.lower() in rname):
+                                    chosen = cg
+                                    break
+                        if chosen:
+                            p["gate_id"] = chosen.gate_id
+                            normalized_count += 1
+                            continue
+                    if rname and rname in by_name:
+                        p["gate_id"] = by_name[rname].gate_id
+                        normalized_count += 1
+                if normalized_count:
+                    print(f"🔗 Normalized {normalized_count} consolidated pattern ids to internal ids")
+            except Exception as e_norm:
+                print(f"⚠️ Failed to normalize consolidated pattern ids: {e_norm}")
+            
             scan_results = {}
             
             # Get hard gates from centralized registry
-            from models.gate_definitions import get_hard_gate_ids
-            hard_gates = set(get_hard_gate_ids())
+            from models.gate_definitions import gate_registry
+            hard_gates = {g.gate_id for g in gate_registry.get_hard_gates()}
             
             # Filter patterns to only include hard gates
             hard_gate_patterns = [p for p in consolidated_patterns if p.get("gate_id") in hard_gates]
+            print(f"   - Hard gate patterns: {len(hard_gate_patterns)}")
+            print(f"   - Hard gates available: {len(hard_gates)}")
+            if hard_gate_patterns:
+                print(f"   - Sample hard gate patterns:")
+                for i, pattern in enumerate(hard_gate_patterns[:3]):
+                    print(f"     {i+1}. {pattern.get('gate_id')}: {pattern.get('name')} ({pattern.get('source')})")
             
-            # Scan main repository files for each pattern
-            print(f"🔍 Scanning main repository: {repo_path}")
+            # Initialize pattern library service
+            try:
+                from services.pattern_library_service import PatternLibraryService
+                pattern_library_service = PatternLibraryService()
+                print(f"📚 Pattern library service initialized with {len(pattern_library_service.get_all_gate_names())} gates")
+            except Exception as e:
+                print(f"⚠️ Pattern library service not available: {e}")
+                pattern_library_service = None
+
+            # Always use pattern library patterns as primary; LLM/dynamic as secondary
+            # Combination happens per-gate below when preparing pattern_regex
+            
+            # Enhanced scanning with pattern library integration
+            print(f"🔍 Enhanced scanning main repository: {repo_path}")
             for pattern in hard_gate_patterns:
                 gate_id = pattern["gate_id"]
-                pattern_regex = pattern["pattern"]
+                # Combine library patterns (primary) and LLM/dynamic (secondary)
+                lib_patterns = []
+                if pattern_library_service:
+                    try:
+                        lib_patterns = pattern_library_service.get_patterns_for_gate(gate_id) or []
+                    except Exception:
+                        lib_patterns = []
+                llm_patterns = pattern.get("pattern", [])
+                if isinstance(llm_patterns, str):
+                    llm_patterns = [llm_patterns] if llm_patterns.strip() else []
+                llm_patterns = [p for p in llm_patterns if isinstance(p, str) and p.strip()]
+                # de-duplicate while preserving order (library first)
+                combined = []
+                seen = set()
+                for src in (lib_patterns, llm_patterns):
+                    for pat in src:
+                        key = pat
+                        if key not in seen:
+                            combined.append(pat)
+                            seen.add(key)
+                pattern_regex = combined
                 
+                # Traditional pattern matching
                 main_matches = await self._scan_for_pattern(repo_path, pattern_regex, gate_id, "main")
+                
+                # Enhanced pattern library evaluation
+                static_evaluation = None
+                if pattern_library_service:
+                    static_evaluation = await self._evaluate_with_pattern_library(
+                        pattern_library_service, gate_id, repo_path, "main"
+                    )
                 
                 scan_results[gate_id] = {
                     "pattern": pattern,
@@ -2121,22 +3061,50 @@ class FileScanningNode(AsyncNode):
                     "main_match_count": len(main_matches),
                     "cd_matches": [],
                     "cd_match_count": 0,
-                    "total_matches": len(main_matches)
+                    "total_matches": len(main_matches),
+                    "static_evaluation": static_evaluation
                 }
             
             # Scan CD repository files for each pattern
             if cd_repo_path:
-                print(f"🔍 Scanning CD repository: {cd_repo_path}")
+                print(f"🔍 Enhanced scanning CD repository: {cd_repo_path}")
                 for pattern in hard_gate_patterns:
                     gate_id = pattern["gate_id"]
-                    pattern_regex = pattern["pattern"]
+                    lib_patterns = []
+                    if pattern_library_service:
+                        try:
+                            lib_patterns = pattern_library_service.get_patterns_for_gate(gate_id) or []
+                        except Exception:
+                            lib_patterns = []
+                    llm_patterns = pattern.get("pattern", [])
+                    if isinstance(llm_patterns, str):
+                        llm_patterns = [llm_patterns] if llm_patterns.strip() else []
+                    llm_patterns = [p for p in llm_patterns if isinstance(p, str) and p.strip()]
+                    combined = []
+                    seen = set()
+                    for src in (lib_patterns, llm_patterns):
+                        for pat in src:
+                            key = pat
+                            if key not in seen:
+                                combined.append(pat)
+                                seen.add(key)
+                    pattern_regex = combined
                     
+                    # Traditional pattern matching
                     cd_matches = await self._scan_for_pattern(cd_repo_path, pattern_regex, gate_id, "cd")
+                    
+                    # Enhanced pattern library evaluation
+                    static_evaluation_cd = None
+                    if pattern_library_service:
+                        static_evaluation_cd = await self._evaluate_with_pattern_library(
+                            pattern_library_service, gate_id, cd_repo_path, "cd"
+                        )
                     
                     if gate_id in scan_results:
                         scan_results[gate_id]["cd_matches"] = cd_matches
                         scan_results[gate_id]["cd_match_count"] = len(cd_matches)
                         scan_results[gate_id]["total_matches"] += len(cd_matches)
+                        scan_results[gate_id]["static_evaluation_cd"] = static_evaluation_cd
                     else:
                         scan_results[gate_id] = {
                             "pattern": pattern,
@@ -2144,7 +3112,9 @@ class FileScanningNode(AsyncNode):
                             "main_match_count": 0,
                             "cd_matches": cd_matches,
                             "cd_match_count": len(cd_matches),
-                            "total_matches": len(cd_matches)
+                            "total_matches": len(cd_matches),
+                            "static_evaluation": None,
+                            "static_evaluation_cd": static_evaluation_cd
                         }
             
             # Store scan results
@@ -2152,25 +3122,50 @@ class FileScanningNode(AsyncNode):
             
             total_patterns = len(scan_results)
             total_matches = sum(result["total_matches"] for result in scan_results.values())
-            print(f"✅ File scanning completed: {total_patterns} patterns scanned, {total_matches} total matches")
+            static_evaluations = sum(1 for result in scan_results.values() 
+                                   if result.get("static_evaluation") or result.get("static_evaluation_cd"))
+            
+            print(f"✅ Enhanced file scanning completed: {total_patterns} patterns scanned, {total_matches} total matches, {static_evaluations} static evaluations")
             
             return "success"
             
         except Exception as e:
             print(f"❌ File scanning failed: {e}")
+            import traceback
+            traceback.print_exc()
             return "error"
     
-    async def _scan_for_pattern(self, repo_path: str, pattern_regex: str, gate_id: str, repo_type: str = "main") -> List[Dict[str, Any]]:
-        """Scan for specific pattern in repository with gate-specific file filtering"""
+    async def _scan_for_pattern(self, repo_path: str, pattern_regex: Any, gate_id: str, repo_type: str = "main") -> List[Dict[str, Any]]:
+        """Scan for specific pattern(s) in repository with gate-specific file filtering.
+        pattern_regex may be a single regex string or a list/tuple of regex strings.
+        """
         import re
         
         matches = []
         repo_path_obj = Path(repo_path)
         
-        try:
-            pattern = re.compile(pattern_regex, re.IGNORECASE)
-        except re.error:
-            print(f"⚠️ Invalid regex pattern for gate {gate_id}: {pattern_regex}")
+        # Prepare compiled regex list
+        compiled_patterns = []
+        patterns_input = pattern_regex
+        if isinstance(patterns_input, (list, tuple)):
+            for idx, p in enumerate(patterns_input):
+                if not isinstance(p, str):
+                    print(f"⚠️ Skipping non-string regex at index {idx} for gate {gate_id}: {p}")
+                    continue
+                try:
+                    compiled_patterns.append(re.compile(p, re.IGNORECASE))
+                except re.error:
+                    print(f"⚠️ Invalid regex pattern for gate {gate_id} at index {idx}: {p}")
+        elif isinstance(patterns_input, str):
+            try:
+                compiled_patterns.append(re.compile(patterns_input, re.IGNORECASE))
+            except re.error:
+                print(f"⚠️ Invalid regex pattern for gate {gate_id}: {patterns_input}")
+        else:
+            print(f"⚠️ Unsupported pattern type for gate {gate_id}: {type(patterns_input)}")
+        
+        if not compiled_patterns:
+            # No valid patterns to scan
             return matches
         
         for file_path in repo_path_obj.rglob("*"):
@@ -2179,24 +3174,115 @@ class FileScanningNode(AsyncNode):
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         content = f.read()
                     
-                    # Find matches
-                    for match in pattern.finditer(content):
-                        line_number = content[:match.start()].count('\n') + 1
-                        
-                        matches.append({
-                            "repo_type": repo_type,
-                            "file_path": str(file_path.relative_to(repo_path_obj)),
-                            "line_number": line_number,
-                            "match_text": match.group(0),
-                            "start_pos": match.start(),
-                            "end_pos": match.end()
-                        })
-                
+                    # Find matches for each compiled pattern
+                    for pattern in compiled_patterns:
+                        for match in pattern.finditer(content):
+                            line_number = content[:match.start()].count('\n') + 1
+                            matches.append({
+                                "repo_type": repo_type,
+                                "file_path": str(file_path.relative_to(repo_path_obj)),
+                                "line_number": line_number,
+                                "match_text": match.group(0),
+                                "start_pos": match.start(),
+                                "end_pos": match.end()
+                            })
                 except Exception as e:
                     print(f"⚠️ Failed to scan file {file_path}: {e}")
                     continue
         
         return matches
+    
+    async def _evaluate_with_pattern_library(self, pattern_library_service, gate_id: str, repo_path: str, repo_type: str) -> Dict[str, Any]:
+        """Evaluate a gate using the enhanced pattern library"""
+        try:
+            from pathlib import Path
+            import asyncio
+            
+            repo_path_obj = Path(repo_path)
+            evaluation_results = {
+                "gate_id": gate_id,
+                "repo_type": repo_type,
+                "files_evaluated": 0,
+                "files_passed": 0,
+                "total_score": 0.0,
+                "file_results": [],
+                "overall_passed": False,
+                "overall_score": 0.0
+            }
+            
+            # Get all relevant files for evaluation
+            relevant_files = []
+            from utils.file_filter import DEFAULT_FILE_FILTER
+            for file_path in DEFAULT_FILE_FILTER.iter_files(repo_path_obj):
+                if not self._should_ignore_file_for_gate(file_path, gate_id):
+                    relevant_files.append(file_path)
+            
+            evaluation_results["files_evaluated"] = len(relevant_files)
+            
+            if not relevant_files:
+                return evaluation_results
+            
+            # Evaluate each file
+            file_scores = []
+            for file_path in relevant_files:
+                try:
+                    # Detect technology
+                    technology = pattern_library_service.detect_technology(str(file_path))
+                    
+                    # Read file content
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                    
+                    # Evaluate gate against file content
+                    result = pattern_library_service.evaluate_gate(
+                        gate_id, content, str(file_path), technology
+                    )
+                    
+                    file_result = {
+                        "file_path": str(file_path.relative_to(repo_path_obj)),
+                        "technology": technology,
+                        "passed": result.get("passed", False),
+                        "score": result.get("score", 0.0),
+                        "threshold": result.get("threshold", 20.0),
+                        "category": result.get("category", "Unknown"),
+                        "priority": result.get("priority", "Unknown")
+                    }
+                    
+                    evaluation_results["file_results"].append(file_result)
+                    file_scores.append(result.get("score", 0.0))
+                    
+                    if result.get("passed", False):
+                        evaluation_results["files_passed"] += 1
+                
+                except Exception as e:
+                    print(f"⚠️ Failed to evaluate file {file_path} for gate {gate_id}: {e}")
+                    continue
+            
+            # Calculate overall results
+            if file_scores:
+                evaluation_results["overall_score"] = sum(file_scores) / len(file_scores)
+                evaluation_results["total_score"] = sum(file_scores)
+                
+                # Determine overall pass based on coverage and score
+                coverage_percentage = (evaluation_results["files_passed"] / evaluation_results["files_evaluated"]) * 100
+                evaluation_results["overall_passed"] = (
+                    evaluation_results["overall_score"] >= 50.0 and 
+                    coverage_percentage >= 20.0
+                )
+            
+            return evaluation_results
+            
+        except Exception as e:
+            print(f"❌ Error evaluating gate {gate_id} with pattern library: {e}")
+            return {
+                "gate_id": gate_id,
+                "repo_type": repo_type,
+                "error": str(e),
+                "files_evaluated": 0,
+                "files_passed": 0,
+                "overall_passed": False,
+                "overall_score": 0.0
+            }
     
     def _should_ignore_file_for_gate(self, file_path: Path, gate_id: str) -> bool:
         """Check if file should be ignored for specific gate based on gate category"""
@@ -2533,14 +3619,11 @@ class GateEvaluationNode(AsyncNode):
         try:
             print("⚖️ Step 7: Gate Evaluation & Threshold Checking (including CD repos)")
             
-            scan_results = prep_res["scan_results"]
-            expected_implementations = prep_res["expected_implementations"]
+            scan_results = prep_res.get("scan_results") or {}
+            expected_implementations = prep_res.get("expected_implementations") or {}
             metadata = prep_res.get("metadata", {})
             
-            # Handle case where scan_results is None
-            if not scan_results:
-                print("❌ No scan results available for gate evaluation")
-                return "error"
+            # If static scan missing, we will use LLM actual counts instead
             
             # Handle case where expected_implementations is None
             if not expected_implementations:
@@ -2549,18 +3632,33 @@ class GateEvaluationNode(AsyncNode):
             
             gate_results = []
             
-            # Get hard gates from centralized registry
-            from models.gate_definitions import get_hard_gate_ids
-            hard_gates = set(get_hard_gate_ids())
+            # Get canonical hard gates from centralized registry (internal ids)
+            from models.gate_definitions import gate_registry
+            canonical_gates = gate_registry.get_hard_gates()
+            canonical_ids = [g.gate_id for g in canonical_gates]
+            gate_def_by_id = {g.gate_id: g for g in canonical_gates}
             
-            for gate_id, scan_result in scan_results.items():
-                # Only process hard gates
-                if gate_id not in hard_gates:
-                    continue
-                pattern = scan_result["pattern"]
+            for gate_id in canonical_ids:
+                scan_result = scan_results.get(gate_id, {})
+                # Build a minimal pattern object if missing, from registry definition
+                gate_def = gate_def_by_id.get(gate_id)
+                default_pattern_obj = {
+                    "name": gate_def.gate_name if gate_def else gate_id,
+                    "severity": gate_def.severity.value.upper() if gate_def else "MEDIUM",
+                    "category": gate_def.category.value.upper() if gate_def else "UNKNOWN",
+                    "pattern": []
+                }
+                pattern = scan_result.get("pattern", default_pattern_obj)
                 main_matches = scan_result.get("main_matches", [])
                 cd_matches = scan_result.get("cd_matches", [])
                 total_matches = scan_result.get("total_matches", 0)
+                if total_matches == 0:
+                    llm_actual_counts = getattr(self.context, 'llm_actual_counts', None)
+                    if llm_actual_counts and gate_id in llm_actual_counts:
+                        try:
+                            total_matches = int(llm_actual_counts[gate_id].get("actual_count") or 0)
+                        except Exception:
+                            total_matches = total_matches
                 
                 # Check LLM applicability decision first
                 llm_expected_counts = getattr(self.context, 'llm_expected_counts', None)
@@ -2577,6 +3675,49 @@ class GateEvaluationNode(AsyncNode):
                     print(f"   ⏭️ Skipping gate {gate_id} - traditional gate skipping logic")
                     continue
                 
+                # Special inverse gate handling: Avoid Logging Sensitive Data (gate_id '7')
+                # For this gate, expected_count is 0; any non-zero match is a FAIL, zero matches is PASS.
+                if gate_id == "7":
+                    expected_count = 0
+                    threshold = 0
+                    # Convert scan results to PatternMatch objects
+                    detailed_matches = []
+                    for match in main_matches + cd_matches:
+                        detailed_matches.append(PatternMatch(
+                            file_path=match["file_path"],
+                            line_number=match["line_number"],
+                            match_text=match["match_text"],
+                            repo_type=match["repo_type"],
+                            start_pos=match["start_pos"],
+                            end_pos=match["end_pos"],
+                            pattern=pattern.get("pattern", [])
+                        ))
+                    status = GateStatus.PASS if total_matches == 0 else GateStatus.FAIL
+                    base_reasoning = (
+                        "No sensitive data logging detected." if status == GateStatus.PASS else
+                        f"Detected {total_matches} potential sensitive-log occurrences; any occurrence fails this gate."
+                    )
+                    base_recommendations = [] if status == GateStatus.PASS else [
+                        "Remove or mask sensitive fields (passwords, tokens, PII) before logging",
+                        "Use structured logging with field-level redaction",
+                        "Review logging configuration for filters/maskers"
+                    ]
+                    gate_result = GateResult(
+                        gate_id=gate_id,
+                        gate_name=pattern["name"],
+                        status=status,
+                        expected_count=expected_count,
+                        actual_count=total_matches,
+                        threshold=threshold,
+                        patterns_found=[match["match_text"] for match in (main_matches + cd_matches)[:5]],
+                        detailed_matches=detailed_matches,
+                        recommendations=base_recommendations,
+                        confidence_score=self._calculate_confidence(total_matches, max(1, expected_count)),
+                        reasoning=base_reasoning
+                    )
+                    gate_results.append(gate_result)
+                    continue
+
                 # Get LLM expected counts from context if available
                 llm_expected_counts = getattr(self.context, 'llm_expected_counts', None)
                 
@@ -3459,12 +4600,18 @@ class ReportGenerationNode(AsyncNode):
                 metadata=metadata
             )
             
-            # Update metadata with vector config, vector data, and project info
+            # Update metadata with vector config, vector data, project info, and analysis extras
             metadata_with_vector = metadata.copy()
             metadata_with_vector["vector_config"] = vector_config
             if vector_data:
                 metadata_with_vector["vector_data"] = vector_data
             metadata_with_vector["project_summary"] = project_info
+            # attach critical files & expected counts if available
+            if hasattr(self, 'context') and self.context is not None:
+                if getattr(self.context, 'critical_files', None):
+                    metadata_with_vector["critical_files"] = getattr(self.context, 'critical_files')
+                if getattr(self.context, 'llm_expected_counts', None):
+                    metadata_with_vector["llm_expected_counts"] = getattr(self.context, 'llm_expected_counts')
             
             # Create scan result object
             scan_result = ScanResult(

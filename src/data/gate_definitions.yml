@@ -1,0 +1,149 @@
+gates:
+  Alerting:
+    "1.1":
+      name: "All alerting is actionable"
+      summary: >
+        Ensure operational reports are available for business review with quality
+        information, training, and guidance. Complete Enterprise NFR and validate
+        before production release.
+      evidence:
+        - "Alert notifications include: timestamp, source dimensions (tool, application ID, host, instance, transaction ID, device), and the trigger condition/rule violated."
+        - "Only actionable signals generate notifications; non-actionable alerts are removed."
+        - "Thresholds tuned to alert only for immediate problems."
+        - "Non-severe incidents create tickets, not pages."
+        - "Vista evidence:"
+        - "  - Monitoring Maturity: Observability tool enabled for this application."
+        - "  - App Insight: Alerts created for this application."
+        - "  - Incidents: Alerts created for this application."
+
+  Auditability:
+    "1.1":
+      name: "Logs searchable/available"
+      summary: >
+        Logs are searchable and available to platform and dev teams. App logs
+        (stdout/log files) are shipped to a central system. Complete Enterprise
+        Architecture NFR before production.
+      evidence:
+        - "Collect code/config evidence showing centralized logging enablement."
+
+    "1.3":
+      name: "Audit trail"
+      summary: >
+        Maintain logs of user and system activity to support failure analysis
+        and incident response. Complete Enterprise Architecture NFR before production.
+      evidence:
+        - "Collect code/config evidence of audit trail implementation."
+
+    "1.5":
+      name: "Tracking ID for log messages"
+      summary: >
+        Include a unique request/trace ID in log messages to follow request flow.
+        NFR completed and validated before production.
+      evidence:
+        - "Collect code evidence showing tracking ID propagation and logging."
+
+    "1.6":
+      name: "Log API calls"
+      summary: >
+        Log REST API calls to capture external component interactions for troubleshooting.
+        NFR completed and validated before production.
+      evidence:
+        - "Collect code evidence of API call logging (handlers/filters/interceptors/middleware)."
+
+    "1.8":
+      name: "Log application messages"
+      summary: >
+        Use standard logging libraries to capture the right information in the
+        right format. NFR completed and validated before production.
+      evidence:
+        - "Show use of standard logging libraries (e.g., Java/.NET) and related GitHub configs."
+
+    "1.10":
+      name: "Avoid logging sensitive data"
+      summary: >
+        Do not log confidential/restricted data; mask/remove before persisting.
+        NFR completed and validated before production.
+      evidence:
+        - "Screenshot/code snippet demonstrating masking/redaction logic in the codebase."
+
+    "2.7":
+      name: "UI error handling"
+      summary: >
+        Critical/error logs from client devices (mobile/browser) are sent to the
+        central log system. NFR completed and validated before production.
+      evidence:
+        - "AppDynamics EUM (or equivalent) configured to capture client UI performance and error metrics."
+
+  ErrorHandling:
+    "1.1":
+      name: "Log system errors"
+      summary: >
+        System errors are logged. Enterprise Architecture NFR completed before production.
+      evidence:
+        - "Execute steps from 'Auditability 1.1' and attach results (central visibility, searchability)."
+
+    "1.3":
+      name: "Use HTTP standard error codes"
+      summary: >
+        APIs and internal controllers return standard HTTP status codes/headers
+        for consistent error handling. NFR completed before production.
+      evidence:
+        - "Code examples demonstrating standardized status codes and error responses."
+
+    "2.4":
+      name: "Client error tracking"
+      summary: >
+        Include client error tracking. NFR completed and validated before production.
+      evidence:
+        - "Client passes a UUID tracking ID (e.g., transactionId, correlationId, requestId) in HTTP headers; show code/config."
+
+  Availability:
+    "1.5":
+      name: "Timeouts"
+      summary: >
+        Set latency controls/timeouts on I/O operations to prevent excessive waits.
+        NFR completed and validated before production.
+      evidence:
+        - "Configs for database connection timeouts, HTTP client/server timeouts, and message broker timeouts."
+
+    "1.12":
+      name: "Retry logic"
+      summary: >
+        Use retry logic to handle transient failures. NFR completed and validated
+        before production.
+      evidence:
+        - "Show dependency and code snippets (e.g., Resilience4j annotations/config, policy classes)."
+        - "Include GitHub links and production-ready examples."
+
+    "3.6":
+      name: "Throttling / Drop requests"
+      summary: >
+        Throttle and drop requests when capacity limits are reached to protect
+        ongoing traffic. Enterprise Architecture NFR completed before production.
+      evidence:
+        - "Use rate limiter libraries (e.g., Resilience4j, Guava); provide configs/annotations and code samples."
+
+    "3.9":
+      name: "Circuit breakers on outgoing requests"
+      summary: >
+        Use circuit breakers to prevent repeated failures during maintenance/external
+        outages. Enterprise Architecture NFR completed before production.
+      evidence:
+        - "Dependencies and code demonstrating circuit-breaker use (states, thresholds, fallback)."
+
+    "3.18":
+      name: "Auto scale"
+      summary: >
+        System (whole or parts) can auto-scale based on telemetry to avoid
+        outages/degradation. Enterprise Architecture NFR completed before production.
+      evidence:
+        - "For OCP/TAS/TKGI, provide Helm chart configurations (readiness/liveness probes, HPA, resource limits/requests)."
+
+  Testing:
+    "2":
+      name: "Automated regression testing"
+      summary: >
+        Regression tests must cover all critical and functional areas of the
+        app/component.
+      evidence:
+        - "Proof that the app/component uses an approved QTE automated functional testing tool."

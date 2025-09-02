@@ -251,6 +251,10 @@ class HTMLReportService:
             
             # Generate rows for each gate in this category
             for i, gate in enumerate(gates):
+                # Resolve display gate number
+                gate_def = get_gate(gate.gate_id)
+                display_id = getattr(gate_def, 'display_id', gate.gate_id) if gate_def else gate.gate_id
+
                 # Get status info
                 status_class = self._get_status_class(gate.status)
                 status_text = gate.status.value.upper()
@@ -272,7 +276,7 @@ class HTMLReportService:
                                         <td style="text-align: center">
                                             <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
                                                 <button class="details-toggle" onclick="toggleDetails(this, 'details-{category_name.lower().replace(' ', '-')}-{gate.gate_id}-{i}')" aria-expanded="false" aria-label="Show details for {gate.gate_name}">+</button>
-                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">{gate.gate_id}</span>
+                                                <span style="font-weight: bold; color: #374151; font-size: 0.9em;">{display_id}</span>
                                             </div>
                                         </td>
                                         <td>

@@ -1,1 +1,443 @@
-{"version": "2.0", "gates": {}, "global_config": {}}
+{
+  "version": "2.0",
+  "metadata": {
+    "description": "Enhanced pattern library with NFR-based configuration",
+    "author": "CodeGates Team",
+    "created": "2024-01-01",
+    "features": [
+      "Criteria-based NFR mapping",
+      "AND/OR/NOT logic support",
+      "File & code pattern evaluation",
+      "Scoring with weights per NFR",
+      "Technology-specific mappings",
+      "Category-based configuration"
+    ]
+  },
+  "gates": {
+    "Alerting_1.1": {
+      "display_name": "All alerting is actionable",
+      "description": "Ensure alerts are actionable, tuned, and remove noise",
+      "category": "Alerting",
+      "priority": "High",
+      "weight": 12.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Alert definitions should exist in monitoring configs",
+        "confidence": "High",
+        "max_files_expected": 20
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "alert_definitions",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "file_patterns": [
+              {"pattern": ".*alert.*\\.yml", "weight": 3.0},
+              {"pattern": ".*prometheus.*\\.yml", "weight": 3.0},
+              {"pattern": ".*grafana.*\\.json", "weight": 3.0}
+            ]
+          },
+          {
+            "name": "alert_keywords",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "threshold", "weight": 2.0},
+              {"pattern": "trigger", "weight": 2.0},
+              {"pattern": "severity", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_1.1": {
+      "display_name": "Logs searchable/available",
+      "description": "Ensure structured logs are centralized and searchable",
+      "category": "Auditability",
+      "priority": "High",
+      "weight": 15.0,
+      "expected_coverage": {
+        "percentage": 25,
+        "reasoning": "All services should ship logs centrally",
+        "confidence": "High",
+        "max_files_expected": 50
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "log_framework",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "import org.slf4j.Logger", "weight": 3.0, "technology": "java"},
+              {"pattern": "import logging", "weight": 3.0, "technology": "python"},
+              {"pattern": "import winston", "weight": 3.0, "technology": "javascript"}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_1.3": {
+      "display_name": "Audit trail",
+      "description": "Maintain logs of user and system activity",
+      "category": "Auditability",
+      "priority": "High",
+      "weight": 10.0,
+      "expected_coverage": {
+        "percentage": 20,
+        "reasoning": "Activity logs should be implemented for key systems",
+        "confidence": "Medium",
+        "max_files_expected": 30
+      },
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "audit_keywords",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "audit", "weight": 2.0},
+              {"pattern": "user_action", "weight": 2.0},
+              {"pattern": "system_event", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_1.5": {
+      "display_name": "Tracking ID for log messages",
+      "description": "Include request/trace ID in log messages",
+      "category": "Auditability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "trace_id_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "traceId", "weight": 3.0},
+              {"pattern": "correlationId", "weight": 3.0},
+              {"pattern": "requestId", "weight": 3.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_1.6": {
+      "display_name": "Log API calls",
+      "description": "Log REST API calls for troubleshooting",
+      "category": "Auditability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "api_call_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "log.*HttpRequest", "weight": 3.0},
+              {"pattern": "log.*HttpResponse", "weight": 3.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_1.8": {
+      "display_name": "Log application messages",
+      "description": "Use standard logging libraries to capture messages",
+      "category": "Auditability",
+      "priority": "Medium",
+      "weight": 8.0,
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "std_logging_usage",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "logger\\.info", "weight": 2.0},
+              {"pattern": "logging\\.info", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_1.10": {
+      "display_name": "Avoid logging sensitive data",
+      "description": "Do not log confidential data; mask or redact before persisting",
+      "category": "Auditability",
+      "priority": "Critical",
+      "weight": 15.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "no_sensitive_logging",
+            "type": "pattern",
+            "operator": "NOT",
+            "weight": 10.0,
+            "patterns": [
+              {"pattern": "password", "weight": 5.0},
+              {"pattern": "secret", "weight": 5.0},
+              {"pattern": "apiKey", "weight": 5.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Auditability_2.7": {
+      "display_name": "UI error handling",
+      "description": "Client errors from UI should be logged centrally",
+      "category": "Auditability",
+      "priority": "Medium",
+      "weight": 10.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "client_error_keywords",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "window\\.onerror", "weight": 2.0, "technology": "javascript"},
+              {"pattern": "console\\.error", "weight": 2.0, "technology": "javascript"}
+            ]
+          }
+        ]
+      }
+    },
+
+    "ErrorHandling_1.1": {
+      "display_name": "Log system errors",
+      "description": "System errors should be logged centrally",
+      "category": "ErrorHandling",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "error_logging",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "logger\\.error", "weight": 2.0},
+              {"pattern": "logging\\.error", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "ErrorHandling_1.3": {
+      "display_name": "Use HTTP standard error codes",
+      "description": "APIs should return standard HTTP status codes",
+      "category": "ErrorHandling",
+      "priority": "Medium",
+      "weight": 10.0,
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "http_status_codes",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 4.0,
+            "patterns": [
+              {"pattern": "HTTP/1.1 400", "weight": 2.0},
+              {"pattern": "HTTP/1.1 500", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "ErrorHandling_2.4": {
+      "display_name": "Client error tracking",
+      "description": "Include client error tracking with UUID/correlationId",
+      "category": "ErrorHandling",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "tracking_id_headers",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "X-Request-Id", "weight": 3.0},
+              {"pattern": "X-Correlation-Id", "weight": 3.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Availability_1.5": {
+      "display_name": "Timeouts",
+      "description": "Set latency controls/timeouts on I/O operations",
+      "category": "Availability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "timeout_keywords",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "setTimeout", "weight": 2.0},
+              {"pattern": "timeout", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Availability_1.12": {
+      "display_name": "Retry logic",
+      "description": "Use retry logic for transient failures",
+      "category": "Availability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "retry_keywords",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "retry", "weight": 2.0},
+              {"pattern": "Resilience4j", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Availability_3.6": {
+      "display_name": "Throttling / Drop requests",
+      "description": "Throttle/drop requests when limits reached",
+      "category": "Availability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "throttle_keywords",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "rateLimiter", "weight": 2.0},
+              {"pattern": "throttle", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Availability_3.9": {
+      "display_name": "Circuit breakers on outgoing requests",
+      "description": "Use circuit breakers for dependency failures",
+      "category": "Availability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "circuit_breaker",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "CircuitBreaker", "weight": 2.0},
+              {"pattern": "Hystrix", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Availability_3.18": {
+      "display_name": "Auto scale",
+      "description": "Enable autoscaling to prevent outages",
+      "category": "Availability",
+      "priority": "High",
+      "weight": 12.0,
+      "criteria": {
+        "operator": "OR",
+        "conditions": [
+          {
+            "name": "autoscale_configs",
+            "type": "file_pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "file_patterns": [
+              {"pattern": "hpa\\.yml", "weight": 2.0},
+              {"pattern": ".*scale.*\\.yml", "weight": 2.0}
+            ]
+          }
+        ]
+      }
+    },
+
+    "Testing_2": {
+      "display_name": "Automated regression testing",
+      "description": "Regression tests must cover critical and functional areas",
+      "category": "Testing",
+      "priority": "High",
+      "weight": 10.0,
+      "criteria": {
+        "operator": "AND",
+        "conditions": [
+          {
+            "name": "test_framework_usage",
+            "type": "pattern",
+            "operator": "OR",
+            "weight": 5.0,
+            "patterns": [
+              {"pattern": "@Test", "weight": 2.0, "technology": "java"},
+              {"pattern": "def test_", "weight": 2.0, "technology": "python"},
+              {"pattern": "describe\\(", "weight": 2.0, "technology": "javascript"}
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

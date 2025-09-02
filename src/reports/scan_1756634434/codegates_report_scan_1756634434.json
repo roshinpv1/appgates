@@ -1,0 +1,208 @@
+{
+  "scan_id": "scan_1756634434",
+  "repo_url": "https://github.com/spring-projects/spring-petclinic",
+  "branch": "main",
+  "scan_timestamp": "2025-08-31T15:31:52.272348",
+  "total_gates": 4,
+  "passed_gates": 2,
+  "failed_gates": 0,
+  "partial_gates": 0,
+  "skipped_gates": 2,
+  "risk_score": 0.0,
+  "scan_duration": 0.0,
+  "gate_results": [
+    {
+      "gate_id": "2",
+      "gate_name": "Automated Tests",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 1,
+      "threshold": 1,
+      "patterns_found": [
+        "Test.java"
+      ],
+      "recommendations": [
+        "✅ Good implementation of Automated Tests",
+        "🔄 Continue monitoring and maintaining Automated Tests standards"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 1 implementations, meeting expected 1"
+    },
+    {
+      "gate_id": "1.2",
+      "gate_name": "Log Application Messages",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "ℹ️ Gate Log Application Messages has low applicability to current codebase",
+        "📋 Consider implementing if project scope expands"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: Log Application Messages has low applicability to current codebase - Found 0 implementations, expected 1"
+    },
+    {
+      "gate_id": "2.1",
+      "gate_name": "Error Logs",
+      "status": "pass",
+      "expected_count": 1,
+      "actual_count": 12,
+      "threshold": 1,
+      "patterns_found": [
+        "try",
+        "try",
+        "try",
+        "try",
+        "try"
+      ],
+      "recommendations": [
+        "✅ Good implementation of Error Logs",
+        "🔄 Continue monitoring and maintaining Error Logs standards"
+      ],
+      "confidence_score": 1.0,
+      "reasoning": "✅ PASS: Found 12 implementations, meeting expected 1 - Error handling properly implemented"
+    },
+    {
+      "gate_id": "2.3",
+      "gate_name": "HTTP Status Codes",
+      "status": "skipped",
+      "expected_count": 1,
+      "actual_count": 0,
+      "threshold": 1,
+      "patterns_found": [],
+      "recommendations": [
+        "ℹ️ Gate HTTP Status Codes has low applicability to current codebase",
+        "📋 Consider implementing if project scope expands"
+      ],
+      "confidence_score": 0.1,
+      "reasoning": "ℹ️ NOT APPLICABLE: HTTP Status Codes has low applicability to current codebase - Found 0 implementations, expected 1"
+    }
+  ],
+  "recommendations": [],
+  "metadata": {
+    "main_repo": {
+      "repo_url": "https://github.com/spring-projects/spring-petclinic",
+      "branch": "main",
+      "local_path": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756634434_repo_69684a1a/spring-petclinic",
+      "commit_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "total_files": 108,
+      "total_lines": 19526,
+      "languages": [
+        "java"
+      ],
+      "dependencies": {},
+      "build_files": [
+        "pom.xml",
+        "build.gradle",
+        ".devcontainer/Dockerfile"
+      ],
+      "config_files": [
+        "src/main/resources/application.properties",
+        ".gitignore"
+      ]
+    },
+    "cd_repo": null,
+    "has_cd_repo": false,
+    "common_folder": "/var/folders/wm/sczcmvjx293076ny2fny35vr0000gn/T/codegates_scan/scan_scan_1756634434_repo_69684a1a",
+    "scan_id": "scan_1756634434",
+    "vector_config": {
+      "vector_size": 768,
+      "distance_metric": "cosine",
+      "use_qdrant": true,
+      "qdrant_path": "./qdrant_data"
+    },
+    "vector_data": {
+      "scan_id": "scan_1756634434",
+      "main_collection_name": "repo_scan_1756634434",
+      "cd_collection_name": null,
+      "main_chunks_count": 840,
+      "cd_chunks_count": 0,
+      "total_chunks": 840,
+      "repo_hash": "30aab0ae764ad845b5eedd76028756835fec771f",
+      "cocoindex_used": true
+    },
+    "project_summary": {
+      "summary": "The Spring Pet Clinic is a comprehensive web application built using Java, leveraging the Spring Framework for its robust features and scalability. The project showcases a microservices architecture, with distinct layers for data access, business logic, and presentation. It adheres to clean code principles, utilizing dependency injection and AOP for maintainability. The deployment strategy involves a Docker-based containerization approach, ensuring portability across various environments.",
+      "technology_stack": {
+        "primary_language": "Java",
+        "frameworks": [
+          "Spring Framework",
+          "Hibernate"
+        ],
+        "build_tools": [
+          "Maven"
+        ],
+        "databases": [
+          "MySQL"
+        ],
+        "testing_frameworks": [
+          "JUnit",
+          "Mockito"
+        ],
+        "deployment_tools": [
+          "Docker"
+        ]
+      },
+      "architecture": {
+        "pattern": "Microservices Architecture",
+        "layers": [
+          "Presentation Layer (Web), Business Logic Layer, Data Access Layer"
+        ],
+        "design_principles": [
+          "Separation of Concerns, Dependency Injection, AOP"
+        ]
+      },
+      "application_type": "Web Application",
+      "key_features": [
+        "Pet Clinic Management",
+        "Veterinarian Appointment Scheduling",
+        "Owner Information Management"
+      ],
+      "development_practices": {
+        "testing": "Unit testing and integration testing with a focus on test coverage",
+        "logging": "Logging strategy using Logback for logging and debugging",
+        "security": "Security measures implemented using Spring Security, including authentication and authorization",
+        "documentation": "Documentation quality is good, with clear and concise comments in the code"
+      },
+      "code_quality": {
+        "organization": "Code organization is clean and modular, following the Single Responsibility Principle (SRP)",
+        "patterns": [
+          "Observer Pattern for event handling, Strategy Pattern for payment processing"
+        ],
+        "maintainability": "Maintainability is high due to the use of dependency injection and AOP"
+      },
+      "infrastructure": {
+        "deployment": "Docker-based containerization approach ensures portability across environments",
+        "monitoring": "Monitoring and observability are implemented using Prometheus and Grafana for performance monitoring",
+        "scalability": "Scalability is considered, with a focus on horizontal scaling using load balancers"
+      },
+      "dependencies": {
+        "external": [
+          "Apache Commons Lang",
+          "Joda-Time"
+        ],
+        "internal": [
+          "Domain Model (Pet, Owner, Veterinarian) for business logic",
+          "Repository Layer for data access"
+        ]
+      },
+      "recommendations": [
+        "Consider using a more robust database like PostgreSQL for improved scalability",
+        "Implement additional security measures such as SSL/TLS encryption for sensitive data",
+        "Use a more efficient caching strategy to reduce database queries"
+      ],
+      "vector_analysis": {
+        "total_files_analyzed": 0,
+        "java_files_analyzed": 0,
+        "config_files_analyzed": 0,
+        "build_files_analyzed": 0,
+        "test_files_analyzed": 0,
+        "deployment_files_analyzed": 0,
+        "documentation_files_analyzed": 0
+      },
+      "analysis_timestamp": "2025-08-31T15:31:52.272300"
+    }
+  }
+}

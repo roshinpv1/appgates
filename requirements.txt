@@ -1,0 +1,12 @@
+fastapi
+pydantic
+uvicorn[standard]
+requests
+urllib3
+numpy
+qdrant-client
+openai
+anthropic
+ollama
+tree_sitter
+PyYAML

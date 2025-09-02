@@ -40,7 +40,10 @@ class PromptTemplates:
         templates["llm_pre_analysis"] = PromptTemplate(
             use_case="LLM Pre-Analysis for Dynamic Pattern Generation",
             description="Template for LLM pre-analysis to generate dynamic patterns based on project structure",
-            prompt_template="""You are an expert code analysis assistant. Analyze the following project structure and generate dynamic patterns for security gates.
+            prompt_template="""
+            
+            STRICTLY PROVIDE THE RESPONSE AS A VALID JSON OBJECT AND IT SHOULD NOT INCLUDE ANY OTHER TEXT OR MARKDOWN FORMATTING.
+            You are an expert code analysis assistant. Analyze the following project structure and generate dynamic patterns for security gates.
 
 PROJECT STRUCTURE:
 {project_structure}
@@ -51,13 +54,10 @@ BUILD CONFIGURATIONS:
 EXTRACTED CODE SNIPPETS:
 {extracted_code}
 
-EXPECTED COUNTS ANALYSIS:
-{expected_counts_analysis}
-
 AVAILABLE GATES:
 {available_gates}
 
-Based on the build configurations file contents and project structure analysis, generate dynamic patterns for the most applicable security gates. Consider:
+Based on the build configurations file contents and project structure, perform comprehensive analysis and generate dynamic patterns for ALL 16 security gates. Consider:
 
 1. **Technology Stack Relevance**: Which gates are most relevant to the technologies used?
 2. **Project Type**: What type of application is this and what gates apply?
@@ -82,10 +82,32 @@ CRITICAL: The expected_count should be based on:
 - Build configuration indicators (dependencies, plugins, etc.)
 - Industry best practices for the detected technology stack
 
-Return the response as a valid JSON object with a "patterns" array containing the dynamic patterns.""",
+Return the response as a valid JSON object with a "patterns" array containing the dynamic patterns.
+
+IMPORTANT: Ensure the JSON is properly formatted with:
+- All property names in double quotes
+- All string values in double quotes
+- No trailing commas
+- Proper nesting of objects and arrays
+- Valid JSON syntax that can be parsed by standard JSON parsers
+
+Example format:
+{
+  "patterns": [
+    {
+      "gate_id": "1.2",
+      "name": "Log Application Messages",
+      "description": "Detects logging frameworks and application messages",
+      "applicable": true,
+      "reason": "Java project with web layer requires logging",
+      "pattern": ["import org.slf4j.Logger", "logger.info", "logging.debug"],
+      "expected_count": 3,
+      "expected_count_reasoning": "Based on analysis of 2 controllers, 1 service layer, and logging configuration detected in the project structure"
+    }
+  ]
+}""",
             parameters={
                 "build_configs": "str", 
-                "expected_counts_analysis": "str",
                 "available_gates": "str",
                 "extracted_code": "str",
                 "project_structure": "str"
@@ -298,11 +320,9 @@ Format as a numbered list of specific recommendations without any markdown forma
         gates_text = []
         
         for gate in self.gates.values():
-            gates_text.append(f"Gate {gate.gate_id}: {gate.gate_name}")
-            gates_text.append(f"  Category: {gate.category.value}")
-            gates_text.append(f"  Severity: {gate.severity.value}")
-            gates_text.append(f"  Description: {gate.prompt}")
-            gates_text.append("")
+            # Required formatting: gate number, category, name, summary
+            cat_disp = gate.category.value.replace("_", " ").title()
+            gates_text.append(f"{gate.display_id} | {cat_disp} | {gate.gate_name} | {gate.prompt}")
         
         return "\n".join(gates_text)
     

@@ -402,7 +402,7 @@ class LLMService:
             base_url = config.base_url or "http://localhost:1234"
             
             # Reduce max_tokens for local LLMs to prevent timeouts
-            local_max_tokens = min(config.max_tokens, 1000)
+            local_max_tokens = 50000
             
             payload = {
                 "model": config.model,

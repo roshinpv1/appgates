@@ -229,7 +229,7 @@ async def start_scan(request: ScanRequest):
 
 
 @app.post("/api/v1/scan/async", response_model=ScanResponse)
-async def start_async_scan(request: ScanRequest, background_tasks: BackgroundTasks):
+async def start_async_scan(request: ScanRequest):
     """Start a scan asynchronously"""
     try:
         if not scan_flow:
@@ -244,8 +244,9 @@ async def start_async_scan(request: ScanRequest, background_tasks: BackgroundTas
             "message": "Scan started"
         }
         
-        # Add scan to background tasks
-        background_tasks.add_task(run_scan_background, request, scan_id)
+        # Schedule background scan without blocking the response
+        import asyncio
+        asyncio.create_task(run_scan_background(request, scan_id))
         
         return ScanResponse(
             scan_id=scan_id,

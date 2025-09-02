@@ -21,9 +21,14 @@ class ScanContext:
     cd_repo_path: Optional[str] = None
     common_folder: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    project_analysis: Optional[Dict[str, Any]] = None
+    critical_files: Optional[Dict[str, Any]] = None
     vector_data: Optional[Dict[str, Any]] = None
     patterns: Optional[Dict[str, Any]] = None
+    llm_expected_counts: Optional[Dict[str, Any]] = None
+    llm_actual_counts: Optional[Dict[str, Any]] = None
     expected_implementations: Optional[Dict[str, Any]] = None
+    pre_analysis_insights: Optional[Dict[str, Any]] = None
     gate_results: Optional[List[Any]] = None
     post_analysis: Optional[Dict[str, Any]] = None
     scan_results: Optional[Dict[str, Any]] = None
