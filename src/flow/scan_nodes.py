@@ -427,30 +427,46 @@ class ProjectAnalysisNode(AsyncNode):
                 gate_ids = []
             # Build instruction (shared across chunks)
             instruction = (
-                "Given the repository structure (summary + directory tree), identify: \n"
-                "1) critical files for each hard gate (keys are gate IDs as in the gate registry), \n"
-                "2) overall project category files under: Build, Config, Properties, Infrastructure, Deployment. \n"
-                "\nAVAILABLE GATES (number | category | name | summary):\n"
+                "Given the repository structure (summary + directory tree), perform the following:\n\n"
+                "Identify critical files for each hard gate (use gate IDs exactly as in the gate registry).\n\n"
+                "Classify files into project categories: Build, Config, Properties, Infrastructure, Deployment.\n\n"
+                "Infer per-gate expected_counts from structure and project type in the form:\n"
+                "{ gate_id -> { applicable, expected_count, reasoning_expected } }\n\n"
+                "AVAILABLE GATES (number | category | name | summary):\n"
                 f"{available_gates_text}\n\n"
-                "Use ONLY these gate IDs as keys when returning results (do not invent):\n"
+                "Use only the provided gate IDs as keys (do not invent):\n"
                 f"{json.dumps(gate_ids)}\n\n"
-                "Classification rules (use only provided file paths, no invention):\n"
-                "- Build: Dockerfile, docker-compose*.yml|yaml, helm/**, k8s/**, pom.xml, build.gradle, gradle/**, .mvn/**\n"
-                "- Config: *.yml, *.yaml, *.json, *.conf, *.ini, *.properties\n"
-                "- Properties: *.properties, *.conf, *.ini\n"
-                "- Infrastructure: terraform/**, infra/**, k8s/**, helm/**, cloudformation/**\n"
-                "- Deployment: .github/workflows/**, pipeline/**, Jenkinsfile, .gitlab-ci.yml, ArgoCD/**\n"
-                "- Deduplicate paths. Allow at least 20 items per list; cap at 100 if needed.\n"
-                "- If a section has no items, return an empty array.\n"
-                "- Always include both 'main' and 'cd'. If 'cd' is null in input, still return empty arrays for 'cd'.\n\n"
-                "The input provides a compact JSON directory tree under each repo as 'tree' where directories map to objects and files map to 1 (no repeated prefixes). Reconstruct full relative paths when returning results.\n\n"
-                "Return STRICT JSON only with this exact shape: {\n"
-                "  \"main\": { \"gates\": { \"<gate_id>\": [\"path\", ...] }, \"categories\": {\n"
-                "    \"Build\": [...], \"Config\": [...], \"Properties\": [...], \"Infrastructure\": [...], \"Deployment\": [...]\n"
-                "  } },\n"
-                "  \"cd\":   { \"gates\": { \"<gate_id>\": [\"path\", ...] }, \"categories\": {\n"
-                "    \"Build\": [...], \"Config\": [...], \"Properties\": [...], \"Infrastructure\": [...], \"Deployment\": [...]\n"
-                "  } }\n"
+                "Classification rules (apply strictly to provided file paths, no invention):\n\n"
+                "Build: Dockerfile, docker-compose*.yml|yaml, helm/, k8s/, pom.xml, build.gradle, gradle/, .mvn/\n\n"
+                "Config: *.yml, *.yaml, *.json, *.conf, *.ini, *.properties\n\n"
+                "Properties: *.properties, *.conf, *.ini\n\n"
+                "Infrastructure: terraform/, infra/, k8s/, helm/, cloudformation/**\n\n"
+                "Deployment: .github/workflows/, pipeline/, Jenkinsfile, .gitlab-ci.yml, ArgoCD/**\n\n"
+                "Additional rules:\n\n"
+                "Deduplicate paths.\n\n"
+                "Each list may contain up to 100 items (minimum 20 if available).\n\n"
+                "If no items exist, return an empty array.\n\n"
+                "Always include both 'main' and 'cd'. If 'cd' is null in input, still return empty arrays.\n\n"
+                "Input format:\n\n"
+                "The repo tree is provided in compact JSON under 'tree', where directories map to objects and files map to 1.\n"
+                "Reconstruct full relative paths when returning results.\n\n"
+                "Output format (STRICT JSON, exact shape):\n"
+                "{\n"
+                "\"main\": {\n"
+                "\"gates\": { \"<gate_id>\": [\"path\", ...] },\n"
+                "\"categories\": {\n"
+                "\"Build\": [...], \"Config\": [...], \"Properties\": [...], \"Infrastructure\": [...], \"Deployment\": [...]\n"
+                "}\n"
+                "},\n"
+                "\"cd\": {\n"
+                "\"gates\": { \"<gate_id>\": [\"path\", ...] },\n"
+                "\"categories\": {\n"
+                "\"Build\": [...], \"Config\": [...], \"Properties\": [...], \"Infrastructure\": [...], \"Deployment\": [...]\n"
+                "}\n"
+                "},\n"
+                "\"expected_counts\": {\n"
+                "\"<gate_id>\": { \"applicable\": true|false, \"expected_count\": number, \"reasoning_expected\": \"...\" }\n"
+                "}\n"
                 "}\n\n"
             )
 
@@ -523,6 +539,7 @@ class ProjectAnalysisNode(AsyncNode):
                                 seen.add(p)
 
             combined = {"main": {"gates": {}, "categories": {}}, "cd": {"gates": {}, "categories": {}}}
+            combined_expected: Dict[str, Any] = {}
 
             # Run chunked calls
             for idx, payload in enumerate(build_chunks()):
@@ -547,6 +564,41 @@ class ProjectAnalysisNode(AsyncNode):
                                 piece[side].setdefault("gates", {})
                                 piece[side].setdefault("categories", {})
                         merge_results(combined, piece)
+                        # Merge structure-based expected counts if present, normalizing keys
+                        try:
+                            from models.gate_definitions import gate_registry
+                            canonical_ids = set(gate_registry.get_hard_gate_ids())
+                            mapping = {}
+                            for g in gate_registry.get_all_gates():
+                                mapping[str(g.display_id)] = g.gate_id
+                                mapping[str(g.gate_id).split("_",1)[-1]] = g.gate_id
+                            exp = piece.get("expected_counts") or {}
+                            for k, obj in (exp or {}).items():
+                                nk = str(k).strip()
+                                if nk.lower().startswith("gate:"):
+                                    nk = nk.split(":",1)[1].strip()
+                                ck = mapping.get(nk) or (nk if nk in canonical_ids else None)
+                                if not ck:
+                                    continue
+                                if ck not in combined_expected:
+                                    combined_expected[ck] = {
+                                        "applicable": bool(obj.get("applicable", True)),
+                                        "expected_count": int(obj.get("expected_count") or 0),
+                                        "reasoning_expected": (obj.get("reasoning_expected") or "")
+                                    }
+                                else:
+                                    agg = combined_expected[ck]
+                                    agg["applicable"] = bool(agg.get("applicable", True) or obj.get("applicable", True))
+                                    try:
+                                        agg["expected_count"] = max(int(agg.get("expected_count") or 0), int(obj.get("expected_count") or 0))
+                                    except Exception:
+                                        pass
+                                    r_a = (agg.get("reasoning_expected") or "").strip()
+                                    r_b = (obj.get("reasoning_expected") or "").strip()
+                                    if r_b:
+                                        agg["reasoning_expected"] = (r_a + " | " + r_b) if r_a else r_b
+                        except Exception:
+                            pass
                         parsed_ok = True
                         break
                     except Exception as e:
@@ -574,6 +626,13 @@ class ProjectAnalysisNode(AsyncNode):
                     combined[side]["gates"][gid] = (arr or [])[:100]
                 for cname, arr in list(combined[side]["categories"].items()):
                     combined[side]["categories"][cname] = (arr or [])[:100]
+
+            # Save structure-based expected counts into context for downstream use
+            try:
+                if hasattr(self, 'context') and self.context is not None:
+                    self.context.llm_expected_counts = combined_expected
+            except Exception:
+                pass
 
             return combined
         except Exception as e:
@@ -758,11 +817,29 @@ class LLMPreAnalysisNode(AsyncNode):
                 "categories": {"main": main_cats, "cd": cd_cats}
             })
             
-            # Chunk into multiple LLM calls with overlap
-            chunks = self._chunk_blobs(file_blobs, max_chars=12000, overlap_chars=1000)
+            # Chunk into multiple LLM calls with overlap (gate-focused)
+            chunks = self._build_gate_focused_chunks(file_blobs, max_chars=12000, overlap_chars=1000)
+            # Fallback: if no blobs, still build a minimal chunk from file paths so LLM can estimate
+            if not chunks:
+                lines: List[str] = []
+                def add_paths(tag: str, side: str, paths: List[str]):
+                    for p in (paths or [])[:200]:
+                        lines.append(f"[{side}]({tag}) {p}")
+                # gates
+                for gid, paths in (main_gate_files or {}).items():
+                    add_paths(f"gate:{gid}", "main", paths)
+                for gid, paths in (cd_gate_files or {}).items():
+                    add_paths(f"gate:{gid}", "cd", paths)
+                # categories
+                for cat, paths in (main_cats or {}).items():
+                    add_paths(f"cat:{cat}", "main", paths)
+                for cat, paths in (cd_cats or {}).items():
+                    add_paths(f"cat:{cat}", "cd", paths)
+                chunks = ["\n".join(lines)]
             
             # Aggregate results
-            aggregated_expected: Dict[str, Any] = {}
+            # Expected counts now sourced from Step 2 (structure). Only aggregate actuals and insights here.
+            aggregated_expected: Dict[str, Any] = getattr(self.context, 'llm_expected_counts', {}) or {}
             aggregated_actual: Dict[str, Any] = {}
             aggregated_patterns: List[Dict[str, Any]] = []
             aggregated_insights: Dict[str, Any] = {"project_type": None, "functional_summary": "", "frameworks": [], "libraries": []}
@@ -773,17 +850,60 @@ class LLMPreAnalysisNode(AsyncNode):
                 prompt,
                     scan_id=scan_id,
                 node_name="LLMPreAnalysisNode",
-                    metadata={"chunk_index": idx, "total_chunks": len(chunks)}
+                    metadata={"chunk_index": idx, "total_chunks": len(chunks)},
+                    temperature=0.1,
+                    timeout=300,
+                    max_tokens=2200
                 )
                 parsed = self._parse_llm_preanalysis_response(resp)
-                # merge expected counts
-                for gid, obj in parsed.get("expected_counts", {}).items():
-                    if gid not in aggregated_expected:
-                        aggregated_expected[gid] = obj
-                # merge actual counts
-                for gid, obj in parsed.get("actual_counts", {}).items():
+                # Diagnostic: warn if parsed maps empty
+                if not parsed.get("expected_counts") and not parsed.get("actual_counts"):
+                    snippet = (resp or "")[:240].replace("\n", " ")
+                    print(f"⚠️ LLM pre-analysis returned empty maps for chunk {idx}; resp head: {snippet}")
+                # Normalize keys to canonical IDs if needed (e.g., '1.1' -> 'Alerting_1.1')
+                try:
+                    from models.gate_definitions import gate_registry
+                    canonical_ids = set(gate_registry.get_hard_gate_ids())
+                    # Build mapping by display_id -> canonical
+                    mapping = {}
+                    for g in gate_registry.get_all_gates():
+                        mapping[str(g.display_id)] = g.gate_id
+                        mapping[str(g.gate_id).split("_",1)[-1]] = g.gate_id
+                    def normalize_key(k: str) -> str:
+                        kk = str(k).strip()
+                        if kk.lower().startswith("gate:"):
+                            kk = kk.split(":",1)[1].strip()
+                        return kk
+                    def remap_keys(d: Dict[str, Any]) -> Dict[str, Any]:
+                        out = {}
+                        for k,v in (d or {}).items():
+                            nk = normalize_key(k)
+                            ck = mapping.get(nk) or (nk if nk in canonical_ids else None)
+                            if ck:
+                                out[ck] = v
+                        return out
+                    parsed["expected_counts"] = remap_keys(parsed.get("expected_counts"))
+                    parsed["actual_counts"] = remap_keys(parsed.get("actual_counts"))
+                except Exception:
+                    pass
+                # Expected counts are not updated here to avoid double counting
+                # merge actual counts (sum across chunks, concat reasoning)
+                for gid, obj in (parsed.get("actual_counts") or {}).items():
                     if gid not in aggregated_actual:
-                        aggregated_actual[gid] = obj
+                        aggregated_actual[gid] = {
+                            "actual_count": int(obj.get("actual_count") or 0),
+                            "reasoning_actual": (obj.get("reasoning_actual") or "")
+                        }
+                    else:
+                        agg = aggregated_actual[gid]
+                        try:
+                            agg["actual_count"] = int(agg.get("actual_count") or 0) + int(obj.get("actual_count") or 0)
+                        except Exception:
+                            pass
+                        reason_a = (agg.get("reasoning_actual") or "").strip()
+                        reason_b = (obj.get("reasoning_actual") or "").strip()
+                        if reason_b:
+                            agg["reasoning_actual"] = (reason_a + " | " + reason_b) if reason_a else reason_b
                 # dynamic patterns not needed; ignore
                 # merge insights
                 insights = parsed.get("insights") or {}
@@ -838,7 +958,7 @@ class LLMPreAnalysisNode(AsyncNode):
                                 "repo": side,
                                 "category": tag,
                                 "path": rel,
-                                "content": self._truncate(text, 100000)
+                                "content": text
                             })
                     except Exception:
                         continue
@@ -856,7 +976,7 @@ class LLMPreAnalysisNode(AsyncNode):
             cats_cd: Dict[str, List[str]] = (critical.get("categories") or {}).get("cd") or {}
             for cat, files in cats_cd.items():
                 read_paths(cd_repo_path, files[:100], "cd", f"cat:{cat}")
-        except Exception as e:
+                except Exception as e:
             print(f"⚠️ Failed reading critical files: {e}")
         return blobs
     
@@ -881,27 +1001,98 @@ class LLMPreAnalysisNode(AsyncNode):
                 break
             i += max_chars - overlap_chars
         return chunks
+
+    def _build_gate_focused_chunks(self, blobs: List[Dict[str, str]], max_chars: int, overlap_chars: int) -> List[str]:
+        """Create chunks grouped by gate to improve signal density for per-gate analysis.
+        Falls back to flat chunking if gate tags are not available.
+        """
+        # Partition blobs by gate and categories
+        gate_to_serialized: Dict[str, List[str]] = {}
+        support_serialized: List[str] = []
+        for b in blobs:
+            line = f"[{b['repo']}]({b['category']}) {b['path']}\n" + b['content'] + "\n\n====\n\n"
+            cat = str(b.get("category") or "")
+            if cat.startswith("gate:"):
+                gid = cat.split(":", 1)[1]
+                gate_to_serialized.setdefault(gid, []).append(line)
+            elif cat.startswith("cat:"):
+                support_serialized.append(line)
+
+        # If we have no gate-tagged blobs, fallback to existing chunking
+        if not gate_to_serialized:
+            return self._chunk_blobs(blobs, max_chars=max_chars, overlap_chars=overlap_chars)
+
+        # Build chunks per gate, appending a small support tail to each
+        chunks: List[str] = []
+        # Limit support per gate to control size (take first N support lines)
+        max_support_lines = 5
+        support_tail = ''.join(support_serialized[:max_support_lines]) if support_serialized else ''
+
+        for gid, lines in gate_to_serialized.items():
+            big = ''.join(lines)
+            if support_tail:
+                big = big + "\n\n-- SUPPORT --\n\n" + support_tail
+            i = 0
+            while i < len(big):
+                chunk = big[i:i+max_chars]
+                chunks.append(chunk)
+                if i + max_chars >= len(big):
+                    break
+                i += max_chars - overlap_chars
+
+        return chunks
     
     def _build_preanalysis_prompt(self, chunk: str, metadata: Dict[str, Any]) -> str:
         meta_compact = {
             "languages": (metadata.get("languages") if isinstance(metadata, dict) else None),
             "file_types": (metadata.get("file_types") if isinstance(metadata, dict) else None)
         }
+        # Provide gate catalog so the LLM keys results correctly
+        try:
+            from models.gate_definitions import gate_registry
+            available_gates_text = gate_registry.get_gates_for_llm_analysis()
+            gate_ids = gate_registry.get_hard_gate_ids()
+        except Exception:
+            available_gates_text = ""
+            gate_ids = []
         return (
+            "STRICTLY PROVIDE THE RESPONSE AS A VALID JSON OBJECT ONLY (no prose, no code fences).\n"
             "Analyze the following selected critical files from a repository.\n"
             "For EACH hard-gate, provide BOTH: \n"
             "- expected_counts: { gate_id -> { applicable, expected_count, reasoning_expected } }\n"
             "- actual_counts: { gate_id -> { actual_count, reasoning_actual } }\n"
             "Additionally, include project insights: insights: { project_type, functional_summary, frameworks:[], libraries:[] }.\n"
-            "Strictly return a single JSON object with keys: expected_counts, actual_counts, insights.\n\n"
+            "Strictly return a single JSON object with keys: expected_counts, actual_counts, insights.\n"
+            "AVAILABLE GATES (number | category | name | summary):\n"
+            f"{available_gates_text}\n"
+            "USE ONLY THESE GATE IDs AS KEYS (do not invent):\n"
+            f"{json.dumps(gate_ids)}\n"
+            "You MUST include an entry for EVERY gate_id above in BOTH expected_counts and actual_counts.\n"
+            "If a gate has no evidence in the provided files, set applicable=false, expected_count=0, actual_count=0 with brief reasoning.\n"
+            "Do NOT include any extra keys.\n\n"
             f"METADATA:\n{meta_compact}\n\nFILES:\n{chunk}"
         )
     
     def _parse_llm_preanalysis_response(self, text: str) -> Dict[str, Any]:
         import json, re
         try:
-            m = re.search(r"\{[\s\S]*\}$", text.strip())
-            payload = json.loads(m.group(0) if m else text)
+            if not text:
+                return {"expected_counts": {}, "actual_counts": {}, "insights": {}}
+            s = text.strip()
+            # Strip markdown code fences if present
+            if s.startswith("```"):
+                s = re.sub(r"^```[a-zA-Z0-9]*\n", "", s)
+                s = re.sub(r"\n```$", "", s)
+            # Extract JSON object content
+            m = re.search(r"\{[\s\S]*\}$", s)
+            if m:
+                s = m.group(0)
+            else:
+                start = s.find('{')
+                end = s.rfind('}')
+                if start != -1 and end != -1 and end > start:
+                    s = s[start:end+1]
+            payload = json.loads(s)
             exp = payload.get("expected_counts") or {}
             act = payload.get("actual_counts") or {}
             ins = payload.get("insights") or {}
